@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #app {
+    @apply bg-surface text-ink;
+    min-height: 100%;
+  }
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: #2454B7;
+    color: #EEF2F7;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-ink hover:bg-brand-hover active:bg-brand-active focus:ring-brand-cyan;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-elevated text-ink border border-divider hover:bg-surface-raised hover:border-divider-bright focus:ring-brand-cyan;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-muted hover:text-ink hover:bg-surface-elevated focus:ring-brand-cyan;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-ink hover:opacity-90 focus:ring-danger;
+  }
+  .input {
+    @apply w-full rounded-md border border-divider bg-surface-elevated px-3 py-2 text-sm text-ink placeholder:text-ink-disabled shadow-sm focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan;
+  }
+  .input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+  .card {
+    @apply rounded-lg border border-divider bg-surface-raised p-6 shadow-sm;
+  }
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-divider bg-surface-elevated px-3 py-1 text-xs font-medium text-ink-muted;
+  }
+  .chip-active {
+    @apply border-brand-cyan bg-brand/10 text-brand-cyan;
+  }
+  .link {
+    @apply text-brand-blue hover:text-brand-cyan transition-colors;
+  }
+}
