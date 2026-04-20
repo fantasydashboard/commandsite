@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// .trim() guards against stray whitespace or newlines in env values
+// (a common Vercel paste hazard — fetch throws if headers contain a newline).
+const url = import.meta.env.VITE_SUPABASE_URL?.trim()
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
 
 if (!url || !anonKey) {
   // Surface early — prevents confusing 401s later.
