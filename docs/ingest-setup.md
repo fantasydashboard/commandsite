@@ -189,6 +189,33 @@ must be present.
 - **Revoked keys**: return 401. Rotate by generating a new key, swapping
   the webhook header value, then revoking the old key.
 
+## Backfill existing users
+
+The webhook catches *new* signups going forward. For *existing* users who
+signed up before the webhook was configured, run the one-time backfill:
+
+```bash
+UFD_SUPABASE_URL=https://<ufd-project-ref>.supabase.co \
+UFD_SERVICE_ROLE_KEY=eyJ...        # UFD's service_role key, NOT anon
+CS_INGEST_KEY=cs_live_...          # the key you generated earlier
+node scripts/backfill-ingest.mjs
+```
+
+**Where to find UFD's service role key:** UFD's Supabase → Project
+Settings → API → **Service role (secret)**. This key bypasses RLS, so
+only use it locally; never commit or ship it. It's only needed for this
+one-time script.
+
+The script paginates through UFD's `auth.users`, POSTs each to the
+CommandSite ingest function, and prints a summary. Duplicates are
+silently skipped so re-running is safe.
+
+Run once after setting up the webhook. You'll end up with:
+- All existing UFD users → CommandSite contacts (source: `backfill_existing`)
+- All new UFD signups → CommandSite contacts (source: `website_signup`)
+
+---
+
 ## Troubleshooting
 
 - **401 "Invalid key"**: bearer token missing, wrong format, or hash
