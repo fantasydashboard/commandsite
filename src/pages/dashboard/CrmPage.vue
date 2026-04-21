@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import type { Contact, Pipeline, Stage } from '@/types/database'
 import { useDashboardContext } from './context'
+import ContactDetailDrawer from './ContactDetailDrawer.vue'
 
 const { client, enabledModuleKeys } = useDashboardContext()
 const auth = useAuthStore()
@@ -17,6 +18,23 @@ const error = ref<string | null>(null)
 const showCreate = ref(false)
 const submitting = ref(false)
 const stageFilter = ref<string>('all')
+const selectedContactId = ref<string | null>(null)
+
+const selectedContact = computed(() =>
+  selectedContactId.value
+    ? contacts.value.find((c) => c.id === selectedContactId.value) ?? null
+    : null,
+)
+
+function onContactUpdated(updated: Contact) {
+  const idx = contacts.value.findIndex((c) => c.id === updated.id)
+  if (idx !== -1) contacts.value[idx] = updated
+}
+
+function onContactDeleted(id: string) {
+  contacts.value = contacts.value.filter((c) => c.id !== id)
+  selectedContactId.value = null
+}
 
 const form = ref({
   first_name: '',
@@ -310,7 +328,12 @@ watch(() => client.value?.id, load)
             </tr>
           </thead>
           <tbody class="divide-y divide-divider">
-            <tr v-for="c in visibleContacts" :key="c.id" class="hover:bg-surface-elevated/50">
+            <tr
+              v-for="c in visibleContacts"
+              :key="c.id"
+              class="hover:bg-surface-elevated/50 cursor-pointer transition-colors"
+              @click="selectedContactId = c.id"
+            >
               <td class="px-6 py-3 font-medium text-ink">{{ fullName(c) }}</td>
               <td class="px-6 py-3 text-ink-muted">{{ c.email ?? '—' }}</td>
               <td class="px-6 py-3 text-ink-muted">{{ c.phone ?? '—' }}</td>
@@ -327,5 +350,15 @@ watch(() => client.value?.id, load)
         </table>
       </div>
     </template>
+
+    <ContactDetailDrawer
+      v-if="selectedContact && client"
+      :contact="selectedContact"
+      :client-id="client.id"
+      :stages="stages"
+      @update="onContactUpdated"
+      @deleted="onContactDeleted"
+      @close="selectedContactId = null"
+    />
   </div>
 </template>
