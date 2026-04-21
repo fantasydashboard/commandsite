@@ -75,7 +75,12 @@ const DEFAULT_STAGES = [
   { name: 'Lost',      position: 4, color: '#E85D75', is_lost: true },
 ]
 
-async function ensureDefaultPipeline(clientId: string): Promise<Pipeline | null> {
+// Ensures both a pipeline AND its default stages exist — self-healing if
+// either was created without the other (e.g. stage insert failed silently
+// on a previous visit, or the pipeline was added manually via SQL).
+async function ensurePipelineAndStages(clientId: string): Promise<Pipeline | null> {
+  let pipeline: Pipeline | null = null
+
   const { data: existing, error: e1 } = await supabase
     .from('pipelines')
     .select('*')
@@ -87,23 +92,39 @@ async function ensureDefaultPipeline(clientId: string): Promise<Pipeline | null>
     error.value = e1.message
     return null
   }
-  if (existing) return existing as Pipeline
+  pipeline = existing as Pipeline | null
 
-  const { data: created, error: e2 } = await supabase
-    .from('pipelines')
-    .insert({ client_id: clientId, name: 'Sales', is_default: true })
-    .select()
-    .single()
-  if (e2 || !created) {
-    error.value = e2?.message ?? 'Failed to create pipeline'
-    return null
+  if (!pipeline) {
+    const { data: created, error: e2 } = await supabase
+      .from('pipelines')
+      .insert({ client_id: clientId, name: 'Sales', is_default: true })
+      .select()
+      .single()
+    if (e2 || !created) {
+      error.value = e2?.message ?? 'Failed to create pipeline'
+      return null
+    }
+    pipeline = created as Pipeline
   }
 
-  const { error: e3 } = await supabase.from('stages').insert(
-    DEFAULT_STAGES.map((s) => ({ ...s, pipeline_id: created.id })),
-  )
-  if (e3) error.value = e3.message
-  return created as Pipeline
+  // Separately verify stages exist; seed if missing.
+  const { count, error: eCount } = await supabase
+    .from('stages')
+    .select('id', { count: 'exact', head: true })
+    .eq('pipeline_id', pipeline.id)
+  if (eCount) {
+    error.value = eCount.message
+    return pipeline
+  }
+
+  if (!count || count === 0) {
+    const { error: eSeed } = await supabase
+      .from('stages')
+      .insert(DEFAULT_STAGES.map((s) => ({ ...s, pipeline_id: pipeline!.id })))
+    if (eSeed) error.value = eSeed.message
+  }
+
+  return pipeline
 }
 
 async function load() {
@@ -111,7 +132,7 @@ async function load() {
   loading.value = true
   error.value = null
 
-  const p = await ensureDefaultPipeline(client.value.id)
+  const p = await ensurePipelineAndStages(client.value.id)
   pipeline.value = p
   if (!p) {
     loading.value = false
