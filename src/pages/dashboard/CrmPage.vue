@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { Contact, Pipeline, Stage } from '@/types/database'
 import { useDashboardContext } from './context'
 import ContactDetailDrawer from './ContactDetailDrawer.vue'
+import PipelineSettingsDrawer from './PipelineSettingsDrawer.vue'
 
 const { client, enabledModuleKeys } = useDashboardContext()
 const auth = useAuthStore()
@@ -19,6 +20,17 @@ const showCreate = ref(false)
 const submitting = ref(false)
 const stageFilter = ref<string>('all')
 const selectedContactId = ref<string | null>(null)
+const showSettings = ref(false)
+
+async function reloadStages() {
+  if (!pipeline.value) return
+  const { data } = await supabase
+    .from('stages')
+    .select('*')
+    .eq('pipeline_id', pipeline.value.id)
+    .order('position')
+  stages.value = (data ?? []) as Stage[]
+}
 
 const selectedContact = computed(() =>
   selectedContactId.value
@@ -249,9 +261,14 @@ watch(() => client.value?.id, load)
           {{ contacts.length }} contact<span v-if="contacts.length !== 1">s</span>
         </p>
       </div>
-      <button class="btn-primary" @click="showCreate = !showCreate">
-        {{ showCreate ? 'Cancel' : 'New contact' }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button class="btn-secondary" @click="showSettings = true">
+          Settings
+        </button>
+        <button class="btn-primary" @click="showCreate = !showCreate">
+          {{ showCreate ? 'Cancel' : 'New contact' }}
+        </button>
+      </div>
     </div>
 
     <p v-if="error" class="text-sm text-danger mb-4">{{ error }}</p>
@@ -380,6 +397,13 @@ watch(() => client.value?.id, load)
       @update="onContactUpdated"
       @deleted="onContactDeleted"
       @close="selectedContactId = null"
+    />
+
+    <PipelineSettingsDrawer
+      v-if="showSettings && pipeline"
+      :pipeline-id="pipeline.id"
+      @saved="reloadStages"
+      @close="showSettings = false"
     />
   </div>
 </template>
