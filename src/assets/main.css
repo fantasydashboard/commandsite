@@ -15,40 +15,63 @@
     background: #2454B7;
     color: #EEF2F7;
   }
+  h1, h2, h3 {
+    letter-spacing: -0.01em;
+  }
 }
 
 @layer components {
+  /* Buttons — pill-shaped, roomier padding. */
   .btn {
-    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-primary {
-    @apply btn bg-brand text-ink hover:bg-brand-hover active:bg-brand-active focus:ring-brand-cyan;
+    @apply btn bg-brand text-ink-inverse shadow-sm hover:bg-brand-hover active:bg-brand-active focus:ring-brand;
   }
   .btn-secondary {
-    @apply btn bg-surface-elevated text-ink border border-divider hover:bg-surface-raised hover:border-divider-bright focus:ring-brand-cyan;
+    @apply btn bg-surface-raised text-ink border border-divider hover:border-divider-bright hover:bg-surface-elevated focus:ring-brand;
+  }
+  .btn-dark {
+    @apply btn bg-surface-dark text-ink-inverse shadow-sm hover:bg-surface-dark/90 focus:ring-surface-dark;
   }
   .btn-ghost {
-    @apply btn bg-transparent text-ink-muted hover:text-ink hover:bg-surface-elevated focus:ring-brand-cyan;
+    @apply btn bg-transparent text-ink-muted hover:text-ink hover:bg-surface-elevated focus:ring-brand;
   }
   .btn-danger {
-    @apply btn bg-danger text-ink hover:opacity-90 focus:ring-danger;
+    @apply btn bg-danger text-ink-inverse shadow-sm hover:opacity-90 focus:ring-danger;
   }
+
+  /* Inputs — taller, softer radius, gentler focus. */
   .input {
-    @apply w-full rounded-md border border-divider bg-surface-elevated px-3 py-2 text-sm text-ink placeholder:text-ink-disabled shadow-sm focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan;
+    @apply w-full rounded-lg border border-divider bg-surface-raised px-4 py-2.5 text-sm text-ink placeholder:text-ink-disabled transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
   }
-  .input::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-  }
+
+  /* Cards — borderless, bigger radius, soft hover lift. */
   .card {
-    @apply rounded-lg border border-divider bg-surface-raised p-6 shadow-sm;
+    @apply rounded-xl bg-surface-raised p-6 shadow-card transition-shadow;
   }
+  .card-flat {
+    @apply rounded-xl bg-surface-raised p-6;
+  }
+  .card-interactive {
+    @apply card hover:shadow-raised;
+  }
+
+  /* Chips — rounded, subtle. */
   .chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-divider bg-surface-elevated px-3 py-1 text-xs font-medium text-ink-muted;
+    @apply inline-flex items-center gap-2 rounded-full border border-divider bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors;
   }
   .chip-active {
-    @apply border-brand-cyan bg-brand/10 text-brand-cyan;
+    @apply border-brand bg-brand/10 text-brand;
   }
+
+  /* Links */
   .link {
-    @apply text-brand-blue hover:text-brand-cyan transition-colors;
+    @apply text-brand hover:text-brand-hover transition-colors font-medium;
+  }
+
+  /* Section heading helper — consistent eyebrow style above content sections. */
+  .eyebrow {
+    @apply text-xs uppercase tracking-wider font-semibold text-ink-muted;
   }
 }

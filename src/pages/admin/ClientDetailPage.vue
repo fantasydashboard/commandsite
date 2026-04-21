@@ -101,7 +101,7 @@ onMounted(load)
             <button
               class="text-xs font-medium rounded-full px-3 py-1.5 shrink-0 transition-colors"
               :class="isEnabled(mod.key)
-                ? 'bg-brand text-ink hover:bg-brand-hover'
+                ? 'bg-brand text-ink-inverse hover:bg-brand-hover'
                 : 'bg-surface-elevated text-ink-muted border border-divider hover:border-divider-bright'"
               :disabled="saving === mod.key"
               @click="toggleModule(mod.key)"
