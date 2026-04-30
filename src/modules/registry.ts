@@ -5,6 +5,7 @@ import ProjectsModule from './ProjectsModule.vue'
 import SocialModule from './SocialModule.vue'
 import UfdMetricsModule from './UfdMetricsModule.vue'
 import UfdRevenueModule from './UfdRevenueModule.vue'
+import UfdFunnelModule from './UfdFunnelModule.vue'
 import UfdEmailModule from './UfdEmailModule.vue'
 import AiSocialModule from './AiSocialModule.vue'
 
@@ -76,6 +77,14 @@ export const moduleRegistry: ModuleDefinition[] = [
     label: 'UFD Revenue',
     description: 'Stripe-backed MRR, ARR, churn, plan mix, and failed payments.',
     component: UfdRevenueModule,
+    fullWidth: true,
+    tab: 'metrics',
+  },
+  {
+    key: 'ufd-funnel',
+    label: 'UFD Funnel',
+    description: 'Signup → connected league → trial week → paid → renewed conversion funnel.',
+    component: UfdFunnelModule,
     fullWidth: true,
     tab: 'metrics',
   },

@@ -18,6 +18,7 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
   'ultimate-fantasy-dashboard': [
     { key: 'ufd-metrics' },
     { key: 'ufd-revenue' },
+    { key: 'ufd-funnel' },
     { key: 'ufd-email' },
     { key: 'ai-social' },
   ],
