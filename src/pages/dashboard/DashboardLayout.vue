@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, provide, ref, watch } from 'vue'
-import { RouterView, RouterLink, useRouter } from 'vue-router'
+import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { modulesForClient } from '@/config/clients'
-import { dashboardTabs, getModule } from '@/modules/registry'
+import { visibleTabsFor } from '@/modules/registry'
 import type { Client } from '@/types/database'
 import { DashboardContextKey } from './context'
 
@@ -13,6 +13,7 @@ const props = defineProps<{ slug: string }>()
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const client = ref<Client | null>(null)
 const loading = ref(true)
@@ -24,16 +25,38 @@ const enabledModuleKeys = computed<Set<string>>(
   () => new Set(modulesForClient(props.slug).map((m) => m.key)),
 )
 
-// Tabs visible in the nav: the canonical dashboardTabs order, filtered to
-// those that have at least one enabled module for this client.
-const visibleTabs = computed(() => {
-  const tabsInUse = new Set<string>()
-  for (const m of modulesForClient(props.slug)) {
-    const def = getModule(m.key)
-    if (def?.tab) tabsInUse.add(def.tab)
-  }
-  return dashboardTabs.filter((t) => tabsInUse.has(t.key))
+// Tab structure (with subtabs) for this client. A subtab only appears
+// in the nav if at least one of the client's enabled modules targets it.
+const visibleTabs = computed(() => visibleTabsFor(enabledModuleKeys.value))
+
+// The active top-level tab.
+const activeTabKey = computed<string>(() => {
+  if (route.name === 'dashboard.crm') return 'crm'
+  return (route.params.tab as string) ?? ''
 })
+
+const activeTabDef = computed(() =>
+  visibleTabs.value.find((t) => t.key === activeTabKey.value),
+)
+
+const activeSubtabKey = computed<string>(
+  () => (route.params.subtab as string) ?? '',
+)
+
+// First subtab to land on for a given tab. Used when building the top-nav
+// link so clicking "Marketing" goes straight to the first available subtab
+// (e.g. /marketing/email).
+function tabHref(tabKey: string): {
+  name: 'dashboard.crm' | 'dashboard.tab'
+  params: { slug: string; tab?: string; subtab?: string }
+} {
+  if (tabKey === 'crm') {
+    return { name: 'dashboard.crm', params: { slug: props.slug } }
+  }
+  const def = visibleTabs.value.find((t) => t.key === tabKey)
+  const subtab = def?.subtabs && def.subtabs.length > 0 ? def.subtabs[0].key : undefined
+  return { name: 'dashboard.tab', params: { slug: props.slug, tab: tabKey, subtab } }
+}
 
 async function load() {
   loading.value = true
@@ -83,16 +106,10 @@ async function onLogout() {
             <RouterLink
               v-for="tab in visibleTabs"
               :key="tab.key"
-              :to="
-                tab.key === 'crm'
-                  ? `/dashboard/${slug}/crm`
-                  : `/dashboard/${slug}/${tab.key}`
-              "
+              :to="tabHref(tab.key)"
               class="text-ink-inverse/70 hover:text-ink-inverse transition-colors"
               :class="{
-                'text-ink-inverse font-medium':
-                  $route.params.tab === tab.key ||
-                  (tab.key === 'crm' && $route.name === 'dashboard.crm'),
+                'text-ink-inverse font-medium': activeTabKey === tab.key,
               }"
             >
               {{ tab.label }}
@@ -102,6 +119,29 @@ async function onLogout() {
         <div class="flex items-center gap-4">
           <span class="text-sm text-ink-inverse/70">{{ auth.profile?.email }}</span>
           <button class="btn-secondary" @click="onLogout">Sign out</button>
+        </div>
+      </div>
+
+      <!-- Subtab nav: only shown when the active tab declares subtabs -->
+      <div
+        v-if="activeTabDef?.subtabs && activeTabDef.subtabs.length > 0"
+        class="border-t border-ink-inverse/10"
+      >
+        <div class="mx-auto flex max-w-7xl items-center gap-4 px-6 py-2 text-xs">
+          <RouterLink
+            v-for="sub in activeTabDef.subtabs"
+            :key="sub.key"
+            :to="{
+              name: 'dashboard.tab',
+              params: { slug, tab: activeTabKey, subtab: sub.key },
+            }"
+            class="text-ink-inverse/60 hover:text-ink-inverse uppercase tracking-wide transition-colors"
+            :class="{
+              'text-ink-inverse font-semibold': activeSubtabKey === sub.key,
+            }"
+          >
+            {{ sub.label }}
+          </RouterLink>
         </div>
       </div>
     </header>

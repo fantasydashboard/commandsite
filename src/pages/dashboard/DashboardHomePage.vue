@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { dashboardTabs, getModule, type ModuleDefinition } from '@/modules/registry'
+import {
+  getModule,
+  visibleTabsFor,
+  type ModuleDefinition,
+} from '@/modules/registry'
 import { modulesForClient } from '@/config/clients'
 import { useDashboardContext } from './context'
 
-const props = defineProps<{ tab?: string }>()
+const props = defineProps<{ tab?: string; subtab?: string }>()
 const { client } = useDashboardContext()
 const router = useRouter()
 
@@ -26,36 +30,72 @@ const allModules = computed<ResolvedModule[]>(() => {
     .filter((m): m is ResolvedModule => m !== null)
 })
 
-// Tabs the current client has at least one enabled module for, in the
-// canonical order from the registry's dashboardTabs list.
-const availableTabKeys = computed<string[]>(() => {
-  const keysWithModules = new Set(allModules.value.map((m) => m.def.tab).filter(Boolean) as string[])
-  return dashboardTabs.filter((t) => keysWithModules.has(t.key)).map((t) => t.key)
-})
+// Tab structure (with subtabs) for this client — only tabs/subtabs that
+// have at least one enabled module are kept.
+const visibleTabs = computed(() =>
+  visibleTabsFor(new Set(allModules.value.map((m) => m.key))),
+)
 
-// Modules that should render right now: those tagged with the active tab,
-// or — if no tabs exist for this client — every module (legacy mode).
+// The current tab's definition (for subtab logic).
+const currentTabDef = computed(() =>
+  visibleTabs.value.find((t) => t.key === props.tab),
+)
+
+// Modules to render right now: filtered by the active tab AND, if the tab
+// has subtabs, also filtered by the active subtab.
 const visibleModules = computed<ResolvedModule[]>(() => {
-  if (availableTabKeys.value.length === 0) return allModules.value
+  if (visibleTabs.value.length === 0) return allModules.value
   if (!props.tab) return []
-  return allModules.value.filter((m) => m.def.tab === props.tab)
+  const tabModules = allModules.value.filter((m) => m.def.tab === props.tab)
+  if (currentTabDef.value?.subtabs && currentTabDef.value.subtabs.length > 0) {
+    if (!props.subtab) return []
+    return tabModules.filter((m) => m.def.subtab === props.subtab)
+  }
+  return tabModules
 })
 
-// If we landed on the bare home (no :tab) and the client has tabbed
-// modules, redirect to the first available tab. Done as a watcher with
-// `immediate: true` so it fires both on initial mount and when the slug
-// switches (admin previewing different clients).
+// Redirects:
+//   - bare /dashboard/:slug                  → first tab (or its first subtab)
+//   - /dashboard/:slug/:tab on a sub-tabbed  → first available subtab
+//     tab and no subtab in the URL
+//
+// CRM keeps its dedicated route — handled by routing in the layout.
 watch(
-  [() => client.value?.slug, () => props.tab, availableTabKeys],
-  ([slug, tab, tabs]) => {
-    if (!slug || tab) return
-    if (tabs.length === 0) return
-    // CRM has its own named route — use it for nice URLs.
-    const target = tabs[0]
-    if (target === 'crm') {
-      router.replace({ name: 'dashboard.crm', params: { slug } })
-    } else {
-      router.replace({ name: 'dashboard.tab', params: { slug, tab: target } })
+  [
+    () => client.value?.slug,
+    () => props.tab,
+    () => props.subtab,
+    visibleTabs,
+    currentTabDef,
+  ],
+  ([slug, tab, subtab, tabs, tabDef]) => {
+    if (!slug || tabs.length === 0) return
+
+    if (!tab) {
+      // Land on first tab. If it has subtabs, land on first subtab too.
+      const target = tabs[0]
+      if (target.key === 'crm') {
+        router.replace({ name: 'dashboard.crm', params: { slug } })
+        return
+      }
+      const params: { slug: string; tab: string; subtab?: string } = {
+        slug,
+        tab: target.key,
+      }
+      if (target.subtabs && target.subtabs.length > 0) {
+        params.subtab = target.subtabs[0].key
+      }
+      router.replace({ name: 'dashboard.tab', params })
+      return
+    }
+
+    // We have a tab in the URL. If it has subtabs and no subtab is
+    // selected, redirect to the first available subtab.
+    if (tabDef?.subtabs && tabDef.subtabs.length > 0 && !subtab) {
+      router.replace({
+        name: 'dashboard.tab',
+        params: { slug, tab, subtab: tabDef.subtabs[0].key },
+      })
     }
   },
   { immediate: true },
@@ -75,7 +115,7 @@ watch(
       v-else-if="props.tab && visibleModules.length === 0"
       class="card text-center text-ink-muted"
     >
-      Nothing in the {{ props.tab }} tab yet.
+      Nothing here yet.
     </div>
 
     <div v-else class="grid gap-6 lg:grid-cols-2">

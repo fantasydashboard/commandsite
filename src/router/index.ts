@@ -55,8 +55,10 @@ const routes = [
       },
       {
         // Generic per-tab module renderer for everything else (metrics,
-        // email, social, projects, ...).
-        path: ':tab',
+        // marketing, projects, ...). The optional :subtab segment lets
+        // tabs declare second-level navigation (e.g. marketing/email,
+        // marketing/social, marketing/listening).
+        path: ':tab/:subtab?',
         name: 'dashboard.tab',
         component: () => import('@/pages/dashboard/DashboardHomePage.vue'),
         props: true,
