@@ -1,58 +1,42 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { supabase } from '@/lib/supabase'
-import { moduleRegistry } from '@/modules/registry'
-import type { Client, ClientModule } from '@/types/database'
+import { moduleRegistry, getModule } from '@/modules/registry'
+import { modulesForClient } from '@/config/clients'
+import type { Client } from '@/types/database'
 
 const props = defineProps<{ id: string }>()
 
 const client = ref<Client | null>(null)
-const modules = ref<ClientModule[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
-const saving = ref<string | null>(null)
 
 async function load() {
   loading.value = true
-  const [{ data: c, error: e1 }, { data: m, error: e2 }] = await Promise.all([
-    supabase.from('clients').select('*').eq('id', props.id).maybeSingle(),
-    supabase.from('client_modules').select('*').eq('client_id', props.id),
-  ])
-  if (e1) error.value = e1.message
-  if (e2) error.value = e2.message
-  client.value = c as Client | null
-  modules.value = (m ?? []) as ClientModule[]
+  const { data, error: err } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('id', props.id)
+    .maybeSingle()
+  if (err) error.value = err.message
+  client.value = data as Client | null
   loading.value = false
 }
 
-function isEnabled(key: string) {
-  return modules.value.find((m) => m.module_key === key)?.enabled ?? false
-}
+// Module enablement is defined in src/config/clients.ts — this page only
+// renders it. Edit the config file in the repo to add/remove modules.
+const configuredModules = computed(() => {
+  if (!client.value) return []
+  return modulesForClient(client.value.slug).map((m) => ({
+    key: m.key,
+    def: getModule(m.key),
+  }))
+})
 
-async function toggleModule(key: string) {
-  saving.value = key
-  error.value = null
-  const existing = modules.value.find((m) => m.module_key === key)
-
-  if (existing) {
-    const { error: err } = await supabase
-      .from('client_modules')
-      .update({ enabled: !existing.enabled })
-      .eq('id', existing.id)
-    if (err) error.value = err.message
-    else existing.enabled = !existing.enabled
-  } else {
-    const { data, error: err } = await supabase
-      .from('client_modules')
-      .insert({ client_id: props.id, module_key: key, enabled: true })
-      .select()
-      .single()
-    if (err) error.value = err.message
-    else if (data) modules.value.push(data as ClientModule)
-  }
-  saving.value = null
-}
+const configuredKeys = computed(
+  () => new Set(configuredModules.value.map((m) => m.key)),
+)
 
 onMounted(load)
 </script>
@@ -75,41 +59,62 @@ onMounted(load)
             /{{ client.slug }} · {{ client.tier }} · ${{ client.monthly_rate.toFixed(2) }}/mo
           </p>
         </div>
-        <a
-          :href="`/dashboard/${client.slug}`"
-          target="_blank"
+        <RouterLink
+          :to="`/dashboard/${client.slug}`"
           class="btn-secondary"
         >
           View dashboard ↗
-        </a>
+        </RouterLink>
       </div>
 
       <p v-if="error" class="text-sm text-danger mt-4">{{ error }}</p>
 
       <section class="mt-8">
-        <h2 class="text-lg font-semibold text-ink mb-4">Modules</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="mb-4 flex items-baseline justify-between">
+          <h2 class="text-lg font-semibold text-ink">Modules</h2>
+          <span class="text-xs text-ink-muted">
+            Configured in <code class="font-mono">src/config/clients.ts</code>
+          </span>
+        </div>
+
+        <div
+          v-if="configuredModules.length === 0"
+          class="card-flat border border-divider text-sm text-ink-muted"
+        >
+          No modules configured for <code class="font-mono">{{ client.slug }}</code>.
+        </div>
+
+        <div v-else class="grid gap-4 sm:grid-cols-2 mb-8">
           <div
-            v-for="mod in moduleRegistry"
+            v-for="mod in configuredModules"
             :key="mod.key"
             class="card flex items-start justify-between gap-4"
           >
             <div>
-              <div class="font-medium text-ink">{{ mod.label }}</div>
-              <div class="text-sm text-ink-muted mt-1">{{ mod.description }}</div>
+              <div class="font-medium text-ink">
+                {{ mod.def?.label ?? mod.key }}
+              </div>
+              <div class="text-sm text-ink-muted mt-1">
+                {{ mod.def?.description ?? 'Not found in module registry.' }}
+              </div>
             </div>
-            <button
-              class="text-xs font-medium rounded-full px-3 py-1.5 shrink-0 transition-colors"
-              :class="isEnabled(mod.key)
-                ? 'bg-brand text-ink-inverse hover:bg-brand-hover'
-                : 'bg-surface-elevated text-ink-muted border border-divider hover:border-divider-bright'"
-              :disabled="saving === mod.key"
-              @click="toggleModule(mod.key)"
-            >
-              {{ saving === mod.key ? '…' : isEnabled(mod.key) ? 'Enabled' : 'Disabled' }}
-            </button>
+            <span class="chip chip-active shrink-0">Enabled</span>
           </div>
         </div>
+
+        <details class="text-sm text-ink-muted">
+          <summary class="cursor-pointer hover:text-ink">
+            Available modules ({{ moduleRegistry.length - configuredModules.length }} not in use)
+          </summary>
+          <ul class="mt-3 space-y-1 pl-4 text-xs">
+            <li
+              v-for="mod in moduleRegistry.filter((m) => !configuredKeys.has(m.key))"
+              :key="mod.key"
+            >
+              <code class="font-mono">{{ mod.key }}</code> — {{ mod.label }}
+            </li>
+          </ul>
+        </details>
       </section>
     </div>
   </div>

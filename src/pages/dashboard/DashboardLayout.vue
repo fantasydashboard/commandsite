@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, provide, ref, watch } from 'vue'
+import { computed, onMounted, provide, ref, watch } from 'vue'
 import { RouterView, RouterLink, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import BrandLogo from '@/components/BrandLogo.vue'
+import { modulesForClient } from '@/config/clients'
+import { dashboardTabs, getModule } from '@/modules/registry'
 import type { Client } from '@/types/database'
 import { DashboardContextKey } from './context'
 
@@ -13,9 +15,25 @@ const auth = useAuthStore()
 const router = useRouter()
 
 const client = ref<Client | null>(null)
-const enabledModuleKeys = ref<Set<string>>(new Set())
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+// Module enablement comes from src/config/clients.ts — edit that file to
+// add/remove modules for a client; no DB round-trip.
+const enabledModuleKeys = computed<Set<string>>(
+  () => new Set(modulesForClient(props.slug).map((m) => m.key)),
+)
+
+// Tabs visible in the nav: the canonical dashboardTabs order, filtered to
+// those that have at least one enabled module for this client.
+const visibleTabs = computed(() => {
+  const tabsInUse = new Set<string>()
+  for (const m of modulesForClient(props.slug)) {
+    const def = getModule(m.key)
+    if (def?.tab) tabsInUse.add(def.tab)
+  }
+  return dashboardTabs.filter((t) => tabsInUse.has(t.key))
+})
 
 async function load() {
   loading.value = true
@@ -28,17 +46,6 @@ async function load() {
 
   if (e1) error.value = e1.message
   client.value = c as Client | null
-
-  if (client.value) {
-    const { data: m, error: e2 } = await supabase
-      .from('client_modules')
-      .select('module_key, enabled')
-      .eq('client_id', client.value.id)
-    if (e2) error.value = e2.message
-    enabledModuleKeys.value = new Set(
-      (m ?? []).filter((r) => r.enabled).map((r) => r.module_key),
-    )
-  }
   loading.value = false
 }
 
@@ -72,21 +79,23 @@ async function onLogout() {
               {{ client.name }}
             </span>
           </RouterLink>
-          <nav v-if="enabledModuleKeys.size > 0" class="flex gap-4 text-sm">
+          <nav v-if="visibleTabs.length > 0" class="flex gap-4 text-sm">
             <RouterLink
-              :to="`/dashboard/${slug}`"
+              v-for="tab in visibleTabs"
+              :key="tab.key"
+              :to="
+                tab.key === 'crm'
+                  ? `/dashboard/${slug}/crm`
+                  : `/dashboard/${slug}/${tab.key}`
+              "
               class="text-ink-inverse/70 hover:text-ink-inverse transition-colors"
-              :class="{ 'text-ink-inverse font-medium': $route.name === 'dashboard.home' }"
+              :class="{
+                'text-ink-inverse font-medium':
+                  $route.params.tab === tab.key ||
+                  (tab.key === 'crm' && $route.name === 'dashboard.crm'),
+              }"
             >
-              Overview
-            </RouterLink>
-            <RouterLink
-              v-if="enabledModuleKeys.has('crm')"
-              :to="`/dashboard/${slug}/crm`"
-              class="text-ink-inverse/70 hover:text-ink-inverse transition-colors"
-              active-class="text-ink-inverse font-medium"
-            >
-              CRM
+              {{ tab.label }}
             </RouterLink>
           </nav>
         </div>

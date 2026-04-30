@@ -9,3 +9,6 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 *.tsbuildinfo
+
+# Supabase CLI metadata (project ref, version pins, local-only state)
+supabase/.temp/

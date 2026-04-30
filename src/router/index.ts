@@ -39,15 +39,27 @@ const routes = [
     meta: { requiresAuth: true, requiresRole: 'client' as const },
     children: [
       {
+        // Bare /dashboard/:slug — DashboardHomePage redirects to the first
+        // tab that has enabled modules.
         path: '',
         name: 'dashboard.home',
         component: () => import('@/pages/dashboard/DashboardHomePage.vue'),
       },
       {
+        // CRM keeps its dedicated page (full-table contact/pipeline view).
+        // Defined before the :tab catch-all so it wins the match for /crm.
         path: 'crm',
         name: 'dashboard.crm',
         component: () => import('@/pages/dashboard/CrmPage.vue'),
         meta: { requiresModule: 'crm' },
+      },
+      {
+        // Generic per-tab module renderer for everything else (metrics,
+        // email, social, projects, ...).
+        path: ':tab',
+        name: 'dashboard.tab',
+        component: () => import('@/pages/dashboard/DashboardHomePage.vue'),
+        props: true,
       },
     ],
   },
@@ -79,8 +91,14 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
+  // Admins can access any authenticated route — including client dashboards,
+  // which is how we preview a client's view from the admin UI.
   const requiredRole = to.meta.requiresRole as 'admin' | 'client' | undefined
-  if (requiredRole && auth.profile?.role !== requiredRole) {
+  if (
+    requiredRole &&
+    auth.profile?.role !== requiredRole &&
+    auth.profile?.role !== 'admin'
+  ) {
     return auth.redirectPath
   }
 
