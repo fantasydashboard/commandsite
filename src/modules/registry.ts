@@ -6,6 +6,7 @@ import SocialModule from './SocialModule.vue'
 import UfdMetricsModule from './UfdMetricsModule.vue'
 import UfdRevenueModule from './UfdRevenueModule.vue'
 import UfdFunnelModule from './UfdFunnelModule.vue'
+import UfdSharesModule from './UfdSharesModule.vue'
 import UfdEmailModule from './UfdEmailModule.vue'
 import AiSocialModule from './AiSocialModule.vue'
 
@@ -85,6 +86,14 @@ export const moduleRegistry: ModuleDefinition[] = [
     label: 'UFD Funnel',
     description: 'Signup → connected league → trial week → paid → renewed conversion funnel.',
     component: UfdFunnelModule,
+    fullWidth: true,
+    tab: 'metrics',
+  },
+  {
+    key: 'ufd-shares',
+    label: 'UFD Card Shares',
+    description: 'Card-share analytics — top dashboards, top sharers, conversion correlation.',
+    component: UfdSharesModule,
     fullWidth: true,
     tab: 'metrics',
   },
