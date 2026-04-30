@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
       .from('email_sequences')
       .update({
         name: 'Trial + at-risk drip',
-        description: '11-email lifecycle: 6 trial-period emails (daily) + 5 at-risk emails (weekly, anchored on expiry)',
+        description: '11-email lifecycle: 6 trial-period (daily) + 5 at-risk (weekly, anchored on expiry). trial_expired runs an A/B test (cards-focused vs feature recap).',
         cohort: 'trial',
         anchor_field: 'trial_started_at',
       })
@@ -117,7 +117,7 @@ Deno.serve(async (req: Request) => {
         client_id: ufdClient.id,
         key: 'trial_drip',
         name: 'Trial + at-risk drip',
-        description: '11-email lifecycle: 6 trial-period emails (daily) + 5 at-risk emails (weekly, anchored on expiry)',
+        description: '11-email lifecycle: 6 trial-period (daily) + 5 at-risk (weekly, anchored on expiry). trial_expired runs an A/B test (cards-focused vs feature recap).',
         cohort: 'trial',
         anchor_field: 'trial_started_at',
         // Imported as DISABLED — flip on once you've decommissioned UFD's runner.
@@ -136,6 +136,7 @@ Deno.serve(async (req: Request) => {
   const stepRows = (TRIAL_SEQUENCE as any[]).map((s, i) => ({
     sequence_id: sequenceId,
     template_key: s.id,
+    template_key_b: s.idB ?? null,
     day_offset: s.day,
     skip_if_paid: !!s.skipIfPaid,
     use_expiry_date: !!s.useExpiryDate,

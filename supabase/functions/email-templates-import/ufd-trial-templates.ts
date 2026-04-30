@@ -545,6 +545,106 @@ In a <strong style="color:#e5e7eb;">points league</strong>, picks are graded aga
 </table></td></tr></table></body></html>`,
   },
 
+  // \u2500\u2500 A/B variant for trial_expired (cards-focused angle) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // Wired as template_key_b on the trial_expired step. Runner does a 50/50
+  // sticky-per-recipient split: half the cohort gets the original
+  // trial_expired (broad feature recap), half gets this one (lead with the
+  // graphics-for-your-league-chat angle, which is UFD's actual moat).
+
+  trial_expired_cards: {
+    subject: "Your league chat just got quieter \ud83d\udcca",
+    preview: "No more power-ranking graphics. No more 'told you so' visuals. The trash-talk arsenal is locked.",
+    html: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#05060a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#05060a;"><tr><td align="center" style="padding:24px 16px;"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#0a0c14;border:1px solid #1e2130;border-radius:12px;overflow:hidden;">
+<!-- HEADER -->
+<tr><td style="background:#0a0c14;border-bottom:2px solid #22c55e;padding:16px 28px;text-align:center;"><img src="https://ultimatefantasydashboard.com/UFD_V8.png" height="26" alt="Ultimate Fantasy Dashboard" style="display:inline-block;"></td></tr>
+<!-- BANNER -->
+<tr><td style="background:linear-gradient(90deg,#0a0c14,#0c1824);border-bottom:1px solid rgba(34,197,94,0.15);padding:11px 28px;text-align:center;font-size:12px;color:#9ca3af;letter-spacing:0.03em;">&#x1F4F1; Your league-chat ammo just got cut off</td></tr>
+<!-- BODY -->
+<tr><td style="padding:36px 32px 28px;background:#0a0c14;">
+<p style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#22c55e;margin:0 0 10px;">THE GROUP CHAT MISSES YOU</p>
+<h1 style="font-size:27px;font-weight:900;color:#fff;line-height:1.1;letter-spacing:-0.02em;margin:0 0 18px;">No more graphics to drop in your league chat.</h1>
+<p style="font-size:14px;color:#9ca3af;line-height:1.75;margin:0 0 16px;">Here&#x2019;s what UFD actually does for you, the part that actually matters: <strong style="color:#e5e7eb;">one tap downloads a graphic ready to paste in your league chat.</strong> Power rankings, matchups, draft grades, league history &#x2014; all year, all sports, all designed to start fights.</p>
+<p style="font-size:14px;color:#9ca3af;line-height:1.75;margin:0 0 22px;">Right now, you can&#x2019;t make any of them. Your league&#x2019;s playing weeks of fantasy without your hot takes hitting the chat with receipts.</p>
+
+<!-- WHAT YOU LOST \u2014 graphic-by-graphic -->
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#11131a;border:1px solid #1e2130;border-radius:12px;overflow:hidden;margin:0 0 22px;">
+<tr><td style="background:#080a10;padding:10px 16px;border-bottom:1px solid #1e2130;"><div style="font-size:11px;font-weight:700;color:#4b5563;letter-spacing:0.1em;text-transform:uppercase;">&#x1F4CA; Graphics you can no longer download</div></td></tr>
+<tr><td style="padding:14px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="padding:8px 0;border-bottom:1px solid #0f1017;"><table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="34" style="font-size:18px;text-align:center;">&#x1F3C6;</td>
+<td style="padding-left:10px;"><div style="font-size:13px;font-weight:700;color:#e5e7eb;">Power Rankings card</div><div style="font-size:11px;color:#6b7280;line-height:1.5;">Settles every &#x201C;who&#x2019;s actually #1&#x201D; debate. Drop it Sunday night.</div></td>
+<td width="60" align="right" style="font-size:11px;font-weight:700;color:#f59e0b;">LOCKED</td>
+</tr></table></td></tr>
+<tr><td style="padding:8px 0;border-bottom:1px solid #0f1017;"><table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="34" style="font-size:18px;text-align:center;">&#x26A1;</td>
+<td style="padding-left:10px;"><div style="font-size:13px;font-weight:700;color:#e5e7eb;">Matchup &amp; Win-Probability card</div><div style="font-size:11px;color:#6b7280;line-height:1.5;">Real odds for this week, posted before kickoff. Calls every game.</div></td>
+<td width="60" align="right" style="font-size:11px;font-weight:700;color:#f59e0b;">LOCKED</td>
+</tr></table></td></tr>
+<tr><td style="padding:8px 0;border-bottom:1px solid #0f1017;"><table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="34" style="font-size:18px;text-align:center;">&#x1F4CB;</td>
+<td style="padding-left:10px;"><div style="font-size:13px;font-weight:700;color:#e5e7eb;">Draft Grade card</div><div style="font-size:11px;color:#6b7280;line-height:1.5;">Receipts for everyone who reached. Best pick, worst pick, the verdict.</div></td>
+<td width="60" align="right" style="font-size:11px;font-weight:700;color:#f59e0b;">LOCKED</td>
+</tr></table></td></tr>
+<tr><td style="padding:8px 0;border-bottom:1px solid #0f1017;"><table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="34" style="font-size:18px;text-align:center;">&#x1F4DC;</td>
+<td style="padding-left:10px;"><div style="font-size:13px;font-weight:700;color:#e5e7eb;">League History card</div><div style="font-size:11px;color:#6b7280;line-height:1.5;">All-time records, head-to-head matrix, every title. The receipts go back years.</div></td>
+<td width="60" align="right" style="font-size:11px;font-weight:700;color:#f59e0b;">LOCKED</td>
+</tr></table></td></tr>
+<tr><td style="padding:8px 0;"><table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="34" style="font-size:18px;text-align:center;">&#x2728;</td>
+<td style="padding-left:10px;"><div style="font-size:13px;font-weight:700;color:#e5e7eb;">\u2026and a dozen more</div><div style="font-size:11px;color:#6b7280;line-height:1.5;">Trade analyzer, ROS rankings, schedule strength, awards &mdash; one tap, every dashboard.</div></td>
+<td width="60" align="right" style="font-size:11px;font-weight:700;color:#f59e0b;">LOCKED</td>
+</tr></table></td></tr>
+</table>
+</td></tr>
+</table>
+
+<!-- YEAR-ROUND HOOK -->
+<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.22);border-radius:10px;padding:14px 16px;margin:0 0 20px;font-size:12px;color:#9ca3af;line-height:1.7;">
+<div style="font-size:12px;font-weight:800;color:#86efac;letter-spacing:0.04em;margin-bottom:6px;">&#x1F4C5; Built for the whole year</div>
+<strong style="color:#e5e7eb;">In-season:</strong> matchup graphics, weekly rankings, win probabilities. <strong style="color:#e5e7eb;">Offseason:</strong> draft grades, league history, awards, all-time records. The chat doesn&#x2019;t go quiet just because the season ends.
+</div>
+
+<!-- WHO IT'S FOR -->
+<div style="background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.22);border-radius:10px;padding:14px 16px;margin:0 0 22px;font-size:12px;color:#9ca3af;line-height:1.7;">
+<div style="font-size:12px;font-weight:800;color:#fbbf24;letter-spacing:0.04em;margin-bottom:6px;">&#x1F3AF; Made for league commissioners and trash-talkers</div>
+If you&#x2019;re the one running the league, posting the recaps, or just the loudest voice in the chat &#x2014; UFD is your <strong style="color:#e5e7eb;">visual ammunition</strong>. Don&#x2019;t bring opinions, bring receipts.
+</div>
+
+<!-- PRICING -->
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+<tr>
+<td width="48%" valign="top" style="padding-right:6px;">
+<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:16px;">
+<div style="font-size:12px;font-weight:800;color:#22c55e;letter-spacing:0.04em;margin-bottom:6px;">INDIVIDUAL</div>
+<div style="font-size:28px;font-weight:900;color:#fff;">$4<span style="font-size:14px;font-weight:600;color:#9ca3af;">/mo</span></div>
+<div style="font-size:11px;color:#6b7280;margin-top:4px;">billed annually at $49/yr</div>
+<div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.5;">All your leagues, all sports, all the cards.</div>
+</div>
+</td>
+<td width="4%"></td>
+<td width="48%" valign="top" style="padding-left:6px;">
+<div style="background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.25);border-radius:10px;padding:16px;">
+<div style="font-size:12px;font-weight:800;color:#eab308;letter-spacing:0.04em;margin-bottom:6px;">LEAGUE PASS</div>
+<div style="font-size:28px;font-weight:900;color:#fff;">$29<span style="font-size:14px;font-weight:600;color:#9ca3af;"> once</span></div>
+<div style="font-size:11px;color:#6b7280;margin-top:4px;">one league, 365 days, everyone in</div>
+<div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.5;">Get the whole chat downloading cards.</div>
+</div>
+</td>
+</tr>
+</table>
+
+<hr style="border:none;border-top:1px solid #1e2130;margin:22px 0;">
+<p style="font-size:13px;color:#6b7280;font-style:italic;margin:0 0 24px;">Your league connection is still saved. Unlock and the cards are right where you left them &#x2014; one tap, ready to paste.</p>
+<div style="text-align:center;margin:0 0 8px;"><a href="https://ultimatefantasydashboard.com/pricing" style="display:inline-block;background:#22c55e;color:#0a0c14;font-size:14px;font-weight:800;letter-spacing:0.05em;padding:14px 36px;border-radius:10px;text-decoration:none;">GET BACK IN THE CHAT &#x2192;</a></div>
+<p style="font-size:11px;color:#374151;text-align:center;margin:0;">Individual $4/mo &middot; League Pass $29 &middot; Cancel anytime</p>
+</td></tr>
+<!-- FOOTER -->
+<tr><td style="background:#080a10;padding:14px 28px;border-top:1px solid #1e2130;text-align:center;font-size:11px;color:#374151;">ultimatefantasydashboard.com &nbsp;&middot;&nbsp; <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#374151;text-decoration:none;">Unsubscribe</a></td></tr>
+</table></td></tr></table></body></html>`,
+  },
+
   // \u2500\u2500 At-risk lifecycle (days 14 / 21 / 28 / 35 from trial expiry) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   // Generic versions only. Personalized "_connected" variants come in a
   // later phase via the template_key_connected column on
@@ -762,7 +862,10 @@ export const TRIAL_SEQUENCE = [
   { id: 'trial_draft_tools', day: 4 },
   { id: 'trial_ending', day: 5, skipIfPaid: true },
   // ── At-risk drip (weekly, anchored on trial_expires_at) ───────────────
-  { id: 'trial_expired', day: 8, skipIfPaid: true, useExpiryDate: true },
+  // trial_expired runs an A/B test: the original (broad feature recap)
+  // vs trial_expired_cards (cards-as-the-product angle). 50/50 sticky
+  // per recipient; runner picks at send time.
+  { id: 'trial_expired', day: 8, skipIfPaid: true, useExpiryDate: true, idB: 'trial_expired_cards' },
   { id: 'expired_league_recap', day: 14, skipIfPaid: true, useExpiryDate: true },
   { id: 'expired_feature_spotlight', day: 21, skipIfPaid: true, useExpiryDate: true },
   { id: 'expired_offer_first', day: 28, skipIfPaid: true, useExpiryDate: true },

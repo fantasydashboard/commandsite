@@ -41,6 +41,19 @@ interface UfdProfile {
   created_at: string | null
 }
 
+// Deterministic 50/50 assignment per (recipient, step) pair. Same user
+// always gets the same variant for a given step — sticky across runs and
+// retries — but is independent across steps. Avoids any randomness so
+// behavior is reproducible.
+function abVariant(emailLower: string, stepId: string): 'a' | 'b' {
+  const seed = emailLower + '::' + stepId
+  let hash = 5381
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) + hash + seed.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash) % 2 === 0 ? 'a' : 'b'
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -140,31 +153,40 @@ Deno.serve(async (req: Request) => {
     // Steps for this sequence.
     const { data: steps } = await admin
       .from('email_sequence_steps')
-      .select('id, template_key, day_offset, skip_if_paid, use_expiry_date, step_order')
+      .select('id, template_key, template_key_b, day_offset, skip_if_paid, use_expiry_date, step_order')
       .eq('sequence_id', seq.id)
       .order('step_order', { ascending: true })
 
     if (!steps || steps.length === 0) continue
 
-    // Map step.template_key → template row (for this client).
+    // Load templates for both variants A and B (where present).
+    const allTemplateKeys = new Set<string>()
+    for (const s of steps) {
+      allTemplateKeys.add(s.template_key)
+      if (s.template_key_b) allTemplateKeys.add(s.template_key_b)
+    }
     const { data: templates } = await admin
       .from('email_templates')
       .select('id, key, subject, html')
       .eq('client_id', seq.client_id)
-      .in('key', steps.map((s) => s.template_key))
+      .in('key', Array.from(allTemplateKeys))
     // deno-lint-ignore no-explicit-any
     const tplByKey = new Map<string, any>()
     for (const t of templates ?? []) tplByKey.set(t.key, t)
 
-    // Already-sent set for this sequence — used to avoid double-sends.
+    // Already-sent set for this sequence — keyed on step_id so that A/B
+    // variants of the same step share dedup (a user gets at most one
+    // variant per step, ever).
     const { data: existingLog } = await admin
       .from('email_send_log')
-      .select('recipient, template_key')
+      .select('recipient, step_id')
       .eq('client_id', seq.client_id)
       .eq('sequence_id', seq.id)
       .eq('status', 'sent')
     const sentSet = new Set(
-      (existingLog ?? []).map((l) => `${l.recipient}::${l.template_key}`),
+      (existingLog ?? [])
+        .filter((l) => l.step_id)
+        .map((l) => `${l.recipient}::${l.step_id}`),
     )
 
     // Cohort-specific filter: V1 supports 'trial' (active trial users).
@@ -189,7 +211,7 @@ Deno.serve(async (req: Request) => {
       // existing behavior — backlog catches up over multiple runs).
       let pickedStep: typeof steps[number] | null = null
       for (const step of steps) {
-        const key = `${profile.email.toLowerCase()}::${step.template_key}`
+        const key = `${profile.email.toLowerCase()}::${step.id}`
         if (sentSet.has(key)) continue
         if (step.skip_if_paid && paidIds.has(profile.id)) continue
 
@@ -212,7 +234,18 @@ Deno.serve(async (req: Request) => {
 
       if (!pickedStep) continue
 
-      const tpl = tplByKey.get(pickedStep.template_key)
+      // ── A/B variant selection ──────────────────────────────────────────
+      // If template_key_b is set on the step, deterministically split this
+      // recipient into 'a' or 'b' (sticky per recipient + step). Otherwise
+      // variant is null and we just send template_key.
+      let variant: 'a' | 'b' | null = null
+      let templateKey = pickedStep.template_key
+      if (pickedStep.template_key_b) {
+        variant = abVariant(profile.email.toLowerCase(), pickedStep.id)
+        templateKey = variant === 'a' ? pickedStep.template_key : pickedStep.template_key_b
+      }
+
+      const tpl = tplByKey.get(templateKey)
       if (!tpl) {
         sentForSeq.skipped++
         continue
@@ -244,13 +277,14 @@ Deno.serve(async (req: Request) => {
             client_id: seq.client_id,
             recipient: profile.email.toLowerCase(),
             user_id: profile.id,
-            template_key: pickedStep.template_key,
+            template_key: templateKey,
             template_id: tpl.id,
             sequence_id: seq.id,
             step_id: pickedStep.id,
             subject: tpl.subject,
             status: 'failed',
             error_message: text.slice(0, 500),
+            ab_variant: variant,
           })
         } else {
           const sendBody = await res.json()
@@ -259,15 +293,16 @@ Deno.serve(async (req: Request) => {
             client_id: seq.client_id,
             recipient: profile.email.toLowerCase(),
             user_id: profile.id,
-            template_key: pickedStep.template_key,
+            template_key: templateKey,
             template_id: tpl.id,
             sequence_id: seq.id,
             step_id: pickedStep.id,
             subject: tpl.subject,
             status: 'sent',
             resend_id: sendBody.id ?? null,
+            ab_variant: variant,
           })
-          sentSet.add(`${profile.email.toLowerCase()}::${pickedStep.template_key}`)
+          sentSet.add(`${profile.email.toLowerCase()}::${pickedStep.id}`)
         }
       } catch (e) {
         sentForSeq.failed++
