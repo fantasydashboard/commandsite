@@ -9,6 +9,7 @@ import UfdFunnelModule from './UfdFunnelModule.vue'
 import UfdSharesModule from './UfdSharesModule.vue'
 import UfdEmailModule from './UfdEmailModule.vue'
 import AiSocialModule from './AiSocialModule.vue'
+import SocialDistributionModule from './SocialDistributionModule.vue'
 
 // Tabs are derived from this list at render time. The dashboard nav shows
 // every unique tab that has at least one enabled module for the current
@@ -110,6 +111,14 @@ export const moduleRegistry: ModuleDefinition[] = [
     label: 'AI Marketing',
     description: 'AI-driven multi-channel marketing: brand profile, strategist, social writer, email composer.',
     component: AiSocialModule,
+    fullWidth: true,
+    tab: 'social',
+  },
+  {
+    key: 'social-distribution',
+    label: 'Social Distribution',
+    description: 'Compose, schedule, and queue Reddit + X posts with manual or (later) API publishing.',
+    component: SocialDistributionModule,
     fullWidth: true,
     tab: 'social',
   },
