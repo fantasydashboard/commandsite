@@ -23,6 +23,7 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'ufd-email' },
     { key: 'ai-social' },
     { key: 'social-distribution' },
+    { key: 'social-listening' },
   ],
 }
 
