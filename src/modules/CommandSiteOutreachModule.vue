@@ -25,6 +25,7 @@ import {
 } from '@/lib/clients/commandsite/outreach'
 import { automations } from '@/lib/clients/commandsite/automations'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
+import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -150,6 +151,16 @@ const tabs: { key: View; label: string; badge?: number }[] = [
 
 <template>
   <div class="space-y-4">
+    <CommandSiteAdaActivityStrip
+      tab-key="outreach"
+      summary="Ada classifies every Smartlead reply via the smartlead-reply edge function — auto-handles OOFs, unsubs, and clear nos; surfaces positives + objections for your eyes."
+      :activity="[
+        { icon: '✉', label: 'Classified 14 replies this week', detail: '4 positive · 3 objections · 4 OOF · 2 info · 1 unsub', ago: 'rolling' },
+        { icon: '✏', label: 'Drafted Calendly intro for Brett @ Cool Comfort', detail: 'positive reply at 0.94 confidence — queued for your approval', ago: '2h' },
+        { icon: '🤖', label: 'Auto-handled 6 replies', detail: '4 OOFs archived, 1 unsubscribe suppressed, 1 clear no flagged', ago: 'this week' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

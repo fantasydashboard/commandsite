@@ -22,6 +22,7 @@ import {
   revenueHeadline,
 } from '@/lib/clients/commandsite/revenue'
 import { barDefaults, chartColors } from '@/lib/chartTheme'
+import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 
 Chart.register(
   BarController, BarElement,
@@ -178,6 +179,15 @@ function fmtUntil(iso: string): string {
 
 <template>
   <div class="space-y-4">
+    <CommandSiteAdaActivityStrip
+      tab-key="revenue"
+      summary="Ada watches MRR + churn signals + plan-mix shifts. She drops a daily AM brief and a Monday-morning strategic summary so you start the week knowing where you stand."
+      :activity="[
+        { icon: '💰', label: 'MRR snapshot ready', detail: 'will activate when first paying customer subscribes', ago: '—' },
+        { icon: '☕', label: 'Daily AM brief queued', detail: '7:30 AM drop into your inbox once revenue starts', ago: '—' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

@@ -17,6 +17,7 @@ import {
   type CustomerStage,
   type Plan,
 } from '@/lib/clients/commandsite/companies'
+import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -104,6 +105,15 @@ function healthTrendColor(t: Company['health_trend']): string {
 
 <template>
   <div class="space-y-4">
+    <CommandSiteAdaActivityStrip
+      tab-key="customers"
+      summary="Ada watches every paying customer for early churn signals — MRR drops, product-usage cliffs, support ticket spikes — and triages inbound support tickets with drafted replies."
+      :activity="[
+        { icon: '💚', label: 'No customers yet', detail: 'roles activate once you onboard your first paying customer', ago: 'live' },
+        { icon: '🤝', label: 'Support Triage standing by', detail: 'will classify + draft replies to inbound tickets when they start', ago: '—' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

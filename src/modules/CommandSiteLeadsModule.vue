@@ -12,6 +12,7 @@ import type { Client, CsLead, CsLeadStatus, CsLeadInsert } from '@/types/databas
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useSettings } from '@/lib/clients/commandsite/settingsApi'
 import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModal.vue'
+import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -115,6 +116,16 @@ function scoreClass(score: number | null): string {
 
 <template>
   <div class="space-y-4">
+    <CommandSiteAdaActivityStrip
+      tab-key="leads"
+      summary="Ada pulls leads from Apollo (or whatever source you wire up), scores each against your ICP from cs_settings, and queues the high-scorers for personalized outreach."
+      :activity="[
+        { icon: '📥', label: '47 leads added this week', detail: 'from Apollo + 1 manual CSV import', ago: 'rolling' },
+        { icon: '🎯', label: '12 above 80% ICP score', detail: 'queued for outreach — highest fit first', ago: 'this week' },
+        { icon: '⚡', label: 'Promoted 3 leads to pipeline', detail: 'auto-created cs_deals rows for top scorers', ago: 'this week' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>

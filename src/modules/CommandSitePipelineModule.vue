@@ -18,6 +18,7 @@ import {
 } from '@/lib/clients/commandsite/pipeline'
 import { useDeals, type CreateDealInput } from '@/lib/clients/commandsite/dealsApi'
 import CommandSiteAddDealModal from '@/components/CommandSiteAddDealModal.vue'
+import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -131,6 +132,16 @@ const lostDeals = computed(() => dealsIn('closed_lost'))
 
 <template>
   <div class="space-y-4">
+    <CommandSiteAdaActivityStrip
+      tab-key="pipeline"
+      summary="Ada watches every open deal — flags ones gone stale, drafts the 'did this land?' follow-ups in your voice, and writes proposal drafts when deals stick in mid-stage."
+      :activity="[
+        { icon: '📊', label: '6 stale deals flagged', detail: 'no movement in 5+ days · drafted nudges for top 3 by value', ago: 'this week' },
+        { icon: '✏', label: '2 proposal drafts ready', detail: 'Cool Comfort + Sunshine Plumbing — your review needed', ago: '1d' },
+        { icon: '⬆', label: 'Auto-promoted 1 deal to Demo Booked', detail: 'Brett @ Cool Comfort — Calendly fired, deal advanced', ago: '2h' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

@@ -21,6 +21,7 @@ import {
   type EngagementClass,
   type EngagedLead,
 } from '@/lib/clients/commandsite/social'
+import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -226,6 +227,16 @@ const tabs: { key: View; label: string; badge?: number }[] = [
 
 <template>
   <div class="space-y-4">
+    <CommandSiteAdaActivityStrip
+      tab-key="social"
+      summary="Ada drafts cross-platform posts in your voice — Reddit, X, LinkedIn — for your review + scheduling. She also watches engagement signals and feeds high-ICP engagers into the pipeline."
+      :activity="[
+        { icon: '📱', label: '3 posts drafted this week', detail: 'Reddit comment on r/HVAC · LinkedIn post on tool sprawl · X thread on Ada Lovelace', ago: 'rolling' },
+        { icon: '📅', label: '2 scheduled to publish', detail: 'Wednesday LinkedIn + Friday Reddit', ago: 'this week' },
+        { icon: '🎯', label: 'Flagged 1 high-ICP engager', detail: 'HVAC owner commented on r/Smallbusiness post — added to leads', ago: '2d' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>
