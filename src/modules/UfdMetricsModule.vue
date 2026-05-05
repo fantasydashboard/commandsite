@@ -7,16 +7,20 @@ import {
   PointElement,
   BarController,
   BarElement,
+  DoughnutController,
+  ArcElement,
   CategoryScale,
   LinearScale,
   Tooltip,
   Legend,
   Filler,
 } from 'chart.js'
-import { Line, Bar } from 'vue-chartjs'
+import { Line, Bar, Doughnut } from 'vue-chartjs'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import UfdUserDetailDrawer from '@/components/UfdUserDetailDrawer.vue'
+import Kpi from '@/components/Kpi.vue'
+import { brandAreaDataset, lineDefaults, seriesPalette } from '@/lib/chartTheme'
 import type { Client } from '@/types/database'
 
 Chart.register(
@@ -25,6 +29,8 @@ Chart.register(
   PointElement,
   BarController,
   BarElement,
+  DoughnutController,
+  ArcElement,
   CategoryScale,
   LinearScale,
   Tooltip,
@@ -155,60 +161,42 @@ function pickDay(map: Record<string, number>, key: string): number {
 const usersChartData = computed(() => ({
   labels: displayLabels.value,
   datasets: [
-    {
-      label: 'New Users',
-      data: labels.value.map((k) => pickDay(stats.value?.series.new_users ?? {}, k)),
-      borderColor: '#2E9FE0',
-      backgroundColor: 'rgba(46,159,224,0.15)',
-      fill: true,
-      tension: 0.35,
-      pointRadius: 0,
-      pointHoverRadius: 4,
-      borderWidth: 2,
-    },
+    brandAreaDataset(
+      'New Users',
+      labels.value.map((k) => pickDay(stats.value?.series.new_users ?? {}, k)),
+    ),
   ],
 }))
 
 const passesChartData = computed(() => {
   const s = stats.value?.series.new_passes
+  const palette = seriesPalette()
   return {
     labels: displayLabels.value,
     datasets: [
       {
         label: 'Individual Monthly',
         data: labels.value.map((k) => pickDay(s?.individual_monthly ?? {}, k)),
-        backgroundColor: '#4CCCE8',
+        backgroundColor: palette[3],  // sky
         borderRadius: 4,
       },
       {
         label: 'Individual Annual',
         data: labels.value.map((k) => pickDay(s?.individual_annual ?? {}, k)),
-        backgroundColor: '#7C3AED',
+        backgroundColor: palette[2],  // violet
         borderRadius: 4,
       },
       {
         label: 'League Passes',
         data: labels.value.map((k) => pickDay(s?.league_passes ?? {}, k)),
-        backgroundColor: '#EA580C',
+        backgroundColor: palette[1],  // accent (amber)
         borderRadius: 4,
       },
     ],
   }
 })
 
-const lineOpts = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  scales: {
-    x: { grid: { display: false }, ticks: { color: '#64748B', maxRotation: 0, autoSkipPadding: 20 } },
-    y: {
-      beginAtZero: true,
-      grid: { color: '#E2E8F0' },
-      ticks: { color: '#64748B', precision: 0 },
-    },
-  },
-}
+const lineOpts = lineDefaults()
 
 const barOpts = {
   responsive: true,
@@ -231,69 +219,104 @@ const barOpts = {
 }
 
 // Card metadata keyed by the shape returned from the Edge Function.
+// Each card uses the shared <Kpi> component — accent is one of the
+// named tokens from Kpi (sky/violet/cyan/etc.).
+type KpiAccent =
+  | 'brand' | 'accent' | 'success' | 'warn' | 'danger'
+  | 'sky' | 'cyan' | 'violet' | 'orange' | 'rose' | 'emerald' | 'ink'
+
+// ── Donut data ──────────────────────────────────────────────────────────
+// The four mutually-exclusive cohorts that make up the user base. Anything
+// not in one of these states is intentionally NOT counted — the donut
+// total = sum of these four buckets.
+const DONUT_COHORTS: { key: Cohort; label: string; color: string; accent: KpiAccent }[] = [
+  { key: 'free_trial',   label: 'Free Trial',    color: 'rgb(14 165 233)', accent: 'accent' },  // sky
+  { key: 'total_passes', label: 'Total Passes',  color: 'rgb(30 64 175)',  accent: 'brand'  },  // deep blue
+  { key: 'at_risk',      label: 'At Risk',       color: '#D97706',          accent: 'warn'   },  // amber
+  { key: 'expired',      label: 'Expired',       color: '#DC2626',          accent: 'danger' },  // red
+]
+
+// Sub-rows shown indented under "Total Passes" — paid tier breakdown.
+const PAID_SUBROWS: { key: Cohort; label: string }[] = [
+  { key: 'individual_monthly', label: 'Individual — Monthly' },
+  { key: 'individual_annual',  label: 'Individual — Annual' },
+  { key: 'league_passes',      label: 'League Passes' },
+]
+
+const totalCounted = computed(() => {
+  if (!stats.value) return 0
+  return DONUT_COHORTS.reduce((sum, c) => sum + (stats.value!.cards[c.key].value ?? 0), 0)
+})
+const totalNewCounted = computed(() => {
+  if (!stats.value) return 0
+  return DONUT_COHORTS.reduce((sum, c) => sum + (stats.value!.cards[c.key].new_in_window ?? 0), 0)
+})
+
+const donutData = computed(() => {
+  if (!stats.value) return null
+  return {
+    labels: DONUT_COHORTS.map((c) => c.label),
+    datasets: [
+      {
+        data: DONUT_COHORTS.map((c) => stats.value!.cards[c.key].value),
+        backgroundColor: DONUT_COHORTS.map((c) => c.color),
+        borderWidth: 3,
+        borderColor: '#FFFFFF',
+        hoverOffset: 8,
+        hoverBorderWidth: 3,
+      },
+    ],
+  }
+})
+
+// deno-lint-ignore no-explicit-any
+const donutOptions: any = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '68%',
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+      titleColor: '#fff',
+      bodyColor: '#E2E8F0',
+      padding: 10,
+      cornerRadius: 6,
+      callbacks: {
+        label: (ctx: { dataIndex: number; parsed: number }) => {
+          const cohort = DONUT_COHORTS[ctx.dataIndex]
+          const newCount = stats.value?.cards[cohort.key].new_in_window ?? 0
+          return ` ${ctx.parsed} users · +${newCount} new`
+        },
+      },
+    },
+  },
+  onClick: (_evt: unknown, elements: { index: number }[]) => {
+    if (elements && elements.length > 0) {
+      const cohort = DONUT_COHORTS[elements[0].index]
+      if (cohort) openCard(cohort.key)
+    }
+  },
+}
+
 const cardDefs: {
   key: Cohort
   label: string
   sub: string
-  accent: string // tailwind class for top border
-  numberClass: string // tailwind class for the big number
+  accent: KpiAccent
 }[] = [
-  {
-    key: 'total_users',
-    label: 'Total Users',
-    sub: 'All profiles',
-    accent: 'border-t-[#2E9FE0]',
-    numberClass: 'text-[#2E9FE0]',
-  },
-  {
-    key: 'free_trial',
-    label: 'Free Trial',
-    sub: 'Active trial · no paid plan',
-    accent: 'border-t-success',
-    numberClass: 'text-success',
-  },
-  {
-    key: 'total_passes',
-    label: 'Total Passes',
-    sub: 'All paid plans combined',
-    accent: 'border-t-warning',
-    numberClass: 'text-warning',
-  },
-  {
-    key: 'individual_monthly',
-    label: 'Individual — Monthly',
-    sub: 'Active subscriptions',
-    accent: 'border-t-[#4CCCE8]',
-    numberClass: 'text-[#4CCCE8]',
-  },
-  {
-    key: 'individual_annual',
-    label: 'Individual — Annual',
-    sub: 'Active subscriptions',
-    accent: 'border-t-[#7C3AED]',
-    numberClass: 'text-[#7C3AED]',
-  },
-  {
-    key: 'league_passes',
-    label: 'League Passes',
-    sub: 'Active league passes',
-    accent: 'border-t-[#EA580C]',
-    numberClass: 'text-[#EA580C]',
-  },
-  {
-    key: 'at_risk',
-    label: 'At Risk',
-    sub: 'Trial ended · still in drip (≤21d)',
-    accent: 'border-t-warning',
-    numberClass: 'text-warning',
-  },
-  {
-    key: 'expired',
-    label: 'Expired',
-    sub: 'Past drip · no paid plan',
-    accent: 'border-t-danger',
-    numberClass: 'text-danger',
-  },
+  // Disciplined palette: brand (deep blue) for top-of-funnel + headline
+  // metrics, accent (sky) for paid-tier breakdowns, warn for at-risk
+  // states, danger for failed/expired states. Five colors max across the
+  // strip — same colors used on charts + everywhere else.
+  { key: 'total_users',         label: 'Total Users',         sub: 'All profiles',                       accent: 'brand' },
+  { key: 'free_trial',          label: 'Free Trial',          sub: 'Active trial · no paid plan',        accent: 'accent' },
+  { key: 'total_passes',        label: 'Total Passes',        sub: 'All paid plans combined',            accent: 'brand' },
+  { key: 'individual_monthly',  label: 'Individual — Monthly', sub: 'Active subscriptions',               accent: 'accent' },
+  { key: 'individual_annual',   label: 'Individual — Annual',  sub: 'Active subscriptions',               accent: 'brand' },
+  { key: 'league_passes',       label: 'League Passes',        sub: 'Active league passes',               accent: 'accent' },
+  { key: 'at_risk',             label: 'At Risk',              sub: 'Trial ended · still in drip (≤21d)', accent: 'warn' },
+  { key: 'expired',             label: 'Expired',              sub: 'Past drip · no paid plan',           accent: 'danger' },
 ]
 
 const activeLabel = computed(
@@ -501,38 +524,100 @@ function downloadCsv() {
       Couldn't load UFD stats: {{ error }}
     </div>
 
-    <!-- Key Metrics section -->
-    <section>
-      <div class="mb-3 flex items-center gap-2">
+    <!-- Key Metrics section: donut + breakdown legend -->
+    <section class="card">
+      <div class="mb-4 flex items-center gap-2">
         <span class="eyebrow">Key Metrics</span>
         <span class="chip !py-0.5 !px-2 !text-[10px]">{{ activeLabel }}</span>
-        <span class="text-xs text-ink-muted ml-1">Click a card to view users</span>
+        <span class="text-xs text-ink-muted ml-1">Click a segment or row to view users</span>
       </div>
 
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        <button
-          v-for="c in cardDefs"
-          :key="c.key"
-          type="button"
-          :class="[
-            'card-flat border-t-4 shadow-card text-left transition-all',
-            'hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand/40',
-            c.accent,
-          ]"
-          @click="openCard(c.key)"
-        >
-          <div v-if="loading && !stats" class="h-20 animate-pulse bg-surface-elevated rounded" />
-          <template v-else-if="stats">
-            <div :class="['text-3xl font-semibold', c.numberClass]">
-              {{ stats.cards[c.key].value }}
+      <div v-if="loading && !stats" class="h-64 rounded-card bg-surface-elevated animate-pulse" />
+
+      <div v-else-if="stats" class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <!-- Left: Donut + center label -->
+        <div class="lg:col-span-5 relative flex items-center justify-center min-h-[260px]">
+          <div class="relative w-full max-w-[280px] aspect-square">
+            <Doughnut :data="donutData!" :options="donutOptions" />
+            <!-- Centered label inside the donut hole -->
+            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div class="text-[44px] font-bold text-ink leading-none tracking-tight">
+                {{ totalCounted }}
+              </div>
+              <div class="mt-1.5 kpi-label">Total Users</div>
+              <div
+                v-if="totalNewCounted > 0"
+                class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-success"
+              >
+                ↑ +{{ totalNewCounted }} new
+              </div>
             </div>
-            <div class="mt-1 text-sm font-medium text-ink">{{ c.label }}</div>
-            <div class="mt-0.5 text-xs text-ink-muted">{{ c.sub }}</div>
-            <div :class="['mt-2 text-xs font-semibold', c.numberClass]">
-              +{{ stats.cards[c.key].new_in_window }} new
-            </div>
+          </div>
+        </div>
+
+        <!-- Right: Breakdown legend (clickable rows) -->
+        <div class="lg:col-span-7 space-y-1.5">
+          <template v-for="row in DONUT_COHORTS" :key="row.key">
+            <button
+              type="button"
+              class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-surface-elevated/60 focus:outline-none focus:ring-2 focus:ring-brand/30"
+              @click="openCard(row.key)"
+            >
+              <span
+                class="h-3 w-3 rounded-full flex-shrink-0"
+                :style="{ backgroundColor: row.color }"
+              ></span>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-ink truncate">{{ row.label }}</div>
+              </div>
+              <div class="flex items-baseline gap-2 whitespace-nowrap">
+                <span class="text-xl font-bold text-ink tabular-nums">
+                  {{ stats.cards[row.key].value }}
+                </span>
+                <span
+                  v-if="stats.cards[row.key].new_in_window > 0"
+                  class="text-xs font-semibold text-success"
+                >
+                  ↑+{{ stats.cards[row.key].new_in_window }}
+                </span>
+                <span
+                  v-else
+                  class="text-xs text-ink-disabled"
+                >
+                  +0
+                </span>
+              </div>
+            </button>
+
+            <!-- Indented paid-tier rows under Total Passes -->
+            <template v-if="row.key === 'total_passes'">
+              <button
+                v-for="sub in PAID_SUBROWS"
+                :key="sub.key"
+                type="button"
+                class="w-full flex items-center gap-3 rounded-md pl-9 pr-3 py-1.5 text-left transition-colors hover:bg-surface-elevated/40 focus:outline-none focus:ring-2 focus:ring-brand/20"
+                @click="openCard(sub.key)"
+              >
+                <span class="text-[10px] text-ink-disabled font-mono">└</span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs text-ink-muted truncate">{{ sub.label }}</div>
+                </div>
+                <div class="flex items-baseline gap-2 whitespace-nowrap">
+                  <span class="text-sm font-semibold text-ink tabular-nums">
+                    {{ stats.cards[sub.key].value }}
+                  </span>
+                  <span
+                    v-if="stats.cards[sub.key].new_in_window > 0"
+                    class="text-[11px] font-semibold text-success"
+                  >
+                    ↑+{{ stats.cards[sub.key].new_in_window }}
+                  </span>
+                  <span v-else class="text-[11px] text-ink-disabled">+0</span>
+                </div>
+              </button>
+            </template>
           </template>
-        </button>
+        </div>
       </div>
     </section>
 

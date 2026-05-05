@@ -1,0 +1,299 @@
+<script setup lang="ts">
+/**
+ * CommandSite Customers — book of business view. Each row is a paying
+ * (or trialing / churned) home-services company. Surfaces health
+ * score, MRR, plan, and a one-line "signal" so the founder can spot
+ * expansion + retention work at a glance.
+ */
+import { computed, ref } from 'vue'
+import type { Client } from '@/types/database'
+import {
+  companies,
+  customerStats,
+  PLAN_META,
+  STAGE_META,
+  INDUSTRY_LABEL,
+  type Company,
+  type CustomerStage,
+  type Plan,
+} from '@/lib/clients/commandsite/companies'
+
+defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+const stats = computed(() => customerStats())
+
+type SortKey = 'name' | 'mrr' | 'health' | 'last_login' | 'signed_at'
+const sortBy = ref<SortKey>('mrr')
+const sortDir = ref<'asc' | 'desc'>('desc')
+const stageFilter = ref<CustomerStage | 'all'>('all')
+const planFilter = ref<Plan | 'all'>('all')
+
+const stageOrder: CustomerStage[] = [
+  'expansion_ready', 'active', 'onboarding', 'trial', 'at_risk', 'churned',
+]
+
+const filtered = computed<Company[]>(() => {
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  return [...companies]
+    .filter((c) => stageFilter.value === 'all' || c.stage === stageFilter.value)
+    .filter((c) => planFilter.value === 'all' || c.plan === planFilter.value)
+    .sort((a, b) => {
+      if (sortBy.value === 'name')       return a.name.localeCompare(b.name) * dir
+      if (sortBy.value === 'mrr')        return (a.mrr_cents - b.mrr_cents) * dir
+      if (sortBy.value === 'health')     return (a.health_score - b.health_score) * dir
+      if (sortBy.value === 'signed_at')  return (new Date(a.signed_at).getTime() - new Date(b.signed_at).getTime()) * dir
+      return (new Date(a.last_login_at).getTime() - new Date(b.last_login_at).getTime()) * dir
+    })
+})
+
+function toggleSort(k: SortKey) {
+  if (sortBy.value === k) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  else { sortBy.value = k; sortDir.value = k === 'name' ? 'asc' : 'desc' }
+}
+function sortInd(k: SortKey): string {
+  if (sortBy.value !== k) return ''
+  return sortDir.value === 'asc' ? '↑' : '↓'
+}
+
+function money(cents: number, opts: { compact?: boolean } = {}): string {
+  if (cents === 0) return '—'
+  if (opts.compact && cents >= 100_000) return '$' + Math.round(cents / 1000) + 'k'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(cents / 100)
+}
+
+function fmtAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(ms / 60_000)
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.floor(hr / 24)
+  if (day < 30) return `${day}d ago`
+  return `${Math.floor(day / 30)}mo ago`
+}
+
+function fmtSigned(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const day = Math.floor(ms / (24 * 60 * 60 * 1000))
+  if (day < 30) return `${day}d ago`
+  if (day < 365) return `${Math.floor(day / 30)}mo ago`
+  return `${(day / 365).toFixed(1)}yr ago`
+}
+
+function healthColor(score: number): string {
+  if (score >= 80) return '#10B981'  // emerald
+  if (score >= 60) return 'rgb(var(--color-brand))'
+  if (score >= 40) return '#F59E0B'  // amber
+  return '#EF4444'
+}
+
+function healthTrendArrow(t: Company['health_trend']): string {
+  if (t === 'up') return '↑'
+  if (t === 'down') return '↓'
+  return '→'
+}
+function healthTrendColor(t: Company['health_trend']): string {
+  if (t === 'up') return '#10B981'
+  if (t === 'down') return '#EF4444'
+  return '#94A3B8'
+}
+</script>
+
+<template>
+  <div class="space-y-4">
+    <!-- Header -->
+    <div class="card flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold text-ink">Customers</h2>
+        <p class="text-sm text-ink-muted">
+          Your book of business — every paying client, trial, and recently-churned account, with health + MRR + signal.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+      >+ New customer</button>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card">
+        <div class="kpi-label">Paying Customers</div>
+        <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ stats.total_paying }}</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">+ {{ stats.total_trialing }} trialing</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Total MRR</div>
+        <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ money(stats.total_mrr_cents) }}</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">{{ money(stats.total_mrr_cents * 12) }} ARR run-rate</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Avg Health</div>
+        <div class="mt-1 text-2xl font-bold tabular-nums" :style="{ color: healthColor(stats.avg_health) }">
+          {{ stats.avg_health }}
+        </div>
+        <div class="text-[11px] mt-0.5" :class="stats.total_at_risk > 0 ? 'text-warn' : 'text-ink-disabled'">
+          {{ stats.total_at_risk }} at-risk · {{ stats.total_churned_30d }} churned
+        </div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Expansion Opportunity</div>
+        <div class="mt-1 text-2xl font-bold text-success tabular-nums">{{ money(stats.expansion_opportunity_cents) }}</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">monthly upgrade potential</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card flex flex-wrap items-center gap-3">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-ink-muted mr-1">Stage:</span>
+        <button
+          type="button"
+          class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          :class="stageFilter === 'all' ? 'bg-brand text-white' : 'bg-surface-elevated text-ink-muted hover:bg-surface-elevated/80'"
+          @click="stageFilter = 'all'"
+        >All</button>
+        <button
+          v-for="s in stageOrder"
+          :key="s"
+          type="button"
+          class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-white"
+          :style="stageFilter === s
+            ? { backgroundColor: STAGE_META[s].color }
+            : { backgroundColor: STAGE_META[s].color + '22', color: STAGE_META[s].color }"
+          @click="stageFilter = s"
+        >{{ STAGE_META[s].label }}</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 ml-auto">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-ink-muted mr-1">Plan:</span>
+        <button
+          type="button"
+          class="chip"
+          :class="planFilter === 'all' ? 'chip-active' : ''"
+          @click="planFilter = 'all'"
+        >All</button>
+        <button
+          v-for="(meta, p) in PLAN_META"
+          :key="p"
+          type="button"
+          class="chip"
+          :class="planFilter === p ? 'chip-active' : ''"
+          @click="planFilter = (p as Plan)"
+        >{{ meta.label }}</button>
+      </div>
+    </div>
+
+    <!-- Customer table -->
+    <section class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-divider text-left text-[10px] uppercase tracking-wide text-ink-muted">
+              <th class="px-3 py-2 font-medium cursor-pointer hover:text-ink" @click="toggleSort('name')">
+                Customer {{ sortInd('name') }}
+              </th>
+              <th class="px-3 py-2 font-medium">Stage</th>
+              <th class="px-3 py-2 font-medium">Plan</th>
+              <th class="px-3 py-2 font-medium text-right cursor-pointer hover:text-ink" @click="toggleSort('mrr')">
+                MRR {{ sortInd('mrr') }}
+              </th>
+              <th class="px-3 py-2 font-medium text-center cursor-pointer hover:text-ink" @click="toggleSort('health')">
+                Health {{ sortInd('health') }}
+              </th>
+              <th class="px-3 py-2 font-medium cursor-pointer hover:text-ink" @click="toggleSort('last_login')">
+                Last login {{ sortInd('last_login') }}
+              </th>
+              <th class="px-3 py-2 font-medium cursor-pointer hover:text-ink" @click="toggleSort('signed_at')">
+                Signed {{ sortInd('signed_at') }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="c in filtered" :key="c.id">
+              <tr class="border-b border-divider/60 hover:bg-surface-elevated/40 transition-colors">
+                <td class="px-3 py-2.5">
+                  <div class="text-sm font-semibold text-ink">{{ c.name }}</div>
+                  <div class="text-[11px] text-ink-muted">
+                    {{ INDUSTRY_LABEL[c.industry] }} · {{ c.city }}, {{ c.state }} · {{ c.team_size }} techs
+                  </div>
+                </td>
+                <td class="px-3 py-2.5">
+                  <span
+                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white whitespace-nowrap"
+                    :style="{ backgroundColor: STAGE_META[c.stage].color }"
+                  >{{ STAGE_META[c.stage].label }}</span>
+                </td>
+                <td class="px-3 py-2.5">
+                  <span
+                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white whitespace-nowrap"
+                    :style="{ backgroundColor: PLAN_META[c.plan].color }"
+                  >{{ PLAN_META[c.plan].label }}</span>
+                </td>
+                <td class="px-3 py-2.5 text-right text-sm font-semibold text-ink tabular-nums">{{ money(c.mrr_cents) }}</td>
+                <td class="px-3 py-2.5 text-center">
+                  <div class="inline-flex items-center gap-1">
+                    <span
+                      class="text-base font-bold tabular-nums"
+                      :style="{ color: healthColor(c.health_score) }"
+                    >{{ c.health_score }}</span>
+                    <span
+                      class="text-xs"
+                      :style="{ color: healthTrendColor(c.health_trend) }"
+                    >{{ healthTrendArrow(c.health_trend) }}</span>
+                  </div>
+                </td>
+                <td class="px-3 py-2.5 text-xs text-ink-muted whitespace-nowrap">{{ fmtAgo(c.last_login_at) }}</td>
+                <td class="px-3 py-2.5 text-xs text-ink-muted whitespace-nowrap">{{ fmtSigned(c.signed_at) }}</td>
+              </tr>
+              <!-- Signal row (one-line context under any row that has a signal) -->
+              <tr v-if="c.signal" class="border-b border-divider/60">
+                <td colspan="7" class="px-3 pb-2 -mt-1">
+                  <div
+                    class="text-[11px] inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5"
+                    :style="{
+                      backgroundColor: STAGE_META[c.stage].color + '22',
+                      color: STAGE_META[c.stage].color,
+                    }"
+                  >
+                    <span class="font-semibold">SIGNAL ·</span>
+                    <span>{{ c.signal }}</span>
+                  </div>
+                </td>
+              </tr>
+            </template>
+            <tr v-if="filtered.length === 0">
+              <td colspan="7" class="px-3 py-6 text-center text-sm text-ink-muted italic">
+                No customers match these filters.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Health legend -->
+    <div class="text-[11px] text-ink-disabled flex flex-wrap items-center gap-3 px-2">
+      <span class="font-semibold text-ink-muted">Health score:</span>
+      <span class="inline-flex items-center gap-1">
+        <span class="h-2 w-2 rounded-full" style="background-color: #10B981"></span>
+        80–100 healthy
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <span class="h-2 w-2 rounded-full" style="background-color: rgb(var(--color-brand))"></span>
+        60–79 ok
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <span class="h-2 w-2 rounded-full" style="background-color: #F59E0B"></span>
+        40–59 watch
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <span class="h-2 w-2 rounded-full" style="background-color: #EF4444"></span>
+        &lt; 40 critical
+      </span>
+      <span class="opacity-70 ml-2">Composite of usage frequency · payment status · open tickets · NPS</span>
+    </div>
+  </div>
+</template>

@@ -1089,6 +1089,10 @@ interface PipelineData {
 }
 const pipeline = ref<PipelineData | null>(null)
 const pipelineLoading = ref(false)
+// Per-user action state — keyed on user_id to disable just that card's
+// buttons while an action is in flight.
+const pipelineActionInFlight = ref<string | null>(null)
+const pipelineActionResult = ref<string | null>(null)
 const pipelineError = ref<string | null>(null)
 // When set, opens UfdUserDetailDrawer for that recipient.
 const pipelineDetailEmail = ref<string | null>(null)
@@ -1106,6 +1110,73 @@ async function loadPipeline() {
     return
   }
   pipeline.value = data ?? null
+}
+
+// ── Per-user pipeline actions ───────────────────────────────────────────
+// "Send Now" — fire the runner targeted at this one user with force=true,
+// which bypasses day_offset gating so they get the next eligible step
+// immediately. Useful for testing or for nudging specific stuck users.
+async function pipelineSendNow(user: PipelineUser) {
+  if (!confirm(`Send the next eligible email to ${user.email} right now?`)) return
+  pipelineActionInFlight.value = user.user_id
+  pipelineActionResult.value = null
+  try {
+    const { data, error: err } = await supabase.functions.invoke<{
+      summary?: Record<string, { sent: number; skipped: number; failed: number }>
+    }>('email-sequence-runner', {
+      body: { user_id: user.user_id, force: true },
+    })
+    if (err) {
+      pipelineActionResult.value = await surfaceFnError(err, 'Send failed')
+      return
+    }
+    const total = data?.summary
+      ? Object.values(data.summary).reduce((s, x) => s + (x.sent ?? 0), 0)
+      : 0
+    pipelineActionResult.value =
+      total > 0
+        ? `Sent next step to ${user.email}.`
+        : `Nothing to send for ${user.email} (all eligible steps already sent or paid).`
+    await loadPipeline()
+  } catch (e: any) {
+    pipelineActionResult.value = e?.message ?? 'Unknown error'
+  } finally {
+    pipelineActionInFlight.value = null
+  }
+}
+
+// "Skip" — write an opt-out row for this recipient + sequence, so the
+// runner skips them on every future tick. Idempotent (unique index on
+// client_id + recipient + sequence_id).
+async function pipelineSkipUser(user: PipelineUser) {
+  if (!pipeline.value) return
+  if (
+    !confirm(
+      `Stop sending lifecycle emails to ${user.email}? You can undo this by deleting the row from email_recipient_opt_outs.`,
+    )
+  ) return
+  pipelineActionInFlight.value = user.user_id
+  pipelineActionResult.value = null
+  try {
+    const { error: err } = await supabase
+      .from('email_recipient_opt_outs')
+      .insert({
+        client_id: props.client.id,
+        recipient: user.email.toLowerCase(),
+        sequence_id: pipeline.value.sequence.id,
+        reason: 'manually skipped from pipeline view',
+      })
+    if (err) {
+      pipelineActionResult.value = err.message
+      return
+    }
+    pipelineActionResult.value = `${user.email} opted out of this sequence.`
+    await loadPipeline()
+  } catch (e: any) {
+    pipelineActionResult.value = e?.message ?? 'Unknown error'
+  } finally {
+    pipelineActionInFlight.value = null
+  }
 }
 
 async function loadSendLog() {
@@ -2339,6 +2410,12 @@ onMounted(() => {
         </div>
 
         <p v-if="pipelineError" class="text-xs text-danger">{{ pipelineError }}</p>
+        <p
+          v-if="pipelineActionResult"
+          class="text-xs text-success rounded bg-success/5 border border-success/30 px-2 py-1.5"
+        >
+          {{ pipelineActionResult }}
+        </p>
 
         <div
           v-if="!pipeline && pipelineLoading"
@@ -2361,16 +2438,41 @@ onMounted(() => {
                 <span class="text-[11px] font-mono text-ink">{{ pipeline.totals.not_started }}</span>
               </div>
               <div class="space-y-1.5 max-h-72 overflow-y-auto">
-                <button
+                <div
                   v-for="u in pipeline.buckets.not_started.slice(0, 25)"
                   :key="u.user_id"
-                  type="button"
-                  class="w-full rounded bg-surface px-2 py-1.5 text-left text-xs hover:bg-surface-elevated transition-colors"
-                  @click="pipelineDetailEmail = u.email"
+                  class="group relative rounded bg-surface px-2 py-1.5 text-xs hover:bg-surface-elevated transition-colors"
                 >
-                  <div class="truncate font-medium text-ink">{{ u.full_name || u.email }}</div>
-                  <div v-if="u.full_name" class="truncate text-[10px] text-ink-muted">{{ u.email }}</div>
-                </button>
+                  <button
+                    type="button"
+                    class="w-full text-left"
+                    :disabled="pipelineActionInFlight === u.user_id"
+                    @click="pipelineDetailEmail = u.email"
+                  >
+                    <div class="truncate font-medium text-ink pr-12">{{ u.full_name || u.email }}</div>
+                    <div v-if="u.full_name" class="truncate text-[10px] text-ink-muted">{{ u.email }}</div>
+                  </button>
+                  <div class="absolute top-1 right-1 hidden group-hover:flex items-center gap-1">
+                    <button
+                      type="button"
+                      title="Send first step now"
+                      class="rounded bg-brand/10 hover:bg-brand/20 text-brand text-[10px] font-semibold px-1.5 py-0.5"
+                      :disabled="pipelineActionInFlight === u.user_id"
+                      @click.stop="pipelineSendNow(u)"
+                    >
+                      ▶ Send
+                    </button>
+                    <button
+                      type="button"
+                      title="Skip this user from sequence"
+                      class="rounded bg-danger/10 hover:bg-danger/20 text-danger text-[10px] font-semibold px-1.5 py-0.5"
+                      :disabled="pipelineActionInFlight === u.user_id"
+                      @click.stop="pipelineSkipUser(u)"
+                    >
+                      ⊘
+                    </button>
+                  </div>
+                </div>
                 <div
                   v-if="pipeline.buckets.not_started.length > 25"
                   class="px-1 text-[10px] text-ink-muted"
@@ -2400,24 +2502,52 @@ onMounted(() => {
                 <div class="truncate font-mono text-[11px] text-ink">{{ step.template_key }}</div>
               </div>
               <div class="space-y-1.5 max-h-72 overflow-y-auto">
-                <button
+                <div
                   v-for="u in pipeline.buckets.by_step_id[step.id]?.slice(0, 25) ?? []"
                   :key="u.user_id"
-                  type="button"
-                  class="w-full rounded bg-surface px-2 py-1.5 text-left text-xs hover:bg-surface-elevated transition-colors"
-                  @click="pipelineDetailEmail = u.email"
+                  class="group relative rounded bg-surface px-2 py-1.5 text-xs hover:bg-surface-elevated transition-colors"
                 >
-                  <div class="truncate font-medium text-ink">{{ u.full_name || u.email }}</div>
-                  <div
-                    v-if="u.days_at_step !== null"
-                    :class="[
-                      'mt-0.5 text-[10px]',
-                      u.days_at_step >= 7 ? 'text-warn font-semibold' : 'text-ink-muted',
-                    ]"
+                  <button
+                    type="button"
+                    class="w-full text-left"
+                    :disabled="pipelineActionInFlight === u.user_id"
+                    @click="pipelineDetailEmail = u.email"
                   >
-                    {{ u.days_at_step === 0 ? 'today' : `${u.days_at_step}d here` }}
+                    <div class="truncate font-medium text-ink pr-12">{{ u.full_name || u.email }}</div>
+                    <div
+                      v-if="u.days_at_step !== null"
+                      :class="[
+                        'mt-0.5 text-[10px]',
+                        u.days_at_step >= 7 ? 'text-warn font-semibold' : 'text-ink-muted',
+                      ]"
+                    >
+                      {{ u.days_at_step === 0 ? 'today' : `${u.days_at_step}d here` }}
+                    </div>
+                  </button>
+                  <!-- Per-user action buttons — shown on hover -->
+                  <div
+                    class="absolute top-1 right-1 hidden group-hover:flex items-center gap-1"
+                  >
+                    <button
+                      type="button"
+                      title="Send next step now"
+                      class="rounded bg-brand/10 hover:bg-brand/20 text-brand text-[10px] font-semibold px-1.5 py-0.5"
+                      :disabled="pipelineActionInFlight === u.user_id"
+                      @click.stop="pipelineSendNow(u)"
+                    >
+                      ▶ Send
+                    </button>
+                    <button
+                      type="button"
+                      title="Skip this user from sequence"
+                      class="rounded bg-danger/10 hover:bg-danger/20 text-danger text-[10px] font-semibold px-1.5 py-0.5"
+                      :disabled="pipelineActionInFlight === u.user_id"
+                      @click.stop="pipelineSkipUser(u)"
+                    >
+                      ⊘
+                    </button>
                   </div>
-                </button>
+                </div>
                 <div
                   v-if="(pipeline.buckets.by_step_id[step.id]?.length ?? 0) > 25"
                   class="px-1 text-[10px] text-ink-muted"

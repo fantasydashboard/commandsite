@@ -14,6 +14,7 @@ import { Line } from 'vue-chartjs'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import UfdUserDetailDrawer from '@/components/UfdUserDetailDrawer.vue'
+import { brandAreaDataset, lineDefaults } from '@/lib/chartTheme'
 import type { Client } from '@/types/database'
 
 Chart.register(
@@ -161,44 +162,11 @@ const chartData = computed(() => {
   if (!data.value) return null
   return {
     labels: data.value.timeseries.map((d) => d.date.slice(5)),
-    datasets: [
-      {
-        label: 'Signups',
-        data: data.value.timeseries.map((d) => d.signups),
-        borderColor: '#7C3AED',
-        backgroundColor: 'rgba(124,58,237,0.12)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2,
-      },
-    ],
+    datasets: [brandAreaDataset('Signups', data.value.timeseries.map((d) => d.signups))],
   }
 })
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      callbacks: {
-        title: (items: { label: string }[]) => items[0]?.label ?? '',
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: { display: false },
-      ticks: { autoSkip: true, maxTicksLimit: 10, font: { size: 10 } },
-    },
-    y: {
-      beginAtZero: true,
-      ticks: { precision: 0, font: { size: 10 } },
-      grid: { color: 'rgba(0,0,0,0.06)' },
-    },
-  },
-}
+const chartOptions = lineDefaults()
 
 function fmtPct(p: number | null): string {
   if (p === null) return ''

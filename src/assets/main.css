@@ -2,18 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme variables ────────────────────────────────────────────────────
+   Default palette — UFD-aligned (deep navy chrome, forest green primary,
+   warm amber accent). Per-client themes override these on the dashboard
+   wrapper element via inline style — see DashboardLayout.
+*/
+:root {
+  /*
+    Theme variables stored as rgb component triples (no rgb() wrapper)
+    so Tailwind's <alpha-value> syntax can compose them — e.g.
+    `bg-brand/20` becomes rgb(var(--color-brand) / 0.2).
+    Anywhere in raw CSS, wrap with rgb(): `color: rgb(var(--color-brand));`
+
+    Default palette is sourced from CommandSite's brandmark — dark navy
+    blue + bright sky blue. Per-client themes override at runtime via
+    DashboardLayout (see Phase B).
+  */
+
+  /* Brand primary — deep blue from the CommandSite icon gradient */
+  --color-brand:        30 64 175;     /* #1e40af  blue-800 */
+  --color-brand-hover:  29 78 216;     /* #1d4ed8  blue-700 */
+  --color-brand-active: 30 58 138;     /* #1e3a8a  blue-900 */
+
+  /* Accent — bright sky from the "Site" wordmark */
+  --color-accent:       14 165 233;    /* #0ea5e9  sky-500 */
+  --color-accent-hover: 2 132 199;     /* #0284c7  sky-600 */
+
+  /* Header / dark chrome + its on-color text */
+  --color-chrome:       10 22 40;      /* #0a1628 — the icon's deep field */
+  --color-chrome-ink:   241 245 249;   /* #f1f5f9 */
+
+  /* Page-background wash — soft brand-tinted glow at the top.
+     Stored as a full rgba value because it includes alpha by default
+     (consumed by raw CSS, not Tailwind alpha modifiers). */
+  --color-page-wash:    rgb(186 230 253 / 0.45);  /* sky-200 @ 45% */
+}
+
 @layer base {
   html, body, #app {
-    @apply bg-surface text-ink;
+    @apply text-ink;
     min-height: 100%;
   }
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background:
+      radial-gradient(
+        ellipse 110% 55% at 50% -10%,
+        var(--color-page-wash) 0%,
+        rgb(244 247 251 / 0) 70%
+      ),
+      linear-gradient(180deg, #f8fafc 0%, #f4f7fb 100%);
+    background-attachment: fixed;
   }
   ::selection {
-    background: #2454B7;
-    color: #EEF2F7;
+    background: var(--color-brand);
+    color: var(--color-chrome-ink);
   }
   h1, h2, h3 {
     letter-spacing: -0.01em;
@@ -28,11 +72,14 @@
   .btn-primary {
     @apply btn bg-brand text-ink-inverse shadow-sm hover:bg-brand-hover active:bg-brand-active focus:ring-brand;
   }
+  .btn-accent {
+    @apply btn bg-accent text-ink-inverse shadow-sm hover:bg-accent-hover focus:ring-accent;
+  }
   .btn-secondary {
     @apply btn bg-surface-raised text-ink border border-divider hover:border-divider-bright hover:bg-surface-elevated focus:ring-brand;
   }
   .btn-dark {
-    @apply btn bg-surface-dark text-ink-inverse shadow-sm hover:bg-surface-dark/90 focus:ring-surface-dark;
+    @apply btn bg-chrome text-chrome-ink shadow-sm hover:bg-chrome/90 focus:ring-chrome;
   }
   .btn-ghost {
     @apply btn bg-transparent text-ink-muted hover:text-ink hover:bg-surface-elevated focus:ring-brand;
@@ -41,23 +88,23 @@
     @apply btn bg-danger text-ink-inverse shadow-sm hover:opacity-90 focus:ring-danger;
   }
 
-  /* Inputs — taller, softer radius, gentler focus. */
+  /* Inputs */
   .input {
     @apply w-full rounded-lg border border-divider bg-surface-raised px-4 py-2.5 text-sm text-ink placeholder:text-ink-disabled transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
   }
 
-  /* Cards — borderless, bigger radius, soft hover lift. */
+  /* Cards — borderless, larger radius, soft hover lift. */
   .card {
-    @apply rounded-xl bg-surface-raised p-6 shadow-card transition-shadow;
+    @apply rounded-card bg-surface-raised p-6 shadow-card transition-shadow;
   }
   .card-flat {
-    @apply rounded-xl bg-surface-raised p-6;
+    @apply rounded-card bg-surface-raised p-6;
   }
   .card-interactive {
     @apply card hover:shadow-raised;
   }
 
-  /* Chips — rounded, subtle. */
+  /* Chips */
   .chip {
     @apply inline-flex items-center gap-2 rounded-full border border-divider bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors;
   }
@@ -70,8 +117,22 @@
     @apply text-brand hover:text-brand-hover transition-colors font-medium;
   }
 
-  /* Section heading helper — consistent eyebrow style above content sections. */
+  /* Section heading helper. */
   .eyebrow {
     @apply text-xs uppercase tracking-wider font-semibold text-ink-muted;
+  }
+
+  /* KPI numerics — opinionated typography for big-stat cards. */
+  .kpi-value {
+    @apply text-3xl font-bold text-ink leading-none tracking-tight;
+  }
+  .kpi-label {
+    @apply text-[11px] uppercase tracking-wider font-semibold text-ink-muted;
+  }
+  .kpi-delta-up {
+    @apply inline-flex items-center gap-1 text-success text-sm font-semibold;
+  }
+  .kpi-delta-down {
+    @apply inline-flex items-center gap-1 text-danger text-sm font-semibold;
   }
 }

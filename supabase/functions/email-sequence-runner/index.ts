@@ -64,7 +64,17 @@ Deno.serve(async (req: Request) => {
   )
 
   // Parse optional body for POST manual triggers.
-  let body: { sequence_id?: string; dry_run?: boolean } = {}
+  //   sequence_id   — limit to one sequence
+  //   dry_run       — count what would be sent, don't actually send
+  //   user_id       — limit to one UFD profile (the "Send Now for X" button)
+  //   force         — when paired with user_id, ignore day_offset gating so
+  //                   the next eligible step fires immediately
+  let body: {
+    sequence_id?: string
+    dry_run?: boolean
+    user_id?: string
+    force?: boolean
+  } = {}
   if (req.method === 'POST') {
     try {
       body = await req.json()
@@ -110,14 +120,19 @@ Deno.serve(async (req: Request) => {
   const ufd = createClient(ufdUrl, ufdKey, { auth: { persistSession: false } })
 
   // Precompute UFD profiles + paid IDs once per run (saves N queries).
+  // When body.user_id is set, restrict the profiles query to just that user
+  // — used by the "Send Now" button on the Email Pipeline view.
+  let profilesQ = ufd
+    .from('profiles')
+    .select('id, email, trial_started_at, trial_expires_at, created_at')
+  if (body.user_id) profilesQ = profilesQ.eq('id', body.user_id)
+
   const [
     { data: profiles },
     { data: indivSubs },
     { data: leaguePasses },
   ] = await Promise.all([
-    ufd
-      .from('profiles')
-      .select('id, email, trial_started_at, trial_expires_at, created_at'),
+    profilesQ,
     ufd
       .from('individual_subscriptions')
       .select('user_id, status, current_period_end'),
@@ -189,6 +204,18 @@ Deno.serve(async (req: Request) => {
         .map((l) => `${l.recipient}::${l.step_id}`),
     )
 
+    // Opt-outs — recipients who've been manually skipped from this
+    // sequence (or all sequences if sequence_id is null). The pipeline
+    // view's "Skip" button writes here.
+    const { data: optOuts } = await admin
+      .from('email_recipient_opt_outs')
+      .select('recipient, sequence_id')
+      .eq('client_id', seq.client_id)
+      .or(`sequence_id.eq.${seq.id},sequence_id.is.null`)
+    const optedOutEmails = new Set(
+      (optOuts ?? []).map((o) => o.recipient.toLowerCase()),
+    )
+
     // Cohort-specific filter: V1 supports 'trial' (active trial users).
     // Other cohorts can be added without changing the runner shell.
     // deno-lint-ignore no-explicit-any
@@ -203,17 +230,32 @@ Deno.serve(async (req: Request) => {
 
     for (const profile of candidates) {
       if (!profile.email || !profile.trial_started_at) continue
+      // Honor opt-outs — pipeline view's "Skip" button writes here.
+      if (optedOutEmails.has(profile.email.toLowerCase())) {
+        sentForSeq.skipped++
+        continue
+      }
       const trialStart = new Date(profile.trial_started_at)
       const trialExpiry = profile.trial_expires_at ? new Date(profile.trial_expires_at) : null
       const trialDay = Math.floor((nowMs - trialStart.getTime()) / 86400000)
 
       // Process at most one step per profile per run (matches UFD's
       // existing behavior — backlog catches up over multiple runs).
+      // When body.force is set (manual "Send Now"), we skip the day_offset
+      // and use_expiry_date gates and just fire whichever step they're
+      // actually due for next.
       let pickedStep: typeof steps[number] | null = null
       for (const step of steps) {
         const key = `${profile.email.toLowerCase()}::${step.id}`
         if (sentSet.has(key)) continue
         if (step.skip_if_paid && paidIds.has(profile.id)) continue
+
+        if (body.force) {
+          // Manual fire: take the first not-yet-sent step that isn't
+          // skip_if_paid-blocked. Ignore timing.
+          pickedStep = step
+          break
+        }
 
         // Timing rules:
         //   use_expiry_date=false → fire when trial_day reaches day_offset

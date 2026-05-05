@@ -14,6 +14,8 @@ import { Line } from 'vue-chartjs'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import UfdUserDetailDrawer from '@/components/UfdUserDetailDrawer.vue'
+import Kpi from '@/components/Kpi.vue'
+import { brandAreaDataset, lineDefaults } from '@/lib/chartTheme'
 import type { Client } from '@/types/database'
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler)
@@ -95,37 +97,11 @@ const chartData = computed(() => {
   if (!data.value) return null
   return {
     labels: data.value.timeseries.map((d) => d.date.slice(5)),
-    datasets: [
-      {
-        label: 'Shares',
-        data: data.value.timeseries.map((d) => d.shares),
-        borderColor: '#22c55e',
-        backgroundColor: 'rgba(34,197,94,0.15)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2,
-      },
-    ],
+    datasets: [brandAreaDataset('Shares', data.value.timeseries.map((d) => d.shares))],
   }
 })
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      callbacks: {
-        title: (items: { label: string }[]) => items[0]?.label ?? '',
-      },
-    },
-  },
-  scales: {
-    x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 10, font: { size: 10 } } },
-    y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.06)' } },
-  },
-}
+const chartOptions = lineDefaults()
 
 function fmtPct(p: number | null | undefined): string {
   if (p === null || p === undefined) return '—'
@@ -176,25 +152,26 @@ const conversionLift = computed<number | null>(() => {
     </div>
 
     <template v-if="data">
-      <!-- KPI strip -->
+      <!-- KPI strip — brand / accent / brand alternation -->
       <div class="grid gap-3 sm:grid-cols-3">
-        <div class="card">
-          <div class="text-xs text-ink-muted uppercase tracking-wide">Total shares</div>
-          <div class="text-2xl font-semibold text-ink mt-1">{{ data.total_shares }}</div>
-          <div class="text-[11px] text-ink-disabled mt-1">across all users in window</div>
-        </div>
-        <div class="card">
-          <div class="text-xs text-ink-muted uppercase tracking-wide">Unique sharers</div>
-          <div class="text-2xl font-semibold text-ink mt-1">{{ data.unique_sharers }}</div>
-          <div class="text-[11px] text-ink-disabled mt-1">distinct users who clicked Share at least once</div>
-        </div>
-        <div class="card">
-          <div class="text-xs text-ink-muted uppercase tracking-wide">Avg shares / sharer</div>
-          <div class="text-2xl font-semibold text-ink mt-1">
-            {{ data.unique_sharers > 0 ? (data.total_shares / data.unique_sharers).toFixed(1) : '—' }}
-          </div>
-          <div class="text-[11px] text-ink-disabled mt-1">heavy users vs one-and-done</div>
-        </div>
+        <Kpi
+          label="Total shares"
+          :value="data.total_shares"
+          hint="Across all users in window"
+          accent="brand"
+        />
+        <Kpi
+          label="Unique sharers"
+          :value="data.unique_sharers"
+          hint="Distinct users who clicked Share"
+          accent="accent"
+        />
+        <Kpi
+          label="Avg shares / sharer"
+          :value="data.unique_sharers > 0 ? (data.total_shares / data.unique_sharers).toFixed(1) : '—'"
+          hint="Heavy users vs one-and-done"
+          accent="brand"
+        />
       </div>
 
       <!-- Conversion correlation — headline -->
@@ -207,24 +184,36 @@ const conversionLift = computed<number | null>(() => {
           </p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
+          <!-- High sharers (3+) — show empty state if no data -->
           <div class="rounded border border-success/30 bg-success/5 p-3">
             <div class="text-[11px] font-semibold uppercase tracking-wide text-success">{{ data.conversion.threshold }}+ shares</div>
-            <div class="mt-1 flex items-baseline gap-2">
-              <span class="text-2xl font-semibold text-ink">{{ fmtPct(data.conversion.high_paid_rate) }}</span>
-              <span class="text-xs text-ink-muted">paid</span>
-            </div>
-            <div class="text-[11px] text-ink-disabled mt-1">
-              {{ data.conversion.high_sharers.paid }} of {{ data.conversion.high_sharers.total }} users
+            <template v-if="data.conversion.high_sharers.total > 0">
+              <div class="mt-1 flex items-baseline gap-2">
+                <span class="text-2xl font-semibold text-ink">{{ fmtPct(data.conversion.high_paid_rate) }}</span>
+                <span class="text-xs text-ink-muted">paid</span>
+              </div>
+              <div class="text-[11px] text-ink-disabled mt-1">
+                {{ data.conversion.high_sharers.paid }} of {{ data.conversion.high_sharers.total }} users
+              </div>
+            </template>
+            <div v-else class="mt-1 text-xs text-ink-disabled italic">
+              No trial users have hit {{ data.conversion.threshold }}+ shares yet — comparison fills in once they do.
             </div>
           </div>
+          <!-- Low sharers (0..N-1) -->
           <div class="rounded border border-divider bg-surface-elevated/40 p-3">
             <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">0–{{ data.conversion.threshold - 1 }} shares</div>
-            <div class="mt-1 flex items-baseline gap-2">
-              <span class="text-2xl font-semibold text-ink">{{ fmtPct(data.conversion.low_paid_rate) }}</span>
-              <span class="text-xs text-ink-muted">paid</span>
-            </div>
-            <div class="text-[11px] text-ink-disabled mt-1">
-              {{ data.conversion.low_sharers.paid }} of {{ data.conversion.low_sharers.total }} users
+            <template v-if="data.conversion.low_sharers.total > 0">
+              <div class="mt-1 flex items-baseline gap-2">
+                <span class="text-2xl font-semibold text-ink">{{ fmtPct(data.conversion.low_paid_rate) }}</span>
+                <span class="text-xs text-ink-muted">paid</span>
+              </div>
+              <div class="text-[11px] text-ink-disabled mt-1">
+                {{ data.conversion.low_sharers.paid }} of {{ data.conversion.low_sharers.total }} users
+              </div>
+            </template>
+            <div v-else class="mt-1 text-xs text-ink-disabled italic">
+              No trial users in this bucket yet.
             </div>
           </div>
         </div>

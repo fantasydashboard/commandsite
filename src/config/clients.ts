@@ -15,13 +15,82 @@ export type ClientModuleConfig = {
 export type ClientSlug = string
 
 export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
+  'apex-heating-and-air': [
+    { key: 'apex-overview' },
+    { key: 'apex-metrics' },
+    { key: 'apex-schedule' },
+    { key: 'apex-customers' },
+    { key: 'apex-calls' },
+    { key: 'apex-quotes' },
+    { key: 'apex-reviews' },
+    { key: 'apex-reactivation' },
+    { key: 'apex-email' },
+    { key: 'apex-settings' },
+  ],
+  'commandsite': [
+    // CommandSite-as-a-business — solo-founder mode.
+    // Premature tabs hidden until milestone reached (see comments below).
+    { key: 'commandsite-today' },
+    { key: 'commandsite-leads' },
+    { key: 'commandsite-outreach' },
+    { key: 'commandsite-pipeline' },
+    { key: 'commandsite-customers' },
+    { key: 'commandsite-revenue' },
+    { key: 'commandsite-social' },
+    { key: 'commandsite-settings' },
+    // Hidden until customer #10:
+    // { key: 'commandsite-reputation' },   // NPS sample size + G2/Capterra reviews matter at scale
+    // Hidden until customer #15:
+    // { key: 'commandsite-usage' },        // cross-sell flags need a real customer base
+    // Hidden until customer #20:
+    // { key: 'commandsite-support' },      // ticket dashboard adds value when ticket volume > Slack DMs
+  ],
+  'commandsite-demo': [
+    // Frozen reference snapshot — same modules as `commandsite` were on
+    // the day we started wiring real data. Compare against the live
+    // version anytime to spot regressions or design drift.
+    { key: 'commandsite-today' },
+    { key: 'commandsite-outreach' },
+    { key: 'commandsite-pipeline' },
+    { key: 'commandsite-customers' },
+    { key: 'commandsite-revenue' },
+    { key: 'commandsite-social' },
+    { key: 'commandsite-settings' },
+  ],
+  'cornerstone-church': [
+    // Cornerstone Community Church — metrics-first build.
+    // Visitors / Care / Sundays / Comms folded into Engagement so the
+    // pastor isn't asked to approve drafts or assign volunteers from
+    // this dashboard. ChMS / Planning Center handle workflow.
+    { key: 'cornerstone-today' },
+    { key: 'cornerstone-metrics' },
+    { key: 'cornerstone-people' },
+    { key: 'cornerstone-engagement' },
+    { key: 'cornerstone-groups' },
+    { key: 'cornerstone-giving' },
+    { key: 'cornerstone-settings' },
+  ],
+  'ufd-redesign': [
+    // Ultimate Fantasy Dashboard — fresh design exploration following the
+    // Apex/CommandSite pattern. Full mock buildout across 6 phases.
+    { key: 'ufd-redesign-today' },
+    { key: 'ufd-redesign-funnel' },
+    { key: 'ufd-redesign-revenue' },
+    { key: 'ufd-redesign-cards' },
+    { key: 'ufd-redesign-email' },
+    { key: 'ufd-redesign-social' },
+    { key: 'ufd-redesign-users' },
+    { key: 'ufd-redesign-settings' },
+  ],
   'ultimate-fantasy-dashboard': [
     { key: 'ufd-metrics' },
     { key: 'ufd-revenue' },
     { key: 'ufd-funnel' },
     { key: 'ufd-shares' },
     { key: 'ufd-email' },
+    { key: 'ufd-email-pipeline' },
     { key: 'ai-social' },
+    { key: 'social-planner' },
     { key: 'social-distribution' },
     { key: 'social-listening' },
   ],

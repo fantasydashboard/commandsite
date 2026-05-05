@@ -29,6 +29,162 @@ interface Mention {
   updated_at: string
 }
 
+// ── Listening config (auto-monitor) ─────────────────────────────────────
+interface ListeningConfig {
+  id: string
+  client_id: string
+  platform: 'reddit'
+  subreddits: string[]
+  keywords: string[]
+  enabled: boolean
+  last_polled_at: string | null
+  last_poll_error: string | null
+}
+const config = ref<ListeningConfig | null>(null)
+const configLoading = ref(false)
+const configSaving = ref(false)
+const configError = ref<string | null>(null)
+const newSubreddit = ref('')
+const newKeyword = ref('')
+const pollingNow = ref(false)
+const pollResult = ref<string | null>(null)
+
+async function loadConfig() {
+  configLoading.value = true
+  const { data, error } = await supabase
+    .from('listening_config')
+    .select('*')
+    .eq('client_id', props.client.id)
+    .eq('platform', 'reddit')
+    .maybeSingle()
+  configLoading.value = false
+  if (error) {
+    configError.value = error.message
+    return
+  }
+  config.value = (data as ListeningConfig | null)
+}
+
+async function saveConfig(updates: Partial<ListeningConfig>) {
+  configSaving.value = true
+  configError.value = null
+  try {
+    if (config.value) {
+      const { data, error } = await supabase
+        .from('listening_config')
+        .update(updates)
+        .eq('id', config.value.id)
+        .select()
+        .single()
+      if (error) throw error
+      config.value = data as ListeningConfig
+    } else {
+      // First-time create
+      const payload = {
+        client_id: props.client.id,
+        platform: 'reddit',
+        subreddits: [],
+        keywords: [],
+        enabled: false,
+        ...updates,
+      }
+      const { data, error } = await supabase
+        .from('listening_config')
+        .insert(payload)
+        .select()
+        .single()
+      if (error) throw error
+      config.value = data as ListeningConfig
+    }
+  } catch (e: any) {
+    configError.value = e?.message ?? 'Save failed.'
+  } finally {
+    configSaving.value = false
+  }
+}
+
+function addSubreddit() {
+  const v = newSubreddit.value.trim().replace(/^r\//, '')
+  if (!v) return
+  const current = config.value?.subreddits ?? []
+  if (current.includes(v)) {
+    newSubreddit.value = ''
+    return
+  }
+  saveConfig({ subreddits: [...current, v] })
+  newSubreddit.value = ''
+}
+
+function removeSubreddit(s: string) {
+  const current = config.value?.subreddits ?? []
+  saveConfig({ subreddits: current.filter((x) => x !== s) })
+}
+
+function addKeyword() {
+  const v = newKeyword.value.trim()
+  if (!v) return
+  const current = config.value?.keywords ?? []
+  if (current.includes(v)) {
+    newKeyword.value = ''
+    return
+  }
+  saveConfig({ keywords: [...current, v] })
+  newKeyword.value = ''
+}
+
+function removeKeyword(k: string) {
+  const current = config.value?.keywords ?? []
+  saveConfig({ keywords: current.filter((x) => x !== k) })
+}
+
+function toggleEnabled() {
+  saveConfig({ enabled: !(config.value?.enabled ?? false) })
+}
+
+async function pollNow() {
+  pollingNow.value = true
+  pollResult.value = null
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      processed: number
+      summary?: Array<{
+        config_id: string
+        pairs_searched: number
+        matches_seen: number
+        new_inserted: number
+        errors: string[]
+      }>
+      message?: string
+    }>('social-listening-poll', { body: {} })
+    if (error) throw error
+    if (data?.message) {
+      pollResult.value = data.message
+    } else if (data?.summary && data.summary.length > 0) {
+      const s = data.summary[0]
+      pollResult.value = `Searched ${s.pairs_searched} pairs · saw ${s.matches_seen} matches · ${s.new_inserted} new${s.errors.length > 0 ? ` · ${s.errors.length} errors` : ''}`
+    } else {
+      pollResult.value = 'Poll done.'
+    }
+    await loadConfig()
+    await loadMentions()
+  } catch (e: any) {
+    pollResult.value = `Poll failed: ${e?.message ?? 'unknown'}`
+  } finally {
+    pollingNow.value = false
+  }
+}
+
+function fmtAgo(iso: string | null): string {
+  if (!iso) return 'never'
+  const ms = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(ms / 60000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  return `${Math.floor(hr / 24)}d ago`
+}
+
 // ── Composer ────────────────────────────────────────────────────────────
 const editingId = ref<string | null>(null)
 const platform = ref<Platform>('reddit')
@@ -217,8 +373,14 @@ function kindLabel(k: Kind): string {
   return '✨ Opportunity'
 }
 
-watch(() => props.client.id, loadMentions)
-onMounted(loadMentions)
+watch(() => props.client.id, () => {
+  loadMentions()
+  loadConfig()
+})
+onMounted(() => {
+  loadMentions()
+  loadConfig()
+})
 </script>
 
 <template>
@@ -227,11 +389,121 @@ onMounted(loadMentions)
     <div class="card">
       <h2 class="text-lg font-semibold text-ink">Social Listening</h2>
       <p class="text-sm text-ink-muted">
-        Track Reddit + X posts that mention UFD or ask questions UFD answers.
-        Phase 1: paste interesting threads here, draft replies, track follow-through.
-        Phase 2 will auto-monitor and surface matches.
+        Reddit auto-monitor + manual entry. New matches land in the inbox below as
+        <span class="font-mono text-ink">New</span> mentions for you to triage.
       </p>
     </div>
+
+    <!-- Auto-monitor config (Reddit) -->
+    <section class="card space-y-3">
+      <div class="flex items-baseline justify-between gap-2">
+        <div>
+          <span class="eyebrow">Auto-monitor (Reddit)</span>
+          <h3 class="mt-1 text-sm font-semibold text-ink">Search config</h3>
+          <p class="text-xs text-ink-muted">
+            Hourly cron searches each subreddit for each keyword. New posts land in the inbox below.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="btn-ghost text-xs"
+            :disabled="pollingNow || !config?.enabled"
+            @click="pollNow"
+          >
+            {{ pollingNow ? 'Polling…' : 'Poll now' }}
+          </button>
+          <button
+            type="button"
+            :class="config?.enabled ? 'btn-secondary text-xs' : 'btn-primary text-xs'"
+            :disabled="configSaving || ((config?.subreddits?.length ?? 0) === 0) || ((config?.keywords?.length ?? 0) === 0)"
+            @click="toggleEnabled"
+          >
+            {{ configSaving ? 'Saving…' : (config?.enabled ? 'Disable' : 'Enable') }}
+          </button>
+        </div>
+      </div>
+
+      <p v-if="configError" class="text-xs text-danger">{{ configError }}</p>
+      <p v-if="pollResult" class="text-xs text-success">{{ pollResult }}</p>
+
+      <!-- Subreddits -->
+      <div>
+        <label class="text-xs text-ink-muted block mb-1">Subreddits (no r/ prefix)</label>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span
+            v-for="s in (config?.subreddits ?? [])"
+            :key="s"
+            class="inline-flex items-center gap-1 rounded-full bg-[#FF4500]/10 px-2 py-0.5 text-xs text-[#FF4500]"
+          >
+            r/{{ s }}
+            <button
+              type="button"
+              class="hover:text-danger"
+              :disabled="configSaving"
+              @click="removeSubreddit(s)"
+            >×</button>
+          </span>
+          <input
+            v-model="newSubreddit"
+            type="text"
+            placeholder="fantasyfootball"
+            class="rounded-md border border-divider bg-surface px-2 py-1 text-xs text-ink min-w-[150px]"
+            @keydown.enter.prevent="addSubreddit"
+          />
+          <button
+            type="button"
+            class="btn-ghost text-xs"
+            :disabled="!newSubreddit.trim() || configSaving"
+            @click="addSubreddit"
+          >Add</button>
+        </div>
+      </div>
+
+      <!-- Keywords -->
+      <div>
+        <label class="text-xs text-ink-muted block mb-1">Keywords / phrases (each searched in every sub)</label>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span
+            v-for="k in (config?.keywords ?? [])"
+            :key="k"
+            class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary"
+          >
+            {{ k }}
+            <button
+              type="button"
+              class="hover:text-danger"
+              :disabled="configSaving"
+              @click="removeKeyword(k)"
+            >×</button>
+          </span>
+          <input
+            v-model="newKeyword"
+            type="text"
+            placeholder="ultimate fantasy dashboard"
+            class="rounded-md border border-divider bg-surface px-2 py-1 text-xs text-ink min-w-[200px]"
+            @keydown.enter.prevent="addKeyword"
+          />
+          <button
+            type="button"
+            class="btn-ghost text-xs"
+            :disabled="!newKeyword.trim() || configSaving"
+            @click="addKeyword"
+          >Add</button>
+        </div>
+      </div>
+
+      <div class="flex items-baseline justify-between text-[11px] text-ink-disabled border-t border-divider pt-2">
+        <div>
+          <span v-if="config?.enabled" class="text-success">● Active</span>
+          <span v-else class="text-ink-disabled">○ Disabled</span>
+          · last polled {{ fmtAgo(config?.last_polled_at ?? null) }}
+        </div>
+        <div v-if="config?.last_poll_error" class="text-danger truncate max-w-[60%]">
+          last error: {{ config.last_poll_error }}
+        </div>
+      </div>
+    </section>
 
     <!-- Composer -->
     <section class="card space-y-3">

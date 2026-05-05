@@ -205,12 +205,25 @@ Deno.serve(async (req: Request) => {
       full_name: p.full_name ?? null,
     }
 
+    // Funnel stages are CUMULATIVE — a user counts in stage N only if
+    // they met every prior stage's condition. Guarantees monotonic
+    // decrease (no "1150% kept" bugs from independently-counted stages).
+    //
+    // Order of nesting matches the stage order in STAGES:
+    //   signed_up → connected_league → completed_trial_week → paid → renewed
+
     // Snapshot — all-time
     snapshot.signed_up++
-    if (hasLeague) snapshot.connected_league++
-    if (completedTrialWeek) snapshot.completed_trial_week++
-    if (isPaid) snapshot.paid++
-    if (isRenewed) snapshot.renewed++
+    if (hasLeague) {
+      snapshot.connected_league++
+      if (completedTrialWeek) {
+        snapshot.completed_trial_week++
+        if (isPaid) {
+          snapshot.paid++
+          if (isRenewed) snapshot.renewed++
+        }
+      }
+    }
 
     // Cohort — users who signed up in the current window
     if (createdMs >= windowStartMs) {
@@ -219,18 +232,18 @@ Deno.serve(async (req: Request) => {
       if (hasLeague) {
         cohort.connected_league++
         cohortUsers.connected_league.push(userLite)
-      }
-      if (completedTrialWeek) {
-        cohort.completed_trial_week++
-        cohortUsers.completed_trial_week.push(userLite)
-      }
-      if (isPaid) {
-        cohort.paid++
-        cohortUsers.paid.push(userLite)
-      }
-      if (isRenewed) {
-        cohort.renewed++
-        cohortUsers.renewed.push(userLite)
+        if (completedTrialWeek) {
+          cohort.completed_trial_week++
+          cohortUsers.completed_trial_week.push(userLite)
+          if (isPaid) {
+            cohort.paid++
+            cohortUsers.paid.push(userLite)
+            if (isRenewed) {
+              cohort.renewed++
+              cohortUsers.renewed.push(userLite)
+            }
+          }
+        }
       }
 
       // Daily signups (UTC date key) for the current window only
@@ -241,10 +254,16 @@ Deno.serve(async (req: Request) => {
     // Prev cohort — users who signed up in the immediately-preceding window
     if (createdMs >= prevWindowStartMs && createdMs < prevWindowEndMs) {
       prevCohort.signed_up++
-      if (hasLeague) prevCohort.connected_league++
-      if (completedTrialWeek) prevCohort.completed_trial_week++
-      if (isPaid) prevCohort.paid++
-      if (isRenewed) prevCohort.renewed++
+      if (hasLeague) {
+        prevCohort.connected_league++
+        if (completedTrialWeek) {
+          prevCohort.completed_trial_week++
+          if (isPaid) {
+            prevCohort.paid++
+            if (isRenewed) prevCohort.renewed++
+          }
+        }
+      }
     }
   }
 

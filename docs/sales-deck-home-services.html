@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommandSite for Home Services</title>
+<style>
+  :root {
+    --brand: #1e40af;
+    --brand-hover: #1d4ed8;
+    --brand-deep: #1e3a8a;
+    --accent: #0ea5e9;
+    --chrome: #0a1628;
+    --chrome-ink: #f1f5f9;
+    --ink: #0f172a;
+    --ink-muted: #475569;
+    --ink-disabled: #94a3b8;
+    --surface: #ffffff;
+    --surface-soft: #f8fafc;
+    --surface-elev: #f1f5f9;
+    --divider: #e2e8f0;
+    --success: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --purple: #a855f7;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+  /* ── Slide layout ─────────────────────────────────────────── */
+  .slide {
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 56px 88px;
+    overflow: hidden;
+    position: relative;
+    background: var(--surface-soft);
+  }
+  .slide.active { display: flex; }
+  .slide.dark { background: var(--chrome); color: var(--chrome-ink); }
+  .slide.dark .ink-muted { color: rgba(241,245,249,0.65); }
+  .slide.dark .ink { color: var(--chrome-ink); }
+
+  /* Slide-number footer */
+  .slide-num {
+    position: absolute;
+    bottom: 24px;
+    right: 32px;
+    font-size: 11px;
+    color: var(--ink-disabled);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+  }
+  .slide.dark .slide-num { color: rgba(241,245,249,0.4); }
+
+  /* ── Brand mark ───────────────────────────────────────────── */
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .brand-mark .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--brand));
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .brand-mark .name { color: var(--ink); }
+  .slide.dark .brand-mark .name { color: var(--chrome-ink); }
+
+  .corner-brand {
+    position: absolute;
+    top: 32px; left: 56px;
+  }
+
+  /* ── Typography ───────────────────────────────────────────── */
+  h1.title {
+    font-size: 64px;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin: 0 0 24px;
+    color: var(--ink);
+  }
+  h1.hero {
+    font-size: 88px;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    font-weight: 900;
+    margin: 0 0 32px;
+    color: var(--ink);
+  }
+  .slide.dark h1.title, .slide.dark h1.hero { color: var(--chrome-ink); }
+  h2.section {
+    font-size: 48px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    margin: 0 0 20px;
+    color: var(--ink);
+  }
+  .slide.dark h2.section { color: var(--chrome-ink); }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 16px;
+  }
+  .slide.dark .eyebrow { color: var(--accent); }
+  .lede {
+    font-size: 22px;
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-width: 880px;
+    margin: 0 0 32px;
+  }
+  .slide.dark .lede { color: rgba(241,245,249,0.75); }
+  p.body { font-size: 18px; line-height: 1.55; color: var(--ink-muted); margin: 0 0 16px; }
+  .slide.dark p.body { color: rgba(241,245,249,0.7); }
+
+  /* ── Cards / KPIs ─────────────────────────────────────────── */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+    border: 1px solid var(--divider);
+  }
+  .card.success { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); }
+  .card.danger  { border-color: rgba(239,68,68,0.3);  background: rgba(239,68,68,0.05); }
+  .card.brand   { border-color: rgba(30,64,175,0.3);  background: rgba(30,64,175,0.04); }
+
+  .kpi-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-value.success { color: var(--success); }
+  .kpi-value.brand   { color: var(--brand); }
+  .kpi-value.danger  { color: var(--danger); }
+  .kpi-hint { font-size: 12px; color: var(--ink-disabled); margin-top: 4px; }
+
+  /* ── Pill / chips ─────────────────────────────────────────── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .pill.success { background: rgba(16,185,129,0.15); color: var(--success); }
+  .pill.brand   { background: rgba(30,64,175,0.12); color: var(--brand); }
+  .pill.warn    { background: rgba(245,158,11,0.15); color: var(--warn); }
+  .pill.danger  { background: rgba(239,68,68,0.15); color: var(--danger); }
+  .pill.dot::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ── Pillar cards ─────────────────────────────────────────── */
+  .pillar {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 36px;
+    border: 1px solid var(--divider);
+    box-shadow: 0 4px 12px rgba(15,23,42,0.05);
+  }
+  .pillar .pillar-num {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--brand));
+    color: white;
+    font-weight: 800;
+    font-size: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .pillar h3 { margin: 0 0 12px; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .pillar p { font-size: 15px; color: var(--ink-muted); line-height: 1.5; margin: 0 0 16px; }
+  .pillar ul { margin: 0; padding-left: 20px; font-size: 14px; color: var(--ink-muted); line-height: 1.7; }
+
+  /* ── Leak list ────────────────────────────────────────────── */
+  .leak {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 24px;
+    background: var(--surface);
+    border-radius: 12px;
+    border-left: 5px solid var(--danger);
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.05);
+  }
+  .leak-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(239,68,68,0.12);
+    color: var(--danger);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .leak-body { flex: 1; }
+  .leak-title { font-weight: 700; font-size: 17px; color: var(--ink); margin-bottom: 4px; }
+  .leak-detail { font-size: 13px; color: var(--ink-muted); }
+  .leak-amt {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    font-size: 22px;
+    color: var(--danger);
+    white-space: nowrap;
+  }
+
+  /* ── Mock dashboard preview ───────────────────────────────── */
+  .mock-dash {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--divider);
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.08);
+  }
+  .mock-header {
+    background: var(--chrome);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--chrome-ink);
+  }
+  .mock-tab {
+    padding: 5px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    color: rgba(241,245,249,0.65);
+  }
+  .mock-tab.active { background: rgba(241,245,249,0.1); color: var(--chrome-ink); font-weight: 600; }
+  .mock-tab .badge { background: var(--accent); color: white; padding: 1px 6px; border-radius: 99px; font-size: 9px; font-weight: 700; margin-left: 4px; }
+  .mock-tab .badge.danger { background: var(--danger); }
+  .mock-body { padding: 20px; }
+  .mock-pulse {
+    background: var(--brand);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+  .mock-pulse .stat { display: flex; align-items: baseline; gap: 4px; }
+  .mock-pulse .stat .num { font-size: 18px; font-weight: 800; }
+  .mock-pulse .stat .lbl { opacity: 0.85; }
+  .mock-auto {
+    background: rgba(16,185,129,0.05);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .mock-auto-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--divider);
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  .mock-auto-row:first-of-type { margin-top: 12px; }
+  .mock-auto-row .icon { width: 26px; height: 26px; border-radius: 50%; background: rgba(16,185,129,0.1); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .mock-auto-row .name { font-weight: 700; color: var(--ink); flex: 1; }
+  .mock-auto-row .stats { font-size: 10px; color: var(--ink-disabled); font-variant-numeric: tabular-nums; }
+
+  /* ── Compare table ────────────────────────────────────────── */
+  .compare {
+    background: var(--surface);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--divider);
+  }
+  .compare-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    align-items: center;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 15px;
+  }
+  .compare-row:last-child { border-bottom: 0; }
+  .compare-row.head {
+    background: var(--surface-elev);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+  .compare-row .yes { color: var(--success); font-weight: 700; }
+  .compare-row .no  { color: var(--ink-disabled); }
+  .compare-row .partial { color: var(--warn); font-weight: 600; }
+
+  /* ── Pricing tiers ─────────────────────────────────────────── */
+  .tier {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 28px;
+    border: 1px solid var(--divider);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .tier.featured {
+    border: 2px solid var(--brand);
+    box-shadow: 0 12px 32px rgba(30,64,175,0.15);
+    transform: translateY(-12px);
+  }
+  .tier .tier-name { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; color: var(--ink-muted); margin-bottom: 8px; }
+  .tier .tier-price { font-size: 44px; font-weight: 800; line-height: 1; color: var(--ink); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .tier .tier-price small { font-size: 16px; font-weight: 500; color: var(--ink-muted); }
+  .tier .tier-sub { font-size: 13px; color: var(--ink-muted); margin-bottom: 20px; }
+  .tier ul { margin: 0; padding: 0; list-style: none; flex: 1; }
+  .tier ul li {
+    font-size: 14px;
+    color: var(--ink);
+    padding: 8px 0;
+    border-top: 1px solid var(--divider);
+    display: flex;
+    gap: 8px;
+  }
+  .tier ul li::before { content: '✓'; color: var(--success); font-weight: 700; }
+  .tier ul li:first-child { border-top: 0; }
+  .tier .tier-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--brand);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Closing slide ────────────────────────────────────────── */
+  .closing {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+  }
+  .cta {
+    display: inline-block;
+    background: var(--brand);
+    color: white;
+    padding: 16px 36px;
+    border-radius: 99px;
+    font-weight: 700;
+    font-size: 18px;
+    margin-top: 24px;
+  }
+
+  /* ── Nav bar ──────────────────────────────────────────────── */
+  .nav {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    background: rgba(15,23,42,0.85);
+    backdrop-filter: blur(8px);
+    padding: 8px 14px;
+    border-radius: 99px;
+    z-index: 100;
+    align-items: center;
+  }
+  .nav button {
+    background: transparent;
+    border: 0;
+    color: var(--chrome-ink);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .nav button:hover { background: rgba(241,245,249,0.1); }
+  .nav .nav-current { color: rgba(241,245,249,0.7); font-size: 13px; padding: 0 8px; font-variant-numeric: tabular-nums; }
+
+  /* ── Print / PDF export ──────────────────────────────────── */
+  @media print {
+    body { background: white; }
+    .slide { display: flex !important; page-break-after: always; height: 100vh; }
+    .slide:last-child { page-break-after: auto; }
+    .nav { display: none !important; }
+  }
+
+  /* Helper utilities */
+  .row { display: flex; gap: 16px; align-items: center; }
+  .row.between { justify-content: space-between; }
+  .gap-sm { gap: 8px; }
+  .mt-sm { margin-top: 12px; }
+  .mt-md { margin-top: 24px; }
+  .text-success { color: var(--success); }
+  .text-danger  { color: var(--danger); }
+  .text-brand   { color: var(--brand); }
+  .text-muted   { color: var(--ink-muted); }
+  .font-bold    { font-weight: 700; }
+  .font-mono    { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .big-num {
+    font-size: 96px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--brand);
+    font-variant-numeric: tabular-nums;
+  }
+  .big-num small { font-size: 36px; color: var(--ink-muted); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════════ SLIDE 1 · COVER ═════════════════ -->
+<section class="slide dark active">
+  <div class="brand-mark" style="margin-bottom: 64px;">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <h1 class="hero">The dashboard<br>that runs your<br><span style="color: var(--accent);">back-office</span> for you.</h1>
+  <p class="lede" style="font-size: 24px;">
+    Built for HVAC, plumbing, electrical, and other home-services owners who don't have time to be a data-entry clerk for their own business.
+  </p>
+  <div class="row mt-md">
+    <span class="pill brand" style="background: rgba(14,165,233,0.18); color: var(--accent); padding: 6px 14px; font-size: 12px;">For local service companies · 4-25 techs</span>
+  </div>
+  <div class="slide-num">1 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 2 · THE HOOK ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">The painful question</div>
+  <h1 class="title">Someone called your business<br>at <span style="color: var(--brand);">2:47 AM</span> last Tuesday.</h1>
+  <p class="lede" style="font-size: 26px; max-width: 1000px;">
+    They had a flooded basement / a broken AC / a dead furnace. <strong style="color: var(--ink);">They couldn't wait until morning.</strong>
+  </p>
+  <p class="lede" style="font-size: 26px; color: var(--danger); font-weight: 600; max-width: 1000px;">
+    So they called your competitor at 8 AM. You'll never know.
+  </p>
+  <div class="card brand mt-md" style="display: inline-flex; align-items: center; gap: 16px; max-width: 720px; padding: 18px 24px;">
+    <span style="font-size: 28px;">📞</span>
+    <div>
+      <div style="font-weight: 700; color: var(--ink);">The average HVAC shop misses 8-12 calls per week after hours.</div>
+      <div style="font-size: 13px; color: var(--ink-muted);">At ~$400 average ticket × 30% would-have-booked rate, that's <strong style="color: var(--brand);">$2,400 – $3,600 per month</strong> walking out the door.</div>
+    </div>
+  </div>
+  <div class="slide-num">2 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 3 · WHERE THE MONEY LEAKS ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">It's not just the calls</div>
+  <h2 class="section">Five places money leaks every week.</h2>
+  <p class="lede" style="margin-bottom: 28px;">Each of these is a job a small shop owner is supposed to do — and almost never does, because there's no time.</p>
+
+  <div>
+    <div class="leak">
+      <div class="leak-icon">📞</div>
+      <div class="leak-body">
+        <div class="leak-title">Missed after-hours calls</div>
+        <div class="leak-detail">Voicemail doesn't book the job. By morning, they've called someone else.</div>
+      </div>
+      <div class="leak-amt">~$3,000/mo</div>
+    </div>
+    <div class="leak">
+      <div class="leak-icon">💬</div>
+      <div class="leak-body">
+        <div class="leak-title">Quotes that go cold</div>
+        <div class="leak-detail">No follow-up text on day 3 or 7 = 30-50% of quotes never close. Meant to text them. Forgot.</div>
+      </div>
+      <div class="leak-amt">~$2,400/mo</div>
+    </div>
+    <div class="leak">
+      <div class="leak-icon">⭐</div>
+      <div class="leak-body">
+        <div class="leak-title">Reviews you never asked for</div>
+        <div class="leak-detail">Happy customer leaves. No review request. Your Google rating stalls. New leads pick the competitor with 4.8★.</div>
+      </div>
+      <div class="leak-amt">~$1,800/mo</div>
+    </div>
+    <div class="leak">
+      <div class="leak-icon">🔁</div>
+      <div class="leak-body">
+        <div class="leak-title">Customers who stopped calling</div>
+        <div class="leak-detail">Last service was 14 months ago. They went with another shop. You never noticed because there's no list.</div>
+      </div>
+      <div class="leak-amt">~$1,500/mo</div>
+    </div>
+    <div class="leak">
+      <div class="leak-icon">📋</div>
+      <div class="leak-body">
+        <div class="leak-title">Hours your office manager spends on data entry</div>
+        <div class="leak-detail">Logging calls, sending review requests, chasing quotes, re-typing customer info between tools.</div>
+      </div>
+      <div class="leak-amt">~10 hrs/wk</div>
+    </div>
+  </div>
+
+  <div class="slide-num">3 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 4 · THE MATH ═════════════════ -->
+<section class="slide" style="justify-content: center; align-items: center; text-align: center;">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Conservative monthly leak · typical 6-tech shop</div>
+  <div class="big-num" style="margin-bottom: 12px;">
+    <small>~</small>$8,700<small>/mo</small>
+  </div>
+  <p class="lede" style="font-size: 24px; text-align: center; max-width: 720px;">
+    That's revenue you're already supposed to be earning — that's already in motion — that's just slipping through because no one has time to catch it.
+  </p>
+  <div class="row mt-md" style="gap: 32px; justify-content: center;">
+    <div style="text-align: center;">
+      <div class="kpi-value brand">$104k</div>
+      <div class="kpi-hint">/ year leaking out</div>
+    </div>
+    <div style="font-size: 32px; color: var(--ink-disabled);">·</div>
+    <div style="text-align: center;">
+      <div class="kpi-value brand">~520</div>
+      <div class="kpi-hint">admin hours / year</div>
+    </div>
+    <div style="font-size: 32px; color: var(--ink-disabled);">·</div>
+    <div style="text-align: center;">
+      <div class="kpi-value brand">0</div>
+      <div class="kpi-hint">visibility into it today</div>
+    </div>
+  </div>
+  <div class="slide-num">4 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 5 · WHAT WE BUILT (SECTION DIVIDER) ═════════════════ -->
+<section class="slide dark closing">
+  <div class="eyebrow">The fix · in three pieces</div>
+  <h1 class="hero" style="text-align: center; max-width: 1100px;">
+    A system<br>that <span style="color: var(--accent);">runs itself</span><br>in the background.
+  </h1>
+  <p class="lede" style="text-align: center; font-size: 22px; max-width: 800px;">
+    No new software for your team to learn. No data entry. You don't open the dashboard unless something needs your eyes.
+  </p>
+  <div class="slide-num">5 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 6 · PILLAR 1 · AI RECEPTIONIST ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Pillar 1 of 3</div>
+  <h2 class="section">A 24/7 AI receptionist that books jobs while you sleep.</h2>
+  <div class="grid grid-2 mt-md">
+    <div class="pillar">
+      <div class="pillar-num">📞</div>
+      <h3>Answers every call</h3>
+      <p>Inbound + outbound. After-hours. Weekends. Holidays. The phone is never off.</p>
+      <ul>
+        <li>Picks up in under 2 rings</li>
+        <li>Sounds like a person — not a phone tree</li>
+        <li>Speaks the trade fluently (HVAC / plumbing / electrical / etc.)</li>
+        <li>Politely declines spam + marketing calls in 18 seconds</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-num">⚡</div>
+      <h3>Triages, books, dispatches</h3>
+      <p>Decides whether it's an emergency. Books the appointment. Texts your on-call tech with the customer's name + ETA.</p>
+      <ul>
+        <li>Captures address, issue, urgency, payment intent</li>
+        <li>Schedules into your calendar (no human re-entry)</li>
+        <li>Sends customer a confirmation text + tech ETA</li>
+        <li>Logs full transcript so you can listen back if needed</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card success mt-md" style="display: flex; align-items: center; gap: 20px;">
+    <div style="font-size: 32px;">🎯</div>
+    <div>
+      <div style="font-weight: 700; font-size: 17px; color: var(--ink);">Result for a typical 6-tech HVAC shop in month 1:</div>
+      <div style="color: var(--ink-muted); font-size: 14px;">Captures 8-12 after-hours calls/week that would have been missed. ~$2,400–$3,600/mo in recovered revenue. <strong style="color: var(--success);">Pays for the entire subscription in week one.</strong></div>
+    </div>
+  </div>
+  <div class="slide-num">6 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 7 · PILLAR 2 · AUTOMATIONS ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Pillar 2 of 3</div>
+  <h2 class="section">Eight back-office jobs running on autopilot.</h2>
+  <p class="lede">No approval queues. No "review this every Monday." Each automation has a confidence threshold — only the rare exceptions land in your inbox.</p>
+
+  <div class="mock-dash" style="max-width: 1100px;">
+    <div class="mock-body" style="padding: 24px;">
+      <div class="row between" style="margin-bottom: 16px;">
+        <div class="row gap-sm">
+          <span class="eyebrow" style="margin: 0; color: var(--success);">🤖 Running on autopilot</span>
+          <span class="pill success">8 active</span>
+        </div>
+        <div style="font-size: 13px; color: var(--ink-muted);">
+          <span style="color: var(--success); font-weight: 800;">142</span> auto-handled · <span style="color: var(--warn); font-weight: 700;">6</span> needed your eyes · <span style="color: var(--ink); font-weight: 700;">~7h saved</span> (last 7 days)
+        </div>
+      </div>
+      <div class="grid grid-2" style="gap: 10px;">
+        <div class="mock-auto-row"><span class="icon">☎</span><span class="name">AI Receptionist · 24/7</span><span class="stats">86 auto · 3 needed eyes</span></div>
+        <div class="mock-auto-row"><span class="icon">⭐</span><span class="name">AI review replies (≥85%)</span><span class="stats">10 auto · 2 needed eyes</span></div>
+        <div class="mock-auto-row"><span class="icon">🔁</span><span class="name">Dormant outreach</span><span class="stats">6 auto · Mondays at 10 AM</span></div>
+        <div class="mock-auto-row"><span class="icon">💬</span><span class="name">Quote follow-up cadence</span><span class="stats">35 auto · Day 1/3/7/14/30</span></div>
+        <div class="mock-auto-row"><span class="icon">📨</span><span class="name">Post-job review requests</span><span class="stats">41 auto · 24h after job</span></div>
+        <div class="mock-auto-row"><span class="icon">🚐</span><span class="name">Tech-on-the-way ETA texts</span><span class="stats">47 auto · on en-route</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">7 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 8 · PILLAR 3 · MORNING SCREEN ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Pillar 3 of 3</div>
+  <h2 class="section">One screen for your morning coffee.</h2>
+  <p class="lede">Open it once a day. See what the system did, what's already booked, what needs you. Close it. Get back to running jobs.</p>
+
+  <div class="mock-dash" style="max-width: 1100px;">
+    <div class="mock-header">
+      <span class="brand-mark" style="font-size: 14px;"><span class="icon" style="width: 22px; height: 22px; font-size: 11px;">A</span><span style="font-size: 14px;">Apex Heating &amp; Air</span></span>
+      <span class="mock-tab active">Today</span>
+      <span class="mock-tab">Schedule <span class="badge">5</span></span>
+      <span class="mock-tab">Calls <span class="badge">2</span></span>
+      <span class="mock-tab">Quotes</span>
+      <span class="mock-tab">Reviews</span>
+      <span class="mock-tab">Reactivation</span>
+      <span class="mock-tab">CRM <span class="badge danger">3</span></span>
+    </div>
+    <div class="mock-body">
+      <div class="mock-pulse">
+        <span class="pill dot" style="background: rgba(255,255,255,0.15); color: white; padding: 4px 8px;">Today</span>
+        <div class="stat"><span class="num">11</span><span class="lbl">calls</span></div>
+        <div class="stat"><span class="num">3</span><span class="lbl">booked</span></div>
+        <div class="stat"><span class="num">$1,247</span><span class="lbl">captured</span></div>
+        <div style="margin-left: auto; font-size: 11px;">On-call: <strong>Marcus Reyes</strong> <span style="background: rgba(16,185,129,0.3); color: white; padding: 2px 6px; border-radius: 99px; font-size: 9px; margin-left: 4px;">AVAILABLE</span></div>
+      </div>
+      <div class="grid grid-3" style="gap: 12px;">
+        <div class="card" style="padding: 14px;">
+          <div class="kpi-label">Done · in-prog · left today</div>
+          <div class="kpi-value" style="font-size: 26px;"><span style="color: var(--ink-disabled);">3</span> · <span style="color: var(--success);">2</span> · <span style="color: var(--brand);">4</span></div>
+        </div>
+        <div class="card" style="padding: 14px;">
+          <div class="kpi-label">This week recovered</div>
+          <div class="kpi-value brand" style="font-size: 26px;">$14,200</div>
+        </div>
+        <div class="card" style="padding: 14px;">
+          <div class="kpi-label">Need your eyes</div>
+          <div class="kpi-value danger" style="font-size: 26px;">3</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="body" style="margin-top: 20px; max-width: 900px; font-style: italic;">
+    "I used to spend 45 minutes every morning chasing the spreadsheet. Now I look at this for 90 seconds before my first coffee." — Marcus, Apex Heating &amp; Air
+  </p>
+  <div class="slide-num">8 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 9 · APEX CASE STUDY ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Real customer · Orlando, FL</div>
+  <h2 class="section">Apex Heating &amp; Air — 4 techs, 90 days in.</h2>
+
+  <div class="grid grid-2 mt-md" style="align-items: stretch;">
+    <div class="card">
+      <div class="kpi-label" style="margin-bottom: 16px;">Before CommandSite</div>
+      <div style="font-size: 14px; color: var(--ink-muted); line-height: 1.7;">
+        <div style="margin-bottom: 10px;">📞 ~12 missed calls/week after hours</div>
+        <div style="margin-bottom: 10px;">⭐ 4.3★ average rating · ~3 reviews/month</div>
+        <div style="margin-bottom: 10px;">💬 Quote close rate: 28%</div>
+        <div style="margin-bottom: 10px;">🔁 Zero dormant-customer follow-up</div>
+        <div style="margin-bottom: 10px;">⏱ 12-15 admin hours/week</div>
+        <div style="font-weight: 700; color: var(--ink); margin-top: 16px;">Marcus answered the office line nights and weekends himself.</div>
+      </div>
+    </div>
+    <div class="card success">
+      <div class="kpi-label" style="margin-bottom: 16px; color: var(--success);">After 90 days</div>
+      <div style="font-size: 14px; color: var(--ink); line-height: 1.7;">
+        <div style="margin-bottom: 10px;">📞 <strong style="color: var(--success);">247 calls handled</strong> last 30 days · <strong>0 missed</strong></div>
+        <div style="margin-bottom: 10px;">⭐ <strong style="color: var(--success);">4.9★</strong> average · 38 new reviews · auto-replied to all</div>
+        <div style="margin-bottom: 10px;">💬 Quote close rate: <strong style="color: var(--success);">41%</strong> (+13 pts)</div>
+        <div style="margin-bottom: 10px;">🔁 <strong style="color: var(--success);">$1,840 won-back revenue</strong> from dormant outreach</div>
+        <div style="margin-bottom: 10px;">⏱ <strong style="color: var(--success);">~3 admin hours/week</strong> (down from 15)</div>
+        <div style="font-weight: 700; color: var(--ink); margin-top: 16px;">"I forgot what answering the office line sounds like."</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card brand mt-md" style="text-align: center;">
+    <div style="font-size: 14px; color: var(--ink-muted); margin-bottom: 4px;">Net result · month 3</div>
+    <div style="font-size: 32px; font-weight: 800; color: var(--brand);">+$18,473 recovered revenue · 12 hrs/wk back · 4.9★ public rating</div>
+  </div>
+  <div class="slide-num">9 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 10 · WHAT YOU SAVE ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">The promise · in numbers</div>
+  <h2 class="section">What CommandSite saves a typical 6-tech shop.</h2>
+
+  <div class="grid grid-3 mt-md">
+    <div class="card">
+      <div class="kpi-label">Hours saved per week</div>
+      <div class="kpi-value brand">8–12</div>
+      <div class="kpi-hint">across owner + office manager</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Revenue recovered per month</div>
+      <div class="kpi-value success">$5–8k</div>
+      <div class="kpi-hint">missed calls + closed quotes + win-backs</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Payback period</div>
+      <div class="kpi-value brand">&lt; 2 weeks</div>
+      <div class="kpi-hint">at the Pro tier · usually faster</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Average rating uplift</div>
+      <div class="kpi-value success">+0.4★</div>
+      <div class="kpi-hint">in first 60 days from review automation</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Quote close-rate uplift</div>
+      <div class="kpi-value success">+8–15 pts</div>
+      <div class="kpi-hint">just from automated Day-3 + Day-7 follow-ups</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">After-hours capture</div>
+      <div class="kpi-value brand">≈ 100%</div>
+      <div class="kpi-hint">vs ~30% with voicemail today</div>
+    </div>
+  </div>
+  <div class="slide-num">10 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 11 · WHAT YOU ACTUALLY DO ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">The honest part</div>
+  <h2 class="section">Your day, after.</h2>
+  <div class="grid grid-2 mt-md">
+    <div class="card danger">
+      <div class="kpi-label" style="color: var(--danger); margin-bottom: 12px;">What you don't do anymore</div>
+      <ul style="margin: 0; padding-left: 18px; font-size: 15px; color: var(--ink-muted); line-height: 1.9;">
+        <li>Answer the office line at 9 PM</li>
+        <li>Re-type customer info between tools</li>
+        <li>Manually text quote follow-ups</li>
+        <li>Beg customers for Google reviews</li>
+        <li>Stare at a spreadsheet wondering who you haven't seen in a year</li>
+        <li>Cross your fingers that the part-time admin remembers things</li>
+      </ul>
+    </div>
+    <div class="card success">
+      <div class="kpi-label" style="color: var(--success); margin-bottom: 12px;">What you do do</div>
+      <ul style="margin: 0; padding-left: 18px; font-size: 15px; color: var(--ink); line-height: 1.9;">
+        <li><strong>Open the dashboard once a day</strong> with your morning coffee</li>
+        <li>Glance at the "Today" page — 60 seconds</li>
+        <li>Approve the 1-3 things AI flagged for your eyes</li>
+        <li>Run jobs</li>
+        <li>Close the laptop</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slide-num">11 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 12 · PRICING ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Pricing</div>
+  <h2 class="section">Pick the size that fits. Grow into the next.</h2>
+
+  <div class="grid grid-3 mt-md" style="align-items: stretch;">
+    <div class="tier">
+      <div class="tier-name">Starter</div>
+      <div class="tier-price">$199<small>/mo</small></div>
+      <div class="tier-sub">Solo + 1-2 techs · capture the basics</div>
+      <div style="background: rgba(30,64,175,0.05); border: 1px solid rgba(30,64,175,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--brand); margin-bottom: 2px;">Included usage</div>
+        <div style="font-size: 13px; color: var(--ink); line-height: 1.5;">
+          <strong>200 AI receptionist minutes / mo</strong><br>
+          <strong>2 tech seats</strong>
+          <span style="color: var(--ink-disabled); font-size: 11px;">· overage $0.30/min</span>
+        </div>
+      </div>
+      <ul>
+        <li>AI Receptionist · 24/7</li>
+        <li>After-hours routing + spam filter</li>
+        <li>Post-job review request automation</li>
+        <li>Auto-logged customer timeline</li>
+        <li>Customer database + drawer</li>
+      </ul>
+    </div>
+    <div class="tier featured">
+      <div class="tier-badge">Most popular</div>
+      <div class="tier-name">Pro</div>
+      <div class="tier-price">$499<small>/mo</small></div>
+      <div class="tier-sub">3-8 techs · automate the back-office</div>
+      <div style="background: rgba(30,64,175,0.05); border: 1px solid rgba(30,64,175,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--brand); margin-bottom: 2px;">Included usage</div>
+        <div style="font-size: 13px; color: var(--ink); line-height: 1.5;">
+          <strong>800 AI receptionist minutes / mo</strong><br>
+          <strong>8 tech seats</strong>
+          <span style="color: var(--ink-disabled); font-size: 11px;">· overage $0.20/min</span>
+        </div>
+      </div>
+      <ul>
+        <li>Everything in Starter</li>
+        <li>AI review replies (auto-confidence ≥ 85%)</li>
+        <li>Quote follow-up cadence (Day 1 / 3 / 7 / 14 / 30)</li>
+        <li>Dormant customer reactivation</li>
+        <li>Email lifecycle campaigns</li>
+        <li>Lead-source ROI</li>
+      </ul>
+    </div>
+    <div class="tier">
+      <div class="tier-name">Scale</div>
+      <div class="tier-price">$999<small>/mo</small></div>
+      <div class="tier-sub">9-20 techs · multi-location ready</div>
+      <div style="background: rgba(30,64,175,0.05); border: 1px solid rgba(30,64,175,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--brand); margin-bottom: 2px;">Included usage</div>
+        <div style="font-size: 13px; color: var(--ink); line-height: 1.5;">
+          <strong>2,500 AI receptionist minutes / mo</strong><br>
+          <strong>20 tech seats</strong>
+          <span style="color: var(--ink-disabled); font-size: 11px;">· overage $0.15/min</span>
+        </div>
+      </div>
+      <ul>
+        <li>Everything in Pro</li>
+        <li>Multi-location dashboard</li>
+        <li>Tech mobile app · field status updates</li>
+        <li>SMS broadcast campaigns</li>
+        <li>API access + webhooks</li>
+        <li>Priority support · 4-hr SLA</li>
+        <li>Quarterly business review</li>
+      </ul>
+    </div>
+  </div>
+  <p class="body" style="text-align: center; margin-top: 24px; max-width: 900px; margin-left: auto; margin-right: auto;">
+    <strong style="color: var(--brand);">Annual billing: 2 months free.</strong> No setup fee. No contracts. 30-day money-back guarantee. We earn the renewal every month.
+  </p>
+  <p class="body" style="text-align: center; font-size: 13px; color: var(--ink-disabled); margin-top: 6px;">
+    A typical 3-min call uses 3 minutes of your monthly bucket. Your dashboard alerts you when you hit 80% of cap.
+  </p>
+  <div class="slide-num">12 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 13 · SETUP ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Setup</div>
+  <h2 class="section">Live in 2 weeks. We do most of it.</h2>
+
+  <div class="mt-md" style="max-width: 1000px;">
+    <div class="card mt-sm" style="display: flex; align-items: center; gap: 20px;">
+      <div style="font-size: 26px; font-weight: 800; color: var(--brand); width: 80px; text-align: center;">Day 1</div>
+      <div>
+        <div style="font-weight: 700; color: var(--ink);">30-min kickoff call.</div>
+        <div style="color: var(--ink-muted); font-size: 14px;">We learn your business: trade, service area, hours, on-call rotation, common job types, voice + tone.</div>
+      </div>
+    </div>
+    <div class="card mt-sm" style="display: flex; align-items: center; gap: 20px;">
+      <div style="font-size: 26px; font-weight: 800; color: var(--brand); width: 80px; text-align: center;">Day 2-5</div>
+      <div>
+        <div style="font-weight: 700; color: var(--ink);">We wire it all up.</div>
+        <div style="color: var(--ink-muted); font-size: 14px;">Twilio number set up, AI receptionist trained on your business, review automation connected to Google + Facebook, customer history imported (if you want).</div>
+      </div>
+    </div>
+    <div class="card mt-sm" style="display: flex; align-items: center; gap: 20px;">
+      <div style="font-size: 26px; font-weight: 800; color: var(--brand); width: 80px; text-align: center;">Day 6</div>
+      <div>
+        <div style="font-weight: 700; color: var(--ink);">30-min walkthrough call.</div>
+        <div style="color: var(--ink-muted); font-size: 14px;">We show you the dashboard. You confirm the AI sounds right + the after-hours flow is what you want. We tune anything that's off.</div>
+      </div>
+    </div>
+    <div class="card mt-sm success" style="display: flex; align-items: center; gap: 20px;">
+      <div style="font-size: 26px; font-weight: 800; color: var(--success); width: 80px; text-align: center;">Day 7</div>
+      <div>
+        <div style="font-weight: 700; color: var(--ink);">Switch on.</div>
+        <div style="color: var(--ink-muted); font-size: 14px;">Your number is live. The AI starts answering. By Friday you'll have your first after-hours capture in the dashboard.</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="body" style="margin-top: 24px; max-width: 800px;">
+    Total of your time involved: <strong style="color: var(--brand);">~90 minutes across two calls.</strong> Everything else we handle.
+  </p>
+  <div class="slide-num">13 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 14 · WHY US VS THE ALTERNATIVES ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">If you're already paying for software</div>
+  <h2 class="section">Where CommandSite sits.</h2>
+
+  <div class="compare mt-md">
+    <div class="compare-row head">
+      <div></div>
+      <div>What it does</div>
+      <div>What it doesn't</div>
+    </div>
+    <div class="compare-row">
+      <div><strong>Jobber / Housecall Pro</strong><div style="font-size: 12px; color: var(--ink-muted);">Field-service management</div></div>
+      <div class="yes">Schedules + invoices + dispatches</div>
+      <div class="no">Nobody answers the phone</div>
+    </div>
+    <div class="compare-row">
+      <div><strong>Podium / Birdeye</strong><div style="font-size: 12px; color: var(--ink-muted);">Reviews + messaging</div></div>
+      <div class="yes">Drives review requests + replies</div>
+      <div class="no">Doesn't answer calls or close quotes</div>
+    </div>
+    <div class="compare-row">
+      <div><strong>Just an answering service</strong><div style="font-size: 12px; color: var(--ink-muted);">Real humans, hourly rate</div></div>
+      <div class="partial">Picks up the phone</div>
+      <div class="no">Slow, expensive, doesn't book</div>
+    </div>
+    <div class="compare-row" style="background: rgba(30,64,175,0.04);">
+      <div><strong style="color: var(--brand);">CommandSite</strong><div style="font-size: 12px; color: var(--ink-muted);">Front-of-house automation</div></div>
+      <div class="yes">All of the above + 24/7 AI receptionist</div>
+      <div class="partial">Plays nicely with Jobber/Housecall (we sit in front)</div>
+    </div>
+  </div>
+
+  <p class="body" style="margin-top: 24px; max-width: 1000px;">
+    <strong style="color: var(--ink);">We don't replace your scheduling tool.</strong> If you love Jobber, keep Jobber. CommandSite is the front-of-house — the calls, the follow-ups, the reviews, the reactivation — that those tools were never designed to handle.
+  </p>
+  <div class="slide-num">14 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 15 · CLOSE ═════════════════ -->
+<section class="slide dark closing">
+  <div class="brand-mark" style="margin-bottom: 32px;">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <h1 class="hero" style="text-align: center;">
+    30 minutes. Free.<br>
+    <span style="color: var(--accent);">No deck. Just the dashboard.</span>
+  </h1>
+  <p class="lede" style="text-align: center; font-size: 22px; max-width: 800px;">
+    We'll log into a dashboard for a real customer who looks like you. You'll see your own missed-call estimate. Decide from there.
+  </p>
+  <a href="#" class="cta">Book a 30-min walkthrough →</a>
+  <div style="margin-top: 32px; font-size: 14px; opacity: 0.6;">
+    josh@getinthelimelight.com · commandsite.com
+  </div>
+  <div class="slide-num">15 / 15</div>
+</section>
+
+<!-- ═════════════════ NAV ═════════════════ -->
+<div class="nav">
+  <button onclick="prev()">‹</button>
+  <span class="nav-current"><span id="cur">1</span> / 15</span>
+  <button onclick="next()">›</button>
+  <button onclick="window.print()" title="Save as PDF" style="font-size: 12px;">PDF</button>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'))
+  let i = 0
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n))
+    slides.forEach((s, idx) => s.classList.toggle('active', idx === i))
+    document.getElementById('cur').textContent = i + 1
+  }
+  function next() { show(i + 1) }
+  function prev() { show(i - 1) }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') { next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp'   || e.key === 'PageUp')                    { prev(); e.preventDefault(); }
+    if (e.key === 'Home') { show(0); e.preventDefault(); }
+    if (e.key === 'End')  { show(slides.length - 1); e.preventDefault(); }
+  })
+  // Click anywhere on the right half = next, left half = prev (for non-keyboard presenting)
+  document.body.addEventListener('click', (e) => {
+    if (e.target.closest('.nav') || e.target.closest('a')) return
+    const x = e.clientX
+    if (x > window.innerWidth / 2) next()
+    else prev()
+  })
+</script>
+
+</body>
+</html>
