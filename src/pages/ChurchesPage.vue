@@ -74,7 +74,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; grace: string }
 const compare: CompareRow[] = [
-  { dimension: 'Yearly cost',           hire: '$25-45K + benefits',          grace: '$2-10K, all-in' },
+  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'As low as $199/month' },
   { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7 — answers calls Sunday morning, Wednesday night, anytime' },
   { dimension: 'Visitor follow-up',     hire: 'When she has time',           grace: 'Every first-timer within 2 hours, every time' },
   { dimension: 'Dormant member alerts', hire: 'Catches the obvious ones',    grace: 'Notices everyone who drifts past 60 days' },

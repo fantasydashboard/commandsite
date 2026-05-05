@@ -75,7 +75,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; ada: string }
 const compare: CompareRow[] = [
-  { dimension: 'Yearly cost',         hire: '$30-50K/year + benefits', ada: '$6-18K/year, all-in' },
+  { dimension: 'Cost',                hire: '$30-50K/year + benefits', ada: 'As low as $499/month' },
   { dimension: 'Hours worked',        hire: 'Office hours, M-F',        ada: '24/7, including weekends' },
   { dimension: 'Time off',            hire: 'PTO, sick days, holidays', ada: 'Never out' },
   { dimension: 'Quote follow-up',     hire: 'When she remembers',       ada: 'Every quote, every time, on schedule' },
