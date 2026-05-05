@@ -124,7 +124,7 @@ const faqs: Faq[] = [
 <template>
   <div class="min-h-screen bg-surface text-ink antialiased">
     <!-- ── Header ────────────────────────────────────────────────────── -->
-    <header class="sticky top-0 z-30 border-b border-divider bg-surface-dark/95 backdrop-blur">
+    <header class="sticky top-0 z-30 border-b border-divider bg-chrome/95 backdrop-blur">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-8">
         <RouterLink to="/" class="flex items-center" aria-label="CommandSite home">
           <BrandLogo surface="dark" :height="32" />
@@ -359,7 +359,7 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Final CTA ─────────────────────────────────────────────────── -->
-    <section class="bg-surface-dark text-ink-inverse py-16 sm:py-24">
+    <section class="bg-chrome text-ink-inverse py-16 sm:py-24">
       <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
         <h2 class="text-2xl sm:text-3xl font-semibold mb-4">
           Ready to see what Grace would look like for your church?
