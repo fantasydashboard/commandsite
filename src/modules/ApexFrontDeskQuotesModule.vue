@@ -13,6 +13,7 @@ defineProps<{ client: Client; config: Record<string, unknown> }>()
 const cstats = computed(() => callStats())
 const recentCalls = computed(() => calls.slice(0, 8))
 const followupCounts = computed(() => quoteFollowupCounts())
+const followupMax = computed(() => Math.max(1, ...followupCounts.value.map((d) => d.sent)))
 
 const quoteStats = computed(() => {
   const all = quotes
@@ -142,16 +143,19 @@ function stageClass(s: string): string {
 
       <!-- Mini follow-up sends bar -->
       <div class="mb-4">
-        <div class="kpi-label mb-2">Follow-ups sent (last 7 days)</div>
-        <div class="flex items-end gap-1 h-12">
+        <div class="flex items-baseline justify-between mb-2">
+          <div class="kpi-label">Follow-ups sent (last 7 days)</div>
+          <div class="text-[10px] text-ink-disabled">total: {{ followupCounts.reduce((s, d) => s + d.sent, 0) }}</div>
+        </div>
+        <div class="flex items-end gap-1 h-16 overflow-hidden">
           <div
             v-for="(d, i) in followupCounts"
             :key="i"
-            class="flex-1 bg-brand/30 rounded-t-sm relative"
-            :style="{ height: Math.max(4, (d.sent / 12) * 100) + '%' }"
+            class="flex-1 bg-brand/30 rounded-t-sm relative min-w-0"
+            :style="{ height: Math.max(8, (d.sent / followupMax) * 100) + '%' }"
             :title="`${d.day}: ${d.sent} sent`"
           >
-            <span class="absolute -top-5 left-0 right-0 text-center text-[10px] text-ink-disabled tabular-nums">{{ d.sent }}</span>
+            <span class="absolute -top-4 left-0 right-0 text-center text-[10px] text-ink-disabled tabular-nums">{{ d.sent }}</span>
           </div>
         </div>
         <div class="mt-1 flex gap-1">
