@@ -73,58 +73,15 @@ const modules: Module[] = [
   },
 ]
 
-interface Tier {
-  name: string
-  firstMonth: number
-  monthly: number
-  blurb: string
-  features: string[]
-  highlight: boolean
-}
-const tiers: Tier[] = [
-  {
-    name: 'Starter',
-    firstMonth: 1499,
-    monthly: 499,
-    blurb: 'For small teams getting Ada started.',
-    features: [
-      'Ada at the front desk (up to 250 calls/mo)',
-      'Ada\'s daily report dashboard',
-      'Ask-Ada chat',
-      'Email + SMS support',
-      'Live in 14 days',
-    ],
-    highlight: false,
-  },
-  {
-    name: 'Full',
-    firstMonth: 1999,
-    monthly: 799,
-    blurb: 'Everything Ada can do for you.',
-    features: [
-      'Everything in Starter',
-      'Ada chases your quotes',
-      'Ada asks for the review',
-      'Ada wakes up old customers',
-      'Up to 500 calls/mo',
-      'Priority support',
-    ],
-    highlight: true,
-  },
-  {
-    name: 'Growth',
-    firstMonth: 2999,
-    monthly: 1499,
-    blurb: 'For service businesses scaling past $2M revenue.',
-    features: [
-      'Everything in Full',
-      'Ad management & campaign tracking',
-      'Monthly strategy call with Josh',
-      'Up to 1,500 calls/mo',
-      'Dedicated account contact',
-    ],
-    highlight: false,
-  },
+interface CompareRow { dimension: string; hire: string; ada: string }
+const compare: CompareRow[] = [
+  { dimension: 'Yearly cost',         hire: '$30-50K/year + benefits', ada: '$6-18K/year, all-in' },
+  { dimension: 'Hours worked',        hire: 'Office hours, M-F',        ada: '24/7, including weekends' },
+  { dimension: 'Time off',            hire: 'PTO, sick days, holidays', ada: 'Never out' },
+  { dimension: 'Quote follow-up',     hire: 'When she remembers',       ada: 'Every quote, every time, on schedule' },
+  { dimension: 'Review collection',   hire: 'Manual ask if not forgotten', ada: 'Automated 2 hrs after every job' },
+  { dimension: 'Hire-to-productive',  hire: '6-12 weeks (interview + train)', ada: '14 days, fully trained on your business' },
+  { dimension: 'Scales with calls',   hire: 'Hire another person',      ada: 'Same flat monthly fee' },
 ]
 
 interface Faq { q: string; a: string }
@@ -163,9 +120,6 @@ const faqs: Faq[] = [
   },
 ]
 
-function fmtMoney(n: number): string {
-  return '$' + n.toLocaleString()
-}
 </script>
 
 <template>
@@ -317,55 +271,58 @@ function fmtMoney(n: number): string {
       </div>
     </section>
 
-    <!-- ── Pricing ───────────────────────────────────────────────────── -->
-    <section id="pricing" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
+    <!-- ── Hire Ada vs. Hire Someone ─────────────────────────────────── -->
+    <section id="compare" class="mx-auto max-w-5xl px-4 sm:px-8 py-16 sm:py-24">
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
-        Simple pricing. Custom build. Cancel anytime after month 1.
+        Hire Ada vs. hire another person.
       </h2>
       <p class="text-base text-ink-muted max-w-2xl mb-10">
-        First month covers the custom build of your AI employee. Every month after, just keep her running.
+        The honest math on what an AI employee actually does for your business — compared to bringing on another part-time CSR or office admin.
       </p>
 
-      <div class="grid gap-5 lg:grid-cols-3">
-        <article
-          v-for="t in tiers"
-          :key="t.name"
-          class="rounded-card border bg-surface-raised p-6 flex flex-col relative"
-          :class="t.highlight ? 'border-brand shadow-raised' : 'border-divider shadow-card'"
+      <div class="rounded-card border border-divider bg-surface-raised overflow-hidden">
+        <!-- Header row -->
+        <div class="grid grid-cols-3 bg-surface-elevated text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+          <div class="px-4 py-3">&nbsp;</div>
+          <div class="px-4 py-3 border-l border-divider">Hire a part-time CSR</div>
+          <div class="px-4 py-3 border-l border-divider bg-brand/5 text-brand">Hire Ada</div>
+        </div>
+        <!-- Rows -->
+        <div
+          v-for="(row, i) in compare"
+          :key="i"
+          class="grid grid-cols-3 text-sm border-t border-divider"
         >
-          <div
-            v-if="t.highlight"
-            class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand text-ink-inverse text-[10px] font-bold uppercase tracking-wider px-3 py-1"
-          >Most popular</div>
-          <h3 class="text-xl font-semibold text-ink">{{ t.name }}</h3>
-          <p class="text-sm text-ink-muted mt-1 mb-4">{{ t.blurb }}</p>
-          <div class="flex items-baseline gap-1 mb-1">
-            <span class="text-3xl font-bold text-ink tabular-nums">{{ fmtMoney(t.firstMonth) }}</span>
-            <span class="text-sm text-ink-muted">first month</span>
-          </div>
-          <div class="flex items-baseline gap-1 mb-5">
-            <span class="text-lg font-semibold text-ink tabular-nums">then {{ fmtMoney(t.monthly) }}</span>
-            <span class="text-sm text-ink-muted">/month</span>
-          </div>
-          <ul class="space-y-2 mb-6 flex-1">
-            <li
-              v-for="(f, i) in t.features"
-              :key="i"
-              class="text-sm text-ink leading-snug flex items-start gap-2"
-            >
-              <span class="text-brand font-bold flex-shrink-0">✓</span>
-              <span>{{ f }}</span>
-            </li>
-          </ul>
-          <a :href="CTA_URL" class="block text-center rounded-full px-4 py-2.5 text-sm font-semibold transition-colors"
-             :class="t.highlight ? 'bg-brand text-ink-inverse hover:bg-brand-hover' : 'bg-surface-elevated text-ink hover:bg-surface-elevated/80 border border-divider'"
-          >Book the discovery call</a>
-        </article>
+          <div class="px-4 py-3 font-semibold text-ink">{{ row.dimension }}</div>
+          <div class="px-4 py-3 border-l border-divider text-ink-muted">{{ row.hire }}</div>
+          <div class="px-4 py-3 border-l border-divider bg-brand/5 text-ink font-medium">{{ row.ada }}</div>
+        </div>
       </div>
 
-      <p class="mt-8 text-sm text-ink-muted italic max-w-2xl">
-        For comparison: a part-time CSR runs $30-50K/year + benefits. Ada runs $5,988-$17,988/year and never takes PTO.
+      <p class="mt-6 text-sm text-ink-muted italic max-w-2xl">
+        Ada doesn't replace your existing team. She handles the back-office work nobody has time for, so your team can focus on the jobs that pay the bills.
       </p>
+    </section>
+
+    <!-- ── Pricing (gated) ───────────────────────────────────────────── -->
+    <section id="pricing" class="bg-canvas py-16 sm:py-24">
+      <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
+        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
+          Simple pricing. Custom build. Cancel anytime after month 1.
+        </h2>
+        <p class="text-base text-ink-muted leading-relaxed mb-3">
+          Pricing's built around your business — your call volume, your services, your setup needs. Every shop is different, so we quote you on your discovery call instead of a one-size-fits-all sticker.
+        </p>
+        <p class="text-base text-ink leading-relaxed mb-8">
+          For most service businesses, that's <strong>between $499 and $1,499/month</strong> after a one-time first-month build. Way less than another hire. No long-term contract.
+        </p>
+        <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
+          Get your exact pricing in a 30-min walkthrough →
+        </a>
+        <p class="mt-4 text-xs text-ink-disabled italic">
+          Half the conversations end with "let me think about it" — no pressure, no hard sell.
+        </p>
+      </div>
     </section>
 
     <!-- ── Founder note ──────────────────────────────────────────────── -->

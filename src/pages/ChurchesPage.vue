@@ -72,66 +72,15 @@ const modules: Module[] = [
   },
 ]
 
-interface Tier {
-  name: string
-  size: string
-  firstMonth: number
-  monthly: number
-  annual: number
-  blurb: string
-  features: string[]
-  highlight: boolean
-}
-const tiers: Tier[] = [
-  {
-    name: 'Small Church',
-    size: 'Under 250 attenders',
-    firstMonth: 1999,
-    monthly: 199,
-    annual: 1990,
-    blurb: 'For churches getting Grace started.',
-    features: [
-      'Grace at the front desk',
-      'Grace welcomes every first-timer',
-      'Grace\'s weekly report',
-      'Ask-Grace chat',
-      'Email + SMS support',
-      'Live in 14 days',
-    ],
-    highlight: false,
-  },
-  {
-    name: 'Mid Church',
-    size: '250-1,000 attenders',
-    firstMonth: 2999,
-    monthly: 399,
-    annual: 3990,
-    blurb: 'Everything Grace can do for your team.',
-    features: [
-      'Everything in Small',
-      'Grace captures the stories',
-      'Grace notices when someone drifts',
-      'Grace trained in your pastor\'s specific voice',
-      'Priority support',
-    ],
-    highlight: true,
-  },
-  {
-    name: 'Large Church',
-    size: '1,000+ attenders',
-    firstMonth: 4999,
-    monthly: 799,
-    annual: 7990,
-    blurb: 'For multi-campus and large operations.',
-    features: [
-      'Everything in Mid',
-      'Multi-campus support',
-      'Custom integrations',
-      'Quarterly strategy call with Josh',
-      'Dedicated account contact',
-    ],
-    highlight: false,
-  },
+interface CompareRow { dimension: string; hire: string; grace: string }
+const compare: CompareRow[] = [
+  { dimension: 'Yearly cost',           hire: '$25-45K + benefits',          grace: '$2-10K, all-in' },
+  { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7 — answers calls Sunday morning, Wednesday night, anytime' },
+  { dimension: 'Visitor follow-up',     hire: 'When she has time',           grace: 'Every first-timer within 2 hours, every time' },
+  { dimension: 'Dormant member alerts', hire: 'Catches the obvious ones',    grace: 'Notices everyone who drifts past 60 days' },
+  { dimension: 'Story / testimony collection', hire: 'Rarely happens',       grace: 'Asks after every milestone, drafts share-ready quotes' },
+  { dimension: 'Hire-to-productive',    hire: '6-12 weeks (interview + train)', grace: '14 days, fully trained on your church' },
+  { dimension: 'Scales with attendance', hire: 'Hire another part-time admin', grace: 'Same flat monthly fee' },
 ]
 
 interface Faq { q: string; a: string }
@@ -170,9 +119,6 @@ const faqs: Faq[] = [
   },
 ]
 
-function fmtMoney(n: number): string {
-  return '$' + n.toLocaleString()
-}
 </script>
 
 <template>
@@ -308,54 +254,57 @@ function fmtMoney(n: number): string {
       </div>
     </section>
 
-    <!-- ── Pricing ───────────────────────────────────────────────────── -->
-    <section id="pricing" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
+    <!-- ── Hire Grace vs. Hire Another Admin ─────────────────────────── -->
+    <section id="compare" class="mx-auto max-w-5xl px-4 sm:px-8 py-16 sm:py-24">
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
-        Simple pricing. Custom build. Annual or monthly.
+        Hire Grace vs. hire another church admin.
       </h2>
       <p class="text-base text-ink-muted max-w-2xl mb-10">
-        First month covers the custom build. Annual pricing saves about two months — most churches choose annual once their finance team approves the year's spend.
+        Most small-to-mid churches can't afford a full-time church administrator — and even when they can, the admin's bandwidth is finite. Here's the honest comparison.
       </p>
 
-      <div class="grid gap-5 lg:grid-cols-3">
-        <article
-          v-for="t in tiers"
-          :key="t.name"
-          class="rounded-card border bg-surface-raised p-6 flex flex-col relative"
-          :class="t.highlight ? 'border-brand shadow-raised' : 'border-divider shadow-card'"
+      <div class="rounded-card border border-divider bg-surface-raised overflow-hidden">
+        <!-- Header row -->
+        <div class="grid grid-cols-3 bg-surface-elevated text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+          <div class="px-4 py-3">&nbsp;</div>
+          <div class="px-4 py-3 border-l border-divider">Hire a part-time admin</div>
+          <div class="px-4 py-3 border-l border-divider bg-brand/5 text-brand">Hire Grace</div>
+        </div>
+        <!-- Rows -->
+        <div
+          v-for="(row, i) in compare"
+          :key="i"
+          class="grid grid-cols-3 text-sm border-t border-divider"
         >
-          <div
-            v-if="t.highlight"
-            class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand text-ink-inverse text-[10px] font-bold uppercase tracking-wider px-3 py-1"
-          >Most popular</div>
-          <h3 class="text-xl font-semibold text-ink">{{ t.name }}</h3>
-          <p class="text-sm text-brand font-semibold mt-1">{{ t.size }}</p>
-          <p class="text-sm text-ink-muted mt-2 mb-4">{{ t.blurb }}</p>
-          <div class="flex items-baseline gap-1 mb-1">
-            <span class="text-3xl font-bold text-ink tabular-nums">{{ fmtMoney(t.firstMonth) }}</span>
-            <span class="text-sm text-ink-muted">first month</span>
-          </div>
-          <div class="flex items-baseline gap-1 mb-2">
-            <span class="text-lg font-semibold text-ink tabular-nums">then {{ fmtMoney(t.monthly) }}</span>
-            <span class="text-sm text-ink-muted">/month</span>
-          </div>
-          <p class="text-xs text-ink-disabled italic mb-5">
-            Or annual: {{ fmtMoney(t.firstMonth) }} + {{ fmtMoney(t.annual) }}/year
-          </p>
-          <ul class="space-y-2 mb-6 flex-1">
-            <li
-              v-for="(f, i) in t.features"
-              :key="i"
-              class="text-sm text-ink leading-snug flex items-start gap-2"
-            >
-              <span class="text-brand font-bold flex-shrink-0">✓</span>
-              <span>{{ f }}</span>
-            </li>
-          </ul>
-          <a :href="CTA_URL" class="block text-center rounded-full px-4 py-2.5 text-sm font-semibold transition-colors"
-             :class="t.highlight ? 'bg-brand text-ink-inverse hover:bg-brand-hover' : 'bg-surface-elevated text-ink hover:bg-surface-elevated/80 border border-divider'"
-          >Book a walkthrough</a>
-        </article>
+          <div class="px-4 py-3 font-semibold text-ink">{{ row.dimension }}</div>
+          <div class="px-4 py-3 border-l border-divider text-ink-muted">{{ row.hire }}</div>
+          <div class="px-4 py-3 border-l border-divider bg-brand/5 text-ink font-medium">{{ row.grace }}</div>
+        </div>
+      </div>
+
+      <p class="mt-6 text-sm text-ink-muted italic max-w-2xl">
+        Grace doesn't replace your team or your volunteers. She handles the systems work that's not happening because no one has time, so your staff can focus on the people in front of them.
+      </p>
+    </section>
+
+    <!-- ── Pricing (gated) ───────────────────────────────────────────── -->
+    <section id="pricing" class="bg-canvas py-16 sm:py-24">
+      <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
+        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
+          Simple pricing. Custom build. Annual or monthly.
+        </h2>
+        <p class="text-base text-ink-muted leading-relaxed mb-3">
+          Pricing's built around your church — your size, your existing tools, your team. Every congregation is different, so we quote you on your discovery call instead of a generic sticker price.
+        </p>
+        <p class="text-base text-ink leading-relaxed mb-8">
+          For most small-to-mid churches, that's <strong>between $199 and $799/month</strong> after a one-time first-month build. Annual pricing available for churches who prefer to budget once a year.
+        </p>
+        <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
+          Get your exact pricing in a 30-min walkthrough →
+        </a>
+        <p class="mt-4 text-xs text-ink-disabled italic">
+          We can also send a one-page summary you can share with your elder board or finance committee.
+        </p>
       </div>
     </section>
 
