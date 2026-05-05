@@ -129,15 +129,18 @@ const faqs: Faq[] = [
         <RouterLink to="/" class="flex items-center" aria-label="CommandSite home">
           <BrandLogo surface="dark" :height="32" />
         </RouterLink>
-        <nav class="flex items-center gap-3 sm:gap-5">
+        <nav class="flex items-center gap-4 sm:gap-6">
           <RouterLink
             to="/"
-            class="text-sm text-ink-inverse/70 hover:text-ink-inverse transition-colors hidden sm:inline"
+            class="text-sm font-medium text-ink-inverse/80 hover:text-ink-inverse transition-colors hidden sm:inline"
           >For service businesses</RouterLink>
           <RouterLink
             to="/login"
-            class="text-sm text-ink-inverse/70 hover:text-ink-inverse transition-colors"
-          >Sign in</RouterLink>
+            class="text-sm font-medium text-ink-inverse hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
+          >
+            <span class="hidden sm:inline">Sign in</span>
+            <span class="sm:hidden">Login</span>
+          </RouterLink>
           <a :href="CTA_URL" class="btn-primary !py-2 !px-4 !text-xs sm:!text-sm">
             {{ CTA_LABEL }}
           </a>
