@@ -11,11 +11,18 @@
  * predictable. Swap to Anthropic API for real customer deployments.
  */
 import { computed, ref, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import type { Client } from '@/types/database'
 import { todayPulse } from '@/lib/clients/cornerstone/today'
 import { careStats } from '@/lib/clients/cornerstone/care'
 import { givingStats } from '@/lib/clients/cornerstone/giving'
 import { peopleStats } from '@/lib/clients/cornerstone/people'
+import { graceRoles, ROLE_STATUS_META } from '@/lib/clients/cornerstone/roles'
+
+const router = useRouter()
+function goToRole(tab: string) {
+  router.push({ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab } })
+}
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -212,6 +219,40 @@ const automationFeed: AutoEvent[] = [
             :disabled="!customQuestion.trim()"
           >Send</button>
         </form>
+      </div>
+    </section>
+
+    <!-- ── Grace's Roles status grid ───────────────────────────────── -->
+    <section class="card">
+      <div class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow">Grace's roles</span>
+          <span class="text-xs text-ink-muted">— what she handles for Cornerstone</span>
+        </div>
+        <span class="text-[11px] text-ink-disabled">{{ graceRoles.filter((r) => r.status === 'active').length }} of {{ graceRoles.length }} active · click any to drill in</span>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <button
+          v-for="role in graceRoles"
+          :key="role.key"
+          type="button"
+          class="flex flex-col items-start gap-2 rounded-card border border-divider bg-surface-raised p-3 text-left hover:border-brand hover:shadow-card transition-all"
+          @click="goToRole(role.tab)"
+        >
+          <div class="flex items-center gap-2 w-full">
+            <span class="text-2xl flex-shrink-0">{{ role.icon }}</span>
+            <span
+              class="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+              :class="ROLE_STATUS_META[role.status].pillClass"
+            >{{ ROLE_STATUS_META[role.status].label }}</span>
+          </div>
+          <div class="text-sm font-semibold text-ink leading-snug">{{ role.name }}</div>
+          <div class="text-[11px] text-ink-muted leading-snug">{{ role.description }}</div>
+          <div class="mt-auto pt-2 border-t border-divider/60 text-[10px] text-ink-disabled font-medium w-full">
+            {{ role.this_week_snippet }}
+          </div>
+        </button>
       </div>
     </section>
 
