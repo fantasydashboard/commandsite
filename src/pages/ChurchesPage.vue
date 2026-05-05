@@ -15,7 +15,7 @@
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
 
-const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-walkthrough'
+const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough'
 const CTA_LABEL = 'Book a no-pressure walkthrough'
 
 interface Pain { headline: string; detail: string }
