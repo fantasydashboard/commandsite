@@ -35,7 +35,6 @@ import { calls, callStats } from '@/lib/clients/apex/calls'
 import { quoteFollowupCounts } from '@/lib/clients/apex/quotes'
 import { recentActivity } from '@/lib/clients/apex/recentActivity'
 import { revenueRecovered } from '@/lib/clients/apex/revenueRecovered'
-import { automations, automationStats, KIND_META as AUTO_KIND_META, STATUS_META as AUTO_STATUS_META } from '@/lib/clients/apex/automations'
 
 import { brandAreaDataset, lineDefaults, barDefaults, chartColors } from '@/lib/chartTheme'
 
@@ -271,12 +270,6 @@ const thisWeek = [
   { metric: '3 dormant customers reactivated', detail: '$820 revenue from won-back' },
 ] as const
 
-// ── Automations panel — what's running on autopilot right now ────────
-// Replaces the old static "Setup Summary." Pulls live counts from the
-// automation registry so the owner sees the system is working without
-// having to look at every tab.
-const autoStats = computed(() => automationStats())
-const liveAutomations = computed(() => automations.filter((a) => a.status !== 'paused').slice(0, 6))
 </script>
 
 <template>
@@ -576,52 +569,10 @@ const liveAutomations = computed(() => automations.filter((a) => a.status !== 'p
       </section>
     </div>
 
-    <!-- Running on autopilot — replaces the static Setup Summary -->
-    <section class="card border border-success/20 bg-success/[0.03]">
-      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <span class="eyebrow text-success">🤖 Running on autopilot</span>
-          <span class="chip !py-0.5 !px-2 !text-[10px] !bg-success/15 !text-success">{{ autoStats.active_count }} active</span>
-        </div>
-        <div class="text-xs text-ink-muted">
-          <span class="text-success font-bold tabular-nums">{{ autoStats.auto_handled_7d }}</span> auto-handled · <span class="text-warn font-semibold tabular-nums">{{ autoStats.needed_review_7d }}</span> needed your eyes · <span class="text-ink font-semibold tabular-nums">~{{ autoStats.hours_saved_7d }}h</span> saved (last 7 days)
-        </div>
-      </div>
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <article
-          v-for="a in liveAutomations"
-          :key="a.id"
-          class="rounded-md border border-divider bg-surface p-3"
-        >
-          <div class="flex items-start gap-2.5">
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-success/10 text-base flex-shrink-0">
-              {{ AUTO_KIND_META[a.kind].icon }}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-baseline gap-x-2">
-                <span class="text-sm font-semibold text-ink truncate">{{ a.name }}</span>
-                <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
-                  :class="a.status === 'active' ? 'bg-success/15 text-success' : 'bg-warn/15 text-warn'"
-                >{{ AUTO_STATUS_META[a.status].label }}</span>
-              </div>
-              <p class="text-[11px] text-ink-muted leading-snug mt-0.5">{{ a.description }}</p>
-              <div class="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-ink-disabled">
-                <span class="text-success font-semibold">{{ a.auto_handled_7d }} auto</span>
-                <span v-if="a.needed_review_7d > 0">· <span class="text-warn font-semibold">{{ a.needed_review_7d }} needed eyes</span></span>
-                <span v-if="a.confidence_threshold">· threshold ≥ {{ Math.round(a.confidence_threshold * 100) }}%</span>
-                <span v-if="a.schedule_label">· {{ a.schedule_label }}</span>
-              </div>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- This Week digest -->
+    <!-- This Week digest — renamed from "What CommandSite did" to match Ada framing -->
     <section class="card">
       <div class="mb-3 flex items-center gap-2">
-        <span class="eyebrow">What CommandSite Did This Week</span>
+        <span class="eyebrow">What Ada Did This Week</span>
         <span class="chip !py-0.5 !px-2 !text-[10px]">Last 7 Days</span>
       </div>
       <ul class="divide-y divide-divider">
