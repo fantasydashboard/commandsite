@@ -44,15 +44,14 @@ import UfdRedesignSocialModule from './UfdRedesignSocialModule.vue'
 import UfdRedesignSettingsModule from './UfdRedesignSettingsModule.vue'
 import { mentions as ufdRedesignMentions } from '@/lib/clients/ufd-redesign/social'
 import CornerstoneTodayModule from './CornerstoneTodayModule.vue'
+import CornerstoneFrontDeskGuestsModule from './CornerstoneFrontDeskGuestsModule.vue'
+import CornerstoneCareDriftModule from './CornerstoneCareDriftModule.vue'
+import CornerstoneSundaysCommsModule from './CornerstoneSundaysCommsModule.vue'
 import CornerstoneMetricsModule from './CornerstoneMetricsModule.vue'
-import CornerstonePeopleModule from './CornerstonePeopleModule.vue'
-import CornerstoneEngagementModule from './CornerstoneEngagementModule.vue'
-import CornerstoneGroupsModule from './CornerstoneGroupsModule.vue'
 import CornerstoneGivingModule from './CornerstoneGivingModule.vue'
 import CornerstoneSettingsModule from './CornerstoneSettingsModule.vue'
 import { households as cornerstoneHouseholds, totalFlagCount as cornerstoneFlagCount } from '@/lib/clients/cornerstone/people'
 import { careStats as cornerstoneCareStats } from '@/lib/clients/cornerstone/care'
-import { smallGroups as cornerstoneGroups } from '@/lib/clients/cornerstone/groups'
 import { stoppedGivingHouseholds as cornerstoneStoppedGiving } from '@/lib/clients/cornerstone/giving'
 import { crossSellFlags as csCrossSell } from '@/lib/clients/commandsite/usage'
 import { reviews as csB2BReviews } from '@/lib/clients/commandsite/reputation'
@@ -106,8 +105,10 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'usage', label: 'Usage' },
   { key: 'reputation', label: 'Reputation' },
   { key: 'cards', label: 'Cards & Shares' },
-  { key: 'engagement', label: 'Engagement' },
-  { key: 'groups', label: 'Groups' },
+  { key: 'front-desk-guests', label: 'Front Desk & Guests' },
+  { key: 'care-drift', label: 'Care & Drift' },
+  { key: 'sundays-comms', label: 'Sundays & Comms' },
+  { key: 'insights', label: 'Insights' },
   { key: 'giving', label: 'Giving' },
   { key: 'support', label: 'Support' },
   { key: 'customers', label: 'Customers' },
@@ -627,11 +628,11 @@ export const moduleRegistry: ModuleDefinition[] = [
     tab: 'settings',
   },
 
-  // ── Cornerstone Community Church ────────────────────────────────────
+  // ── Cornerstone Community Church (Option 3 role-led layout) ─────────
   {
     key: 'cornerstone-today',
     label: 'Cornerstone Today',
-    description: 'Weekly pulse + automation results stream. No queue to work — drill into a tab when something needs your eyes.',
+    description: 'Grace overview + chat + roles status grid + automation activity feed.',
     component: CornerstoneTodayModule,
     fullWidth: true,
     tab: 'today',
@@ -641,49 +642,45 @@ export const moduleRegistry: ModuleDefinition[] = [
     },
   },
   {
-    key: 'cornerstone-metrics',
-    label: 'Cornerstone Metrics',
-    description: 'The "are we growing?" view — Sunday attendance with YoY compare, adults vs kids, service split, visitor flow, giving trend.',
-    component: CornerstoneMetricsModule,
+    key: 'cornerstone-front-desk-guests',
+    label: 'Cornerstone Front Desk & Guests',
+    description: "Grace's first-touch roles — Front Desk, Guest Follow-Up, Story Engine.",
+    component: CornerstoneFrontDeskGuestsModule,
     fullWidth: true,
-    tab: 'metrics',
+    tab: 'front-desk-guests',
   },
   {
-    key: 'cornerstone-people',
-    label: 'Cornerstone People',
-    description: 'Household-aware directory with kids-attendance / giving / serving flags + a young-families cohort surface.',
-    component: CornerstonePeopleModule,
+    key: 'cornerstone-care-drift',
+    label: 'Cornerstone Care & Drift',
+    description: "Grace's pastoral roles — Drift Detection, Re-engagement, Care Triage.",
+    component: CornerstoneCareDriftModule,
     fullWidth: true,
-    tab: 'customers',
+    tab: 'care-drift',
     badge: () => {
       const atRisk = cornerstoneHouseholds.filter((h) => cornerstoneFlagCount(h) >= 2).length
       return atRisk > 0 ? { count: atRisk, tone: 'warn' } : null
     },
   },
   {
-    key: 'cornerstone-engagement',
-    label: 'Cornerstone Engagement',
-    description: 'Visitor funnel + Sunday readiness + comms performance + serving participation — what worked, no approval queues.',
-    component: CornerstoneEngagementModule,
+    key: 'cornerstone-sundays-comms',
+    label: 'Cornerstone Sundays & Comms',
+    description: "Grace's operational roles — Volunteer Coordination + Communications.",
+    component: CornerstoneSundaysCommsModule,
     fullWidth: true,
-    tab: 'engagement',
+    tab: 'sundays-comms',
   },
   {
-    key: 'cornerstone-groups',
-    label: 'Cornerstone Small Groups',
-    description: 'Group health (attendance trends, leader notes, capacity). Matching + onboarding lives in your ChMS.',
-    component: CornerstoneGroupsModule,
+    key: 'cornerstone-metrics',
+    label: 'Cornerstone Insights',
+    description: "Grace's reporting role — Sunday attendance trends, YoY compare, visitor flow, engagement breadth, giving trend.",
+    component: CornerstoneMetricsModule,
     fullWidth: true,
-    tab: 'groups',
-    badge: () => {
-      const struggling = cornerstoneGroups.filter((g) => g.health === 'struggling').length
-      return struggling > 0 ? { count: struggling, tone: 'warn' } : null
-    },
+    tab: 'insights',
   },
   {
     key: 'cornerstone-giving',
     label: 'Cornerstone Giving',
-    description: 'Aggregate trends + designated breakdown + stopped-giving household flags. Role-gated for sensitivity.',
+    description: 'Per-giver health, monthly trend, designated breakdown + stopped-giving households. Grace flags + reminders.',
     component: CornerstoneGivingModule,
     fullWidth: true,
     tab: 'giving',

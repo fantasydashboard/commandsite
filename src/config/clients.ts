@@ -58,15 +58,14 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'commandsite-settings' },
   ],
   'cornerstone-church': [
-    // Cornerstone Community Church — metrics-first build.
-    // Visitors / Care / Sundays / Comms folded into Engagement so the
-    // pastor isn't asked to approve drafts or assign volunteers from
-    // this dashboard. ChMS / Planning Center handle workflow.
+    // Cornerstone Community Church — Option 3 role-led layout.
+    // Each tab corresponds to one or more of Grace's 10 AI ministry-
+    // assistant roles. Roles status grid lives on Today.
     { key: 'cornerstone-today' },
+    { key: 'cornerstone-front-desk-guests' },
+    { key: 'cornerstone-care-drift' },
+    { key: 'cornerstone-sundays-comms' },
     { key: 'cornerstone-metrics' },
-    { key: 'cornerstone-people' },
-    { key: 'cornerstone-engagement' },
-    { key: 'cornerstone-groups' },
     { key: 'cornerstone-giving' },
     { key: 'cornerstone-settings' },
   ],
