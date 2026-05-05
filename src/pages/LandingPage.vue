@@ -15,8 +15,7 @@
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
 
-// Swap to Calendly URL once configured (e.g. https://calendly.com/joshdaniel/30min)
-const CTA_URL = 'mailto:josh@commandsite.io?subject=CommandSite%20discovery%20walkthrough'
+const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-walkthrough-1'
 const CTA_LABEL = 'Book a discovery walkthrough'
 
 interface Pain { headline: string; detail: string }
