@@ -16,7 +16,7 @@ import type { CsReply, CsReplyClassification } from '@/types/database'
 
 const FIXTURE_REPLIES: CsReply[] = [
   {
-    id: 'fix-r1', lead_id: 'fix-2', deal_id: null,
+    id: 'fix-r1', lead_id: 'fix-2', deal_id: 'fix-deal-1',
     smartlead_campaign_id: 'cmp-001', smartlead_sequence_id: 'seq-002',
     smartlead_message_id: 'msg-fixture-001', smartlead_thread_id: 'thr-001',
     from_email: 'maria@sunshineplumbing.co', from_name: 'Maria Castillo',
@@ -27,10 +27,13 @@ const FIXTURE_REPLIES: CsReply[] = [
     classification_reason: 'Explicit ask to book a meeting + acknowledges pain point',
     classification_model: 'claude-sonnet-4-6',
     classified_at: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
-    auto_handled: false, auto_handled_action: null, auto_handled_at: null,
+    auto_handled: false, auto_handled_action: 'Promoted to pipeline + drafted Calendly intro for your one-click approval.', auto_handled_at: new Date(Date.now() - 1000 * 60 * 13).toISOString(),
     needs_review: true, reviewed_by: null, reviewed_at: null, raw_payload: null,
+    drafted_response: "Maria — appreciate you replying. Chasing missed calls month after month is exactly the loop Ada was built to break. 15 min works on my end. Grab whatever's open: https://calendly.com/commandsite/discovery-walkthrough — I'll show you what she'd handle for Sunshine specifically.",
+    drafted_at: new Date(Date.now() - 1000 * 60 * 13).toISOString(),
+    draft_approved: false, draft_approved_at: null, draft_sent_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    updated_at: new Date(Date.now() - 1000 * 60 * 13).toISOString(),
   },
   {
     id: 'fix-r2', lead_id: 'fix-4', deal_id: null,
@@ -46,6 +49,8 @@ const FIXTURE_REPLIES: CsReply[] = [
     classified_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     auto_handled: false, auto_handled_action: null, auto_handled_at: null,
     needs_review: true, reviewed_by: null, reviewed_at: null, raw_payload: null,
+    drafted_response: null, drafted_at: null,
+    draft_approved: false, draft_approved_at: null, draft_sent_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
   },
@@ -65,6 +70,8 @@ const FIXTURE_REPLIES: CsReply[] = [
     auto_handled_action: 'Logged as out-of-office. Did not advance sequence.',
     auto_handled_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
     needs_review: false, reviewed_by: null, reviewed_at: null, raw_payload: null,
+    drafted_response: null, drafted_at: null,
+    draft_approved: false, draft_approved_at: null, draft_sent_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
   },
@@ -84,6 +91,8 @@ const FIXTURE_REPLIES: CsReply[] = [
     auto_handled_action: 'Marked lead as disqualified + suppressed from future sends.',
     auto_handled_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
     needs_review: false, reviewed_by: null, reviewed_at: null, raw_payload: null,
+    drafted_response: null, drafted_at: null,
+    draft_approved: false, draft_approved_at: null, draft_sent_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
   },
@@ -143,9 +152,34 @@ export function useReplies() {
     if (e) error.value = e.message
   }
 
+  /** Approve the AI-drafted reply and mark it as ready to send. Phase 5
+   *  flow — once approved, a follow-on job (or manual click) sends via
+   *  Smartlead's reply API. For demo, we just flip the flag. */
+  async function approveDraft(id: string) {
+    const now = new Date().toISOString()
+    const idx = replies.value.findIndex((r) => r.id === id)
+    if (idx >= 0) replies.value[idx] = {
+      ...replies.value[idx],
+      draft_approved: true,
+      draft_approved_at: now,
+      needs_review: false,
+      reviewed_at: now,
+    }
+    if (usingFixture.value) return
+    const { error: e } = await supabase
+      .from('cs_replies')
+      .update({ draft_approved: true, draft_approved_at: now, needs_review: false, reviewed_at: now })
+      .eq('id', id)
+    if (e) error.value = e.message
+  }
+
   // Derived views the Outreach module reads
   const needsReview = computed(() => replies.value.filter((r) => r.needs_review))
   const autoHandled = computed(() => replies.value.filter((r) => r.auto_handled))
+  /** Phase 5: positive replies that have a drafted Calendly intro waiting */
+  const draftsAwaitingApproval = computed(() => replies.value.filter(
+    (r) => r.drafted_response && !r.draft_approved && !r.draft_sent_at,
+  ))
 
   // KPI numbers
   const stats = computed(() => {
@@ -156,6 +190,7 @@ export function useReplies() {
       total: all.length,
       needs_review: needsReview.value.length,
       auto_handled: autoHandled.value.length,
+      drafts_pending: draftsAwaitingApproval.value.length,
       positive: positive.length,
       last_24h: last24h.length,
       auto_handled_pct: all.length > 0 ? autoHandled.value.length / all.length : 0,
@@ -164,5 +199,9 @@ export function useReplies() {
 
   onMounted(load)
 
-  return { replies, loading, error, usingFixture, load, markReviewed, needsReview, autoHandled, stats }
+  return {
+    replies, loading, error, usingFixture, load,
+    markReviewed, approveDraft,
+    needsReview, autoHandled, draftsAwaitingApproval, stats,
+  }
 }

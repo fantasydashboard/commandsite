@@ -407,6 +407,11 @@ export type CsReply = {
   reviewed_by: string | null
   reviewed_at: string | null
   raw_payload: unknown
+  drafted_response: string | null
+  drafted_at: string | null
+  draft_approved: boolean
+  draft_approved_at: string | null
+  draft_sent_at: string | null
   created_at: string
   updated_at: string
 }

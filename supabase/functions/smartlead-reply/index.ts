@@ -122,6 +122,63 @@ function extractReply(p: any): {
   }
 }
 
+// ── Calendly intro drafter (Phase 5) ────────────────────────────────────
+//
+// Called when a reply auto-promotes to pipeline. Generates a warm,
+// founder-toned reply that thanks the prospect for engaging + offers
+// the Calendly link. Uses cs_settings.ai_voice_prompt_guide so the
+// drafted text actually sounds like the founder, not generic SaaS.
+async function draftCalendlyIntro(opts: {
+  apiKey: string
+  founderName: string
+  voiceContext: string
+  calendlyLink: string
+  prospectName: string
+  prospectCompany: string
+  prospectReply: string
+}): Promise<string | null> {
+  const systemPrompt = [
+    `You are ${opts.founderName}, a solo founder writing a warm but direct reply to a prospect who just responded positively to your cold email.`,
+    opts.voiceContext ? `\n\nYour brand voice:\n${opts.voiceContext}` : '',
+    '\n\nYou will write the next reply. Output ONLY the body of the reply — no subject line, no greeting other than the prospect\'s first name, no signature (the system handles signatures). Keep it under 90 words. End with the Calendly link as a direct ask, not buried in pleasantries.',
+  ].join('')
+
+  const userPrompt = [
+    `Prospect: ${opts.prospectName} at ${opts.prospectCompany}`,
+    `Their reply to my cold email:`,
+    `"${opts.prospectReply.slice(0, 800)}"`,
+    '',
+    `Write my reply. Thank them briefly, mirror something specific from what they said (so they know I read it, not auto-replied), and offer a 30-min walkthrough using this Calendly link: ${opts.calendlyLink || '[CALENDLY LINK NOT CONFIGURED — add to cs_settings.calendly_link]'}.`,
+    '',
+    `Keep it human and short. No "I'm thrilled to hear from you!"-style fluff.`,
+  ].join('\n')
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': opts.apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    })
+    if (!res.ok) return null
+    // deno-lint-ignore no-explicit-any
+    const result: any = await res.json()
+    // deno-lint-ignore no-explicit-any
+    const textBlock = (result.content ?? []).find((b: any) => b.type === 'text')
+    return textBlock?.text ?? null
+  } catch {
+    return null
+  }
+}
+
 // ── Constant-time string compare (avoid timing leaks on secret check) ──
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false
@@ -169,8 +226,9 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── 4. Match the lead + (if promoted) the deal ──
+  // Pull all lead fields — needed for the Phase-5 promote-to-deal block.
   const { data: lead } = await supabase
-    .from('cs_leads').select('id, status, promoted_deal_id')
+    .from('cs_leads').select('*')
     .eq('contact_email', reply.from_email.toLowerCase())
     .maybeSingle()
 
@@ -178,7 +236,10 @@ Deno.serve(async (req: Request) => {
   const { data: settings } = await supabase
     .from('cs_settings').select('*').eq('id', 1).maybeSingle()
   const autoThreshold: number = settings?.reply_classifier_auto_threshold ?? 0.9
+  const promoteThreshold: number = settings?.pipeline_promote_threshold ?? 0.9
   const voiceContext: string = settings?.ai_voice_prompt_guide ?? ''
+  const calendlyLink: string = settings?.calendly_link ?? ''
+  const founderName: string = settings?.founder_name ?? 'Josh'
 
   // ── 6. Classify with Claude ──
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -280,6 +341,82 @@ Deno.serve(async (req: Request) => {
     await supabase.from('cs_leads').update({ status: 'replied' }).eq('id', lead.id)
   }
 
+  // ── 10. Phase 5: auto-promote positive replies → cs_deals + Calendly intro ──
+  // Triggers when:
+  //   • classification = 'positive'
+  //   • confidence ≥ cs_settings.pipeline_promote_threshold
+  //   • we matched a lead (so we have firmographic data for the deal)
+  //   • the lead isn't already promoted (idempotency)
+  let promotedDealId: string | null = null
+  let draftedReply: string | null = null
+
+  const shouldPromote =
+    cls === 'positive' &&
+    confidence >= promoteThreshold &&
+    lead?.id &&
+    !lead.promoted_deal_id
+
+  if (shouldPromote && lead) {
+    // 10a. Create the deal
+    const dealPayload = {
+      company_name: lead.company_name,
+      contact_name: lead.contact_name ?? reply.from_name ?? 'Unknown',
+      contact_email: reply.from_email.toLowerCase(),
+      contact_title: lead.contact_title ?? null,
+      industry: lead.industry ?? null,
+      city: lead.city ?? null,
+      state: lead.state ?? null,
+      team_size: lead.team_size ?? null,
+      stage: 'replied' as const,
+      source: 'cold_email' as const,
+      estimated_arr_cents: 0,
+      next_action: 'Send Calendly intro (drafted by Ada)',
+      next_action_due_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      notes: `Auto-promoted from cold email reply (${(confidence * 100).toFixed(0)}% confidence). ${reason}`,
+      last_touch_kind: 'email' as const,
+    }
+
+    const { data: dealData, error: dealErr } = await supabase
+      .from('cs_deals').insert(dealPayload).select('id').single()
+
+    if (!dealErr && dealData) {
+      // deno-lint-ignore no-explicit-any
+      promotedDealId = (dealData as any).id
+
+      // 10b. Update lead → promoted
+      await supabase.from('cs_leads').update({
+        status: 'promoted_to_pipeline',
+        promoted_deal_id: promotedDealId,
+      }).eq('id', lead.id)
+
+      // 10c. Link the reply row to the new deal
+      if (inserted?.id) {
+        await supabase.from('cs_replies').update({
+          deal_id: promotedDealId,
+        }).eq('id', inserted.id)
+      }
+
+      // 10d. Draft the Calendly intro reply via Claude
+      draftedReply = await draftCalendlyIntro({
+        apiKey,
+        founderName,
+        voiceContext,
+        calendlyLink,
+        prospectName: lead.contact_name ?? reply.from_name ?? 'there',
+        prospectCompany: lead.company_name,
+        prospectReply: reply.body,
+      })
+
+      // 10e. Save the draft on the reply row for one-click approval
+      if (draftedReply && inserted?.id) {
+        await supabase.from('cs_replies').update({
+          drafted_response: draftedReply,
+          drafted_at: new Date().toISOString(),
+        }).eq('id', inserted.id)
+      }
+    }
+  }
+
   return json({
     ok: true,
     reply_id: inserted?.id,
@@ -287,5 +424,7 @@ Deno.serve(async (req: Request) => {
     confidence,
     auto_handled: autoHandle,
     auto_handled_action: autoAction,
+    promoted_deal_id: promotedDealId,
+    drafted_reply_chars: draftedReply?.length ?? 0,
   })
 })

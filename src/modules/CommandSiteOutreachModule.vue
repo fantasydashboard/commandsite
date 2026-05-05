@@ -33,6 +33,7 @@ defineProps<{ client: Client; config: Record<string, unknown> }>()
 const liveReplies = useReplies()
 const liveStats = liveReplies.stats
 const liveNeedsReview = liveReplies.needsReview
+const liveDraftsAwaiting = liveReplies.draftsAwaitingApproval
 // Newest live reply timestamp — drives the "last reply N min ago" chip
 const lastLiveReplyAgo = computed<string | null>(() => {
   if (liveReplies.replies.value.length === 0) return null
@@ -268,9 +269,10 @@ const tabs: { key: View; label: string; badge?: number }[] = [
               Every reply is auto-classified by Claude. High-confidence OOFs / unsubscribes / clear nos auto-handle. Everything else lands here for your eyes.
             </p>
           </div>
-          <div class="grid grid-cols-4 gap-2 text-center">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
             <div><div class="kpi-label">24h</div><div class="text-base font-semibold tabular-nums">{{ liveStats.last_24h }}</div></div>
             <div><div class="kpi-label">Needs eyes</div><div class="text-base font-semibold tabular-nums text-warn">{{ liveStats.needs_review }}</div></div>
+            <div><div class="kpi-label">Drafts pending</div><div class="text-base font-semibold tabular-nums text-brand">{{ liveStats.drafts_pending }}</div></div>
             <div><div class="kpi-label">Auto-handled</div><div class="text-base font-semibold tabular-nums text-success">{{ liveStats.auto_handled }}</div></div>
             <div><div class="kpi-label">Auto %</div><div class="text-base font-semibold tabular-nums">{{ Math.round(liveStats.auto_handled_pct * 100) }}%</div></div>
           </div>
@@ -311,6 +313,45 @@ const tabs: { key: View; label: string; badge?: number }[] = [
             <p v-if="r.classification_reason" class="text-[10px] text-ink-disabled italic mt-1">
               Why: {{ r.classification_reason }}
             </p>
+
+            <!-- Phase 5: drafted Calendly intro waiting for approval -->
+            <div
+              v-if="r.drafted_response && !r.draft_approved"
+              class="mt-3 rounded-md border border-brand/30 bg-brand/5 p-3"
+            >
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="rounded-full bg-brand text-ink-inverse px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">✨ Ada drafted a reply</span>
+                <span class="text-[10px] text-ink-muted">auto-promoted to pipeline · awaiting your approval</span>
+              </div>
+              <p class="text-xs text-ink leading-relaxed italic mb-3">"{{ r.drafted_response }}"</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="rounded-full bg-brand text-ink-inverse px-3 py-1 text-[11px] font-semibold hover:opacity-90"
+                  @click="liveReplies.approveDraft(r.id)"
+                >✓ Approve & send</button>
+                <button
+                  type="button"
+                  class="rounded-full border border-divider bg-surface text-ink-muted hover:text-ink px-3 py-1 text-[11px] font-medium"
+                >✏ Edit before sending</button>
+                <button
+                  type="button"
+                  class="text-[10px] text-ink-disabled hover:text-ink-muted underline"
+                >Discard draft + reply manually</button>
+              </div>
+            </div>
+            <div
+              v-else-if="r.draft_approved && !r.draft_sent_at"
+              class="mt-3 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-xs text-success"
+            >
+              ✓ Approved — Ada will send via Smartlead in the next batch.
+            </div>
+            <div
+              v-else-if="r.draft_sent_at"
+              class="mt-3 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-xs text-success"
+            >
+              ✓ Sent {{ new Date(r.draft_sent_at).toLocaleString() }}
+            </div>
           </article>
         </div>
         <p v-else-if="!liveReplies.usingFixture.value" class="text-xs text-ink-muted mt-3">
