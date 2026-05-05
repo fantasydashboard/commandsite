@@ -16,15 +16,14 @@ export type ClientSlug = string
 
 export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
   'apex-heating-and-air': [
+    // Apex Heating & Air — Option 3 role-led layout for Ada.
+    // Same 7-tab structure as Cornerstone's Grace setup.
     { key: 'apex-overview' },
-    { key: 'apex-metrics' },
+    { key: 'apex-front-desk-quotes' },
+    { key: 'apex-customer-care' },
     { key: 'apex-schedule' },
-    { key: 'apex-customers' },
-    { key: 'apex-calls' },
-    { key: 'apex-quotes' },
-    { key: 'apex-reviews' },
-    { key: 'apex-reactivation' },
-    { key: 'apex-email' },
+    { key: 'apex-reputation-marketing' },
+    { key: 'apex-metrics' },
     { key: 'apex-settings' },
   ],
   'commandsite': [

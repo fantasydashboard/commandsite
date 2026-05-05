@@ -14,14 +14,11 @@ import SocialDistributionModule from './SocialDistributionModule.vue'
 import SocialListeningModule from './SocialListeningModule.vue'
 import SocialPlannerModule from './SocialPlannerModule.vue'
 import ApexOverviewModule from './ApexOverviewModule.vue'
-import ApexCustomersModule from './ApexCustomersModule.vue'
-import ApexCallsModule from './ApexCallsModule.vue'
-import ApexQuotesModule from './ApexQuotesModule.vue'
-import ApexReviewsModule from './ApexReviewsModule.vue'
-import ApexReactivationModule from './ApexReactivationModule.vue'
+import ApexFrontDeskQuotesModule from './ApexFrontDeskQuotesModule.vue'
+import ApexCustomerCareModule from './ApexCustomerCareModule.vue'
+import ApexReputationMarketingModule from './ApexReputationMarketingModule.vue'
 import ApexSettingsModule from './ApexSettingsModule.vue'
 import ApexScheduleModule from './ApexScheduleModule.vue'
-import ApexEmailModule from './ApexEmailModule.vue'
 import ApexMetricsModule from './ApexMetricsModule.vue'
 import CommandSiteTodayModule from './CommandSiteTodayModule.vue'
 import CommandSitePipelineModule from './CommandSitePipelineModule.vue'
@@ -65,11 +62,9 @@ import { replies as csReplies } from '@/lib/clients/commandsite/outreach'
 import { failedPayments as csFailedPayments } from '@/lib/clients/commandsite/revenue'
 import { engagements as csEngagements, engagedLeads as csEngagedLeads } from '@/lib/clients/commandsite/social'
 import { todayJobs as apexTodayJobs } from '@/lib/clients/apex/schedule'
-import { calls as apexCalls } from '@/lib/clients/apex/calls'
 import { quotes as apexQuotes } from '@/lib/clients/apex/quotes'
 import { customers as apexCustomers } from '@/lib/clients/apex/customers'
 import { reviews as apexReviews } from '@/lib/clients/apex/reviews'
-import { reactivations as apexReactivations } from '@/lib/clients/apex/reactivation'
 
 export interface SubTab {
   key: string
@@ -106,8 +101,11 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'reputation', label: 'Reputation' },
   { key: 'cards', label: 'Cards & Shares' },
   { key: 'front-desk-guests', label: 'Front Desk & Guests' },
+  { key: 'front-desk-quotes', label: 'Front Desk & Quotes' },
   { key: 'care-drift', label: 'Care & Drift' },
+  { key: 'customer-care', label: 'Customer Care' },
   { key: 'sundays-comms', label: 'Sundays & Comms' },
+  { key: 'reputation-marketing', label: 'Reputation & Marketing' },
   { key: 'insights', label: 'Insights' },
   { key: 'giving', label: 'Giving' },
   { key: 'support', label: 'Support' },
@@ -276,53 +274,24 @@ export const moduleRegistry: ModuleDefinition[] = [
     subtab: 'listening',
   },
 
-  // ── Apex Heating & Air (CommandSite-for-home-services demo client) ─────
+  // ── Apex Heating & Air (Option 3 role-led layout) ──────────────────────
   {
     key: 'apex-overview',
-    label: 'Apex Overview',
-    description: 'Calls handled, quote follow-ups, revenue recovered, recent activity.',
+    label: 'Apex Today',
+    description: 'Ada overview + Ask-Ada chat + roles status grid + recent activity.',
     component: ApexOverviewModule,
     fullWidth: true,
     tab: 'overview',
   },
   {
-    key: 'apex-customers',
-    label: 'Apex Customers',
-    description: 'Every customer with funnel stage + full interaction timeline drawer.',
-    component: ApexCustomersModule,
+    key: 'apex-front-desk-quotes',
+    label: 'Apex Front Desk & Quotes',
+    description: "Ada's first-touch roles — Front Desk + Quote Follow-Up.",
+    component: ApexFrontDeskQuotesModule,
     fullWidth: true,
-    tab: 'customers',
+    tab: 'front-desk-quotes',
     badge: () => {
-      // Active leads (top of funnel, not yet booked): new_lead + engaged + quoted
-      const active = apexCustomers.filter(
-        (c) => c.funnel_stage === 'new_lead' || c.funnel_stage === 'engaged' || c.funnel_stage === 'quoted',
-      ).length
-      return active > 0 ? { count: active, tone: 'info' } : null
-    },
-  },
-  {
-    key: 'apex-calls',
-    label: 'Apex Calls',
-    description: 'Sortable list of every AI-handled call with click-to-listen transcript modal.',
-    component: ApexCallsModule,
-    fullWidth: true,
-    tab: 'calls',
-    badge: () => {
-      // Voicemails awaiting a callback — explicit "needs your attention".
-      const vm = apexCalls.filter((c) => c.outcome === 'voicemail').length
-      return vm > 0 ? { count: vm, tone: 'warn' } : null
-    },
-  },
-  {
-    key: 'apex-quotes',
-    label: 'Apex Quotes',
-    description: 'Kanban of open quotes by follow-up step with the actual SMS/email shown on each card.',
-    component: ApexQuotesModule,
-    fullWidth: true,
-    tab: 'quotes',
-    badge: () => {
-      // Quotes in mid-cadence (day_7 → day_30) — these are the ones
-      // most likely to slip without a nudge.
+      // Aging quotes that need a nudge
       const aging = apexQuotes.filter((q) =>
         q.stage === 'followup_day_7' ||
         q.stage === 'followup_day_14' ||
@@ -332,69 +301,58 @@ export const moduleRegistry: ModuleDefinition[] = [
     },
   },
   {
-    key: 'apex-reviews',
-    label: 'Apex Reviews',
-    description: 'Reviews across Google/Facebook/Yelp/Nextdoor with AI-drafted replies for unanswered ones.',
-    component: ApexReviewsModule,
+    key: 'apex-customer-care',
+    label: 'Apex Customer Care',
+    description: "Ada's customer-keeping roles — Customer Health + Reactivation.",
+    component: ApexCustomerCareModule,
     fullWidth: true,
-    tab: 'reviews',
+    tab: 'customer-care',
+    badge: () => {
+      const dormant = apexCustomers.filter((c) => c.funnel_stage === 'dormant').length
+      return dormant > 0 ? { count: dormant, tone: 'warn' } : null
+    },
+  },
+  {
+    key: 'apex-reputation-marketing',
+    label: 'Apex Reputation & Marketing',
+    description: "Ada's outbound brand work — Review Engine + Email Marketing.",
+    component: ApexReputationMarketingModule,
+    fullWidth: true,
+    tab: 'reputation-marketing',
     badge: () => {
       const unanswered = apexReviews.filter((r) => !r.response).length
-      // Negative reviews (≤ 3 stars) bump the tone to warn.
       const lowRated = apexReviews.filter((r) => !r.response && r.rating <= 3).length
       if (unanswered <= 0) return null
       return { count: unanswered, tone: lowRated > 0 ? 'warn' : 'info' }
     },
   },
   {
-    key: 'apex-reactivation',
-    label: 'Apex Reactivation',
-    description: 'Dormant-customer outreach pipeline with one-click approval of AI-drafted SMS.',
-    component: ApexReactivationModule,
-    fullWidth: true,
-    tab: 'reactivation',
-    badge: () => {
-      const queued = apexReactivations.filter((r) => r.status === 'identified').length
-      return queued > 0 ? { count: queued, tone: 'info' } : null
-    },
-  },
-  {
-    key: 'apex-settings',
-    label: 'Apex Settings',
-    description: 'Business hours, technician roster, AI receptionist config, integrations, service area.',
-    component: ApexSettingsModule,
-    fullWidth: true,
-    tab: 'settings',
-  },
-  {
     key: 'apex-schedule',
     label: 'Apex Schedule',
-    description: 'Today dispatch board (tech rows × hour grid) + week-ahead grouped list.',
+    description: "Ada's Schedule Coordination role — today's dispatch board, week-ahead grouped list, weather reshuffles.",
     component: ApexScheduleModule,
     fullWidth: true,
     tab: 'schedule',
     badge: () => {
-      // Jobs still ahead today (scheduled or en_route).
       const ahead = apexTodayJobs.filter((j) => j.status === 'scheduled' || j.status === 'en_route').length
       return ahead > 0 ? { count: ahead, tone: 'info' } : null
     },
   },
   {
-    key: 'apex-email',
-    label: 'Apex Email Marketing',
-    description: 'Email campaign library (transactional / lifecycle / seasonal / broadcast) with stats and previews.',
-    component: ApexEmailModule,
-    fullWidth: true,
-    tab: 'marketing',
-    subtab: 'email',
-  },
-  {
     key: 'apex-metrics',
-    label: 'Apex Performance',
-    description: 'Service-business metrics — revenue trend, lead-source ROI, tech leaderboard, service mix, conversion funnel.',
+    label: 'Apex Insights',
+    description: "Ada's Performance Reporting role — revenue trend, lead-source ROI, tech leaderboard, service mix, conversion funnel.",
     component: ApexMetricsModule,
     fullWidth: true,
-    tab: 'metrics',
+    tab: 'insights',
+  },
+  {
+    key: 'apex-settings',
+    label: 'Apex Settings',
+    description: 'Business hours, technician roster, Ada config, integrations, service area.',
+    component: ApexSettingsModule,
+    fullWidth: true,
+    tab: 'settings',
   },
 
   // ── CommandSite (the business — Josh's own dashboard) ───────────────
