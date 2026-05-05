@@ -107,10 +107,6 @@ const faqs: Faq[] = [
     a: 'Cancel anytime after month 1. The first-month investment covers Ada\'s custom build — after that, it\'s straight monthly. If she isn\'t earning her keep, you\'re not locked in.',
   },
   {
-    q: 'Are you a real person? This feels like a small operation.',
-    a: 'It is. CommandSite is built and run by Josh — a solo founder who spent a decade with service businesses before building this. That\'s the point. You\'re not buying enterprise SaaS — you\'re getting an AI employee that\'s been thought through by someone who actually knows what your back office looks like.',
-  },
-  {
     q: 'Why is she called Ada?',
     a: 'Named after Ada Lovelace, who wrote the first computer program in the 1840s — a hundred years before computers existed. She\'s the original AI ancestor. Plus, "Ada" is short, easy to say on a phone, and sounds like a name you\'d actually want answering for your business.',
   },
