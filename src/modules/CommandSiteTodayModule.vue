@@ -5,7 +5,8 @@
  * customer-health alerts, MRR changes, demos, expansion signals, and
  * tasks — sorted by priority.
  */
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import type { Client } from '@/types/database'
 import {
   todayItems,
@@ -15,12 +16,7 @@ import {
   type TodayItem,
   type Priority,
 } from '@/lib/clients/commandsite/today'
-import {
-  automations,
-  automationStats,
-  KIND_META as AUTO_KIND_META,
-  STATUS_META as AUTO_STATUS_META,
-} from '@/lib/clients/commandsite/automations'
+import { adaRoles, ROLE_STATUS_META } from '@/lib/clients/commandsite/roles'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -34,9 +30,75 @@ function unmark(id: string) { addressed.value.delete(id) }
 
 const filterPriority = ref<Priority | 'all'>('all')
 
-// Automations (the autopilot panel) — surfaces what ran without you
-const autoStats = computed(() => automationStats())
-const liveAutomations = computed(() => automations.filter((a) => a.status !== 'paused').slice(0, 6))
+// ── Ada persona + chat ─────────────────────────────────────────────────
+const router = useRouter()
+function goToRole(tab: string) {
+  router.push({ name: 'dashboard.tab', params: { slug: 'commandsite', tab } })
+}
+
+const adaGreeting = computed(() => {
+  const hr = new Date().getHours()
+  if (hr < 12) return 'Good morning, Josh'
+  if (hr < 17) return 'Good afternoon, Josh'
+  return 'Good evening, Josh'
+})
+
+const adaSummaryLine = computed(() =>
+  `I've handled 14 cold-email replies, drafted 3 follow-ups, and queued ${stats.value.high_count} things flagged for your eyes this week.`,
+)
+
+interface ChatMessage { role: 'user' | 'ada'; text: string }
+interface SuggestedQuestion { q: string; a: string }
+const suggestedQuestions: SuggestedQuestion[] = [
+  { q: 'What did you handle while I was building?',
+    a: "Today: classified 4 cold-email replies (1 positive from Brett at Cool Comfort — drafted Calendly intro for your review, 2 OOFs auto-handled, 1 objection from Maria @ Sunshine Plumbing flagged). Drafted Day-7 nudges for 3 stale quotes. Posted Reddit comment on the r/HVAC scheduling thread you'd been watching. Daily AM brief is queued for 7:30 tomorrow." },
+  { q: "What's in my pipeline that needs attention?",
+    a: "Three deals to surface: Cool Comfort (Brett, demo done 4d ago — proposal not sent, your move), Sunshine Plumbing (Maria, just replied positive — drafted Calendly intro), and BlueRidge Roofing (Wesley, day-9 in 'objection' stage — drafted a reframe for your review). Two more sit in early stages, no action needed yet. See Pipeline & Deals." },
+  { q: 'Who replied to outreach this week?',
+    a: "14 replies total. 4 positive (queued in Outreach), 3 objections (winnable — drafts ready), 2 'send more info' (auto-handled, sent your one-pager), 4 OOFs (auto-archived), 1 unsubscribe (suppressed). Reply rate is 11.2% on this batch — above my 7% baseline. Your subject lines are landing." },
+  { q: 'What should I post on social this week?',
+    a: "Three drafts ready for your review: a Reddit comment on r/HVAC about quote follow-up frustrations (you mentioned wanting to be active there), a LinkedIn post on the 'tools that don't talk to each other' theme (resonates with the Apollo data we pulled), and an X thread on Ada Lovelace's birthday next week (perfect angle to introduce her brand). Each is 60-90 sec to review + ship." },
+  { q: 'Which leads should I prioritize this week?',
+    a: "From this week's Apollo pull, 12 leads scored ≥80% ICP. Top 3 by fit: Travis Reeves (Pinnacle Heating, Austin TX — 8 techs, $2.4M revenue, recently added a tech), Maria Castillo (Sunshine Plumbing, Orlando FL — 12 techs, GM-led decision-making), and Derrick Powell (Coastal HVAC, Tampa FL — 6 techs, growth mode). All ready for personalized email-1." },
+  { q: "How are we doing this month?",
+    a: "Pre-revenue still. Smartlead warming hits day 14 in 7 days, then we ramp. Pipeline shows 6 active conversations + 2 demos booked (Brett next Tue, Maria Thu). If both close at Starter ($1,499 first month + $499/mo), that's $5,996 to start. Cash will go: $40 Smartlead + $7 Workspace + your time. See Customers & Revenue when first deal closes." },
+]
+
+const chatMessages = ref<ChatMessage[]>([
+  { role: 'ada', text: "Hey Josh — Ada here. Ask me anything about CommandSite. Try one of the questions below." },
+])
+const customQuestion = ref('')
+const chatScrollEl = ref<HTMLElement | null>(null)
+
+async function askSuggested(q: SuggestedQuestion) {
+  chatMessages.value.push({ role: 'user', text: q.q })
+  await nextTick()
+  scrollChatToBottom()
+  setTimeout(() => {
+    chatMessages.value.push({ role: 'ada', text: q.a })
+    nextTick(scrollChatToBottom)
+  }, 600)
+}
+
+async function askCustom() {
+  const text = customQuestion.value.trim()
+  if (!text) return
+  chatMessages.value.push({ role: 'user', text })
+  customQuestion.value = ''
+  await nextTick()
+  scrollChatToBottom()
+  setTimeout(() => {
+    chatMessages.value.push({
+      role: 'ada',
+      text: "Let me check on that. Give me a moment to pull what I have — I'll draft something for your review and queue it on the right page based on what fits.",
+    })
+    nextTick(scrollChatToBottom)
+  }, 700)
+}
+
+function scrollChatToBottom() {
+  if (chatScrollEl.value) chatScrollEl.value.scrollTop = chatScrollEl.value.scrollHeight
+}
 
 const visibleItems = computed<TodayItem[]>(() => {
   const order: Record<Priority, number> = { high: 0, medium: 1, low: 2 }
@@ -77,6 +139,110 @@ function money(cents: number): string {
 
 <template>
   <div class="space-y-4">
+    <!-- ── Ada persona panel + chat ───────────────────────────────── -->
+    <section class="card overflow-hidden p-0">
+      <div class="flex items-center gap-3 bg-gradient-to-r from-brand to-brand/80 text-ink-inverse px-5 py-4">
+        <div class="flex h-12 w-12 items-center justify-center rounded-full bg-ink-inverse/15 text-lg font-bold ring-2 ring-ink-inverse/30">
+          A
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-base font-semibold">Ada</span>
+            <span class="rounded-full bg-success/30 text-ink-inverse px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
+              <span class="h-1.5 w-1.5 rounded-full" style="background-color:#86efac"></span>
+              Online
+            </span>
+            <span class="text-[11px] opacity-80 hidden sm:inline">your AI employee · running on the same system you sell</span>
+          </div>
+          <p class="text-sm opacity-90 mt-0.5">{{ adaGreeting }}. {{ adaSummaryLine }}</p>
+        </div>
+      </div>
+
+      <div class="flex flex-col">
+        <div ref="chatScrollEl" class="max-h-[280px] overflow-y-auto px-5 py-4 space-y-3 bg-canvas/40">
+          <div
+            v-for="(m, i) in chatMessages"
+            :key="i"
+            class="flex"
+            :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
+          >
+            <div
+              class="max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed"
+              :class="m.role === 'user'
+                ? 'bg-ink text-ink-inverse rounded-br-sm'
+                : 'bg-surface-raised text-ink border border-divider rounded-bl-sm'"
+            >
+              {{ m.text }}
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t border-divider bg-surface-raised px-5 py-3">
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-2">Try asking</div>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="(q, i) in suggestedQuestions"
+              :key="i"
+              type="button"
+              class="rounded-full border border-divider bg-surface px-3 py-1 text-[11px] font-medium text-ink-muted hover:text-ink hover:border-brand hover:bg-brand/5 transition-colors"
+              @click="askSuggested(q)"
+            >{{ q.q }}</button>
+          </div>
+        </div>
+
+        <form
+          class="flex items-center gap-2 border-t border-divider bg-surface-raised px-5 py-3"
+          @submit.prevent="askCustom"
+        >
+          <input
+            v-model="customQuestion"
+            type="text"
+            placeholder="Ask Ada anything..."
+            class="flex-1 rounded-full border border-divider bg-canvas px-4 py-2 text-sm text-ink placeholder:text-ink-disabled focus:outline-none focus:border-brand"
+          />
+          <button
+            type="submit"
+            class="rounded-full bg-brand text-ink-inverse px-4 py-2 text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-50"
+            :disabled="!customQuestion.trim()"
+          >Send</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── Ada's Roles status grid ────────────────────────────────── -->
+    <section class="card">
+      <div class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow">Ada's roles</span>
+          <span class="text-xs text-ink-muted">— what she handles for CommandSite</span>
+        </div>
+        <span class="text-[11px] text-ink-disabled">{{ adaRoles.filter((r) => r.status === 'active').length }} of {{ adaRoles.length }} active · click any to drill in</span>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <button
+          v-for="role in adaRoles"
+          :key="role.key"
+          type="button"
+          class="flex flex-col items-start gap-2 rounded-card border border-divider bg-surface-raised p-3 text-left hover:border-brand hover:shadow-card transition-all"
+          @click="goToRole(role.tab)"
+        >
+          <div class="flex items-center gap-2 w-full">
+            <span class="text-2xl flex-shrink-0">{{ role.icon }}</span>
+            <span
+              class="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+              :class="ROLE_STATUS_META[role.status].pillClass"
+            >{{ ROLE_STATUS_META[role.status].label }}</span>
+          </div>
+          <div class="text-sm font-semibold text-ink leading-snug">{{ role.name }}</div>
+          <div class="text-[11px] text-ink-muted leading-snug">{{ role.description }}</div>
+          <div class="mt-auto pt-2 border-t border-divider/60 text-[10px] text-ink-disabled font-medium w-full">
+            {{ role.this_week_snippet }}
+          </div>
+        </button>
+      </div>
+    </section>
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>
@@ -139,48 +305,6 @@ function money(cents: number): string {
         <div class="text-[11px] text-ink-disabled mt-0.5">from at-risk customers</div>
       </div>
     </div>
-
-    <!-- Running on autopilot — what ran while you were shipping product -->
-    <section class="card border border-success/20 bg-success/[0.03]">
-      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <span class="eyebrow text-success">🤖 Running on autopilot</span>
-          <span class="chip !py-0.5 !px-2 !text-[10px] !bg-success/15 !text-success">{{ autoStats.active_count }} active</span>
-        </div>
-        <div class="text-xs text-ink-muted">
-          <span class="text-success font-bold tabular-nums">{{ autoStats.auto_handled_7d }}</span> auto-handled · <span class="text-warn font-semibold tabular-nums">{{ autoStats.needed_review_7d }}</span> needed your eyes · <span class="text-ink font-semibold tabular-nums">~{{ autoStats.hours_saved_7d }}h</span> of your time saved (last 7 days)
-        </div>
-      </div>
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <article
-          v-for="a in liveAutomations"
-          :key="a.id"
-          class="rounded-md border border-divider bg-surface p-3"
-        >
-          <div class="flex items-start gap-2.5">
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-success/10 text-base flex-shrink-0">
-              {{ AUTO_KIND_META[a.kind].icon }}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-baseline gap-x-2">
-                <span class="text-sm font-semibold text-ink truncate">{{ a.name }}</span>
-                <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
-                  :class="a.status === 'active' ? 'bg-success/15 text-success' : 'bg-warn/15 text-warn'"
-                >{{ AUTO_STATUS_META[a.status].label }}</span>
-              </div>
-              <p class="text-[11px] text-ink-muted leading-snug mt-0.5">{{ a.description }}</p>
-              <div class="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-ink-disabled">
-                <span class="text-success font-semibold">{{ a.auto_handled_7d }} auto</span>
-                <span v-if="a.needed_review_7d > 0">· <span class="text-warn font-semibold">{{ a.needed_review_7d }} needed eyes</span></span>
-                <span v-if="a.confidence_threshold">· threshold ≥ {{ Math.round(a.confidence_threshold * 100) }}%</span>
-                <span v-if="a.schedule_label">· {{ a.schedule_label }}</span>
-              </div>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
 
     <!-- Priority filter -->
     <div class="card">
