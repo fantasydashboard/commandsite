@@ -4,6 +4,7 @@ import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import ClientWordmark from '@/components/ClientWordmark.vue'
+import AskAiFloatingButton from '@/components/AskAiFloatingButton.vue'
 import { modulesForClient } from '@/config/clients'
 import { themeForClient } from '@/config/clientThemes'
 import { visibleTabsFor, badgesForTab, type TabBadge } from '@/modules/registry'
@@ -281,5 +282,9 @@ async function onLogout() {
         <RouterView />
       </template>
     </main>
+
+    <!-- Floating Ask-Ada / Ask-Grace button — only renders for clients
+         that have a persona configured in personas/registry.ts -->
+    <AskAiFloatingButton :slug="props.slug" />
   </div>
 </template>
