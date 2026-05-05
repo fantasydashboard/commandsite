@@ -1,61 +1,452 @@
 <script setup lang="ts">
+/**
+ * CommandSite — Landing page (local services).
+ *
+ * Lives at `/`. Audience: 4-25 person service-business owners
+ * (HVAC, plumbing, electrical, roofing, landscaping, contractors).
+ * Voice + content sourced from docs/landing-page/commandsite-io-local-services-v1.md.
+ *
+ * Persona: Ada — the AI employee, named for Ada Lovelace.
+ *
+ * TODO before launch:
+ *   • Swap CTA_URL from mailto: to the real Calendly URL once that
+ *     account is set up + "30-min Discovery Walkthrough" event exists.
+ */
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
+
+// Swap to Calendly URL once configured (e.g. https://calendly.com/joshdaniel/30min)
+const CTA_URL = 'mailto:josh@commandsite.io?subject=CommandSite%20discovery%20walkthrough'
+const CTA_LABEL = 'Book a discovery walkthrough'
+
+interface Pain { headline: string; detail: string }
+const pains: Pain[] = [
+  {
+    headline: 'Friday at 8 PM, your phone rings — and goes to voicemail.',
+    detail: 'That was a $400 service call. By Monday morning they\'ve already booked the next guy.',
+  },
+  {
+    headline: 'You sent a $4,500 quote three weeks ago.',
+    detail: 'Crickets. The customer probably did the work — just not with you.',
+  },
+  {
+    headline: 'You finished 47 jobs last month. You asked for 2 reviews.',
+    detail: 'Your competitors are at 200+ stars; you\'re at 48.',
+  },
+  {
+    headline: 'You\'re paying for five different tools.',
+    detail: 'Phone system, scheduling, CRM, invoicing, review platform — and still feel like things slip through the cracks every week.',
+  },
+]
+
+interface Module { icon: string; title: string; tagline: string; detail: string }
+const modules: Module[] = [
+  {
+    icon: '📞',
+    title: 'Ada at the front desk',
+    tagline: 'Catches every call. Books every job.',
+    detail: 'Trained on your services, pricing, hours, and dispatch rules. Answers in your business\'s voice, books straight to your calendar, escalates emergencies to your cell — 24/7. Sounds like a thoughtful office manager, not a chatbot.',
+  },
+  {
+    icon: '📋',
+    title: 'Ada chases your quotes',
+    tagline: 'No more estimates collecting dust.',
+    detail: 'Every quote you send gets a 7-day SMS follow-up sequence in your voice. Ada answers basic questions, schedules walk-throughs, and only pings you when a serious lead needs a human.',
+  },
+  {
+    icon: '⭐',
+    title: 'Ada asks for the review',
+    tagline: 'At the moment customers are happiest.',
+    detail: 'Ada texts customers 2 hours after job completion — the highest-converting window. She drafts your responses to anything 3 stars or below before they go live, so a bad review never sits unanswered.',
+  },
+  {
+    icon: '🔁',
+    title: 'Ada wakes up old customers',
+    tagline: 'The leads you forgot about? She didn\'t.',
+    detail: 'Ada pulls dormant leads and past customers from your CRM, segments by job type and time silent, and runs personalized re-engagement campaigns. Most owners book 4-8 jobs in the first 30 days from leads they\'d written off.',
+  },
+  {
+    icon: '📊',
+    title: 'Ada\'s daily report',
+    tagline: 'One screen. Everything that matters.',
+    detail: 'Calls handled, quotes sent, reviews earned, jobs booked. No bouncing between tabs. No "wait, which tool does that live in?" Open it in the morning, see what Ada handled overnight, and get back on the truck.',
+  },
+]
+
+interface Tier {
+  name: string
+  firstMonth: number
+  monthly: number
+  blurb: string
+  features: string[]
+  highlight: boolean
+}
+const tiers: Tier[] = [
+  {
+    name: 'Starter',
+    firstMonth: 1499,
+    monthly: 499,
+    blurb: 'For small teams getting Ada started.',
+    features: [
+      'Ada at the front desk (up to 250 calls/mo)',
+      'Ada\'s daily report dashboard',
+      'Ask-Ada chat',
+      'Email + SMS support',
+      'Live in 14 days',
+    ],
+    highlight: false,
+  },
+  {
+    name: 'Full',
+    firstMonth: 1999,
+    monthly: 799,
+    blurb: 'Everything Ada can do for you.',
+    features: [
+      'Everything in Starter',
+      'Ada chases your quotes',
+      'Ada asks for the review',
+      'Ada wakes up old customers',
+      'Up to 500 calls/mo',
+      'Priority support',
+    ],
+    highlight: true,
+  },
+  {
+    name: 'Growth',
+    firstMonth: 2999,
+    monthly: 1499,
+    blurb: 'For service businesses scaling past $2M revenue.',
+    features: [
+      'Everything in Full',
+      'Ad management & campaign tracking',
+      'Monthly strategy call with Josh',
+      'Up to 1,500 calls/mo',
+      'Dedicated account contact',
+    ],
+    highlight: false,
+  },
+]
+
+interface Faq { q: string; a: string }
+const faqs: Faq[] = [
+  {
+    q: 'I already use ServiceTitan / Jobber / Housecall Pro. Does this replace it?',
+    a: 'No. CommandSite plugs into your existing CRM, scheduling, and invoicing. Ada is the missing layer between your customers and your tools — the part that catches calls, chases quotes, and collects reviews automatically. Your existing stack stays.',
+  },
+  {
+    q: 'How long does setup actually take?',
+    a: '14 days from kickoff to live. The first week is us learning your business + training Ada. The second week is testing, tuning, and going live with monitoring. Most owners are surprised how little of their time it takes.',
+  },
+  {
+    q: 'What if I\'m too small? I only do 60 jobs a month.',
+    a: 'Our Starter tier is built for exactly that range — small teams who can\'t justify a full-time CSR but are losing real money to missed calls and forgotten quotes. If 60 jobs/month feels like the ceiling and you want more, this is for you.',
+  },
+  {
+    q: 'What about my data? Where does it live?',
+    a: 'Your data lives in a dedicated, isolated environment — not shared with other customers. We use the same security standards as the major business apps you already use. We never sell or share your data, and you own everything.',
+  },
+  {
+    q: 'What if it doesn\'t work for me?',
+    a: 'Cancel anytime after month 1. The first-month investment covers Ada\'s custom build — after that, it\'s straight monthly. If she isn\'t earning her keep, you\'re not locked in.',
+  },
+  {
+    q: 'Are you a real person? This feels like a small operation.',
+    a: 'It is. CommandSite is built and run by Josh — a solo founder who spent a decade with service businesses before building this. That\'s the point. You\'re not buying enterprise SaaS — you\'re getting an AI employee that\'s been thought through by someone who actually knows what your back office looks like.',
+  },
+  {
+    q: 'Why is she called Ada?',
+    a: 'Named after Ada Lovelace, who wrote the first computer program in the 1840s — a hundred years before computers existed. She\'s the original AI ancestor. Plus, "Ada" is short, easy to say on a phone, and sounds like a name you\'d actually want answering for your business.',
+  },
+  {
+    q: 'Does Ada say she\'s an AI when she answers calls?',
+    a: 'Yes — Ada always identifies herself as your AI assistant on the first interaction. Transparency is the right move (and it\'s becoming legally required in some states). Once customers know she\'s AI, they\'re often impressed at how naturally she handles the call.',
+  },
+]
+
+function fmtMoney(n: number): string {
+  return '$' + n.toLocaleString()
+}
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface">
-    <header class="bg-surface-dark">
-      <div class="mx-auto flex max-w-6xl items-center justify-between px-8 py-4">
-        <BrandLogo surface="dark" :height="36" />
-        <RouterLink
-          to="/login"
-          class="text-sm text-ink-inverse/70 hover:text-ink-inverse transition-colors"
-        >
-          Sign in
+  <div class="min-h-screen bg-surface text-ink antialiased">
+    <!-- ── Header ────────────────────────────────────────────────────── -->
+    <header class="sticky top-0 z-30 border-b border-divider bg-surface-dark/95 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-8">
+        <RouterLink to="/" class="flex items-center" aria-label="CommandSite home">
+          <BrandLogo surface="dark" :height="32" />
         </RouterLink>
+        <nav class="flex items-center gap-3 sm:gap-5">
+          <RouterLink
+            to="/churches"
+            class="text-sm text-ink-inverse/70 hover:text-ink-inverse transition-colors hidden sm:inline"
+          >For churches</RouterLink>
+          <RouterLink
+            to="/login"
+            class="text-sm text-ink-inverse/70 hover:text-ink-inverse transition-colors"
+          >Sign in</RouterLink>
+          <a :href="CTA_URL" class="btn-primary !py-2 !px-4 !text-xs sm:!text-sm">
+            {{ CTA_LABEL }}
+          </a>
+        </nav>
       </div>
     </header>
 
-    <main class="mx-auto max-w-5xl px-8 py-24">
-      <h1 class="text-5xl font-semibold tracking-tight text-ink sm:text-6xl">
-        Command centers,<br />built for each business.
+    <!-- ── Hero ──────────────────────────────────────────────────────── -->
+    <section class="mx-auto max-w-5xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+        For service businesses
+      </div>
+      <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
+        No two service businesses run the same.<br />
+        Your software shouldn't either.
       </h1>
-      <p class="mt-6 max-w-2xl text-lg text-ink-muted">
-        CommandSite is a bespoke dashboard service. We design and build a custom
-        operations dashboard for your business — metrics, CRM, project status,
-        social — all in one login. You focus on running the company; we keep the
-        cockpit running.
+      <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
+        Meet <strong class="text-ink font-semibold">Ada</strong> — your custom-built AI employee, trained on your services, your pricing, and the way you actually run jobs. She catches your calls, chases your quotes, and asks for your reviews while you're on the truck.
+      </p>
+      <p class="mt-2 text-sm text-ink-disabled italic">
+        (Yes, named after Ada Lovelace — the first programmer.)
+      </p>
+      <div class="mt-10 flex flex-wrap gap-3">
+        <a :href="CTA_URL" class="btn-primary">
+          {{ CTA_LABEL }} →
+        </a>
+        <a href="#how-it-works" class="btn-secondary">
+          See how it works
+        </a>
+      </div>
+    </section>
+
+    <!-- ── Pain ──────────────────────────────────────────────────────── -->
+    <section class="bg-canvas py-16 sm:py-20">
+      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10 max-w-3xl">
+          If this sounds like your business, keep reading.
+        </h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div
+            v-for="(p, i) in pains"
+            :key="i"
+            class="rounded-card border border-divider bg-surface-raised p-5"
+          >
+            <p class="text-base font-semibold text-ink leading-snug">{{ p.headline }}</p>
+            <p class="mt-2 text-sm text-ink-muted leading-relaxed">{{ p.detail }}</p>
+          </div>
+        </div>
+        <p class="mt-6 text-xs italic text-ink-disabled">
+          If your office manager is doing all this manually, this is for them too.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── What Ada does ─────────────────────────────────────────────── -->
+    <section id="how-it-works" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
+      <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
+        Five things Ada handles for you.
+      </h2>
+      <p class="text-base text-ink-muted max-w-2xl mb-10">
+        Trained on your business specifically — not a generic chatbot bolted onto a template.
       </p>
 
-      <div class="mt-10 flex gap-4">
-        <a href="mailto:josh@getinthelimelight.com" class="btn-primary">
-          Request a dashboard
-        </a>
-        <RouterLink to="/login" class="btn-secondary">Client sign in</RouterLink>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <article
+          v-for="(m, i) in modules"
+          :key="i"
+          class="card flex flex-col"
+        >
+          <div class="text-3xl mb-3" aria-hidden="true">{{ m.icon }}</div>
+          <h3 class="text-lg font-semibold text-ink">{{ m.title }}</h3>
+          <p class="text-sm font-medium text-brand mt-1">{{ m.tagline }}</p>
+          <p class="mt-3 text-sm text-ink-muted leading-relaxed flex-1">{{ m.detail }}</p>
+        </article>
+
+        <!-- Ask Ada chat callout -->
+        <article class="card flex flex-col bg-brand text-ink-inverse border-brand">
+          <div class="text-3xl mb-3" aria-hidden="true">💬</div>
+          <h3 class="text-lg font-semibold">Plus — Ask Ada anything</h3>
+          <p class="text-sm font-medium opacity-90 mt-1">A chat box, right on your dashboard.</p>
+          <p class="mt-3 text-sm leading-relaxed opacity-90 flex-1">
+            <em>"Ada, did the Whitaker quote get a response?"</em><br />
+            <em>"Ada, who haven't I followed up with this week?"</em><br />
+            <em>"Ada, what came in overnight?"</em><br /><br />
+            She knows your business — ask her like she's your office manager.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Why custom-built ──────────────────────────────────────────── -->
+    <section class="bg-canvas py-16 sm:py-24">
+      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
+          Ada isn't a generic chatbot. She's trained on your business.
+        </h2>
+        <p class="text-base text-ink-muted max-w-2xl mb-10">
+          Most AI-for-trades tools ship a one-size-fits-all chatbot and call it done. Ada gets built around how <em>your</em> business actually runs.
+        </p>
+
+        <div class="grid gap-6 sm:grid-cols-3">
+          <div>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-ink-inverse text-sm font-bold">1</span>
+              <span class="text-sm font-semibold text-ink">We learn your business</span>
+            </div>
+            <p class="text-sm text-ink-muted leading-relaxed">
+              A discovery call where we map your services, pricing, dispatch rules, busy hours, and how you actually talk to your customers.
+            </p>
+          </div>
+          <div>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-ink-inverse text-sm font-bold">2</span>
+              <span class="text-sm font-semibold text-ink">We train Ada</span>
+            </div>
+            <p class="text-sm text-ink-muted leading-relaxed">
+              We teach Ada what we learned, set up your integrations, customize her follow-ups, and run test calls until she sounds like a real member of your team. Live in 14 days.
+            </p>
+          </div>
+          <div>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-ink-inverse text-sm font-bold">3</span>
+              <span class="text-sm font-semibold text-ink">We tune and grow</span>
+            </div>
+            <p class="text-sm text-ink-muted leading-relaxed">
+              Monthly check-ins to refine what's working. As your business grows, Ada grows with it.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Pricing ───────────────────────────────────────────────────── -->
+    <section id="pricing" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
+      <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
+        Simple pricing. Custom build. Cancel anytime after month 1.
+      </h2>
+      <p class="text-base text-ink-muted max-w-2xl mb-10">
+        First month covers the custom build of your AI employee. Every month after, just keep her running.
+      </p>
+
+      <div class="grid gap-5 lg:grid-cols-3">
+        <article
+          v-for="t in tiers"
+          :key="t.name"
+          class="rounded-card border bg-surface-raised p-6 flex flex-col relative"
+          :class="t.highlight ? 'border-brand shadow-raised' : 'border-divider shadow-card'"
+        >
+          <div
+            v-if="t.highlight"
+            class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand text-ink-inverse text-[10px] font-bold uppercase tracking-wider px-3 py-1"
+          >Most popular</div>
+          <h3 class="text-xl font-semibold text-ink">{{ t.name }}</h3>
+          <p class="text-sm text-ink-muted mt-1 mb-4">{{ t.blurb }}</p>
+          <div class="flex items-baseline gap-1 mb-1">
+            <span class="text-3xl font-bold text-ink tabular-nums">{{ fmtMoney(t.firstMonth) }}</span>
+            <span class="text-sm text-ink-muted">first month</span>
+          </div>
+          <div class="flex items-baseline gap-1 mb-5">
+            <span class="text-lg font-semibold text-ink tabular-nums">then {{ fmtMoney(t.monthly) }}</span>
+            <span class="text-sm text-ink-muted">/month</span>
+          </div>
+          <ul class="space-y-2 mb-6 flex-1">
+            <li
+              v-for="(f, i) in t.features"
+              :key="i"
+              class="text-sm text-ink leading-snug flex items-start gap-2"
+            >
+              <span class="text-brand font-bold flex-shrink-0">✓</span>
+              <span>{{ f }}</span>
+            </li>
+          </ul>
+          <a :href="CTA_URL" class="block text-center rounded-full px-4 py-2.5 text-sm font-semibold transition-colors"
+             :class="t.highlight ? 'bg-brand text-ink-inverse hover:bg-brand-hover' : 'bg-surface-elevated text-ink hover:bg-surface-elevated/80 border border-divider'"
+          >Book the discovery call</a>
+        </article>
       </div>
 
-      <div class="mt-24 grid gap-6 sm:grid-cols-3">
-        <div class="card">
-          <div class="text-sm font-semibold text-brand">Custom</div>
-          <p class="mt-2 text-sm text-ink-muted">
-            Every dashboard is tailored to the metrics and workflows that matter
-            to your business.
+      <p class="mt-8 text-sm text-ink-muted italic max-w-2xl">
+        For comparison: a part-time CSR runs $30-50K/year + benefits. Ada runs $5,988-$17,988/year and never takes PTO.
+      </p>
+    </section>
+
+    <!-- ── Founder note ──────────────────────────────────────────────── -->
+    <section class="bg-canvas py-16 sm:py-24">
+      <div class="mx-auto max-w-3xl px-4 sm:px-8">
+        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-8">
+          A note from the founder.
+        </h2>
+        <div class="space-y-5 text-base text-ink leading-relaxed">
+          <p>Honestly? I built CommandSite because I was tired.</p>
+          <p>
+            Tired of watching good leads go to voicemail because nobody answered after 5 PM. Tired of estimates sitting in inboxes for two weeks while the customer hired the next guy. Tired of bouncing between five different tools and still feeling like things were slipping through the cracks.
           </p>
-        </div>
-        <div class="card">
-          <div class="text-sm font-semibold text-brand">Modular</div>
-          <p class="mt-2 text-sm text-ink-muted">
-            Metrics, CRM, projects, social — turn modules on as you grow.
+          <p>
+            I'd been working with local service businesses for over a decade — and the same pattern showed up in every business I touched. Smart owners running real operations, drowning in busywork that the technology should have already solved.
           </p>
-        </div>
-        <div class="card">
-          <div class="text-sm font-semibold text-brand">Managed</div>
-          <p class="mt-2 text-sm text-ink-muted">
-            We maintain it. No IT team required.
+          <p>
+            So I built Ada. Ada is the office manager I always wished I could hand a service business owner: one AI employee who catches every call, chases every quote, asks every customer for a review, and reactivates the ones who've gone quiet. No bouncing between tabs. No "wait, which tool does that live in?" Just one team member running the back office while you run the business.
           </p>
+          <p>
+            If that sounds like the version of your business you've been wishing for, let's talk.
+          </p>
+          <p class="font-semibold text-ink pt-2">— Josh<br /><span class="text-sm text-ink-muted font-normal">Founder, CommandSite</span></p>
         </div>
       </div>
-    </main>
+    </section>
+
+    <!-- ── FAQ ───────────────────────────────────────────────────────── -->
+    <section class="mx-auto max-w-3xl px-4 sm:px-8 py-16 sm:py-24">
+      <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-8">
+        Common questions
+      </h2>
+      <div class="space-y-3">
+        <details
+          v-for="(f, i) in faqs"
+          :key="i"
+          class="group rounded-card border border-divider bg-surface-raised overflow-hidden"
+        >
+          <summary class="cursor-pointer list-none px-5 py-4 flex items-start gap-3 hover:bg-surface-elevated/40 transition-colors">
+            <span class="text-brand font-bold text-lg leading-none flex-shrink-0 group-open:rotate-45 transition-transform">+</span>
+            <span class="text-sm font-semibold text-ink leading-snug">{{ f.q }}</span>
+          </summary>
+          <div class="px-5 pb-4 pl-12 text-sm text-ink-muted leading-relaxed">
+            {{ f.a }}
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ── Final CTA ─────────────────────────────────────────────────── -->
+    <section class="bg-surface-dark text-ink-inverse py-16 sm:py-24">
+      <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-4">
+          Ready to see what Ada would look like for your business?
+        </h2>
+        <p class="text-base opacity-80 mb-8 max-w-xl mx-auto leading-relaxed">
+          The discovery walkthrough is 30 minutes. We talk through how your business actually runs, what's slipping through the cracks, and whether CommandSite's a fit. No pressure — half the conversations end with "let me think about it," and that's totally fine.
+        </p>
+        <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
+          {{ CTA_LABEL }} →
+        </a>
+        <p class="mt-6 text-sm opacity-70">
+          Or email me directly: <a href="mailto:josh@commandsite.io" class="underline hover:opacity-100">josh@commandsite.io</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Footer ────────────────────────────────────────────────────── -->
+    <footer class="border-t border-divider bg-surface py-10">
+      <div class="mx-auto max-w-6xl px-4 sm:px-8 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <BrandLogo surface="light" :height="24" />
+        </div>
+        <div class="text-xs text-ink-muted">
+          Built for service business owners.
+          <RouterLink to="/churches" class="underline hover:text-ink ml-1">Also serving churches →</RouterLink>
+        </div>
+        <div class="text-xs text-ink-disabled">
+          © 2026 CommandSite
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
