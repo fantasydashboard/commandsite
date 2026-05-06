@@ -150,11 +150,11 @@ const faqs: Faq[] = [
         For service businesses
       </div>
       <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
-        No two service businesses run the same.<br />
-        Your software shouldn't either.
+        Meet Ada —<br />
+        your AI employee.
       </h1>
       <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
-        Meet <strong class="text-ink font-semibold">Ada</strong> — your custom-built AI employee, trained on your services, your pricing, and the way you actually run jobs. She catches your calls, chases your quotes, and asks for your reviews while you're on the truck.
+        <strong class="text-ink font-semibold">CommandSite</strong> builds Ada custom for your service business — trained on your services, your pricing, the way you actually run jobs. She catches every call, chases every quote, asks every customer for a review — while you're on the truck.
       </p>
       <p class="mt-2 text-sm text-ink-disabled italic">
         (Yes, named after Ada Lovelace — the first programmer.)

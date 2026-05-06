@@ -154,11 +154,11 @@ const faqs: Faq[] = [
         For small-to-mid churches
       </div>
       <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
-        No two churches are the same.<br />
-        Your software shouldn't be either.
+        Meet Grace —<br />
+        your AI ministry assistant.
       </h1>
       <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
-        Meet <strong class="text-ink font-semibold">Grace</strong> — your custom-built AI ministry assistant. Trained on your ministries, your services, and how your team actually does follow-up. She welcomes your visitors, drafts the gentle pastoral check-ins, and quietly notices when someone's been gone a few weeks — so your team can focus on the people in front of them.
+        <strong class="text-ink font-semibold">CommandSite</strong> builds Grace custom for your church — trained on your ministries, your services, your team's voice. She welcomes first-time visitors, drafts gentle pastoral check-ins, and notices when someone drifts past 60 days. Your team stays in the relationships; Grace handles the systems work.
       </p>
       <div class="mt-10 flex flex-wrap gap-3">
         <a :href="CTA_URL" class="btn-primary">
