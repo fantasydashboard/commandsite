@@ -127,7 +127,7 @@ const faqs: Faq[] = [
     <header class="sticky top-0 z-30 border-b border-divider bg-chrome/95 backdrop-blur">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-8">
         <RouterLink to="/" class="flex items-center" aria-label="CommandSite home">
-          <BrandLogo surface="dark" :height="32" />
+          <BrandLogo surface="dark" :height="44" />
         </RouterLink>
         <nav class="flex items-center gap-4 sm:gap-6">
           <RouterLink
