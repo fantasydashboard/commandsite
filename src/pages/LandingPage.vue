@@ -14,7 +14,6 @@
  */
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
-import adaHero from '@/assets/ada-hero.png'
 
 const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough'
 const CTA_LABEL = 'Book a discovery walkthrough'
@@ -147,7 +146,7 @@ const faqs: Faq[] = [
 
     <!-- ── Hero ──────────────────────────────────────────────────────── -->
     <section class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
-      <div class="grid gap-10 lg:grid-cols-[1fr_420px] lg:gap-16 items-center">
+      <div class="grid gap-12 lg:grid-cols-[1fr_380px] lg:gap-12 items-center">
         <div>
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
             For service businesses
@@ -171,12 +170,61 @@ const faqs: Faq[] = [
             </a>
           </div>
         </div>
+
+        <!-- "Ada at work today" — floating activity cards -->
         <div class="hidden lg:block">
-          <img
-            :src="adaHero"
-            alt="Ada — your AI employee"
-            class="w-full h-auto"
-          />
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-4 pl-2">
+            ✨ Ada · today
+          </div>
+          <div class="space-y-4">
+            <!-- Card 1: Call caught -->
+            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">📞</span>
+                <p class="text-sm font-semibold text-ink">Caught a call</p>
+                <span class="ml-auto text-[10px] text-ink-disabled">9:42 AM</span>
+              </div>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Sarah M. — <span class="italic">"AC stopped working overnight"</span>
+              </p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
+                <span class="text-success font-bold">✓</span>
+                <span class="text-ink font-medium">Booked emergency · Tue 10 AM</span>
+              </div>
+            </div>
+
+            <!-- Card 2: Quote chased -->
+            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-6">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">✉️</span>
+                <p class="text-sm font-semibold text-ink">Chased a quote</p>
+                <span class="ml-auto text-[10px] text-ink-disabled">11:18 AM</span>
+              </div>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Reynolds family — $4,500 install · 14 days silent
+              </p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
+                <span class="text-success font-bold">✓</span>
+                <span class="text-ink font-medium">Reply received · ready to schedule</span>
+              </div>
+            </div>
+
+            <!-- Card 3: Review asked -->
+            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-2">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">⭐</span>
+                <p class="text-sm font-semibold text-ink">Asked for a review</p>
+                <span class="ml-auto text-[10px] text-ink-disabled">2:30 PM</span>
+              </div>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Johnson household · job completed yesterday
+              </p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
+                <span class="text-success font-bold">✓</span>
+                <span class="text-ink font-medium">5★ posted to Google</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
