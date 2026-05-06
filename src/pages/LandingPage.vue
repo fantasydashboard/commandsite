@@ -14,6 +14,7 @@
  */
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
+import adaHero from '@/assets/ada-hero.png'
 
 const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough'
 const CTA_LABEL = 'Book a discovery walkthrough'
@@ -145,27 +146,38 @@ const faqs: Faq[] = [
     </header>
 
     <!-- ── Hero ──────────────────────────────────────────────────────── -->
-    <section class="mx-auto max-w-5xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
-      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
-        For service businesses
-      </div>
-      <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
-        Meet Ada —<br />
-        your AI employee.
-      </h1>
-      <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
-        <strong class="text-ink font-semibold">CommandSite</strong> builds Ada custom for your service business — trained on your services, your pricing, the way you actually run jobs. She catches every call, chases every quote, asks every customer for a review — while you're on the truck.
-      </p>
-      <p class="mt-2 text-sm text-ink-disabled italic">
-        (Yes, named after Ada Lovelace — the first programmer.)
-      </p>
-      <div class="mt-10 flex flex-wrap gap-3">
-        <a :href="CTA_URL" class="btn-primary">
-          {{ CTA_LABEL }} →
-        </a>
-        <a href="#how-it-works" class="btn-secondary">
-          See how it works
-        </a>
+    <section class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
+      <div class="grid gap-10 lg:grid-cols-[1fr_420px] lg:gap-16 items-center">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+            For service businesses
+          </div>
+          <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
+            Meet Ada —<br />
+            your AI employee.
+          </h1>
+          <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
+            <strong class="text-ink font-semibold">CommandSite</strong> builds Ada custom for your service business — trained on your services, your pricing, the way you actually run jobs. She catches every call, chases every quote, asks every customer for a review — while you're on the truck.
+          </p>
+          <p class="mt-2 text-sm text-ink-disabled italic">
+            (Yes, named after Ada Lovelace — the first programmer.)
+          </p>
+          <div class="mt-10 flex flex-wrap gap-3">
+            <a :href="CTA_URL" class="btn-primary">
+              {{ CTA_LABEL }} →
+            </a>
+            <a href="#how-it-works" class="btn-secondary">
+              See how it works
+            </a>
+          </div>
+        </div>
+        <div class="hidden lg:block">
+          <img
+            :src="adaHero"
+            alt="Ada — your AI employee"
+            class="w-full h-auto"
+          />
+        </div>
       </div>
     </section>
 
