@@ -169,6 +169,45 @@ const faqs: Faq[] = [
       </div>
     </section>
 
+    <!-- ── Live demo CTA — "see Ada in action first" ────────────────── -->
+    <section class="bg-canvas border-y border-divider py-12">
+      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <div class="rounded-card border border-brand/30 bg-gradient-to-br from-brand/5 to-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row items-start gap-6">
+          <div class="flex-1 min-w-0">
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-2">
+              ✨ Take a look inside
+            </div>
+            <h2 class="text-xl sm:text-2xl font-semibold text-ink leading-snug mb-3">
+              Want to see Ada in action first? <span class="text-ink-muted font-normal">No call required.</span>
+            </h2>
+            <p class="text-sm text-ink-muted leading-relaxed mb-4 max-w-lg">
+              Walk through the same dashboard a real HVAC shop would use. Click every tab. Try the chat — Ada knows the demo data and answers like she would for your business.
+            </p>
+            <ul class="space-y-1.5 text-sm text-ink mb-5">
+              <li class="flex items-start gap-2">
+                <span class="text-brand font-bold">→</span>
+                <span>See how Ada handles calls, quotes, reviews, and reactivation</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-brand font-bold">→</span>
+                <span>Click the floating "Ask Ada" button on any page to chat with her</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-brand font-bold">→</span>
+                <span>Drill into all 10 of her roles from the Today page</span>
+              </li>
+            </ul>
+            <div class="flex flex-wrap items-center gap-3">
+              <RouterLink to="/dashboard/apex-heating-and-air" class="btn-primary !text-sm">
+                Tour the demo →
+              </RouterLink>
+              <p class="text-[11px] text-ink-disabled italic">Demo data is for "Apex Heating &amp; Air" — fictional, fully click-through.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Pain ──────────────────────────────────────────────────────── -->
     <section class="bg-canvas py-16 sm:py-20">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">

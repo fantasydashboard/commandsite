@@ -170,6 +170,45 @@ const faqs: Faq[] = [
       </div>
     </section>
 
+    <!-- ── Live demo CTA — "see Grace in action first" ──────────────── -->
+    <section class="bg-canvas border-y border-divider py-12">
+      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <div class="rounded-card border border-brand/30 bg-gradient-to-br from-brand/5 to-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row items-start gap-6">
+          <div class="flex-1 min-w-0">
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-2">
+              ✨ Take a look inside
+            </div>
+            <h2 class="text-xl sm:text-2xl font-semibold text-ink leading-snug mb-3">
+              Want to see Grace in action first? <span class="text-ink-muted font-normal">No call required.</span>
+            </h2>
+            <p class="text-sm text-ink-muted leading-relaxed mb-4 max-w-lg">
+              Walk through the same dashboard a real church staff would use — populated with sample data for "Cornerstone Community Church." Click every tab. Try the chat — Grace answers like she would for your church.
+            </p>
+            <ul class="space-y-1.5 text-sm text-ink mb-5">
+              <li class="flex items-start gap-2">
+                <span class="text-brand font-bold">→</span>
+                <span>See how Grace welcomes first-time visitors + drafts pastoral check-ins</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-brand font-bold">→</span>
+                <span>Click the floating "Ask Grace" button on any page to chat with her</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-brand font-bold">→</span>
+                <span>Drill into all 10 of her roles from the Today page</span>
+              </li>
+            </ul>
+            <div class="flex flex-wrap items-center gap-3">
+              <RouterLink to="/dashboard/cornerstone-church" class="btn-primary !text-sm">
+                Tour the demo →
+              </RouterLink>
+              <p class="text-[11px] text-ink-disabled italic">All people, prayer requests, and giving figures are fictional.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Pain ──────────────────────────────────────────────────────── -->
     <section class="bg-canvas py-16 sm:py-20">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">

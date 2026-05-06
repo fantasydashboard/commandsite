@@ -215,7 +215,12 @@ async function onLogout() {
           >
             ← Admin
           </RouterLink>
-          <button class="btn-secondary" @click="onLogout">Sign out</button>
+          <button v-if="auth.isAuthenticated" class="btn-secondary" @click="onLogout">Sign out</button>
+          <RouterLink
+            v-else
+            to="/"
+            class="btn-secondary"
+          >← Back to commandsite.io</RouterLink>
         </div>
       </div>
 

@@ -84,6 +84,15 @@ export const router = createRouter({
   routes,
 })
 
+// Demo dashboards anyone can browse without logging in. Anchors the
+// "see Ada/Grace in action" links from the landing pages. Real customer
+// dashboards (commandsite, ufd-redesign, etc.) still require auth.
+const PUBLIC_DEMO_SLUGS = new Set([
+  'apex-heating-and-air',
+  'cornerstone-church',
+  'commandsite-demo',
+])
+
 router.beforeEach(async (to: RouteLocationNormalized) => {
   const auth = useAuthStore()
 
@@ -94,6 +103,11 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
 
   const isPublic = to.matched.some((r) => r.meta.public === true)
   if (isPublic) return true
+
+  // Public-demo dashboards: anyone can browse. Lets prospects self-tour
+  // Ada/Grace from the landing-page CTAs without creating an account.
+  const slug = to.params.slug as string | undefined
+  if (slug && PUBLIC_DEMO_SLUGS.has(slug)) return true
 
   if (!auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
@@ -111,7 +125,6 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
   }
 
   // A client can only view their own dashboard slug.
-  const slug = to.params.slug as string | undefined
   if (slug && auth.profile?.role === 'client' && slug !== auth.clientSlug) {
     return auth.redirectPath
   }
