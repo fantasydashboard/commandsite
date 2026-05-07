@@ -17,7 +17,7 @@ import {
   type Priority,
 } from '@/lib/clients/commandsite/today'
 import { adaRoles, ROLE_STATUS_META } from '@/lib/clients/commandsite/roles'
-import adaMark from '@/assets/ada-mark.png'
+import AssistantMark from '@/components/AssistantMark.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -143,8 +143,8 @@ function money(cents: number): string {
     <!-- ── Ada persona panel + chat ───────────────────────────────── -->
     <section class="card overflow-hidden p-0">
       <div class="flex items-center gap-3 bg-gradient-to-r from-brand to-brand/80 text-ink-inverse px-5 py-4">
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1 shadow-sm">
-          <img :src="adaMark" alt="Ada" class="h-full w-full object-contain" />
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm">
+          <AssistantMark class="h-8 w-8 text-brand" />
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">

@@ -20,6 +20,7 @@ import {
 } from '@/lib/clients/cornerstone/attendance'
 import { givingStats, monthlyGiving } from '@/lib/clients/cornerstone/giving'
 import { peopleStats } from '@/lib/clients/cornerstone/people'
+import CornerstoneGraceActivityStrip from '@/components/CornerstoneGraceActivityStrip.vue'
 
 Chart.register(
   LineController, BarController, LineElement, PointElement,
@@ -204,6 +205,16 @@ function money(cents: number): string {
 
 <template>
   <div class="space-y-4">
+    <CornerstoneGraceActivityStrip
+      tab-key="insights"
+      summary="Grace turns the week's activity into a one-page picture: attendance, first-time visitors, follow-ups landed, and the families on the watch list. Drafted before Tuesday's staff meeting, ready for your eyes."
+      :activity="[
+        { icon: '📊', label: 'Drafted this week\'s engagement summary', detail: 'Attendance, first-timers, day-3 follow-ups landed · in your inbox Tuesday 7 AM', ago: 'auto' },
+        { icon: '💚', label: '7 first-time visitors this week', detail: '4 returned within 14 days · 2 still in the welcome sequence', ago: 'this week' },
+        { icon: '📨', label: '12 day-3 follow-ups sent', detail: '8 responses logged · 1 family wants to schedule a coffee', ago: 'live' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

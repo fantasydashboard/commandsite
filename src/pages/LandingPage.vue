@@ -15,7 +15,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
-import adaMark from '@/assets/ada-mark.png'
+import AssistantMark from '@/components/AssistantMark.vue'
 
 const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough'
 const CTA_LABEL = 'Book a discovery walkthrough'
@@ -171,12 +171,7 @@ const faqs: Faq[] = [
     <section ref="heroRef" class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
       <div class="grid gap-12 lg:grid-cols-[1fr_380px] lg:gap-12 items-center">
         <div>
-          <img
-            :src="adaMark"
-            alt="Ada"
-            class="h-16 w-auto mb-6 select-none"
-            draggable="false"
-          />
+          <AssistantMark class="h-16 w-16 mb-6 text-brand" />
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
             For service businesses
           </div>

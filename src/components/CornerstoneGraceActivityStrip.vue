@@ -8,6 +8,7 @@
  */
 import { computed } from 'vue'
 import { rolesOnTab } from '@/lib/clients/cornerstone/roles'
+import AssistantMark from '@/components/AssistantMark.vue'
 
 interface ActivityItem {
   icon: string
@@ -31,8 +32,8 @@ const roles = computed(() => rolesOnTab(props.tabKey))
 <template>
   <section class="card overflow-hidden p-0 border border-brand/30">
     <div class="flex items-start gap-3 bg-brand/5 px-5 py-3 border-b border-brand/20">
-      <div class="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15 text-brand text-sm font-bold flex-shrink-0">
-        G
+      <div class="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15 text-brand flex-shrink-0">
+        <AssistantMark class="h-5 w-5" />
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap mb-0.5">

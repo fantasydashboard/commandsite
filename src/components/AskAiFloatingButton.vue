@@ -11,6 +11,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { personaForSlug, type SuggestedQuestion } from '@/lib/personas/registry'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
+import AssistantMark from '@/components/AssistantMark.vue'
 
 const props = defineProps<{ slug: string }>()
 
@@ -174,8 +175,8 @@ function scrollChatToBottom() {
       :aria-label="`Open chat with ${persona.name}`"
       @click="open"
     >
-      <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ink-inverse/15 text-sm font-bold ring-2 ring-ink-inverse/20">
-        {{ persona.name.charAt(0) }}
+      <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ink-inverse/15 ring-1 ring-ink-inverse/20">
+        <AssistantMark class="h-5 w-5" />
       </span>
       <span class="text-sm font-semibold">Ask {{ persona.name }}</span>
       <span class="hidden sm:inline-flex h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
@@ -189,8 +190,8 @@ function scrollChatToBottom() {
       >
         <!-- Header -->
         <div class="flex items-center gap-3 bg-gradient-to-r from-brand to-brand/80 text-ink-inverse px-4 py-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-ink-inverse/15 text-sm font-bold ring-2 ring-ink-inverse/30">
-            {{ persona.name.charAt(0) }}
+          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-ink-inverse/15 ring-1 ring-ink-inverse/30">
+            <AssistantMark class="h-6 w-6" />
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">

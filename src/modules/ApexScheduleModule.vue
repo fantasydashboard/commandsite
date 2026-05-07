@@ -15,6 +15,7 @@ import {
   type JobStatus,
 } from '@/lib/clients/apex/schedule'
 import SourceIndicator from '@/components/SourceIndicator.vue'
+import ApexAdaActivityStrip from '@/components/ApexAdaActivityStrip.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -115,6 +116,16 @@ const weekGroups = computed<DayGroup[]>(() => {
 
 <template>
   <div class="space-y-4">
+    <ApexAdaActivityStrip
+      tab-key="schedule"
+      summary="Ada keeps the board moving — reshuffles around weather, sends 'tech is 15 min out' texts, and prompts the crew for completion photos so warranty + marketing have what they need."
+      :activity="[
+        { icon: '🗓️', label: 'Reshuffled today\'s board', detail: '4 jobs moved around this morning\'s storms · all customers re-confirmed', ago: '6h ago' },
+        { icon: '📨', label: 'Sent 12 reminder texts', detail: 'Tomorrow\'s first-slot customers · 2 confirmed, 1 needs to reschedule', ago: 'auto' },
+        { icon: '📸', label: '12 jobs awaiting photos', detail: 'Marcus has 3 pending from yesterday — auto-prompt sent', ago: 'live' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

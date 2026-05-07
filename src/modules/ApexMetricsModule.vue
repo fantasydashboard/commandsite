@@ -22,6 +22,7 @@ import {
   metricsHeadline,
 } from '@/lib/clients/apex/metrics'
 import { brandAreaDataset, lineDefaults, chartColors } from '@/lib/chartTheme'
+import ApexAdaActivityStrip from '@/components/ApexAdaActivityStrip.vue'
 
 Chart.register(
   LineController, LineElement, PointElement,
@@ -121,6 +122,16 @@ const sortedSources = computed(() =>
 
 <template>
   <div class="space-y-4">
+    <ApexAdaActivityStrip
+      tab-key="insights"
+      summary="Ada watches the numbers so you don't have to. Weekly + monthly revenue, conversion, lead-source ROI, and tech utilization — drafted into a snapshot ready before Monday morning."
+      :activity="[
+        { icon: '📊', label: 'Drafted Monday\'s snapshot', detail: '$135k MTD · +18% vs last month · in your inbox Monday 7 AM', ago: 'auto' },
+        { icon: '⚡', label: 'Conversion shift flagged', detail: 'Yelp leads converting at 29% (was 38% last month) — review the 5 lost deals?', ago: '6h ago' },
+        { icon: '🎯', label: 'Lead-source ROI refreshed', detail: 'Google LSA still your best return at 6.7× · Repeat customers $42.8k driven', ago: 'live' },
+      ]"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>
