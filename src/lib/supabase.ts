@@ -18,3 +18,9 @@ export const supabase = createClient<Database>(url, anonKey, {
     detectSessionInUrl: true,
   },
 })
+
+// Exported for code paths that bypass the JS client (e.g. SSE streaming
+// against Edge Functions, where supabase.functions.invoke buffers the
+// whole response and breaks streaming).
+export const SUPABASE_URL = url
+export const SUPABASE_ANON_KEY = anonKey

@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-06T17:00:00Z",
+  "title": "Design System: CommandSite",
+  "extensions": {
+    "colorMeta": {
+      "brand": {
+        "role": "primary",
+        "displayName": "Builder's Blue",
+        "canonical": "oklch(35% 0.18 264)",
+        "tonalRamp": [
+          "oklch(15% 0.10 264)",
+          "oklch(22% 0.14 264)",
+          "oklch(30% 0.17 264)",
+          "oklch(38% 0.18 264)",
+          "oklch(50% 0.17 264)",
+          "oklch(65% 0.13 264)",
+          "oklch(82% 0.07 264)",
+          "oklch(95% 0.02 264)"
+        ]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Signal Sky",
+        "canonical": "oklch(72% 0.16 230)",
+        "tonalRamp": [
+          "oklch(20% 0.08 230)",
+          "oklch(35% 0.13 230)",
+          "oklch(50% 0.16 230)",
+          "oklch(60% 0.17 230)",
+          "oklch(72% 0.16 230)",
+          "oklch(82% 0.10 230)",
+          "oklch(90% 0.05 230)",
+          "oklch(96% 0.02 230)"
+        ]
+      },
+      "chrome": {
+        "role": "tertiary",
+        "displayName": "Chrome Navy",
+        "canonical": "oklch(18% 0.04 252)",
+        "tonalRamp": [
+          "oklch(8% 0.02 252)",
+          "oklch(15% 0.03 252)",
+          "oklch(25% 0.04 252)",
+          "oklch(40% 0.04 252)",
+          "oklch(55% 0.03 252)",
+          "oklch(70% 0.02 252)",
+          "oklch(85% 0.01 252)",
+          "oklch(95% 0.005 252)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "oklch(20% 0.02 252)",
+        "tonalRamp": [
+          "oklch(15% 0.02 252)",
+          "oklch(25% 0.02 252)",
+          "oklch(35% 0.02 252)",
+          "oklch(50% 0.015 252)",
+          "oklch(65% 0.012 252)",
+          "oklch(80% 0.008 252)",
+          "oklch(90% 0.005 252)",
+          "oklch(96% 0.003 252)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Page Wash",
+        "canonical": "oklch(96% 0.01 240)",
+        "tonalRamp": [
+          "oklch(85% 0.02 240)",
+          "oklch(90% 0.015 240)",
+          "oklch(93% 0.012 240)",
+          "oklch(95% 0.010 240)",
+          "oklch(96% 0.008 240)",
+          "oklch(97% 0.006 240)",
+          "oklch(98% 0.004 240)",
+          "oklch(99% 0.002 240)"
+        ]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Job-Done Teal",
+        "canonical": "oklch(66% 0.105 184)",
+        "tonalRamp": [
+          "oklch(20% 0.06 184)",
+          "oklch(35% 0.09 184)",
+          "oklch(50% 0.11 184)",
+          "oklch(66% 0.10 184)",
+          "oklch(78% 0.08 184)",
+          "oklch(86% 0.05 184)",
+          "oklch(92% 0.03 184)",
+          "oklch(96% 0.01 184)"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Field Amber",
+        "canonical": "oklch(67% 0.155 60)",
+        "tonalRamp": [
+          "oklch(25% 0.08 60)",
+          "oklch(40% 0.12 60)",
+          "oklch(55% 0.15 60)",
+          "oklch(67% 0.155 60)",
+          "oklch(78% 0.12 60)",
+          "oklch(86% 0.08 60)",
+          "oklch(92% 0.04 60)",
+          "oklch(96% 0.02 60)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger Red",
+        "canonical": "oklch(58% 0.22 27)",
+        "tonalRamp": [
+          "oklch(20% 0.10 27)",
+          "oklch(35% 0.16 27)",
+          "oklch(48% 0.20 27)",
+          "oklch(58% 0.22 27)",
+          "oklch(70% 0.18 27)",
+          "oklch(82% 0.10 27)",
+          "oklch(90% 0.05 27)",
+          "oklch(96% 0.02 27)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headlines on landing pages only. Tight 1.05 line-height; 'Meet Ada / your AI employee.' reads as one name with a role."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headers on landing pages, dialog titles, page-level h2."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card headings, KPI big values, module titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default paragraph and prose. Caps line length at 65 to 75ch."
+      },
+      "label": {
+        "displayName": "Eyebrow Label",
+        "purpose": "Brand-colored uppercase chip above hero headlines and section headers. The system's signature."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "0 1px 3px 0 rgb(15 23 42 / 0.04), 0 1px 2px -1px rgb(15 23 42 / 0.04), 0 0 0 1px rgb(15 23 42 / 0.025)",
+        "purpose": "Default card edge against page wash. Functions as edge tint, not literal shadow."
+      },
+      {
+        "name": "raised",
+        "value": "0 12px 28px -8px rgb(15 23 42 / 0.10), 0 4px 8px -4px rgb(15 23 42 / 0.05)",
+        "purpose": "Hover state for interactive cards, hero 'Ada at work' stack at rest, dialog surfaces."
+      },
+      {
+        "name": "button",
+        "value": "0 1px 2px 0 rgb(15 23 42 / 0.05)",
+        "purpose": "Faintest drop on solid buttons against page wash. Invisible on dark chrome."
+      },
+      {
+        "name": "input-focus-ring",
+        "value": "0 0 0 3px rgb(30 64 175 / 0.20)",
+        "purpose": "Builder's Blue glow around focused inputs."
+      },
+      {
+        "name": "button-focus-ring",
+        "value": "0 0 0 2px #f4f7fb, 0 0 0 4px #1e40af",
+        "purpose": "2px brand ring at 2px offset against page surface. Identical pattern across all button variants."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-default",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default Tailwind ease. Used on hover state transitions, button color changes, card shadow lifts."
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Hover state, focus state, color transitions. Tailwind default."
+      },
+      {
+        "name": "duration-medium",
+        "value": "200ms",
+        "purpose": "Card shadow lift on hover."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default CTA on landing pages and product. Pill shape, Builder's Blue, generous padding.",
+      "html": "<button class=\"ds-btn-primary\">Hire Ada <span aria-hidden=\"true\">→</span></button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 9999px; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; line-height: 1; background-color: #1e40af; color: #f1f5f9; border: none; cursor: pointer; box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.05); transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background-color: #1d4ed8; } .ds-btn-primary:active { background-color: #1e3a8a; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #f4f7fb, 0 0 0 4px #1e40af; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Pairs alongside Primary on hero CTAs ('See how it works'). White surface, divider border.",
+      "html": "<button class=\"ds-btn-secondary\">See how it works</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 9999px; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; line-height: 1; background-color: #ffffff; color: #0f172a; border: 1px solid #e2e8f0; cursor: pointer; transition: border-color 150ms, background-color 150ms; } .ds-btn-secondary:hover { border-color: #cbd5e1; background-color: #f1f5f9; } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 2px #f4f7fb, 0 0 0 4px #1e40af; }"
+    },
+    {
+      "name": "Eyebrow Label",
+      "kind": "chip",
+      "refersTo": "label",
+      "description": "Brand-colored uppercase chip that opens every hero and major section. The system's signature decoration.",
+      "html": "<span class=\"ds-eyebrow\">AI employees, custom-built</span>",
+      "css": ".ds-eyebrow { display: inline-block; padding: 4px 10px; border-radius: 9999px; background-color: rgb(30 64 175 / 0.10); color: #1e40af; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600; line-height: 1.2; letter-spacing: 0.18em; text-transform: uppercase; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Default surface container. 14px radius, white surface, micro edge-tint shadow at rest, ambient lift on hover.",
+      "html": "<article class=\"ds-card\"><h3 class=\"ds-card-title\">Ada catches every call</h3><p class=\"ds-card-body\">Inbound calls answered in under three rings. Every quote chased. Every job reviewed.</p></article>",
+      "css": ".ds-card { background-color: #ffffff; border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 1px 2px -1px rgb(15 23 42 / 0.04), 0 0 0 1px rgb(15 23 42 / 0.025); transition: box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-card:hover { box-shadow: 0 12px 28px -8px rgb(15 23 42 / 0.10), 0 4px 8px -4px rgb(15 23 42 / 0.05); } .ds-card-title { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 20px; font-weight: 600; line-height: 1.3; letter-spacing: -0.01em; color: #0f172a; } .ds-card-body { margin: 8px 0 0 0; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 400; line-height: 1.5; color: #64748b; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Default form field. 8px radius (smaller than cards on purpose), divider border, brand glow on focus.",
+      "html": "<label class=\"ds-input-label\">Email<input type=\"email\" class=\"ds-input\" placeholder=\"you@yourbusiness.com\" /></label>",
+      "css": ".ds-input-label { display: flex; flex-direction: column; gap: 6px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 500; color: #0f172a; } .ds-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; background-color: #ffffff; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px; color: #0f172a; transition: border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: #94a3b8; } .ds-input:focus { outline: none; border-color: #1e40af; box-shadow: 0 0 0 3px rgb(30 64 175 / 0.20); }"
+    },
+    {
+      "name": "KPI Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Signature dashboard tile. 3px top accent stripe (per-client themed), uppercase label, oversized value, hint line. The brand watermark across a dashboard's KPI grid.",
+      "html": "<article class=\"ds-kpi-card\"><div class=\"ds-kpi-stripe\"></div><div class=\"ds-kpi-body\"><div class=\"ds-kpi-label\">Calls answered</div><div class=\"ds-kpi-value\">142</div><div class=\"ds-kpi-hint\">past 7 days <span class=\"ds-kpi-delta-up\">▲ 18%</span></div></div></article>",
+      "css": ".ds-kpi-card { position: relative; overflow: hidden; background-color: #ffffff; border-radius: 14px; box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 1px 2px -1px rgb(15 23 42 / 0.04), 0 0 0 1px rgb(15 23 42 / 0.025); } .ds-kpi-stripe { position: absolute; top: 0; left: 0; right: 0; height: 3px; background-color: #1e40af; } .ds-kpi-body { padding: 16px 20px; } .ds-kpi-label { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; line-height: 1.2; } .ds-kpi-value { margin-top: 6px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 28px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; color: #0f172a; } .ds-kpi-hint { margin-top: 8px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 400; color: #64748b; } .ds-kpi-delta-up { color: #0ea5a0; font-weight: 600; }"
+    },
+    {
+      "name": "Ada at Work Card",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Signature landing-page hero element. Stacked trio of cards showing Ada in action. Static, structural depth, no motion.",
+      "html": "<article class=\"ds-ada-card\"><span class=\"ds-ada-icon\">📞</span><div class=\"ds-ada-body\"><div class=\"ds-ada-title\">Inbound call answered</div><div class=\"ds-ada-meta\">Mrs. Patel · 2 min ago · quote drafted</div></div><span class=\"ds-ada-status\">✓</span></article>",
+      "css": ".ds-ada-card { display: flex; align-items: flex-start; gap: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; box-shadow: 0 12px 28px -8px rgb(15 23 42 / 0.10), 0 4px 8px -4px rgb(15 23 42 / 0.05); max-width: 360px; } .ds-ada-icon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9999px; background-color: rgb(30 64 175 / 0.10); color: #1e40af; font-size: 14px; font-weight: 600; } .ds-ada-body { flex: 1; min-width: 0; } .ds-ada-title { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 600; line-height: 1.3; color: #0f172a; } .ds-ada-meta { margin-top: 4px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px; color: #64748b; } .ds-ada-status { flex: 0 0 auto; color: #0ea5a0; font-weight: 700; font-size: 16px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Coworker",
+    "overview": "CommandSite's interface is a coworker who already knows the job. Calm presence, dense with real work, never theatrical. Ada and Grace are sold as named coworkers, not chat widgets, and the interface that introduces and surrounds them carries that posture: low-drama, capable, slightly lived-in. A visitor should leave thinking 'she's already on my team,' not 'another AI tool.'\n\nThe system rejects the 2024 to 2026 SaaS-cream aesthetic that has flooded the AI-employee category. No purple-to-magenta hero gradients, no glassmorphism cards used decoratively, no 3D blob mascots. It also rejects the opposite reflex (the editorial-typographic Klim-influenced lane), because Cormorant italics on a service-trades landing page are a costume, not a voice. The work shows up as work: real dashboard screenshots over illustrations, the founder's name on the page, a brand mark over stock art.",
+    "keyCharacteristics": [
+      "One committed deep blue (#1e40af) as identity. The accent sky blue (#0ea5e9) is a highlighter, used sparingly.",
+      "Pure system sans (Tailwind default stack). No custom fonts. The voice carries through hierarchy and tracking, not through typeface novelty.",
+      "Pill buttons, 14px card radius, generous internal padding. Friendly without being cute.",
+      "Flat by default. The card shadow is an edge tint, not a real lift; real lift only appears on hover.",
+      "Per-client themes: every dashboard rewrites brand and chrome CSS variables on the document root, so the same components ship in client-specific colors without component-level changes.",
+      "High contrast for outdoor and mobile reading. Service buyers read on phones in low-light truck cabs. Body type bottoms out at 16px."
+    ],
+    "rules": [
+      {
+        "name": "The Highlighter Rule",
+        "body": "Signal Sky (#0ea5e9) covers no more than 10% of any given screen. It marks; it does not fill. If a surface looks 'sky-blue tinted,' reduce sky usage until Builder's Blue carries the identity.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Gradient Rule",
+        "body": "Builder's Blue and Signal Sky are never blended into a gradient on a primary surface. The category aesthetic we reject is exactly that gradient. Solid color blocks only. The single permitted exception is the chrome header's hairline gradient, which warms the dark bar imperceptibly and is invisible at glance.",
+        "section": "colors"
+      },
+      {
+        "name": "The Per-Client Override Rule",
+        "body": "Every dashboard rewrites --color-brand, --color-brand-hover, --color-brand-active, --color-chrome, --color-chrome-ink on document.documentElement. Components must compose with rgb(var(--color-brand) / <alpha>) so the override flows through automatically. A hardcoded hex inside a component is a bug.",
+        "section": "colors"
+      },
+      {
+        "name": "The Eyebrow Rule",
+        "body": "Every major hero or section block opens with a brand-colored uppercase eyebrow label at 10px / 0.18em tracking, before the headline. This is the closest thing to a brand watermark in the typographic system. It carries the brand color into long scrolls without saturating them.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Display-Serif Rule",
+        "body": "No custom display serif on any CommandSite surface. Reflex pairings (Cormorant + Inter, Fraunces + DM Sans, Playfair + anything) are training-data defaults and create monoculture. The voice is system-sans plus committed weight contrast.",
+        "section": "typography"
+      },
+      {
+        "name": "The 1.6 Body Rule",
+        "body": "Body line-height stays at 1.6 even when surrounding container is small. Cramped body reads as 'spec sheet'; we are selling a coworker, not a procurement form.",
+        "section": "typography"
+      },
+      {
+        "name": "The Edge-Tint Rule",
+        "body": "The default card shadow is not a shadow; it is an edge. It exists so cards on the page wash do not float without anchor. If a card needs more shadow at rest, it is the wrong layer (it should be shadow-raised, not deeper card shadow).",
+        "section": "elevation"
+      },
+      {
+        "name": "The Glass-Once Rule",
+        "body": "Backdrop blur is permitted exactly once in the system: the sticky chrome header on landing pages uses bg-chrome/95 backdrop-blur so the page content scrolling behind it is felt, not seen. Anywhere else, blur is the absolute ban.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do lead every hero and major section with a Builder's Blue eyebrow label at 10px / 0.18em uppercase tracking. The eyebrow is the system's signature.",
+      "Do use Builder's Blue (#1e40af) for primary identity and CTAs, covering 30 to 50 percent of brand surfaces. Commitment to one saturated color is the strategy.",
+      "Do keep Signal Sky (#0ea5e9) under 10 percent of any screen. It marks, it never fills.",
+      "Do use real dashboard screenshots for 'show the work' moments. Screenshots over illustrations on every services-page hero.",
+      "Do show the Ada brand mark wherever Ada is named. The mark plus the name is the persona.",
+      "Do keep body type at 16px minimum and cap line length at 65 to 75ch. Service buyers read on phones in low-light truck cabs.",
+      "Do compose components with rgb(var(--color-brand) / <alpha>) so per-client theme overrides flow through. Hardcoded hex inside components breaks the per-client theming system.",
+      "Do pair every status color with an icon or label. Color-only status communication fails for color-blind users and prints poorly.",
+      "Do use 14px card radius (rounded-card) for surface containers. Specifically not 8px, not 16px."
+    ],
+    "donts": [
+      "Don't add purple-to-magenta gradients, glassmorphism cards used decoratively, 'Empower your X with AI' copy, or stock 3D blob illustrations. These are the 2024 to 2026 SaaS-cream aesthetic, the exact category we reject.",
+      "Don't import Cormorant, Fraunces, Playfair, Recoleta, Crimson, Newsreader, or any reflex display serif. Same for Inter, DM Sans, Plus Jakarta, Outfit, Space Grotesk, IBM Plex. These are training-data defaults; we use the system stack on purpose.",
+      "Don't introduce a side-stripe border (border-left or border-right greater than 1px as a colored accent). The KPI card's 3px top stripe is the only permitted directional accent stripe; left and right stripes are forbidden.",
+      "Don't use gradient text (background-clip: text over a linear gradient). Solid colors only. Emphasis through weight and size.",
+      "Don't use backdrop blur except on the sticky landing-page chrome header. Anywhere else, blur is decorative glassmorphism, banned.",
+      "Don't nest cards inside cards. If grouping is needed, use surface-elevated rows, dividers, or section headings.",
+      "Don't replicate the SaaS hero-metric template (giant gradient number, micro label, three supporting stats). The KPI card is the alternative.",
+      "Don't use icon-plus-heading-plus-text identical card grids as a section pattern. Vary card sizes; vary internal compositions; or use a different pattern entirely.",
+      "Don't pitch Grace's church surface with stained glass, doves, scripture-as-decoration, or stock photos of multi-ethnic hands holding each other. Grace is competent operations software a pastor would respect, not devotional content.",
+      "Don't float a 'Try our AI assistant' chat bubble in the corner. We sell a named coworker, not a chat widget.",
+      "Don't offer self-serve 'sign up free, get started in 60 seconds' framing. We custom-build per customer; pretending otherwise breaks the promise.",
+      "Don't use #000 or #fff as raw values in new code. The surface-raised token currently resolves to #ffffff for legacy reasons; future visual refreshes should migrate to #fcfdfe. Ink is #0f172a (slate-tinted), never pure black.",
+      "Don't animate CSS layout properties (height, width, padding, margin, top/left). Use transforms and opacity. For collapsing sections, transition grid-template-rows.",
+      "Don't use em dashes in copy. Use commas, colons, semicolons, periods, or parentheses."
+    ]
+  }
+}

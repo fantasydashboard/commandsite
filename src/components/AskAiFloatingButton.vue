@@ -3,23 +3,31 @@
  * Floating "Ask Ada" / "Ask Grace" chat — lives in DashboardLayout
  * so it's accessible from every tab in every demo. Slug-aware:
  * picks the right persona + question set automatically.
+ *
+ * Suggested-question buttons return canned answers from the persona
+ * registry (zero-latency, zero-cost, scripted-on-purpose). The custom
+ * input streams a real response from the ask-ada Edge Function via SSE.
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { personaForSlug, type SuggestedQuestion } from '@/lib/personas/registry'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 
 const props = defineProps<{ slug: string }>()
 
 const persona = computed(() => personaForSlug(props.slug))
 
 const isOpen = ref(false)
+const isStreaming = ref(false)
 
 interface ChatMessage { role: 'user' | 'ai'; text: string }
 const chatMessages = ref<ChatMessage[]>([])
 const customQuestion = ref('')
 const chatScrollEl = ref<HTMLElement | null>(null)
+let activeAbort: AbortController | null = null
 
 // Reset chat when persona changes (switching demos)
 watch(persona, (p) => {
+  cancelActiveStream()
   chatMessages.value = p ? [{ role: 'ai', text: p.greeting }] : []
 }, { immediate: true })
 
@@ -27,32 +35,128 @@ function open() {
   isOpen.value = true
   nextTick(scrollChatToBottom)
 }
-function close() { isOpen.value = false }
+function close() {
+  isOpen.value = false
+  cancelActiveStream()
+}
+
+function cancelActiveStream() {
+  activeAbort?.abort()
+  activeAbort = null
+  isStreaming.value = false
+}
 
 async function askSuggested(q: SuggestedQuestion) {
+  if (isStreaming.value) return
   chatMessages.value.push({ role: 'user', text: q.q })
   await nextTick()
   scrollChatToBottom()
+  // Brief pause so the canned answer doesn't pop instantly (feels artificial otherwise).
   setTimeout(() => {
     chatMessages.value.push({ role: 'ai', text: q.a })
     nextTick(scrollChatToBottom)
-  }, 600)
+  }, 450)
 }
 
 async function askCustom() {
   const text = customQuestion.value.trim()
-  if (!text) return
+  if (!text || isStreaming.value) return
+
+  // Snapshot history BEFORE pushing the new user turn or the empty AI placeholder.
+  // The greeting (first assistant turn) is filtered server-side.
+  const history = chatMessages.value.map((m) => ({ role: m.role, text: m.text }))
+
   chatMessages.value.push({ role: 'user', text })
+  chatMessages.value.push({ role: 'ai', text: '' })
+  const aiIndex = chatMessages.value.length - 1
   customQuestion.value = ''
+  isStreaming.value = true
   await nextTick()
   scrollChatToBottom()
-  setTimeout(() => {
-    chatMessages.value.push({
-      role: 'ai',
-      text: "Let me check on that. I'll draft something for your review and queue it on the right page based on what fits.",
+
+  const controller = new AbortController()
+  activeAbort = controller
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/ask-ada`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ slug: props.slug, history, message: text }),
+      signal: controller.signal,
     })
-    nextTick(scrollChatToBottom)
-  }, 700)
+
+    if (!res.ok || !res.body) {
+      let detail = ''
+      try { detail = (await res.json())?.error ?? '' } catch { /* ignore */ }
+      chatMessages.value[aiIndex].text = detail
+        ? `Sorry, something went wrong. ${detail}`
+        : "Sorry, I'm offline right now. Try again in a moment."
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      // SSE events are separated by blank lines.
+      let boundary
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        const rawEvent = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        const parsed = parseSseEvent(rawEvent)
+        if (!parsed) continue
+        if (parsed.event === 'content_block_delta' && parsed.data?.delta?.type === 'text_delta') {
+          const delta = parsed.data.delta.text
+          if (typeof delta === 'string') {
+            chatMessages.value[aiIndex].text += delta
+            await nextTick()
+            scrollChatToBottom()
+          }
+        } else if (parsed.event === 'error') {
+          chatMessages.value[aiIndex].text =
+            chatMessages.value[aiIndex].text || "Sorry, the connection dropped."
+        }
+      }
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      // User closed chat or persona changed mid-stream. Leave any partial text.
+      return
+    }
+    if (!chatMessages.value[aiIndex].text) {
+      chatMessages.value[aiIndex].text = "Sorry, I lost the connection. Try again?"
+    }
+  } finally {
+    if (activeAbort === controller) {
+      activeAbort = null
+      isStreaming.value = false
+    }
+  }
+}
+
+interface SseEvent { event: string; data: any }
+function parseSseEvent(raw: string): SseEvent | null {
+  let event = ''
+  let dataRaw = ''
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('event:')) event = line.slice(6).trim()
+    else if (line.startsWith('data:')) dataRaw += line.slice(5).trim()
+  }
+  if (!event || !dataRaw) return null
+  try {
+    return { event, data: JSON.parse(dataRaw) }
+  } catch {
+    return null
+  }
 }
 
 function scrollChatToBottom() {
@@ -115,12 +219,19 @@ function scrollChatToBottom() {
             :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
           >
             <div
-              class="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed"
+              class="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap"
               :class="m.role === 'user'
                 ? 'bg-ink text-ink-inverse rounded-br-sm'
                 : 'bg-surface-raised text-ink border border-divider rounded-bl-sm'"
             >
-              {{ m.text }}
+              <template v-if="m.role === 'ai' && m.text === '' && isStreaming && i === chatMessages.length - 1">
+                <span class="inline-flex items-center gap-1" aria-label="Typing">
+                  <span class="h-1.5 w-1.5 rounded-full bg-ink-muted animate-pulse" style="animation-delay:0ms"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-ink-muted animate-pulse" style="animation-delay:150ms"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-ink-muted animate-pulse" style="animation-delay:300ms"></span>
+                </span>
+              </template>
+              <template v-else>{{ m.text }}</template>
             </div>
           </div>
         </div>
@@ -133,7 +244,8 @@ function scrollChatToBottom() {
               v-for="(q, i) in persona.questions"
               :key="i"
               type="button"
-              class="rounded-full border border-divider bg-surface px-2.5 py-1 text-[11px] font-medium text-ink-muted hover:text-ink hover:border-brand hover:bg-brand/5 transition-colors text-left"
+              class="rounded-full border border-divider bg-surface px-2.5 py-1 text-[11px] font-medium text-ink-muted hover:text-ink hover:border-brand hover:bg-brand/5 transition-colors text-left disabled:opacity-50 disabled:pointer-events-none"
+              :disabled="isStreaming"
               @click="askSuggested(q)"
             >{{ q.q }}</button>
           </div>
@@ -147,13 +259,14 @@ function scrollChatToBottom() {
           <input
             v-model="customQuestion"
             type="text"
-            :placeholder="`Ask ${persona.name} anything...`"
-            class="flex-1 rounded-full border border-divider bg-canvas px-3 py-1.5 text-sm text-ink placeholder:text-ink-disabled focus:outline-none focus:border-brand"
+            :placeholder="isStreaming ? `${persona.name} is typing…` : `Ask ${persona.name} anything...`"
+            class="flex-1 rounded-full border border-divider bg-canvas px-3 py-1.5 text-sm text-ink placeholder:text-ink-disabled focus:outline-none focus:border-brand disabled:opacity-60"
+            :disabled="isStreaming"
           />
           <button
             type="submit"
             class="rounded-full bg-brand text-ink-inverse px-3 py-1.5 text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-50"
-            :disabled="!customQuestion.trim()"
+            :disabled="!customQuestion.trim() || isStreaming"
           >Send</button>
         </form>
       </div>

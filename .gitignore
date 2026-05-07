@@ -12,3 +12,6 @@ dist-ssr
 
 # Supabase CLI metadata (project ref, version pins, local-only state)
 supabase/.temp/
+
+# Claude Code per-user settings (personal allowlist, not shared)
+.claude/settings.local.json

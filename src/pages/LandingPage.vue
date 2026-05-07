@@ -12,11 +12,34 @@
  *   • Swap CTA_URL from mailto: to the real Calendly URL once that
  *     account is set up + "30-min Discovery Walkthrough" event exists.
  */
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
+import adaMark from '@/assets/ada-mark.png'
 
 const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough'
 const CTA_LABEL = 'Book a discovery walkthrough'
+
+// Mobile sticky bottom CTA: appears once the hero scrolls offscreen,
+// disappears when the user scrolls back up. Truck-cab buyers don't have
+// to scroll back to the top to find the next step.
+const heroRef = ref<HTMLElement | null>(null)
+const showStickyCta = ref(false)
+let heroObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  if (!heroRef.value || typeof IntersectionObserver === 'undefined') return
+  heroObserver = new IntersectionObserver(
+    ([entry]) => { showStickyCta.value = !entry.isIntersecting },
+    { rootMargin: '-40% 0px 0px 0px' }
+  )
+  heroObserver.observe(heroRef.value)
+})
+
+onUnmounted(() => {
+  heroObserver?.disconnect()
+  heroObserver = null
+})
 
 interface Pain { headline: string; detail: string }
 const pains: Pain[] = [
@@ -145,9 +168,15 @@ const faqs: Faq[] = [
     </header>
 
     <!-- ── Hero ──────────────────────────────────────────────────────── -->
-    <section class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
+    <section ref="heroRef" class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
       <div class="grid gap-12 lg:grid-cols-[1fr_380px] lg:gap-12 items-center">
         <div>
+          <img
+            :src="adaMark"
+            alt="Ada"
+            class="h-16 w-auto mb-6 select-none"
+            draggable="false"
+          />
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
             For service businesses
           </div>
@@ -158,8 +187,8 @@ const faqs: Faq[] = [
           <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
             <strong class="text-ink font-semibold">CommandSite</strong> builds Ada custom for your service business — trained on your services, your pricing, the way you actually run jobs. She catches every call, chases every quote, asks every customer for a review — while you're on the truck.
           </p>
-          <p class="mt-2 text-sm text-ink-disabled italic">
-            (Yes, named after Ada Lovelace — the first programmer.)
+          <p class="mt-2 text-sm text-ink-muted italic">
+            (Yes, named after Ada Lovelace, the first programmer.)
           </p>
           <div class="mt-10 flex flex-wrap gap-3">
             <a :href="CTA_URL" class="btn-primary">
@@ -174,7 +203,7 @@ const faqs: Faq[] = [
         <!-- "Ada at work today" — floating activity cards -->
         <div class="hidden lg:block">
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-4 pl-2">
-            ✨ Ada · today
+            Ada · today
           </div>
           <div class="space-y-4">
             <!-- Card 1: Call caught -->
@@ -230,12 +259,13 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Live demo CTA — "see Ada in action first" ────────────────── -->
-    <section class="bg-canvas border-y border-divider py-12">
+    <section class="border-y border-divider py-12">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">
-        <div class="rounded-card border border-brand/30 bg-gradient-to-br from-brand/5 to-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row items-start gap-6">
+        <div class="relative overflow-hidden rounded-card border border-brand/30 bg-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row items-start gap-6">
+          <div class="absolute top-0 left-0 right-0 h-[3px] bg-brand" aria-hidden="true"></div>
           <div class="flex-1 min-w-0">
             <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-2">
-              ✨ Take a look inside
+              Take a look inside
             </div>
             <h2 class="text-xl sm:text-2xl font-semibold text-ink leading-snug mb-3">
               Want to see Ada in action first? <span class="text-ink-muted font-normal">No call required.</span>
@@ -269,8 +299,11 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Pain ──────────────────────────────────────────────────────── -->
-    <section class="bg-canvas py-16 sm:py-20">
+    <section class="py-16 sm:py-20">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+          Sound familiar
+        </div>
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10 max-w-3xl">
           If this sounds like your business, keep reading.
         </h2>
@@ -292,6 +325,9 @@ const faqs: Faq[] = [
 
     <!-- ── What Ada does ─────────────────────────────────────────────── -->
     <section id="how-it-works" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+        What Ada handles
+      </div>
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
         Five things Ada handles for you.
       </h2>
@@ -299,36 +335,89 @@ const faqs: Faq[] = [
         Trained on your business specifically — not a generic chatbot bolted onto a template.
       </p>
 
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <article
-          v-for="(m, i) in modules"
-          :key="i"
-          class="card flex flex-col"
-        >
-          <div class="text-3xl mb-3" aria-hidden="true">{{ m.icon }}</div>
-          <h3 class="text-lg font-semibold text-ink">{{ m.title }}</h3>
-          <p class="text-sm font-medium text-brand mt-1">{{ m.tagline }}</p>
-          <p class="mt-3 text-sm text-ink-muted leading-relaxed flex-1">{{ m.detail }}</p>
-        </article>
-
-        <!-- Ask Ada chat callout -->
-        <article class="card flex flex-col bg-brand text-ink-inverse border-brand">
-          <div class="text-3xl mb-3" aria-hidden="true">💬</div>
-          <h3 class="text-lg font-semibold">Plus — Ask Ada anything</h3>
-          <p class="text-sm font-medium opacity-90 mt-1">A chat box, right on your dashboard.</p>
-          <p class="mt-3 text-sm leading-relaxed opacity-90 flex-1">
-            <em>"Ada, did the Whitaker quote get a response?"</em><br />
-            <em>"Ada, who haven't I followed up with this week?"</em><br />
-            <em>"Ada, what came in overnight?"</em><br /><br />
-            She knows your business — ask her like she's your office manager.
+      <!-- Lead module: hero card with real call transcript -->
+      <article class="card lg:p-8 flex flex-col lg:flex-row gap-6 lg:gap-10 items-stretch">
+        <div class="flex-1 lg:max-w-md flex flex-col justify-center">
+          <h3 class="text-xl sm:text-2xl font-semibold text-ink leading-tight">
+            {{ modules[0].title }}
+          </h3>
+          <p class="mt-2 text-sm font-medium text-brand">
+            {{ modules[0].tagline }}
           </p>
+          <p class="mt-4 text-sm text-ink-muted leading-relaxed">
+            {{ modules[0].detail }}
+          </p>
+        </div>
+        <!-- Real-feeling call transcript on the right -->
+        <div class="w-full lg:flex-1 rounded-xl bg-surface-elevated p-4 sm:p-5 border border-divider">
+          <div class="flex items-center gap-2 mb-3 pb-3 border-b border-divider">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand text-[11px]" aria-hidden="true">📞</span>
+            <span class="text-xs text-ink font-semibold">Inbound · Sat 8:42 PM</span>
+            <span class="ml-auto text-[11px] text-ink-disabled">3m 12s</span>
+          </div>
+          <div class="space-y-2.5 text-xs leading-relaxed">
+            <p><span class="font-semibold text-ink-muted uppercase tracking-wider text-[10px]">Caller</span><br /><span class="text-ink-data">"Hi, my AC just stopped. Anyone available tonight?"</span></p>
+            <p><span class="font-semibold text-brand uppercase tracking-wider text-[10px]">Ada</span><br /><span class="text-ink-data">"I'm sorry, that's miserable in this heat. We have an emergency tech available 9 to 11 tonight, or first slot tomorrow at 7 AM. What works?"</span></p>
+            <p><span class="font-semibold text-ink-muted uppercase tracking-wider text-[10px]">Caller</span><br /><span class="text-ink-data">"Tonight please."</span></p>
+            <p><span class="font-semibold text-brand uppercase tracking-wider text-[10px]">Ada</span><br /><span class="text-ink-data">"Booked. Tony will text you 15 minutes out. Address still 412 Elm?"</span></p>
+          </div>
+          <div class="mt-3 pt-3 border-t border-divider flex items-center gap-1.5 text-[11px]">
+            <span class="text-success font-bold" aria-hidden="true">✓</span>
+            <span class="text-ink font-medium">Booked: Tony · Sat 9–11 PM · $189 emergency rate confirmed</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Other 4 modules as icon-left horizontal cards -->
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        <article
+          v-for="m in modules.slice(1)"
+          :key="m.title"
+          class="rounded-card bg-surface-raised border border-divider p-5 flex items-start gap-4"
+        >
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand text-lg flex-shrink-0" aria-hidden="true">{{ m.icon }}</div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-base font-semibold text-ink leading-snug">{{ m.title }}</h3>
+            <p class="text-xs font-medium text-brand mt-0.5">{{ m.tagline }}</p>
+            <p class="mt-2 text-sm text-ink-muted leading-relaxed">{{ m.detail }}</p>
+          </div>
         </article>
+      </div>
+
+      <!-- "Ask Ada" pulled out as a dark quote-block, separate surface -->
+      <div class="mt-10 rounded-card bg-chrome text-ink-inverse p-6 sm:p-8 lg:p-10 max-w-3xl">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent mb-3">
+          Plus
+        </div>
+        <h3 class="text-xl sm:text-2xl font-semibold leading-tight mb-2">
+          Ask Ada anything.
+        </h3>
+        <p class="text-sm opacity-80 mb-5 max-w-xl">
+          A chat box, right on your dashboard. She knows your business; ask her like she's your office manager.
+        </p>
+        <div class="space-y-2.5">
+          <div class="flex items-start gap-3">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent flex-shrink-0 pt-0.5 w-8">You</span>
+            <p class="text-sm italic opacity-90">"Did the Whitaker quote get a response?"</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent flex-shrink-0 pt-0.5 w-8">You</span>
+            <p class="text-sm italic opacity-90">"Who haven't I followed up with this week?"</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent flex-shrink-0 pt-0.5 w-8">You</span>
+            <p class="text-sm italic opacity-90">"What came in overnight?"</p>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- ── Why custom-built ──────────────────────────────────────────── -->
-    <section class="bg-canvas py-16 sm:py-24">
-      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+    <section class="py-16 sm:py-24">
+      <div class="mx-auto max-w-6xl px-4 sm:px-8">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+          Custom-built
+        </div>
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
           Ada isn't a generic chatbot. She's trained on your business.
         </h2>
@@ -370,6 +459,9 @@ const faqs: Faq[] = [
 
     <!-- ── Hire Ada vs. Hire Someone ─────────────────────────────────── -->
     <section id="compare" class="mx-auto max-w-5xl px-4 sm:px-8 py-16 sm:py-24">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+        Honest math
+      </div>
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
         Hire Ada vs. hire another person.
       </h2>
@@ -402,8 +494,11 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Pricing (gated) ───────────────────────────────────────────── -->
-    <section id="pricing" class="bg-canvas py-16 sm:py-24">
+    <section id="pricing" class="py-16 sm:py-24">
       <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+          Pricing
+        </div>
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
           Simple pricing. Custom build. Cancel anytime after month 1.
         </h2>
@@ -423,33 +518,61 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Founder note ──────────────────────────────────────────────── -->
-    <section class="bg-canvas py-16 sm:py-24">
-      <div class="mx-auto max-w-3xl px-4 sm:px-8">
-        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-8">
-          A note from the founder.
-        </h2>
-        <div class="space-y-5 text-base text-ink leading-relaxed">
-          <p>Honestly? I built CommandSite because I was tired.</p>
-          <p>
-            Tired of watching good leads go to voicemail because nobody answered after 5 PM. Tired of estimates sitting in inboxes for two weeks while the customer hired the next guy. Tired of bouncing between five different tools and still feeling like things were slipping through the cracks.
-          </p>
-          <p>
-            I'd been working with local service businesses for over a decade — and the same pattern showed up in every business I touched. Smart owners running real operations, drowning in busywork that the technology should have already solved.
-          </p>
-          <p>
-            So I built Ada. Ada is the office manager I always wished I could hand a service business owner: one AI employee who catches every call, chases every quote, asks every customer for a review, and reactivates the ones who've gone quiet. No bouncing between tabs. No "wait, which tool does that live in?" Just one team member running the back office while you run the business.
-          </p>
-          <p>
-            If that sounds like the version of your business you've been wishing for, let's talk.
-          </p>
-          <p class="font-semibold text-ink pt-2">— Josh<br /><span class="text-sm text-ink-muted font-normal">Founder, CommandSite</span></p>
+    <section class="py-16 sm:py-24">
+      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <div class="grid gap-10 lg:grid-cols-[1fr_220px] lg:gap-16">
+          <!-- Letter -->
+          <div>
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+              From the founder
+            </div>
+            <h2 class="text-3xl sm:text-4xl font-semibold text-ink mb-8 leading-[1.1] tracking-tight">
+              A note from the founder.
+            </h2>
+            <div class="space-y-5 text-base text-ink leading-relaxed">
+              <p>Honestly? I built CommandSite because I was tired.</p>
+              <p>
+                Tired of watching good leads go to voicemail because nobody answered after 5 PM. Tired of estimates sitting in inboxes for two weeks while the customer hired the next guy. Tired of bouncing between five different tools and still feeling like things were slipping through the cracks.
+              </p>
+              <p>
+                I'd been working with local service businesses for over a decade — and the same pattern showed up in every business I touched. Smart owners running real operations, drowning in busywork that the technology should have already solved.
+              </p>
+              <p>
+                So I built Ada. Ada is the office manager I always wished I could hand a service business owner: one AI employee who catches every call, chases every quote, asks every customer for a review, and reactivates the ones who've gone quiet. No bouncing between tabs. No "wait, which tool does that live in?" Just one team member running the back office while you run the business.
+              </p>
+              <p>
+                If that sounds like the version of your business you've been wishing for, let's talk.
+              </p>
+            </div>
+          </div>
+
+          <!-- Founder identity card (right rail at lg+, stacks above on mobile via order on parent) -->
+          <aside class="lg:sticky lg:top-24 lg:self-start order-first lg:order-last">
+            <!-- TODO: replace placeholder with josh-headshot.jpg when available. Keep the rounded-full + h-24 w-24 sizing. -->
+            <div class="h-24 w-24 rounded-full bg-surface-elevated border border-divider flex items-center justify-center mb-4 overflow-hidden">
+              <svg viewBox="0 0 24 24" class="h-12 w-12 text-ink-disabled" fill="currentColor" aria-hidden="true">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+              </svg>
+            </div>
+            <p class="text-base font-semibold text-ink leading-tight">Josh</p>
+            <p class="text-sm text-ink-muted">Founder, CommandSite</p>
+            <hr class="my-4 border-divider max-w-[160px]" />
+            <ul class="space-y-2 text-xs text-ink-muted leading-relaxed">
+              <li>10+ years with service businesses</li>
+              <li>Solo founder; built Ada by hand</li>
+              <li>Runs every discovery call himself</li>
+            </ul>
+          </aside>
         </div>
       </div>
     </section>
 
     <!-- ── FAQ ───────────────────────────────────────────────────────── -->
     <section class="mx-auto max-w-3xl px-4 sm:px-8 py-16 sm:py-24">
-      <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-8">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+        FAQ
+      </div>
+      <h2 class="text-xl sm:text-2xl font-semibold text-ink mb-8">
         Common questions
       </h2>
       <div class="space-y-3">
@@ -472,8 +595,11 @@ const faqs: Faq[] = [
     <!-- ── Final CTA ─────────────────────────────────────────────────── -->
     <section class="bg-chrome text-ink-inverse py-16 sm:py-24">
       <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
-        <h2 class="text-2xl sm:text-3xl font-semibold mb-4">
-          Ready to see what Ada would look like for your business?
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent mb-4">
+          Get started
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-semibold mb-4 leading-[1.1] tracking-tight">
+          If you've read this far, let's talk.
         </h2>
         <p class="text-base opacity-80 mb-8 max-w-xl mx-auto leading-relaxed">
           The discovery walkthrough is 30 minutes. We talk through how your business actually runs, what's slipping through the cracks, and whether CommandSite's a fit. No pressure — half the conversations end with "let me think about it," and that's totally fine.
@@ -488,7 +614,7 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Footer ────────────────────────────────────────────────────── -->
-    <footer class="border-t border-divider bg-surface py-10">
+    <footer class="border-t border-divider bg-surface py-10 sm:pb-10 pb-24">
       <div class="mx-auto max-w-6xl px-4 sm:px-8 flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-3">
           <BrandLogo surface="light" :height="24" />
@@ -502,5 +628,24 @@ const faqs: Faq[] = [
         </div>
       </div>
     </footer>
+
+    <!-- ── Mobile sticky CTA (after hero scrolls offscreen) ──────────── -->
+    <Transition
+      enter-active-class="transition-transform duration-200 ease-out"
+      enter-from-class="translate-y-full"
+      enter-to-class="translate-y-0"
+      leave-active-class="transition-transform duration-150 ease-in"
+      leave-from-class="translate-y-0"
+      leave-to-class="translate-y-full"
+    >
+      <div
+        v-if="showStickyCta"
+        class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-chrome border-t border-chrome-ink/10 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-raised"
+      >
+        <a :href="CTA_URL" class="btn-primary w-full justify-center !text-sm">
+          {{ CTA_LABEL }} →
+        </a>
+      </div>
+    </Transition>
   </div>
 </template>
