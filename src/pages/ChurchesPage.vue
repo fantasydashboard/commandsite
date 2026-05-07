@@ -198,7 +198,7 @@ const faqs: Faq[] = [
             </a>
           </div>
           <div class="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span class="font-semibold text-ink">From $199/mo</span>
+            <span class="font-semibold text-ink">From $249/mo</span>
             <span class="text-ink-disabled" aria-hidden="true">·</span>
             <span class="text-ink-muted">cancel anytime after month 1</span>
           </div>
@@ -484,28 +484,70 @@ const faqs: Faq[] = [
 
     <!-- ── Pricing ───────────────────────────────────────────────────── -->
     <section id="pricing" class="py-16 sm:py-24">
-      <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
-        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
-          Pricing
+      <div class="mx-auto max-w-6xl px-4 sm:px-8">
+        <div class="text-center mb-12">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+            Pricing
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
+            Three tiers. Cancel anytime after month 1.
+          </h2>
+          <p class="text-base text-ink-muted leading-relaxed max-w-xl mx-auto">
+            Each includes a one-time custom build, scoped on the discovery call. Annual pricing available for churches who budget once a year.
+          </p>
         </div>
-        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10">
-          Simple pricing. Annual or monthly.
-        </h2>
 
-        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-2">
-          Starting at
-        </p>
-        <p class="text-6xl sm:text-7xl font-bold text-ink leading-none tracking-tight mb-5">
-          $199<span class="text-2xl sm:text-3xl text-ink-muted font-normal align-baseline">/mo</span>
-        </p>
-        <p class="text-base text-ink-muted leading-relaxed max-w-xl mx-auto">
-          Most small-to-mid churches land between <strong class="text-ink font-semibold">$299 and $499/mo</strong> depending on attendance + integrations.
-        </p>
-        <p class="mt-2 text-sm text-ink-muted">
-          One-time first-month build. Annual pricing available for churches who budget once a year.
-        </p>
+        <div class="grid gap-4 lg:grid-cols-3 lg:gap-6">
+          <!-- Small -->
+          <div class="rounded-card bg-surface-raised border border-divider p-6 sm:p-7 flex flex-col">
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-3">
+              Small
+            </div>
+            <div class="flex items-baseline gap-1 mb-1">
+              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$249</span>
+              <span class="text-sm text-ink-muted">/mo</span>
+            </div>
+            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
+            <p class="text-sm text-ink leading-relaxed">
+              Under 200 attendance, one staff admin, can't justify a full-time church administrator. Wants Grace to handle the visitor follow-ups and dormant-member check-ins falling through the cracks.
+            </p>
+          </div>
 
-        <div class="mt-10">
+          <!-- Plus (highlighted) -->
+          <div class="relative rounded-card bg-surface-raised border-2 border-brand p-6 sm:p-7 flex flex-col shadow-raised lg:-mt-2">
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand text-ink-inverse px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] whitespace-nowrap">
+              Most common
+            </div>
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-3">
+              Plus
+            </div>
+            <div class="flex items-baseline gap-1 mb-1">
+              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$499</span>
+              <span class="text-sm text-ink-muted">/mo</span>
+            </div>
+            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
+            <p class="text-sm text-ink leading-relaxed">
+              200-750 attendance, established hospitality team, growing first-time visitor flow. Wants Grace to extend the team's reach without adding another staff role.
+            </p>
+          </div>
+
+          <!-- Premium -->
+          <div class="rounded-card bg-surface-raised border border-divider p-6 sm:p-7 flex flex-col">
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-3">
+              Premium
+            </div>
+            <div class="flex items-baseline gap-1 mb-1">
+              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$799</span>
+              <span class="text-sm text-ink-muted">/mo</span>
+            </div>
+            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
+            <p class="text-sm text-ink leading-relaxed">
+              750-1,500+ attendance, multi-staff team, may run multiple campuses. Wants Grace to coordinate across ministries with custom workflows and direct access to the founder.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-12 text-center">
           <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
             Get your exact quote in a 30-min walkthrough →
           </a>
