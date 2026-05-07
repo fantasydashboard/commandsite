@@ -193,6 +193,11 @@ const faqs: Faq[] = [
               See how it works
             </a>
           </div>
+          <div class="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <span class="font-semibold text-ink">From $499/mo</span>
+            <span class="text-ink-disabled" aria-hidden="true">·</span>
+            <span class="text-ink-muted">cancel anytime after month 1</span>
+          </div>
         </div>
 
         <!-- "Ada at work today" — floating activity cards -->
@@ -488,27 +493,37 @@ const faqs: Faq[] = [
       </p>
     </section>
 
-    <!-- ── Pricing (gated) ───────────────────────────────────────────── -->
+    <!-- ── Pricing ───────────────────────────────────────────────────── -->
     <section id="pricing" class="py-16 sm:py-24">
       <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
           Pricing
         </div>
-        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
-          Simple pricing. Custom build. Cancel anytime after month 1.
+        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10">
+          Simple pricing. Cancel anytime after month 1.
         </h2>
-        <p class="text-base text-ink-muted leading-relaxed mb-3">
-          Pricing's built around your business — your call volume, your services, your setup needs. Every shop is different, so we quote you on your discovery call instead of a one-size-fits-all sticker.
+
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-2">
+          Starting at
         </p>
-        <p class="text-base text-ink leading-relaxed mb-8">
-          For most service businesses, that's <strong>between $499 and $1,499/month</strong> after a one-time first-month build. Way less than another hire. No long-term contract.
+        <p class="text-6xl sm:text-7xl font-bold text-ink leading-none tracking-tight mb-5">
+          $499<span class="text-2xl sm:text-3xl text-ink-muted font-normal align-baseline">/mo</span>
         </p>
-        <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
-          Get your exact pricing in a 30-min walkthrough →
-        </a>
-        <p class="mt-4 text-xs text-ink-disabled italic">
-          Half the conversations end with "let me think about it" — no pressure, no hard sell.
+        <p class="text-base text-ink-muted leading-relaxed max-w-xl mx-auto">
+          Most service businesses land between <strong class="text-ink font-semibold">$799 and $1,199/mo</strong> depending on call volume + integrations.
         </p>
+        <p class="mt-2 text-sm text-ink-muted">
+          One-time first-month build. Cancel anytime after that. No long-term contract.
+        </p>
+
+        <div class="mt-10">
+          <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
+            Get your exact quote in a 30-min walkthrough →
+          </a>
+          <p class="mt-4 text-xs text-ink-disabled italic">
+            Half the conversations end with "let me think about it" — no pressure, no hard sell.
+          </p>
+        </div>
       </div>
     </section>
 

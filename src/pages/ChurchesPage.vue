@@ -12,11 +12,34 @@
  *
  * TODO before launch: swap CTA_URL to a church-specific Calendly link.
  */
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
+import AssistantMark from '@/components/AssistantMark.vue'
 
 const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough'
 const CTA_LABEL = 'Book a no-pressure walkthrough'
+
+// Mobile sticky bottom CTA: appears once the hero scrolls offscreen,
+// disappears when the user scrolls back up. Pastors reading on a phone
+// between Tuesday meetings shouldn't have to scroll back up to act.
+const heroRef = ref<HTMLElement | null>(null)
+const showStickyCta = ref(false)
+let heroObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  if (!heroRef.value || typeof IntersectionObserver === 'undefined') return
+  heroObserver = new IntersectionObserver(
+    ([entry]) => { showStickyCta.value = !entry.isIntersecting },
+    { rootMargin: '-40% 0px 0px 0px' }
+  )
+  heroObserver.observe(heroRef.value)
+})
+
+onUnmounted(() => {
+  heroObserver?.disconnect()
+  heroObserver = null
+})
 
 interface Pain { headline: string; detail: string }
 const pains: Pain[] = [
@@ -149,34 +172,104 @@ const faqs: Faq[] = [
     </header>
 
     <!-- ── Hero ──────────────────────────────────────────────────────── -->
-    <section class="mx-auto max-w-5xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
-      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
-        For small-to-mid churches
-      </div>
-      <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
-        Meet Grace —<br />
-        your AI ministry assistant.
-      </h1>
-      <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
-        <strong class="text-ink font-semibold">CommandSite</strong> builds Grace custom for your church — trained on your ministries, your services, your team's voice. She welcomes first-time visitors, drafts gentle pastoral check-ins, and notices when someone drifts past 60 days. Your team stays in the relationships; Grace handles the systems work.
-      </p>
-      <div class="mt-10 flex flex-wrap gap-3">
-        <a :href="CTA_URL" class="btn-primary">
-          {{ CTA_LABEL }} →
-        </a>
-        <a href="#how-it-works" class="btn-secondary">
-          See how it works
-        </a>
+    <section ref="heroRef" class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
+      <div class="grid gap-12 lg:grid-cols-[1fr_380px] lg:gap-12 items-center">
+        <div>
+          <AssistantMark class="h-16 w-16 mb-6 text-brand" />
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+            For small-to-mid churches
+          </div>
+          <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
+            Meet Grace —<br />
+            your AI ministry assistant.
+          </h1>
+          <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
+            <strong class="text-ink font-semibold">CommandSite</strong> builds Grace custom for your church — trained on your ministries, your services, your team's voice. She welcomes first-time visitors, drafts gentle pastoral check-ins, and notices when someone drifts past 60 days. Your team stays in the relationships; Grace handles the systems work.
+          </p>
+          <p class="mt-2 text-sm text-ink-muted italic">
+            (Named "Grace" because grace is what every church needs more of, quietly.)
+          </p>
+          <div class="mt-10 flex flex-wrap gap-3">
+            <a :href="CTA_URL" class="btn-primary">
+              {{ CTA_LABEL }} →
+            </a>
+            <a href="#how-it-works" class="btn-secondary">
+              See how it works
+            </a>
+          </div>
+          <div class="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <span class="font-semibold text-ink">From $199/mo</span>
+            <span class="text-ink-disabled" aria-hidden="true">·</span>
+            <span class="text-ink-muted">cancel anytime after month 1</span>
+          </div>
+        </div>
+
+        <!-- "Grace at work today" — floating activity cards -->
+        <div class="hidden lg:block">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-4 pl-2">
+            Grace · today
+          </div>
+          <div class="space-y-4">
+            <!-- Card 1: First-time family welcomed -->
+            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">👋</span>
+                <p class="text-sm font-semibold text-ink">Welcomed a first-time family</p>
+                <span class="ml-auto text-[10px] text-ink-disabled">Sun 1:14 PM</span>
+              </div>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                The Maddux family — <span class="italic">"Loved the kids program."</span>
+              </p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
+                <span class="text-success font-bold">✓</span>
+                <span class="text-ink font-medium">Welcome text sent · opened in 11 min</span>
+              </div>
+            </div>
+
+            <!-- Card 2: Pastoral check-in drafted -->
+            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-6">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">🕊️</span>
+                <p class="text-sm font-semibold text-ink">Drafted a pastoral check-in</p>
+                <span class="ml-auto text-[10px] text-ink-disabled">Tue 9:02 AM</span>
+              </div>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                The Whitakers — quiet 4 weeks · ready for Pastor Mark's eyes
+              </p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
+                <span class="text-success font-bold">✓</span>
+                <span class="text-ink font-medium">Queued for review</span>
+              </div>
+            </div>
+
+            <!-- Card 3: Story captured -->
+            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-2">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">🌱</span>
+                <p class="text-sm font-semibold text-ink">Captured a baptism story</p>
+                <span class="ml-auto text-[10px] text-ink-disabled">Wed 4:31 PM</span>
+              </div>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Riley B. · drafted a share-ready quote for Sunday slides
+              </p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
+                <span class="text-success font-bold">✓</span>
+                <span class="text-ink font-medium">Permission confirmed · ready to use</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- ── Live demo CTA — "see Grace in action first" ──────────────── -->
-    <section class="bg-canvas border-y border-divider py-12">
+    <section class="border-y border-divider py-12">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">
-        <div class="rounded-card border border-brand/30 bg-gradient-to-br from-brand/5 to-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row items-start gap-6">
+        <div class="relative overflow-hidden rounded-card border border-brand/30 bg-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row items-start gap-6">
+          <div class="absolute top-0 left-0 right-0 h-[3px] bg-brand" aria-hidden="true"></div>
           <div class="flex-1 min-w-0">
             <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-2">
-              ✨ Take a look inside
+              Take a look inside
             </div>
             <h2 class="text-xl sm:text-2xl font-semibold text-ink leading-snug mb-3">
               Want to see Grace in action first? <span class="text-ink-muted font-normal">No call required.</span>
@@ -210,8 +303,11 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Pain ──────────────────────────────────────────────────────── -->
-    <section class="bg-canvas py-16 sm:py-20">
+    <section class="py-16 sm:py-20">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+          Recognize this
+        </div>
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10 max-w-3xl">
           If this happens at your church, keep reading.
         </h2>
@@ -233,6 +329,9 @@ const faqs: Faq[] = [
 
     <!-- ── What Grace does ───────────────────────────────────────────── -->
     <section id="how-it-works" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+        What Grace handles
+      </div>
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
         Five things Grace handles for your team.
       </h2>
@@ -240,36 +339,87 @@ const faqs: Faq[] = [
         Grace handles the systems work. Your pastors and team focus on the people work.
       </p>
 
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <article
-          v-for="(m, i) in modules"
-          :key="i"
-          class="card flex flex-col"
-        >
-          <div class="text-3xl mb-3" aria-hidden="true">{{ m.icon }}</div>
-          <h3 class="text-lg font-semibold text-ink">{{ m.title }}</h3>
-          <p class="text-sm font-medium text-brand mt-1">{{ m.tagline }}</p>
-          <p class="mt-3 text-sm text-ink-muted leading-relaxed flex-1">{{ m.detail }}</p>
-        </article>
-
-        <!-- Ask Grace chat callout -->
-        <article class="card flex flex-col bg-brand text-ink-inverse border-brand">
-          <div class="text-3xl mb-3" aria-hidden="true">💬</div>
-          <h3 class="text-lg font-semibold">Plus — Ask Grace anything</h3>
-          <p class="text-sm font-medium opacity-90 mt-1">A chat box, right on your dashboard.</p>
-          <p class="mt-3 text-sm leading-relaxed opacity-90 flex-1">
-            <em>"Grace, did the Hendricks family visit last week?"</em><br />
-            <em>"Grace, who haven't I prayed for this week?"</em><br />
-            <em>"Grace, what came in over the weekend?"</em><br /><br />
-            She knows your congregation — ask her like she's the church admin who has every detail at her fingertips.
+      <!-- Lead module: hero card with a real-feeling first-time-visitor inquiry -->
+      <article class="card lg:p-8 flex flex-col lg:flex-row gap-6 lg:gap-10 items-stretch">
+        <div class="flex-1 lg:max-w-md flex flex-col justify-center">
+          <h3 class="text-xl sm:text-2xl font-semibold text-ink leading-tight">
+            {{ modules[0].title }}
+          </h3>
+          <p class="mt-2 text-sm font-medium text-brand">
+            {{ modules[0].tagline }}
           </p>
+          <p class="mt-4 text-sm text-ink-muted leading-relaxed">
+            {{ modules[0].detail }}
+          </p>
+        </div>
+        <!-- Real-feeling first-time-visitor inquiry on the right -->
+        <div class="w-full lg:flex-1 rounded-xl bg-surface-elevated p-4 sm:p-5 border border-divider">
+          <div class="flex items-center gap-2 mb-3 pb-3 border-b border-divider">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand text-[11px]" aria-hidden="true">👋</span>
+            <span class="text-xs text-ink font-semibold">Connect card · Sun 12:08 PM</span>
+            <span class="ml-auto text-[11px] text-ink-disabled">first-time</span>
+          </div>
+          <div class="space-y-2.5 text-xs leading-relaxed">
+            <p><span class="font-semibold text-ink-muted uppercase tracking-wider text-[10px]">Visitor</span><br /><span class="text-ink-data">"The Maddux family. Visited today with our 6-year-old. She loved the kids program. Would love to know more."</span></p>
+            <p><span class="font-semibold text-brand uppercase tracking-wider text-[10px]">Grace · drafted for Pastor Mark</span><br /><span class="text-ink-data">"Hi Maddux family — so glad you visited Cornerstone today, and even more glad your daughter had fun in the kids program. If you'd like, I can introduce you to Sarah who runs that ministry — she'd love to answer any questions. Either way, no pressure: hope to see you again Sunday."</span></p>
+          </div>
+          <div class="mt-3 pt-3 border-t border-divider flex items-center gap-1.5 text-[11px]">
+            <span class="text-success font-bold" aria-hidden="true">✓</span>
+            <span class="text-ink font-medium">Queued for Pastor Mark · sends after his review · target window: Sun 6 PM</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Other 4 modules as icon-left horizontal cards -->
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        <article
+          v-for="m in modules.slice(1)"
+          :key="m.title"
+          class="rounded-card bg-surface-raised border border-divider p-5 flex items-start gap-4"
+        >
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand text-lg flex-shrink-0" aria-hidden="true">{{ m.icon }}</div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-base font-semibold text-ink leading-snug">{{ m.title }}</h3>
+            <p class="text-xs font-medium text-brand mt-0.5">{{ m.tagline }}</p>
+            <p class="mt-2 text-sm text-ink-muted leading-relaxed">{{ m.detail }}</p>
+          </div>
         </article>
+      </div>
+
+      <!-- "Ask Grace" pulled out as a dark quote-block, separate surface -->
+      <div class="mt-10 rounded-card bg-chrome text-ink-inverse p-6 sm:p-8 lg:p-10 max-w-3xl">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent mb-3">
+          Plus
+        </div>
+        <h3 class="text-xl sm:text-2xl font-semibold leading-tight mb-2">
+          Ask Grace anything.
+        </h3>
+        <p class="text-sm opacity-80 mb-5 max-w-xl">
+          A chat box, right on your dashboard. She knows your congregation; ask her like she's the church admin who has every detail at her fingertips.
+        </p>
+        <div class="space-y-2.5">
+          <div class="flex items-start gap-3">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent flex-shrink-0 pt-0.5 w-8">You</span>
+            <p class="text-sm italic opacity-90">"Did the Hendricks family visit last week?"</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent flex-shrink-0 pt-0.5 w-8">You</span>
+            <p class="text-sm italic opacity-90">"Who haven't I checked in with this month?"</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent flex-shrink-0 pt-0.5 w-8">You</span>
+            <p class="text-sm italic opacity-90">"What came in over the weekend?"</p>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- ── On the AI feels impersonal question ───────────────────────── -->
-    <section class="bg-canvas py-16 sm:py-20">
+    <section class="py-16 sm:py-20">
       <div class="mx-auto max-w-3xl px-4 sm:px-8">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+          On the AI question
+        </div>
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
           Some pastors hear "AI" and stop listening. We get it.
         </h2>
@@ -298,6 +448,9 @@ const faqs: Faq[] = [
 
     <!-- ── Hire Grace vs. Hire Another Admin ─────────────────────────── -->
     <section id="compare" class="mx-auto max-w-5xl px-4 sm:px-8 py-16 sm:py-24">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+        Honest math
+      </div>
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
         Hire Grace vs. hire another church admin.
       </h2>
@@ -329,55 +482,96 @@ const faqs: Faq[] = [
       </p>
     </section>
 
-    <!-- ── Pricing (gated) ───────────────────────────────────────────── -->
-    <section id="pricing" class="bg-canvas py-16 sm:py-24">
+    <!-- ── Pricing ───────────────────────────────────────────────────── -->
+    <section id="pricing" class="py-16 sm:py-24">
       <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
-        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
-          Simple pricing. Custom build. Annual or monthly.
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+          Pricing
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10">
+          Simple pricing. Annual or monthly.
         </h2>
-        <p class="text-base text-ink-muted leading-relaxed mb-3">
-          Pricing's built around your church — your size, your existing tools, your team. Every congregation is different, so we quote you on your discovery call instead of a generic sticker price.
+
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-2">
+          Starting at
         </p>
-        <p class="text-base text-ink leading-relaxed mb-8">
-          For most small-to-mid churches, that's <strong>between $199 and $799/month</strong> after a one-time first-month build. Annual pricing available for churches who prefer to budget once a year.
+        <p class="text-6xl sm:text-7xl font-bold text-ink leading-none tracking-tight mb-5">
+          $199<span class="text-2xl sm:text-3xl text-ink-muted font-normal align-baseline">/mo</span>
         </p>
-        <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
-          Get your exact pricing in a 30-min walkthrough →
-        </a>
-        <p class="mt-4 text-xs text-ink-disabled italic">
-          We can also send a one-page summary you can share with your elder board or finance committee.
+        <p class="text-base text-ink-muted leading-relaxed max-w-xl mx-auto">
+          Most small-to-mid churches land between <strong class="text-ink font-semibold">$299 and $499/mo</strong> depending on attendance + integrations.
         </p>
+        <p class="mt-2 text-sm text-ink-muted">
+          One-time first-month build. Annual pricing available for churches who budget once a year.
+        </p>
+
+        <div class="mt-10">
+          <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
+            Get your exact quote in a 30-min walkthrough →
+          </a>
+          <p class="mt-4 text-xs text-ink-disabled italic">
+            We can also send a one-page summary you can share with your elder board or finance committee.
+          </p>
+        </div>
       </div>
     </section>
 
     <!-- ── Founder note ──────────────────────────────────────────────── -->
-    <section class="bg-canvas py-16 sm:py-24">
-      <div class="mx-auto max-w-3xl px-4 sm:px-8">
-        <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-8">
-          A note from the founder.
-        </h2>
-        <div class="space-y-5 text-base text-ink leading-relaxed">
-          <p>Honestly? I built CommandSite because I watched it happen too many times.</p>
-          <p>
-            A first-time family visits a small church on a Sunday. They love it. They leave their info on the connect card. By Friday, they've heard nothing. By next Sunday, they're at the bigger church down the road that texted them the same afternoon.
-          </p>
-          <p>
-            I write kids' ministry curriculum every week and I've sat with dozens of pastors and admins over the years. Every one of them cares deeply about the people who walk through the door. None of them have time to do what their hearts know needs to happen — because they're already drowning in the rest of the work.
-          </p>
-          <p>
-            So I built Grace. Grace is the ministry assistant I wished every small-to-mid church already had: she catches every visitor inquiry, drafts the gentle pastoral follow-ups, captures the stories you never have time to gather, and notices when a member's been gone a few weeks before they're gone for good. She's not here to replace your team. She's here to free your team for the conversations that actually matter.
-          </p>
-          <p>
-            If that sounds like the version of your church you've been wishing for, let's talk.
-          </p>
-          <p class="font-semibold text-ink pt-2">— Josh<br /><span class="text-sm text-ink-muted font-normal">Founder, CommandSite · Kids ministry curriculum writer</span></p>
+    <section class="py-16 sm:py-24">
+      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <div class="grid gap-10 lg:grid-cols-[1fr_220px] lg:gap-16">
+          <!-- Letter -->
+          <div>
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+              From the founder
+            </div>
+            <h2 class="text-3xl sm:text-4xl font-semibold text-ink mb-8 leading-[1.1] tracking-tight">
+              A note from the founder.
+            </h2>
+            <div class="space-y-5 text-base text-ink leading-relaxed">
+              <p>Honestly? I built CommandSite because I watched it happen too many times.</p>
+              <p>
+                A first-time family visits a small church on a Sunday. They love it. They leave their info on the connect card. By Friday, they've heard nothing. By next Sunday, they're at the bigger church down the road that texted them the same afternoon.
+              </p>
+              <p>
+                I write kids' ministry curriculum every week and I've sat with dozens of pastors and admins over the years. Every one of them cares deeply about the people who walk through the door. None of them have time to do what their hearts know needs to happen — because they're already drowning in the rest of the work.
+              </p>
+              <p>
+                So I built Grace. Grace is the ministry assistant I wished every small-to-mid church already had: she catches every visitor inquiry, drafts the gentle pastoral follow-ups, captures the stories you never have time to gather, and notices when a member's been gone a few weeks before they're gone for good. She's not here to replace your team. She's here to free your team for the conversations that actually matter.
+              </p>
+              <p>
+                If that sounds like the version of your church you've been wishing for, let's talk.
+              </p>
+            </div>
+          </div>
+
+          <!-- Founder identity card (right rail at lg+, stacks above on mobile) -->
+          <aside class="lg:sticky lg:top-24 lg:self-start order-first lg:order-last">
+            <!-- TODO: replace placeholder with josh-headshot.jpg when available. Keep the rounded-full + h-24 w-24 sizing. -->
+            <div class="h-24 w-24 rounded-full bg-surface-elevated border border-divider flex items-center justify-center mb-4 overflow-hidden">
+              <svg viewBox="0 0 24 24" class="h-12 w-12 text-ink-disabled" fill="currentColor" aria-hidden="true">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+              </svg>
+            </div>
+            <p class="text-base font-semibold text-ink leading-tight">Josh</p>
+            <p class="text-sm text-ink-muted">Founder, CommandSite</p>
+            <hr class="my-4 border-divider max-w-[160px]" />
+            <ul class="space-y-2 text-xs text-ink-muted leading-relaxed">
+              <li>Kids' ministry curriculum writer · weekly</li>
+              <li>Sat with dozens of pastors over a decade</li>
+              <li>Runs every discovery call himself</li>
+            </ul>
+          </aside>
         </div>
       </div>
     </section>
 
     <!-- ── FAQ ───────────────────────────────────────────────────────── -->
     <section class="mx-auto max-w-3xl px-4 sm:px-8 py-16 sm:py-24">
-      <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-8">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
+        FAQ
+      </div>
+      <h2 class="text-xl sm:text-2xl font-semibold text-ink mb-8">
         Common questions
       </h2>
       <div class="space-y-3">
@@ -400,8 +594,11 @@ const faqs: Faq[] = [
     <!-- ── Final CTA ─────────────────────────────────────────────────── -->
     <section class="bg-chrome text-ink-inverse py-16 sm:py-24">
       <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
-        <h2 class="text-2xl sm:text-3xl font-semibold mb-4">
-          Ready to see what Grace would look like for your church?
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent mb-4">
+          Get started
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-semibold mb-4 leading-[1.1] tracking-tight">
+          If you've read this far, let's talk.
         </h2>
         <p class="text-base opacity-80 mb-8 max-w-xl mx-auto leading-relaxed">
           The walkthrough is 30 minutes. We talk through how your church actually does ministry, what's slipping through the cracks, and whether CommandSite's a fit. No pressure — half of these conversations end with "let me think about it" or "let me bring this to my leadership," and that's totally fine.
@@ -416,7 +613,7 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Footer ────────────────────────────────────────────────────── -->
-    <footer class="border-t border-divider bg-surface py-10">
+    <footer class="border-t border-divider bg-surface py-10 sm:pb-10 pb-24">
       <div class="mx-auto max-w-6xl px-4 sm:px-8 flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-3">
           <BrandLogo surface="light" :height="24" />
@@ -430,5 +627,24 @@ const faqs: Faq[] = [
         </div>
       </div>
     </footer>
+
+    <!-- ── Mobile sticky CTA (after hero scrolls offscreen) ──────────── -->
+    <Transition
+      enter-active-class="transition-transform duration-200 ease-out"
+      enter-from-class="translate-y-full"
+      enter-to-class="translate-y-0"
+      leave-active-class="transition-transform duration-150 ease-in"
+      leave-from-class="translate-y-0"
+      leave-to-class="translate-y-full"
+    >
+      <div
+        v-if="showStickyCta"
+        class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-chrome border-t border-chrome-ink/10 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-raised"
+      >
+        <a :href="CTA_URL" class="btn-primary w-full justify-center !text-sm">
+          {{ CTA_LABEL }} →
+        </a>
+      </div>
+    </Transition>
   </div>
 </template>
