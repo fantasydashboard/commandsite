@@ -97,7 +97,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; ada: string }
 const compare: CompareRow[] = [
-  { dimension: 'Cost',                hire: '$30-50K/year + benefits', ada: 'As low as $499/month' },
+  { dimension: 'Cost',                hire: '$30-50K/year + benefits', ada: 'A fraction of the cost — quoted on your discovery call' },
   { dimension: 'Hours worked',        hire: 'Office hours, M-F',        ada: '24/7, including weekends' },
   { dimension: 'Time off',            hire: 'PTO, sick days, holidays', ada: 'Never out' },
   { dimension: 'Quote follow-up',     hire: 'When she remembers',       ada: 'Every quote, every time, on schedule' },
@@ -126,7 +126,7 @@ const faqs: Faq[] = [
   },
   {
     q: 'What if it doesn\'t work for me?',
-    a: 'Cancel anytime after month 1. The first-month investment covers Ada\'s custom build — after that, it\'s straight monthly. If she isn\'t earning her keep, you\'re not locked in.',
+    a: 'Cancel anytime after month 1. We do the custom build during the first weeks of working together, then ongoing monthly. If Ada isn\'t earning her keep, you\'re not locked in.',
   },
   {
     q: 'Why is she called Ada?',
@@ -192,11 +192,6 @@ const faqs: Faq[] = [
             <a href="#how-it-works" class="btn-secondary">
               See how it works
             </a>
-          </div>
-          <div class="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span class="font-semibold text-ink">From $499/mo</span>
-            <span class="text-ink-disabled" aria-hidden="true">·</span>
-            <span class="text-ink-muted">cancel anytime after month 1</span>
           </div>
         </div>
 
@@ -491,82 +486,6 @@ const faqs: Faq[] = [
       <p class="mt-6 text-sm text-ink-muted italic max-w-2xl">
         Ada doesn't replace your existing team. She handles the back-office work nobody has time for, so your team can focus on the jobs that pay the bills.
       </p>
-    </section>
-
-    <!-- ── Pricing ───────────────────────────────────────────────────── -->
-    <section id="pricing" class="py-16 sm:py-24">
-      <div class="mx-auto max-w-6xl px-4 sm:px-8">
-        <div class="text-center mb-12">
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
-            Pricing
-          </div>
-          <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
-            Three tiers. Cancel anytime after month 1.
-          </h2>
-          <p class="text-base text-ink-muted leading-relaxed max-w-xl mx-auto">
-            Each includes a one-time custom build, scoped on the discovery call. No long-term contract.
-          </p>
-        </div>
-
-        <div class="grid gap-4 lg:grid-cols-3 lg:gap-6">
-          <!-- Starter -->
-          <div class="rounded-card bg-surface-raised border border-divider p-6 sm:p-7 flex flex-col">
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-3">
-              Starter
-            </div>
-            <div class="flex items-baseline gap-1 mb-1">
-              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$499</span>
-              <span class="text-sm text-ink-muted">/mo</span>
-            </div>
-            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
-            <p class="text-sm text-ink leading-relaxed">
-              1-3 person shop, ~100 calls/mo, residential focus, owner answers most calls today. Wants Ada to catch the after-hours, weekend, and vacation calls.
-            </p>
-          </div>
-
-          <!-- Pro (highlighted) -->
-          <div class="relative rounded-card bg-surface-raised border-2 border-brand p-6 sm:p-7 flex flex-col shadow-raised lg:-mt-2">
-            <div class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand text-ink-inverse px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] whitespace-nowrap">
-              Most common
-            </div>
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-3">
-              Pro
-            </div>
-            <div class="flex items-baseline gap-1 mb-1">
-              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$999</span>
-              <span class="text-sm text-ink-muted">/mo</span>
-            </div>
-            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
-            <p class="text-sm text-ink leading-relaxed">
-              4-10 person shop, has an overwhelmed CSR or admin, ~300 calls/mo, growing pipeline. Wants Ada to scale capacity without another hire.
-            </p>
-          </div>
-
-          <!-- Premium -->
-          <div class="rounded-card bg-surface-raised border border-divider p-6 sm:p-7 flex flex-col">
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-3">
-              Premium
-            </div>
-            <div class="flex items-baseline gap-1 mb-1">
-              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$1,499</span>
-              <span class="text-sm text-ink-muted">/mo</span>
-            </div>
-            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
-            <p class="text-sm text-ink leading-relaxed">
-              10-25 person shop, residential + commercial mix, internal admin team, ~800-1,500 calls/mo. Wants Ada to handle dispatch logic + multi-segment routing.
-            </p>
-          </div>
-        </div>
-
-        <div class="mt-12 text-center">
-          <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
-            Get your exact quote in a 30-min walkthrough →
-          </a>
-          <p class="mt-4 text-xs text-ink-disabled italic">
-            Half the conversations end with "let me think about it" — no pressure, no hard sell.
-          </p>
-        </div>
-      </div>
     </section>
 
     <!-- ── Founder note ──────────────────────────────────────────────── -->

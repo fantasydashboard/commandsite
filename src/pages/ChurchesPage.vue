@@ -97,7 +97,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; grace: string }
 const compare: CompareRow[] = [
-  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'As low as $199/month' },
+  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'A fraction of the cost — quoted on your discovery call' },
   { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7 — answers calls Sunday morning, Wednesday night, anytime' },
   { dimension: 'Visitor follow-up',     hire: 'When she has time',           grace: 'Every first-timer within 2 hours, every time' },
   { dimension: 'Dormant member alerts', hire: 'Catches the obvious ones',    grace: 'Notices everyone who drifts past 60 days' },
@@ -196,11 +196,6 @@ const faqs: Faq[] = [
             <a href="#how-it-works" class="btn-secondary">
               See how it works
             </a>
-          </div>
-          <div class="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span class="font-semibold text-ink">From $249/mo</span>
-            <span class="text-ink-disabled" aria-hidden="true">·</span>
-            <span class="text-ink-muted">cancel anytime after month 1</span>
           </div>
         </div>
 
@@ -482,81 +477,6 @@ const faqs: Faq[] = [
       </p>
     </section>
 
-    <!-- ── Pricing ───────────────────────────────────────────────────── -->
-    <section id="pricing" class="py-16 sm:py-24">
-      <div class="mx-auto max-w-6xl px-4 sm:px-8">
-        <div class="text-center mb-12">
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
-            Pricing
-          </div>
-          <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
-            Three tiers. Cancel anytime after month 1.
-          </h2>
-          <p class="text-base text-ink-muted leading-relaxed max-w-xl mx-auto">
-            Each includes a one-time custom build, scoped on the discovery call. Annual pricing available for churches who budget once a year.
-          </p>
-        </div>
-
-        <div class="grid gap-4 lg:grid-cols-3 lg:gap-6">
-          <!-- Small -->
-          <div class="rounded-card bg-surface-raised border border-divider p-6 sm:p-7 flex flex-col">
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-3">
-              Small
-            </div>
-            <div class="flex items-baseline gap-1 mb-1">
-              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$249</span>
-              <span class="text-sm text-ink-muted">/mo</span>
-            </div>
-            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
-            <p class="text-sm text-ink leading-relaxed">
-              Under 200 attendance, one staff admin, can't justify a full-time church administrator. Wants Grace to handle the visitor follow-ups and dormant-member check-ins falling through the cracks.
-            </p>
-          </div>
-
-          <!-- Plus (highlighted) -->
-          <div class="relative rounded-card bg-surface-raised border-2 border-brand p-6 sm:p-7 flex flex-col shadow-raised lg:-mt-2">
-            <div class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand text-ink-inverse px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] whitespace-nowrap">
-              Most common
-            </div>
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-3">
-              Plus
-            </div>
-            <div class="flex items-baseline gap-1 mb-1">
-              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$499</span>
-              <span class="text-sm text-ink-muted">/mo</span>
-            </div>
-            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
-            <p class="text-sm text-ink leading-relaxed">
-              200-750 attendance, established hospitality team, growing first-time visitor flow. Wants Grace to extend the team's reach without adding another staff role.
-            </p>
-          </div>
-
-          <!-- Premium -->
-          <div class="rounded-card bg-surface-raised border border-divider p-6 sm:p-7 flex flex-col">
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-3">
-              Premium
-            </div>
-            <div class="flex items-baseline gap-1 mb-1">
-              <span class="text-4xl font-bold text-ink leading-none tracking-tight">$799</span>
-              <span class="text-sm text-ink-muted">/mo</span>
-            </div>
-            <p class="text-xs text-ink-muted mb-5">+ one-time build, scoped on call</p>
-            <p class="text-sm text-ink leading-relaxed">
-              750-1,500+ attendance, multi-staff team, may run multiple campuses. Wants Grace to coordinate across ministries with custom workflows and direct access to the founder.
-            </p>
-          </div>
-        </div>
-
-        <div class="mt-12 text-center">
-          <a :href="CTA_URL" class="btn-primary !text-base !py-3 !px-6">
-            Get your exact quote in a 30-min walkthrough →
-          </a>
-          <p class="mt-4 text-xs text-ink-disabled italic">
-            We can also send a one-page summary you can share with your elder board or finance committee.
-          </p>
-        </div>
-      </div>
-    </section>
 
     <!-- ── Founder note ──────────────────────────────────────────────── -->
     <section class="py-16 sm:py-24">
