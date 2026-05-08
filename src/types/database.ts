@@ -328,6 +328,7 @@ export type CsLeadSource =
   | 'manual_entry'
   | 'referral'
   | 'other'
+  | 'google_maps'
 
 export type CsLeadStatus =
   | 'new'
@@ -362,6 +363,8 @@ export type CsLead = {
   notes: string | null
   tags: string[]
   promoted_deal_id: string | null
+  google_maps_place_id: string | null
+  google_maps_enriched_at: string | null
   created_at: string
   updated_at: string
 }

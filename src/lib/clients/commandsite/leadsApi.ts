@@ -29,6 +29,8 @@ const FIXTURE_LEADS: CsLead[] = [
     team_size: 8, annual_revenue_estimate: 2_400_000,
     icp_score: 92, icp_score_reason: 'Sweet-spot industry, sweet-spot size, sweet-spot geo',
     status: 'new', notes: null, tags: [], promoted_deal_id: null,
+    google_maps_place_id: null,
+    google_maps_enriched_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
   },
@@ -45,6 +47,8 @@ const FIXTURE_LEADS: CsLead[] = [
     icp_score: 88, icp_score_reason: 'In-ICP industry + size + geo',
     status: 'queued', notes: null, tags: ['ad campaign reply'],
     promoted_deal_id: null,
+    google_maps_place_id: null,
+    google_maps_enriched_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
   },
@@ -61,6 +65,8 @@ const FIXTURE_LEADS: CsLead[] = [
     icp_score: 22, icp_score_reason: 'Way too big — outside team-size ICP (220 vs 4-25)',
     status: 'disqualified', notes: 'Above ICP size cap', tags: [],
     promoted_deal_id: null,
+    google_maps_place_id: null,
+    google_maps_enriched_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
   },
@@ -77,6 +83,8 @@ const FIXTURE_LEADS: CsLead[] = [
     status: 'contacted', notes: 'Met at trade show. Sent first email yesterday.',
     tags: ['warm', 'trade show'],
     promoted_deal_id: null,
+    google_maps_place_id: null,
+    google_maps_enriched_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
   },
@@ -93,6 +101,8 @@ const FIXTURE_LEADS: CsLead[] = [
     status: 'new', notes: 'Engaged on 3 Reddit posts about scheduling tools',
     tags: ['reddit'],
     promoted_deal_id: null,
+    google_maps_place_id: null,
+    google_maps_enriched_at: null,
     created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
   },
@@ -186,15 +196,17 @@ export function useLeads() {
       .limit(500)
 
     if (e) {
-      // Table may not exist yet — fall back to fixture
+      // Real DB error — usually means migration hasn't run yet. Fall back
+      // to fixture data so the demo UI is still functional.
       error.value = e.message
       leads.value = FIXTURE_LEADS
       usingFixture.value = true
-    } else if (!data || data.length === 0) {
-      leads.value = FIXTURE_LEADS
-      usingFixture.value = true
     } else {
-      leads.value = data as CsLead[]
+      // Empty array != missing table. If the user has no leads yet, show
+      // the real (empty) state so the import flow actually works. Loading
+      // fixtures here was the bug that made imports silently no-op via
+      // handleImported's `if (usingFixture.value)` short-circuit.
+      leads.value = (data ?? []) as CsLead[]
       usingFixture.value = false
     }
     loading.value = false

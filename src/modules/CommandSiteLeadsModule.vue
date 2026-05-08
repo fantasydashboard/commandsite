@@ -12,6 +12,7 @@ import type { Client, CsLead, CsLeadStatus, CsLeadInsert } from '@/types/databas
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useSettings } from '@/lib/clients/commandsite/settingsApi'
 import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModal.vue'
+import CommandSiteResearchLeadsModal from '@/components/CommandSiteResearchLeadsModal.vue'
 import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -74,8 +75,66 @@ const kpis = computed(() => {
   return { newCount, queued, inFlight, promoted, avgScore, highScore }
 })
 
+// Activity strip — derived from the real leads, not hardcoded fixture content.
+// Empty array when no leads exist yet, which hides the "recent activity" block.
+const recentActivity = computed(() => {
+  const all = leads.value
+  if (all.length === 0) return []
+
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const addedThisWeek = all.filter(
+    (l) => l.created_at && new Date(l.created_at).getTime() >= oneWeekAgo,
+  ).length
+  const highScore = all.filter((l) => (l.icp_score ?? 0) >= 80).length
+  const promoted = all.filter((l) => l.status === 'promoted_to_pipeline').length
+  const adaReviewed = all.filter((l) => l.tags?.includes('ada_reviewed')).length
+  const fromMaps = all.filter((l) => l.source === 'google_maps').length
+
+  const items: { icon: string; label: string; detail?: string; ago?: string }[] = []
+
+  if (addedThisWeek > 0) {
+    items.push({
+      icon: '📥',
+      label: `${addedThisWeek} ${addedThisWeek === 1 ? 'lead' : 'leads'} added this week`,
+      detail:
+        fromMaps > 0
+          ? `${fromMaps} from Google Maps research · ${all.length} total in pipeline`
+          : `${all.length} total in pipeline`,
+      ago: 'rolling',
+    })
+  }
+
+  if (highScore > 0) {
+    items.push({
+      icon: '🎯',
+      label: `${highScore} ${highScore === 1 ? 'lead' : 'leads'} above 80 ICP score`,
+      detail: 'queued for outreach — highest fit first',
+      ago: 'this week',
+    })
+  } else if (adaReviewed > 0) {
+    items.push({
+      icon: '🤖',
+      label: `${adaReviewed} reviewed by Ada`,
+      detail: 'scored against your ICP with review-evidence reasoning',
+      ago: 'rolling',
+    })
+  }
+
+  if (promoted > 0) {
+    items.push({
+      icon: '⚡',
+      label: `Promoted ${promoted} ${promoted === 1 ? 'lead' : 'leads'} to pipeline`,
+      detail: 'auto-created cs_deals rows for top scorers',
+      ago: 'lifetime',
+    })
+  }
+
+  return items
+})
+
 // Modal state
 const importOpen = ref(false)
+const researchOpen = ref(false)
 const submitMsg = ref<string | null>(null)
 
 async function handleImported({ rows, batchLabel }: { rows: CsLeadInsert[]; batchLabel: string }) {
@@ -118,12 +177,8 @@ function scoreClass(score: number | null): string {
   <div class="space-y-4">
     <CommandSiteAdaActivityStrip
       tab-key="leads"
-      summary="Ada pulls leads from Apollo (or whatever source you wire up), scores each against your ICP from cs_settings, and queues the high-scorers for personalized outreach."
-      :activity="[
-        { icon: '📥', label: '47 leads added this week', detail: 'from Apollo + 1 manual CSV import', ago: 'rolling' },
-        { icon: '🎯', label: '12 above 80% ICP score', detail: 'queued for outreach — highest fit first', ago: 'this week' },
-        { icon: '⚡', label: 'Promoted 3 leads to pipeline', detail: 'auto-created cs_deals rows for top scorers', ago: 'this week' },
-      ]"
+      summary="Ada pulls leads from Google Maps research (or imports), scores each against your ICP from cs_settings, and queues the high-scorers for personalized outreach."
+      :activity="recentActivity"
     />
 
     <!-- Header -->
@@ -149,6 +204,11 @@ function scoreClass(score: number | null): string {
           <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
           Live · {{ leads.length }} leads
         </span>
+        <button
+          type="button"
+          class="rounded-md bg-surface-raised border border-brand text-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand/5"
+          @click="researchOpen = true"
+        >🔍 Research</button>
         <button
           type="button"
           class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90"
@@ -221,12 +281,17 @@ function scoreClass(score: number | null): string {
         class="text-xs text-brand font-semibold hover:underline"
         @click="statusFilter = 'all'; minScore = 0; search = ''"
       >Clear filters</button>
-      <div v-else>
+      <div v-else class="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
           class="rounded-md bg-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90"
+          @click="researchOpen = true"
+        >🔍 Research from Maps</button>
+        <button
+          type="button"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-4 py-2 text-sm font-semibold hover:border-brand"
           @click="importOpen = true"
-        >Import your first CSV</button>
+        >Or import a CSV</button>
       </div>
     </div>
 
@@ -322,6 +387,14 @@ function scoreClass(score: number | null): string {
       :open="importOpen"
       :settings="settings"
       @close="importOpen = false"
+      @imported="handleImported"
+    />
+
+    <!-- Google Maps research modal -->
+    <CommandSiteResearchLeadsModal
+      :open="researchOpen"
+      :settings="settings"
+      @close="researchOpen = false"
       @imported="handleImported"
     />
   </div>
