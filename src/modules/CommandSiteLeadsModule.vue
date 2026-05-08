@@ -11,13 +11,15 @@ import { computed, ref } from 'vue'
 import type { Client, CsLead, CsLeadStatus, CsLeadInsert } from '@/types/database'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useSettings } from '@/lib/clients/commandsite/settingsApi'
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModal.vue'
 import CommandSiteResearchLeadsModal from '@/components/CommandSiteResearchLeadsModal.vue'
 import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
+import LoadingBar from '@/components/LoadingBar.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const { leads, loading, error, usingFixture, importLeads, archive, disqualify, requeue, promoteToDeal } = useLeads()
+const { leads, loading, error, usingFixture, load, importLeads, archive, disqualify, requeue, promoteToDeal } = useLeads()
 const settingsApi = useSettings()
 const settings = settingsApi.settings
 
@@ -137,6 +139,98 @@ const importOpen = ref(false)
 const researchOpen = ref(false)
 const submitMsg = ref<string | null>(null)
 
+// ── Email enrichment (Phase 2): for each lead with a website but no
+// contact_email, fetch the homepage + /contact and pull the most
+// plausible owner-reachable email out via regex + filtering. Chunked
+// at 50 per Edge Function call so the gateway timeout has headroom.
+const ENRICH_CHUNK_SIZE = 50
+const enriching = ref(false)
+const enrichMsg = ref<string | null>(null)
+const enrichProgress = ref({ completed: 0, total: 0 })
+
+const enrichableCount = computed(() => {
+  return leads.value.filter(
+    (l) =>
+      !!l.company_url
+      && !l.contact_email
+      && !(l.tags ?? []).includes('email_not_found')
+      && !(l.tags ?? []).includes('email_fetch_error'),
+  ).length
+})
+
+async function runEnrichEmails() {
+  if (enriching.value) return
+  if (usingFixture.value) {
+    enrichMsg.value = 'Demo mode — connect to a real cs_leads table to enrich emails.'
+    setTimeout(() => { enrichMsg.value = null }, 5000)
+    return
+  }
+  const eligible = leads.value
+    .filter(
+      (l) =>
+        !!l.company_url
+        && !l.contact_email
+        && !(l.tags ?? []).includes('email_not_found')
+        && !(l.tags ?? []).includes('email_fetch_error'),
+    )
+    .map((l) => l.id)
+  if (eligible.length === 0) {
+    enrichMsg.value = 'No leads need enrichment right now.'
+    setTimeout(() => { enrichMsg.value = null }, 4000)
+    return
+  }
+
+  enriching.value = true
+  enrichMsg.value = null
+  enrichProgress.value = { completed: 0, total: eligible.length }
+  const totals = { found: 0, not_found: 0, errors: 0 }
+
+  try {
+    const session = (await supabase.auth.getSession()).data.session
+    if (!session) {
+      enrichMsg.value = 'Not signed in. Refresh and try again.'
+      return
+    }
+
+    for (let i = 0; i < eligible.length; i += ENRICH_CHUNK_SIZE) {
+      const chunk = eligible.slice(i, i + ENRICH_CHUNK_SIZE)
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/enrich-lead-emails`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'authorization': `Bearer ${session.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ lead_ids: chunk }),
+      })
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '')
+        enrichMsg.value = `Chunk ${Math.floor(i / ENRICH_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
+        break
+      }
+      const data = await res.json()
+      const counts = data?.counts ?? { found: 0, not_found: 0, errors: 0 }
+      totals.found += counts.found ?? 0
+      totals.not_found += counts.not_found ?? 0
+      totals.errors += counts.errors ?? 0
+      enrichProgress.value = {
+        completed: Math.min(i + chunk.length, eligible.length),
+        total: eligible.length,
+      }
+    }
+
+    enrichMsg.value = `Found emails for ${totals.found} of ${eligible.length} leads. ${totals.not_found > 0 ? `${totals.not_found} had no public email; ` : ''}${totals.errors > 0 ? `${totals.errors} fetch errors.` : ''}`
+    setTimeout(() => { enrichMsg.value = null }, 10_000)
+
+    // Refresh the leads list so newly-found emails show in the table
+    await load()
+  } catch (err) {
+    enrichMsg.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    enriching.value = false
+  }
+}
+
 async function handleImported({ rows, batchLabel }: { rows: CsLeadInsert[]; batchLabel: string }) {
   submitMsg.value = null
   if (usingFixture.value) {
@@ -205,6 +299,17 @@ function scoreClass(score: number | null): string {
           Live · {{ leads.length }} leads
         </span>
         <button
+          v-if="!usingFixture && enrichableCount > 0"
+          type="button"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand disabled:opacity-50"
+          :disabled="enriching"
+          :title="`Visit each lead's website and extract any publicly-listed email`"
+          @click="runEnrichEmails"
+        >
+          <span v-if="enriching">Finding emails…</span>
+          <span v-else>🔎 Find emails ({{ enrichableCount }})</span>
+        </button>
+        <button
           type="button"
           class="rounded-md bg-surface-raised border border-brand text-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand/5"
           @click="researchOpen = true"
@@ -223,6 +328,15 @@ function scoreClass(score: number | null): string {
     </div>
     <div v-if="submitMsg" class="rounded-md bg-success/10 text-success px-3 py-2 text-sm">
       {{ submitMsg }}
+    </div>
+    <div v-if="enrichMsg" class="rounded-md bg-brand/10 text-brand px-3 py-2 text-sm">
+      {{ enrichMsg }}
+    </div>
+    <div v-if="enriching" class="card p-3">
+      <LoadingBar
+        :message="enrichProgress.total > 0 ? `Visiting websites · ${enrichProgress.completed} of ${enrichProgress.total} done` : 'Visiting websites…'"
+        hint="Fetching each lead's homepage + /contact page, extracting any visible email."
+      />
     </div>
 
     <!-- KPI strip -->
