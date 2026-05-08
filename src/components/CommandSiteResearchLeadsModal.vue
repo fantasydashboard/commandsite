@@ -82,14 +82,14 @@ watch(() => props.open, (isOpen) => {
   if (results.value.length === 0) stage.value = 'form'
 })
 
-// ── Run Ada review on the current visible result set, in chunks
-// of CHUNK_SIZE so each Edge Function call completes well under the
-// Supabase edge gateway timeout AND each chunk's input-token volume
-// stays under Anthropic's 50k tokens/min organization rate limit.
-// Long-review industries (bathroom remodel, custom installs) burn
-// tokens faster than HVAC service calls — chunk size of 15 keeps
-// peak input tokens per minute comfortably under the ceiling.
-const ADA_CHUNK_SIZE = 15
+// ── Run Ada review on the current visible result set, in chunks of
+// CHUNK_SIZE with an inter-chunk delay. Both knobs throttle peak
+// input-tokens-per-minute under Anthropic Tier 1's 50k ceiling.
+// Math: ~1.8k input tokens per scored lead × 10 = 18k tokens per chunk;
+// with INTER_CHUNK_DELAY_MS we hold the sliding-window peak under 45k/min.
+// Wall time for 54 leads: ~6 chunks × ~25s = ~2.5 min.
+const ADA_CHUNK_SIZE = 10
+const INTER_CHUNK_DELAY_MS = 1500
 
 async function runAdaReview() {
   if (runningAda.value) return
@@ -159,6 +159,13 @@ async function runAdaReview() {
       adaProgress.value = {
         completed: Math.min(i + chunk.length, placeIds.length),
         total: placeIds.length,
+      }
+
+      // Brief delay between chunks lets the Anthropic rate-limit sliding
+      // window drain, keeping us under the 50k tokens/min ceiling even
+      // on long-review industries.
+      if (i + ADA_CHUNK_SIZE < placeIds.length) {
+        await new Promise((r) => setTimeout(r, INTER_CHUNK_DELAY_MS))
       }
     }
 

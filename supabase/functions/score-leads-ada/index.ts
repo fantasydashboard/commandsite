@@ -421,14 +421,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!anthropicKey) return json({ error: 'Anthropic API key not configured' }, 500)
 
   // ── Process places: fetch details + score with Claude.
-  // With Haiku 4.5 (~2-3s per call), concurrency=6 gives ~2 leads/sec
-  // sustained — comfortably under Anthropic limits with retry-on-429
-  // protection, and fast enough that a 25-lead chunk finishes in
-  // ~15-20s wall time, well under any gateway timeout.
+  // Concurrency=3 keeps in-flight Anthropic calls under control so the
+  // organization's 50k input-tokens-per-minute Tier 1 ceiling isn't
+  // bursted past. Combined with the frontend chunk size of 10 and an
+  // inter-chunk delay, peak token rate stays at ~40-45k/min.
   const scored: Record<string, AdaScore> = {}
   const errors: string[] = []
-  const BATCH_SIZE = 6
-  const INTER_BATCH_MS = 150
+  const BATCH_SIZE = 3
+  const INTER_BATCH_MS = 250
 
   for (let i = 0; i < placeIds.length; i += BATCH_SIZE) {
     const batch = placeIds.slice(i, i + BATCH_SIZE)
