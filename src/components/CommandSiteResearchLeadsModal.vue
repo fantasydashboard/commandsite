@@ -84,10 +84,12 @@ watch(() => props.open, (isOpen) => {
 
 // ── Run Ada review on the current visible result set, in chunks
 // of CHUNK_SIZE so each Edge Function call completes well under the
-// Supabase edge gateway timeout. With Haiku 4.5 + backend BATCH_SIZE=6,
-// 25 leads complete in ~15-25s — leaves big headroom even when
-// retries kick in. Results stream into the table chunk by chunk.
-const ADA_CHUNK_SIZE = 25
+// Supabase edge gateway timeout AND each chunk's input-token volume
+// stays under Anthropic's 50k tokens/min organization rate limit.
+// Long-review industries (bathroom remodel, custom installs) burn
+// tokens faster than HVAC service calls — chunk size of 15 keeps
+// peak input tokens per minute comfortably under the ceiling.
+const ADA_CHUNK_SIZE = 15
 
 async function runAdaReview() {
   if (runningAda.value) return

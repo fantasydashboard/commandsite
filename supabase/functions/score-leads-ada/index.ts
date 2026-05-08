@@ -151,55 +151,62 @@ const SCORE_LEAD_TOOL = {
 }
 
 const SYSTEM_PROMPT = `
-You score B2B prospects for CommandSite, which sells "AI employees" to small service businesses (HVAC, plumbing, electrical contractors) with 1-5 employees. The product (Ada) catches inbound calls, follows up on quotes, asks customers for reviews, and reactivates dormant customers.
+You score B2B prospects for CommandSite, which sells "AI employees" to small service businesses (HVAC, plumbing, electrical, small remodeling contractors) with 1-5 employees. The product (Ada) catches inbound calls, follows up on quotes, asks customers for reviews, and reactivates dormant customers.
 
 The IDEAL customer:
 - 1-5 person owner-operated shop, often family-run
-- 50-2,000 reviews on Google (real shop, not chain, not brand new)
+- ~50-1,500 reviews on Google (real shop, not chain, not brand new)
 - Has a website (so we can find an owner email)
 - Operational (not closed)
 - In a residential service market
-- Pain in reviews is ADDITIVE to fit, not required. Most clean small shops won't have public pain in reviews — the pain is latent.
+- **Pain in reviews is ADDITIVE to fit, not required.** Most clean small shops won't have public pain — the pain is latent. The owner IS the phone. Ada's pitch is to free them from that role.
 
 # Score band definitions — calibrate to these explicitly
 
-- **85-100: STRONG FIT with documented pain.** Reviews include explicit complaints about missed calls, ghost quotes, unreturned messages, slow callbacks, or communication failures. The 1-star reviews map directly to Ada's value prop.
-- **65-80: STRONG ICP FIT, no documented pain (latent prospect).** Owner-operated 1-5 person shop, named owner in reviews, reasonable review count (~50-500), website, operational, in target geography. No pain visible — but pain is latent, not absent. **This is where most clean small shops should land.** If you're tempted to score lower because "no pain visible", stay here. Pain is additive, not required.
-- **50-64: MODERATE FIT.** Slightly larger than 1-5 person target (5-15 person, mixed signals on size) OR borderline-clean ICP shop with some friction signals OR mid-size with some pain.
-- **30-49: WEAK FIT.** Too big (multi-location signals, 1500+ reviews on one listing, multiple named office staff suggesting call-center infrastructure), OR operational excellence is so visible the buyer doesn't experience Ada's pain points (see Negative Signals below).
-- **0-29: HARD DISQUALIFY.** Chains, closed, no website + no phone, regional/national franchise.
+- **85-100: STRONG FIT with documented pain.** Reviews include explicit complaints about missed calls, ghost quotes, unreturned messages, slow callbacks, or communication failures. 1-star reviews map directly to Ada's value prop.
+- **65-80: STRONG ICP FIT, no documented pain (latent prospect).** **This is where most clean small shops belong.** Owner-operated 1-5 person shop, named owner in reviews, reasonable review count (~50-500), website, operational, in target geography. Pain is latent, not absent. The owner is personally fielding calls/quotes/reviews — Ada relieves them. **DO NOT drop below 65 just because reviews are positive.** Praise for the OWNER's responsiveness in a 1-3 person shop is a POSITIVE signal of authentic small-shop service, not a disqualifier.
+- **50-64: MODERATE FIT.** 5-10 person team starting to show some delegation (named office staffer or dispatcher), but still small enough that Ada provides real lift. OR clean ICP fit with weak/borderline geography.
+- **30-49: WEAK FIT — actual infrastructure evidence required.** A shop must have OBSERVABLE infrastructure to land here, not just good reviews. See Infrastructure Evidence Test below.
+- **0-29: HARD DISQUALIFY.** Chains, franchises, closed, no website + no phone, regional multi-location operation.
 
-# NEGATIVE signals — operational excellence reduces Ada's value
+# Infrastructure Evidence Test — required for any score under 50
 
-**Critical:** when reviews show the shop ALREADY HAS the things Ada provides, score LOWER, not higher. Do not invert this logic.
+**Crucial calibration rule:** before scoring a shop in the 30-49 weak-fit band, you must point to OBSERVABLE INFRASTRUCTURE in the review evidence — NOT just praise for responsiveness. Praise for "quick callback" or "answered right away" alone is NEUTRAL or POSITIVE, not negative.
 
-- **Existing receptionist or office staff named in reviews** ("Suzette in the office", "Bri at the front desk", "Sarah always answers") = they already have human reception. Ada would be replacing or augmenting their existing person. Score 30-50, not high.
-- **Reviews praising "fast response" / "answered immediately" / "called right back" / "responded same day"** = they've already solved Ada's core value prop. Score 30-50.
-- **Multiple named technicians across reviews (5+ different names)** = larger team, likely has dispatcher / admin / call coordination already. Score 30-50.
-- **"Service areas: [multiple cities]" language** or **multi-location URL patterns** ("/locations/cityname/", "/locations/orlando-fl/") = chain or growing multi-location operation. Score 5-25.
+The shop has infrastructure (score 30-49) ONLY when one or more is true:
+
+- **Named non-technician office staff** ("Suzette in the office", "Talia at customer service", "Vanessa coordinating", "Gabriel — Customer Advisor", "Otto — office staff") — a person whose job is reception/dispatch
+- **Multi-location URL patterns** ("/locations/cityname/", "/service-areas/", multiple physical addresses on the website)
+- **Explicit call-center mention** in reviews ("their dispatch line", "their call center")
+- **5+ named technicians PLUS named office staff** — both signals together imply a team-of-many with reception infrastructure
+- **Review count >1,500 on a single listing** — typically signals multi-location or regional scale
+
+If NONE of those are present, the shop is an owner-operator. Even if reviews praise responsiveness. Even if 5 technicians are named without office staff (5 techs + no office staff = the OWNER is doing dispatch, which is exactly Ada's pitch). Score 65-80.
 
 # Hard disqualifiers (score under 30)
 
-- Franchise / chain (Roto-Rooter, One Hour Heating, Mister Sparky, Aire Serv, ARS Rescue Rooter, Mr. Rooter, Benjamin Franklin Plumbing, Service Experts, Mr. Electric, etc.) — detect by name pattern AND/OR very high review count (>3,000) AND/OR multi-location language
+- Franchise / chain (Roto-Rooter, One Hour Heating, Mister Sparky, Aire Serv, ARS Rescue Rooter, Mr. Rooter, Benjamin Franklin Plumbing, Service Experts, Mr. Electric, Bath Fitter, Re-Bath, etc.) — detect by name pattern AND/OR very high review count (>3,000) AND/OR multi-location language
 - Permanently or temporarily closed
 - No website AND no phone (can't contact)
-- Regional chain (typically >2,000 reviews on a single listing)
+- Regional chain (typically >2,000 reviews on a single listing combined with multi-location/multi-trade signals)
+- Wrong business type for Ada's product: kitchen designers, general contractors managing multi-phase remodels with project managers, sales-only design firms (not service trades). Ada is for residential service trades, not project-based design/build.
 
 # Strong-fit signals (push score toward 80+)
 
 - Reviews mention phone-response problems ("called multiple times", "never called back", "after-hours and no answer")
 - Reviews mention quote-follow-up problems ("got a quote but never heard back", "had to chase them")
 - Reviews mention slow communication or scheduling issues
-- Owner named in reviews ("Bob came out", "Mike was great") with no separate office staff named = small shop, named operator
-- Family-business language ("been our HVAC guy 15 years", "family-run")
-- 4.0-5.0 rating but with at least some 1-2 star reviews calling out the pain Ada solves (those are converting prospects — happy enough to keep operating, frustrated enough to want help)
+- Owner named in reviews ("Bob came out", "Mike was great") with no separate office staff named = small shop, named operator. **This is a clean 65-80 fit even without negative reviews.**
+- Family-business language ("been our HVAC guy 15 years", "father and son", "family-run")
+- 4.0-5.0 rating WITH at least some 1-2 star reviews calling out the pain Ada solves (those are the converting prospects — happy enough to keep operating, frustrated enough to want help) — push to 80+
 
 # Reasoning rules
 
 - Be specific. Reference the actual review text, owner name, employee count, or URL signal you observed.
 - Avoid generic statements like "good fit" — say WHY.
-- When scoring 65-80 because of latent fit (no documented pain), say so explicitly: e.g. "Clean 1-5 person ICP profile (named owner, 95 reviews, website) — no pain documented in reviews but the latent prospect math fits."
-- When scoring 30-50 because of operational excellence, name the specific signal: e.g. "Suzette named as office coordinator across 3 reviews — existing reception infrastructure reduces Ada's gap to fill."
+- When scoring 65-80 because of latent fit (no documented pain), say so explicitly: e.g. "Clean 1-3 person ICP profile (Ian named as solo operator across 5 reviews, 45 reviews, website) — no pain documented but Ian IS the receptionist. Latent prospect."
+- When scoring 30-49, you MUST cite specific infrastructure evidence: e.g. "Named office staff Talia + 8 named technicians indicates established dispatch infrastructure." Without specific infrastructure citation, the score should be higher.
+- Praise for owner's responsiveness in a small shop is not infrastructure. It's the owner working hard. Ada's pitch is to free them.
 
 ALWAYS use the score_lead tool to return your assessment. Always include 1-3 signals.
 `.trim()
@@ -210,7 +217,11 @@ function buildUserPrompt(p: PlaceDetails, locationLabel?: string): string {
     .map((r, i) => {
       const rating = r.rating != null ? `${r.rating}★` : '?'
       const time = r.relative_time ?? ''
-      const text = (r.text ?? '').slice(0, 500)
+      // Cap each review at 300 chars. Pain signals are usually in the
+      // first 1-2 sentences ("called five times, never got a call back")
+      // and longer text mostly burns tokens for diminishing reasoning gain.
+      // Cuts input-token volume ~40% on long-review industries.
+      const text = (r.text ?? '').slice(0, 300)
       return `Review ${i + 1} (${rating}, ${time}): "${text}"`
     })
     .join('\n\n')
