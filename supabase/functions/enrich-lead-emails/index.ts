@@ -3,21 +3,30 @@
 // Phase 2 of the lead-research engine. Takes existing cs_leads rows that
 // have a website (company_url) but no contact_email, fetches the homepage
 // + /contact page, extracts the most plausible owner-reachable email via
-// regex + filtering, and writes it back to the row.
+// regex + filtering, then verifies it with NeverBounce before saving.
 //
-// Why regex + heuristic instead of Claude here: emails are well-defined
-// patterns. The "intelligence" needed is filtering (skip privacy@,
-// noreply@, third-party services) and ranking (prefer on-domain, prefer
-// owner-shaped names over generic info@). That's deterministic logic;
-// Claude would just slow it down and burn tokens for no quality lift.
+// Why regex + heuristic for extraction: emails are well-defined patterns.
+// The "intelligence" needed is filtering (skip privacy@, noreply@,
+// third-party services) and ranking (prefer on-domain, prefer
+// owner-shaped names over generic info@). Deterministic logic; Claude
+// would just slow it down and burn tokens for no quality lift.
+//
+// Why verify before saving: cold email sender reputation is sacred.
+// NeverBounce returns 'valid' / 'invalid' / 'accept_all' (catch-all
+// domain — uncertain) / 'disposable' / 'unknown'. We use a strict
+// policy: only save the email if status='valid'. Invalid + catch-all
+// + unknown get tagged but the email is dropped, so the lead stays in
+// the table for manual follow-up but never lands in an outreach
+// sequence with a guess-email that would bounce.
 //
 // Auth:    Authorization: Bearer <admin user JWT>
 // Body:    { lead_ids?: string[] }  // omit to enrich all eligible
 // Returns: {
-//            results: { [lead_id]: { status, email?, error? } },
-//            counts: { found, not_found, errors },
+//            results: { [lead_id]: { status, email?, verification?, error? } },
+//            counts: { found, not_found, errors,
+//                     verified, invalid, unverifiable },
 //          }
-// Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEVERBOUNCE_API_KEY
 
 // deno-lint-ignore no-explicit-any
 declare const Deno: any
@@ -48,8 +57,14 @@ type LeadRow = {
   tags: string[] | null
 }
 
+type VerifyOutcome =
+  | { ok: true; nb_status: 'valid' }
+  | { ok: false; nb_status: 'invalid' | 'disposable' }
+  | { ok: false; nb_status: 'accept_all' | 'unknown' }
+  | { ok: false; nb_status: 'verifier_unavailable'; error: string }
+
 type EnrichResult =
-  | { status: 'found'; email: string }
+  | { status: 'found'; email: string; verification: VerifyOutcome }
   | { status: 'not_found' }
   | { status: 'no_url' }
   | { status: 'fetch_error'; error: string }
@@ -156,29 +171,31 @@ function candidateContactUrls(siteUrl: string): string[] {
   }
 }
 
-async function enrichOne(lead: LeadRow): Promise<EnrichResult> {
-  if (lead.contact_email) return { status: 'found', email: lead.contact_email }
+async function findCandidateEmail(lead: LeadRow): Promise<
+  | { status: 'candidate'; email: string }
+  | { status: 'not_found' }
+  | { status: 'no_url' }
+  | { status: 'fetch_error'; error: string }
+> {
+  if (lead.contact_email) return { status: 'candidate', email: lead.contact_email }
   if (!lead.company_url) return { status: 'no_url' }
 
   const domain = extractDomain(lead.company_url)
   const urls = candidateContactUrls(lead.company_url)
   if (urls.length === 0) return { status: 'fetch_error', error: 'invalid url' }
 
-  // Fetch homepage first; only try /contact + /about if homepage didn't yield.
   const homepageHtml = await fetchPage(urls[0])
   if (!homepageHtml) {
     return { status: 'fetch_error', error: `cannot fetch ${urls[0]}` }
   }
 
   const allHtml: string[] = [homepageHtml]
-  // Quick check for emails in homepage first
   const homepageEmails = homepageHtml.match(EMAIL_REGEX) ?? []
   const homepageRanked = rankEmails(homepageEmails, domain)
   if (homepageRanked.length > 0) {
-    return { status: 'found', email: homepageRanked[0] }
+    return { status: 'candidate', email: homepageRanked[0] }
   }
 
-  // Otherwise, try /contact + /about + /contact-us in parallel
   const fallback = await Promise.all(
     urls.slice(1).map((u) => fetchPage(u, 6000)),
   )
@@ -190,7 +207,76 @@ async function enrichOne(lead: LeadRow): Promise<EnrichResult> {
   const emails = merged.match(EMAIL_REGEX) ?? []
   const ranked = rankEmails(emails, domain)
   if (ranked.length === 0) return { status: 'not_found' }
-  return { status: 'found', email: ranked[0] }
+  return { status: 'candidate', email: ranked[0] }
+}
+
+/**
+ * Verify a candidate email with NeverBounce single-check.
+ * Strict policy: only `valid` returns ok=true.
+ * If NeverBounce is misconfigured or down, returns 'verifier_unavailable'
+ * — caller decides whether to save anyway. (Currently we drop it so we
+ * never send to an unverified address.)
+ */
+async function verifyEmail(email: string, apiKey: string | null): Promise<VerifyOutcome> {
+  if (!apiKey) {
+    return {
+      ok: false,
+      nb_status: 'verifier_unavailable',
+      error: 'NEVERBOUNCE_API_KEY not configured',
+    }
+  }
+
+  const url = `https://api.neverbounce.com/v4/single/check?key=${encodeURIComponent(apiKey)}&email=${encodeURIComponent(email)}&address_info=0&credits_info=0&timeout=10`
+
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 12_000)
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        nb_status: 'verifier_unavailable',
+        error: `NeverBounce HTTP ${res.status}`,
+      }
+    }
+
+    const data = await res.json() as {
+      status?: string
+      result?: string
+      message?: string
+    }
+
+    if (data.status !== 'success') {
+      return {
+        ok: false,
+        nb_status: 'verifier_unavailable',
+        error: data.message ?? 'NeverBounce returned non-success status',
+      }
+    }
+
+    const result = data.result ?? 'unknown'
+    if (result === 'valid') return { ok: true, nb_status: 'valid' }
+    if (result === 'invalid') return { ok: false, nb_status: 'invalid' }
+    if (result === 'disposable') return { ok: false, nb_status: 'disposable' }
+    if (result === 'catchall') return { ok: false, nb_status: 'accept_all' }
+    return { ok: false, nb_status: 'unknown' }
+  } catch (err) {
+    return {
+      ok: false,
+      nb_status: 'verifier_unavailable',
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+}
+
+async function enrichOne(lead: LeadRow, neverBounceKey: string | null): Promise<EnrichResult> {
+  const candidate = await findCandidateEmail(lead)
+  if (candidate.status !== 'candidate') return candidate
+
+  const verification = await verifyEmail(candidate.email, neverBounceKey)
+  return { status: 'found', email: candidate.email, verification }
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -246,21 +332,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!leads || leads.length === 0) {
     return json({
       results: {},
-      counts: { found: 0, not_found: 0, errors: 0 },
+      counts: { found: 0, not_found: 0, errors: 0, verified: 0, invalid: 0, unverifiable: 0 },
       message: 'No eligible leads (need company_url + empty contact_email).',
     })
   }
 
+  const neverBounceKey = Deno.env.get('NEVERBOUNCE_API_KEY') ?? null
+
   // Process with bounded concurrency. Network I/O so 5 concurrent is fine.
+  // The verification step adds one more outbound request per lead, so total
+  // budget per batch ≈ 5 fetches (homepage) + up to 15 fallback fetches +
+  // 5 NeverBounce checks. Still well under any sane edge-function timeout.
   const results: Record<string, EnrichResult> = {}
-  const counts = { found: 0, not_found: 0, errors: 0 }
+  const counts = {
+    found: 0,
+    not_found: 0,
+    errors: 0,
+    verified: 0,
+    invalid: 0,
+    unverifiable: 0,
+  }
   const BATCH_SIZE = 5
 
   for (let i = 0; i < leads.length; i += BATCH_SIZE) {
     const batch = leads.slice(i, i + BATCH_SIZE)
     const settled = await Promise.allSettled(
       batch.map(async (lead) => {
-        const result = await enrichOne(lead as LeadRow)
+        const result = await enrichOne(lead as LeadRow, neverBounceKey)
         return { id: lead.id, result }
       }),
     )
@@ -272,19 +370,61 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  // Bulk-update results back to cs_leads
-  // We do per-row updates because Supabase upsert doesn't easily handle
-  // partial updates across rows. The volume is small (≤100 per call).
+  // Persist results. Per-row updates because partial updates across rows
+  // don't compose well in Supabase upsert. Volume is small (≤100/call).
+  //
+  // Save-vs-tag policy:
+  //   verification.ok=true (valid)         → save email,    tag email_verified
+  //   nb_status=invalid|disposable         → drop email,    tag email_invalid
+  //   nb_status=accept_all|unknown         → drop email,    tag email_unverifiable
+  //   nb_status=verifier_unavailable       → drop email,    tag email_unverified
+  //                                           (NB key missing or API down — keep the
+  //                                            address out of outreach but not lose it)
+  //   not_found / no_url / fetch_error     → previous tags  (no email change)
+  //
+  // We also still tag email_enriched on every successful regex find so the
+  // pre-verification UX (counts of "Ada found N emails") still works.
   for (const [leadId, result] of Object.entries(results)) {
     const lead = leads.find((l) => l.id === leadId)
     const existingTags = (lead?.tags ?? []) as string[]
+
     if (result.status === 'found') {
       counts.found++
-      const tags = [...new Set([...existingTags, 'email_enriched'])]
-      await admin
-        .from('cs_leads')
-        .update({ contact_email: result.email, tags })
-        .eq('id', leadId)
+      const tagSet = new Set([...existingTags, 'email_enriched'])
+      let saveEmail: string | null = null
+
+      if (result.verification.ok) {
+        counts.verified++
+        tagSet.add('email_verified')
+        saveEmail = result.email
+      } else if (
+        result.verification.nb_status === 'invalid'
+        || result.verification.nb_status === 'disposable'
+      ) {
+        counts.invalid++
+        tagSet.add('email_invalid')
+        if (result.verification.nb_status === 'disposable') tagSet.add('email_disposable')
+      } else if (
+        result.verification.nb_status === 'accept_all'
+        || result.verification.nb_status === 'unknown'
+      ) {
+        counts.unverifiable++
+        tagSet.add('email_unverifiable')
+        if (result.verification.nb_status === 'accept_all') tagSet.add('email_catch_all')
+      } else {
+        counts.unverifiable++
+        tagSet.add('email_unverified')
+      }
+
+      const tags = [...tagSet]
+      if (saveEmail) {
+        await admin
+          .from('cs_leads')
+          .update({ contact_email: saveEmail, tags })
+          .eq('id', leadId)
+      } else {
+        await admin.from('cs_leads').update({ tags }).eq('id', leadId)
+      }
     } else if (result.status === 'not_found' || result.status === 'no_url') {
       counts.not_found++
       const tagToAdd =
@@ -302,5 +442,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     results,
     counts,
     processed: leads.length,
+    verifier: neverBounceKey ? 'neverbounce' : 'unavailable',
   })
 })

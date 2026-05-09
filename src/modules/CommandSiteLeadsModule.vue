@@ -16,6 +16,7 @@ import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModa
 import CommandSiteResearchLeadsModal from '@/components/CommandSiteResearchLeadsModal.vue'
 import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
+import AssistantMark from '@/components/AssistantMark.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -139,14 +140,64 @@ const importOpen = ref(false)
 const researchOpen = ref(false)
 const submitMsg = ref<string | null>(null)
 
-// ── Email enrichment (Phase 2): for each lead with a website but no
-// contact_email, fetch the homepage + /contact and pull the most
-// plausible owner-reachable email out via regex + filtering. Chunked
-// at 50 per Edge Function call so the gateway timeout has headroom.
+// ── Save & enrich pipeline state.
+//
+// Single phase machine that drives both standalone "Find emails" runs
+// and the auto-chained post-import flow ("Save & enrich N leads").
+// Multi-stage so the LoadingBar can show what's happening + give Ada
+// credit by name during the steps where she's working.
 const ENRICH_CHUNK_SIZE = 50
-const enriching = ref(false)
-const enrichMsg = ref<string | null>(null)
+
+type PipelinePhase = 'idle' | 'saving' | 'enriching' | 'done'
+const pipelinePhase = ref<PipelinePhase>('idle')
+const pipelineMsg = ref<string | null>(null)
 const enrichProgress = ref({ completed: 0, total: 0 })
+const savingCount = ref(0)
+// Aggregated totals from the most recent enrichment run, used to render
+// the success banner once everything settles.
+const enrichTotals = ref({
+  found: 0,
+  not_found: 0,
+  errors: 0,
+  verified: 0,
+  invalid: 0,
+  unverifiable: 0,
+})
+
+const isPipelineWorking = computed(
+  () => pipelinePhase.value === 'saving' || pipelinePhase.value === 'enriching',
+)
+
+const pipelineMessage = computed(() => {
+  if (pipelinePhase.value === 'saving') {
+    return savingCount.value > 0
+      ? `Saving ${savingCount.value} ${savingCount.value === 1 ? 'lead' : 'leads'} to your pipeline…`
+      : 'Saving to your pipeline…'
+  }
+  if (pipelinePhase.value === 'enriching') {
+    if (enrichProgress.value.total === 0) return 'Ada is starting the email hunt…'
+    return `Ada is finding email addresses · ${enrichProgress.value.completed} of ${enrichProgress.value.total}`
+  }
+  return ''
+})
+
+const pipelineHint = computed(() => {
+  if (pipelinePhase.value === 'saving') return 'Quick — usually under a second.'
+  if (pipelinePhase.value === 'enriching') {
+    const remaining = enrichProgress.value.total - enrichProgress.value.completed
+    if (remaining <= 0) return 'Wrapping up.'
+    return `Visiting each website, extracting public emails, and verifying with NeverBounce.`
+  }
+  return ''
+})
+
+const pipelineStepLabel = computed(() => {
+  if (pipelinePhase.value === 'saving') return 'Step 1 of 2'
+  if (pipelinePhase.value === 'enriching') return 'Step 2 of 2'
+  return ''
+})
+
+const showAdaInPipeline = computed(() => pipelinePhase.value === 'enriching')
 
 const enrichableCount = computed(() => {
   return leads.value.filter(
@@ -154,93 +205,157 @@ const enrichableCount = computed(() => {
       !!l.company_url
       && !l.contact_email
       && !(l.tags ?? []).includes('email_not_found')
-      && !(l.tags ?? []).includes('email_fetch_error'),
+      && !(l.tags ?? []).includes('email_fetch_error')
+      && !(l.tags ?? []).includes('email_invalid')
+      && !(l.tags ?? []).includes('email_unverifiable'),
   ).length
 })
 
-async function runEnrichEmails() {
-  if (enriching.value) return
-  if (usingFixture.value) {
-    enrichMsg.value = 'Demo mode — connect to a real cs_leads table to enrich emails.'
-    setTimeout(() => { enrichMsg.value = null }, 5000)
-    return
-  }
-  const eligible = leads.value
-    .filter(
-      (l) =>
-        !!l.company_url
-        && !l.contact_email
-        && !(l.tags ?? []).includes('email_not_found')
-        && !(l.tags ?? []).includes('email_fetch_error'),
-    )
-    .map((l) => l.id)
-  if (eligible.length === 0) {
-    enrichMsg.value = 'No leads need enrichment right now.'
-    setTimeout(() => { enrichMsg.value = null }, 4000)
-    return
-  }
+/**
+ * Run enrichment over the given lead IDs (or all eligible if leadIds=null).
+ * Updates pipeline phase + progress as it goes. Returns aggregated counts.
+ */
+async function runEnrichmentOver(
+  leadIds: string[] | null,
+): Promise<{ found: number; not_found: number; errors: number; verified: number; invalid: number; unverifiable: number }> {
+  const totals = { found: 0, not_found: 0, errors: 0, verified: 0, invalid: 0, unverifiable: 0 }
 
-  enriching.value = true
-  enrichMsg.value = null
+  // Resolve the eligible set
+  const eligible: string[] = leadIds
+    ? leadIds.slice()
+    : leads.value
+        .filter(
+          (l) =>
+            !!l.company_url
+            && !l.contact_email
+            && !(l.tags ?? []).includes('email_not_found')
+            && !(l.tags ?? []).includes('email_fetch_error')
+            && !(l.tags ?? []).includes('email_invalid')
+            && !(l.tags ?? []).includes('email_unverifiable'),
+        )
+        .map((l) => l.id)
+
+  if (eligible.length === 0) return totals
+
+  pipelinePhase.value = 'enriching'
   enrichProgress.value = { completed: 0, total: eligible.length }
-  const totals = { found: 0, not_found: 0, errors: 0 }
 
+  const session = (await supabase.auth.getSession()).data.session
+  if (!session) {
+    pipelineMsg.value = 'Not signed in. Refresh and try again.'
+    return totals
+  }
+
+  for (let i = 0; i < eligible.length; i += ENRICH_CHUNK_SIZE) {
+    const chunk = eligible.slice(i, i + ENRICH_CHUNK_SIZE)
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/enrich-lead-emails`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'authorization': `Bearer ${session.access_token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ lead_ids: chunk }),
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      pipelineMsg.value = `Chunk ${Math.floor(i / ENRICH_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
+      break
+    }
+    const data = await res.json()
+    const counts = data?.counts ?? {}
+    totals.found += counts.found ?? 0
+    totals.not_found += counts.not_found ?? 0
+    totals.errors += counts.errors ?? 0
+    totals.verified += counts.verified ?? 0
+    totals.invalid += counts.invalid ?? 0
+    totals.unverifiable += counts.unverifiable ?? 0
+    enrichProgress.value = {
+      completed: Math.min(i + chunk.length, eligible.length),
+      total: eligible.length,
+    }
+  }
+
+  return totals
+}
+
+/** Standalone manual "Find emails" button on the table header. */
+async function runEnrichEmails() {
+  if (isPipelineWorking.value) return
+  if (usingFixture.value) {
+    pipelineMsg.value = 'Demo mode — connect to a real cs_leads table to enrich emails.'
+    setTimeout(() => { pipelineMsg.value = null }, 5000)
+    return
+  }
+  if (enrichableCount.value === 0) {
+    pipelineMsg.value = 'No leads need enrichment right now.'
+    setTimeout(() => { pipelineMsg.value = null }, 4000)
+    return
+  }
+
+  pipelineMsg.value = null
   try {
-    const session = (await supabase.auth.getSession()).data.session
-    if (!session) {
-      enrichMsg.value = 'Not signed in. Refresh and try again.'
-      return
-    }
-
-    for (let i = 0; i < eligible.length; i += ENRICH_CHUNK_SIZE) {
-      const chunk = eligible.slice(i, i + ENRICH_CHUNK_SIZE)
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/enrich-lead-emails`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'authorization': `Bearer ${session.access_token}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ lead_ids: chunk }),
-      })
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '')
-        enrichMsg.value = `Chunk ${Math.floor(i / ENRICH_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
-        break
-      }
-      const data = await res.json()
-      const counts = data?.counts ?? { found: 0, not_found: 0, errors: 0 }
-      totals.found += counts.found ?? 0
-      totals.not_found += counts.not_found ?? 0
-      totals.errors += counts.errors ?? 0
-      enrichProgress.value = {
-        completed: Math.min(i + chunk.length, eligible.length),
-        total: eligible.length,
-      }
-    }
-
-    enrichMsg.value = `Found emails for ${totals.found} of ${eligible.length} leads. ${totals.not_found > 0 ? `${totals.not_found} had no public email; ` : ''}${totals.errors > 0 ? `${totals.errors} fetch errors.` : ''}`
-    setTimeout(() => { enrichMsg.value = null }, 10_000)
-
-    // Refresh the leads list so newly-found emails show in the table
+    const totals = await runEnrichmentOver(null)
+    enrichTotals.value = totals
+    const verifiedNote = totals.verified > 0 ? `${totals.verified} verified deliverable` : 'none verified'
+    const invalidNote = totals.invalid > 0 ? `, ${totals.invalid} invalid (dropped)` : ''
+    const catchAllNote = totals.unverifiable > 0 ? `, ${totals.unverifiable} catch-all (skipped)` : ''
+    pipelineMsg.value = `Ada found ${totals.found} email${totals.found === 1 ? '' : 's'} · ${verifiedNote}${invalidNote}${catchAllNote}.`
+    setTimeout(() => { pipelineMsg.value = null }, 12_000)
     await load()
   } catch (err) {
-    enrichMsg.value = err instanceof Error ? err.message : String(err)
+    pipelineMsg.value = err instanceof Error ? err.message : String(err)
   } finally {
-    enriching.value = false
+    pipelinePhase.value = 'idle'
   }
 }
 
 async function handleImported({ rows, batchLabel }: { rows: CsLeadInsert[]; batchLabel: string }) {
+  pipelineMsg.value = null
   submitMsg.value = null
+
   if (usingFixture.value) {
     submitMsg.value = `Demo mode — would have imported ${rows.length} leads as "${batchLabel}". Run migration 0023_cs_leads.sql to go live.`
     setTimeout(() => { submitMsg.value = null }, 6000)
     return
   }
+
+  // Stage 1: save to DB
+  pipelinePhase.value = 'saving'
+  savingCount.value = rows.length
   const result = await importLeads(rows)
-  submitMsg.value = `Imported ${result.inserted} leads as "${batchLabel}". ${result.failed > 0 ? `${result.failed} skipped (likely duplicate emails).` : ''}`
-  setTimeout(() => { submitMsg.value = null }, 6000)
+
+  if (result.inserted === 0) {
+    pipelinePhase.value = 'idle'
+    submitMsg.value = `No leads imported. ${result.failed > 0 ? `${result.failed} skipped (likely duplicate place IDs).` : ''}`
+    setTimeout(() => { submitMsg.value = null }, 8000)
+    return
+  }
+
+  // Stage 2: auto-enrich the just-imported set
+  try {
+    const totals = await runEnrichmentOver(result.insertedIds)
+    enrichTotals.value = totals
+    const dupePart = result.failed > 0 ? ` ${result.failed} skipped as duplicates.` : ''
+    const verifiedPart =
+      totals.verified > 0
+        ? `Ada verified ${totals.verified} deliverable email${totals.verified === 1 ? '' : 's'}.`
+        : totals.found > 0
+          ? `Ada found ${totals.found} email${totals.found === 1 ? '' : 's'} (none passed verification).`
+          : 'No public emails found on the imported sites.'
+    const invalidPart =
+      totals.invalid + totals.unverifiable > 0
+        ? ` (${totals.invalid + totals.unverifiable} couldn't be verified — kept as leads but skipped for outreach.)`
+        : ''
+    submitMsg.value = `Imported ${result.inserted} ${result.inserted === 1 ? 'lead' : 'leads'} as "${batchLabel}".${dupePart} ${verifiedPart}${invalidPart}`
+    setTimeout(() => { submitMsg.value = null }, 14_000)
+    await load()
+  } catch (err) {
+    submitMsg.value = `Imported ${result.inserted} leads but enrichment failed: ${err instanceof Error ? err.message : String(err)}`
+  } finally {
+    pipelinePhase.value = 'idle'
+    savingCount.value = 0
+  }
 }
 
 async function onPromote(lead: CsLead) {
@@ -301,12 +416,15 @@ function scoreClass(score: number | null): string {
         <button
           v-if="!usingFixture && enrichableCount > 0"
           type="button"
-          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand disabled:opacity-50"
-          :disabled="enriching"
-          :title="`Visit each lead's website and extract any publicly-listed email`"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand disabled:opacity-50 inline-flex items-center gap-1.5"
+          :disabled="isPipelineWorking"
+          :title="`Visit each lead's website, extract any publicly-listed email, then verify with NeverBounce`"
           @click="runEnrichEmails"
         >
-          <span v-if="enriching">Finding emails…</span>
+          <span v-if="isPipelineWorking" class="inline-flex items-center gap-1">
+            <AssistantMark class="h-3.5 w-3.5 text-brand" />
+            Ada is working…
+          </span>
           <span v-else>🔎 Find emails ({{ enrichableCount }})</span>
         </button>
         <button
@@ -329,14 +447,48 @@ function scoreClass(score: number | null): string {
     <div v-if="submitMsg" class="rounded-md bg-success/10 text-success px-3 py-2 text-sm">
       {{ submitMsg }}
     </div>
-    <div v-if="enrichMsg" class="rounded-md bg-brand/10 text-brand px-3 py-2 text-sm">
-      {{ enrichMsg }}
+    <div v-if="pipelineMsg" class="rounded-md bg-brand/10 text-brand px-3 py-2 text-sm">
+      {{ pipelineMsg }}
     </div>
-    <div v-if="enriching" class="card p-3">
-      <LoadingBar
-        :message="enrichProgress.total > 0 ? `Visiting websites · ${enrichProgress.completed} of ${enrichProgress.total} done` : 'Visiting websites…'"
-        hint="Fetching each lead's homepage + /contact page, extracting any visible email."
-      />
+    <div
+      v-if="isPipelineWorking"
+      class="card p-4 border-brand/20 bg-brand/[0.02] space-y-3"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <AssistantMark
+            v-if="showAdaInPipeline"
+            class="h-5 w-5 text-brand"
+          />
+          <div
+            v-else
+            class="h-5 w-5 rounded-full bg-brand/15 grid place-items-center text-brand text-[10px] font-bold"
+            aria-hidden="true"
+          >💾</div>
+          <span class="text-xs font-semibold text-ink">
+            {{ showAdaInPipeline ? 'Ada is on it' : 'Saving' }}
+          </span>
+        </div>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+          {{ pipelineStepLabel }}
+        </span>
+      </div>
+      <LoadingBar :message="pipelineMessage" :hint="pipelineHint" />
+      <div class="flex items-center gap-1.5 pt-1">
+        <span
+          class="h-1 w-6 rounded-full"
+          :class="pipelinePhase === 'saving' ? 'bg-brand' : 'bg-success'"
+          aria-label="Save stage"
+        />
+        <span
+          class="h-1 w-6 rounded-full"
+          :class="pipelinePhase === 'enriching' ? 'bg-brand' : 'bg-brand/15'"
+          aria-label="Enrich stage"
+        />
+        <span class="text-[10px] text-ink-muted ml-1">
+          {{ pipelinePhase === 'saving' ? 'Save → Find emails' : 'Save ✓ → Find emails' }}
+        </span>
+      </div>
     </div>
 
     <!-- KPI strip -->

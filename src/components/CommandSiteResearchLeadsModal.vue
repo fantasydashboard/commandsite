@@ -2,23 +2,27 @@
 /**
  * CommandSite — Google Maps research modal for cs_leads.
  *
- * Two-stage flow:
- *   1. Form: queries (one per line), location, max_per_query → calls
- *      research-leads Edge Function which hits Google Places API.
- *   2. Preview: scored results with checkbox per row to exclude before
- *      import. Inherits the same pattern as the CSV import modal —
- *      score with current ICP via scoreLead(), bulk-insert via the
- *      importLeads() composable on the parent module.
+ * Two-stage flow, driven by a single phase machine:
+ *   1. form     — user enters queries + location, clicks "Find prospects"
+ *   2. searching — hitting Google Maps via research-leads
+ *   3. ada-reading — auto-chained: scoring results via score-leads-ada
+ *   4. preview  — scored table; user unchecks anything they don't want
+ *
+ * Why auto-chain: previously Maps search and Ada review were two separate
+ * buttons. They have no meaningful decision point between them — every
+ * researched batch gets reviewed, always — so the second click was pure
+ * friction. Now it's one action with stage-aware progress.
  *
  * Source on every imported row is 'google_maps'; the Place ID is stored
- * on the row for dedup so re-running an overlapping query doesn't
- * insert the same shop twice (enforced by unique index in 0026).
+ * for dedup so re-running an overlapping query doesn't insert the same
+ * shop twice (enforced by unique index in 0026).
  */
 import { ref, computed, watch } from 'vue'
 import type { CsLeadInsert, CsSettings } from '@/types/database'
 import { scoreLead } from '@/lib/clients/commandsite/leadsApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import LoadingBar from '@/components/LoadingBar.vue'
+import AssistantMark from '@/components/AssistantMark.vue'
 
 const props = defineProps<{ open: boolean; settings: CsSettings }>()
 const emit = defineEmits<{
@@ -26,12 +30,15 @@ const emit = defineEmits<{
   (e: 'imported', payload: { rows: CsLeadInsert[]; batchLabel: string }): void
 }>()
 
+// ── Phase machine
+type Phase = 'form' | 'searching' | 'ada-reading' | 'preview'
+const phase = ref<Phase>('form')
+
 // ── Form state
 const queriesRaw = ref('HVAC contractor\nplumber\nelectrician')
 const location = ref('Orlando, FL')
 const maxPerQuery = ref(20)
 const minRating = ref(4.0)
-const submitting = ref(false)
 const error = ref<string | null>(null)
 
 // ── Results state
@@ -52,7 +59,6 @@ interface ResearchedLead {
 const results = ref<ResearchedLead[]>([])
 const queriesRun = ref<string[]>([])
 const apiErrors = ref<string[]>([])
-const stage = ref<'form' | 'preview'>('form')
 const excluded = ref<Set<string>>(new Set())
 
 // ── Ada review state (Phase 1.5)
@@ -66,12 +72,11 @@ interface AdaScore {
   signals: AdaSignal[]
 }
 const adaScores = ref<Record<string, AdaScore>>({})
-const runningAda = ref(false)
 const adaError = ref<string | null>(null)
 const adaErrors = ref<string[]>([])
 const sortBy = ref<'heuristic' | 'ada' | 'rating' | 'review_count'>('heuristic')
 
-// Progress tracking for the Ada review loading bar
+// Progress tracking for the multi-stage loading bar
 const adaProgress = ref({ completed: 0, total: 0 })
 
 // Reset state when modal opens
@@ -79,30 +84,151 @@ watch(() => props.open, (isOpen) => {
   if (!isOpen) return
   error.value = null
   adaError.value = null
-  if (results.value.length === 0) stage.value = 'form'
+  if (results.value.length === 0) phase.value = 'form'
 })
 
-// ── Run Ada review on the current visible result set, in chunks of
-// CHUNK_SIZE with an inter-chunk delay. Both knobs throttle peak
-// input-tokens-per-minute under Anthropic Tier 1's 50k ceiling.
-// Math: ~1.8k input tokens per scored lead × 10 = 18k tokens per chunk;
-// with INTER_CHUNK_DELAY_MS we hold the sliding-window peak under 45k/min.
-// Wall time for 54 leads: ~6 chunks × ~25s = ~2.5 min.
+const queryCount = computed(() =>
+  queriesRaw.value.split('\n').map((q) => q.trim()).filter((q) => q.length > 0).length,
+)
+
+// ── Throttling for Anthropic Tier 1 (50k input tokens/min sliding window).
+// 10-lead chunks × ~1.8k input tokens = 18k per chunk; 1.5s gap drains the
+// sliding window safely under the 45k/min ceiling. ~6 chunks for 54 leads
+// = ~2.5 min wall time.
 const ADA_CHUNK_SIZE = 10
 const INTER_CHUNK_DELAY_MS = 1500
 
-async function runAdaReview() {
-  if (runningAda.value) return
-  adaError.value = null
-  adaErrors.value = []
+// ── Stage-aware message + hint surfaced in the LoadingBar
+const phaseMessage = computed(() => {
+  if (phase.value === 'searching') {
+    return `Searching Google Maps · ${queryCount.value} ${queryCount.value === 1 ? 'query' : 'queries'}…`
+  }
+  if (phase.value === 'ada-reading') {
+    if (adaProgress.value.total === 0) return 'Ada is starting her review…'
+    return `Ada is reading reviews · ${adaProgress.value.completed} of ${adaProgress.value.total}`
+  }
+  return ''
+})
 
-  const placeIds = visibleResults.value.map((r) => r.place_id)
-  if (placeIds.length === 0) {
-    adaError.value = 'No leads to review.'
+const phaseHint = computed(() => {
+  if (phase.value === 'searching') {
+    return 'Usually 5-15 seconds, depending on result volume.'
+  }
+  if (phase.value === 'ada-reading') {
+    const total = adaProgress.value.total
+    const completed = adaProgress.value.completed
+    if (total === 0) return 'Pulling reviews and signals from Google Maps for each business.'
+    const remaining = Math.max(0, total - completed)
+    const secs = Math.ceil(remaining * 1.5)
+    if (remaining === 0) return 'Wrapping up.'
+    return `About ${secs}s remaining · scoring against your ICP, flagging chains.`
+  }
+  return ''
+})
+
+const stepLabel = computed(() => {
+  if (phase.value === 'searching') return 'Step 1 of 2'
+  if (phase.value === 'ada-reading') return 'Step 2 of 2'
+  return ''
+})
+
+// ── Master "Find prospects" action: chains search → Ada review.
+async function runFindProspects() {
+  if (phase.value !== 'form') return
+  error.value = null
+  adaError.value = null
+  apiErrors.value = []
+  adaErrors.value = []
+  results.value = []
+  adaScores.value = {}
+  excluded.value = new Set()
+  adaProgress.value = { completed: 0, total: 0 }
+
+  // Pre-validate
+  const queries = queriesRaw.value
+    .split('\n')
+    .map((q) => q.trim())
+    .filter((q) => q.length > 0)
+
+  if (queries.length === 0) {
+    error.value = 'Add at least one query (one per line).'
+    return
+  }
+  if (queries.length > 10) {
+    error.value = 'Max 10 queries per run. Trim the list and re-run.'
+    return
+  }
+  if (!location.value.trim()) {
+    error.value = 'Location is required.'
     return
   }
 
-  runningAda.value = true
+  // Stage 1: search
+  phase.value = 'searching'
+  const searchOk = await runSearch(queries)
+  if (!searchOk) {
+    phase.value = 'form'
+    return
+  }
+  if (results.value.length === 0) {
+    phase.value = 'form'
+    error.value = 'No results returned. Try broader queries or a wider location.'
+    return
+  }
+
+  // Stage 2: Ada review (auto-chained)
+  phase.value = 'ada-reading'
+  await runAdaReview()
+  // Even if Ada partially failed, drop into preview so the user can see
+  // the scored ones + retry from the preview-stage button.
+  phase.value = 'preview'
+}
+
+async function runSearch(queries: string[]): Promise<boolean> {
+  try {
+    const session = (await supabase.auth.getSession()).data.session
+    if (!session) {
+      error.value = 'Not signed in. Refresh the page and try again.'
+      return false
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/research-leads`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'authorization': `Bearer ${session.access_token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        queries,
+        location: location.value.trim(),
+        max_per_query: maxPerQuery.value,
+      }),
+    })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      error.value = body?.error ?? `Research failed (${res.status})`
+      return false
+    }
+
+    const data = await res.json()
+    results.value = Array.isArray(data.results) ? data.results : []
+    queriesRun.value = Array.isArray(data.queries_run) ? data.queries_run : []
+    apiErrors.value = Array.isArray(data.errors) ? data.errors : []
+    return true
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+    return false
+  }
+}
+
+async function runAdaReview() {
+  const placeIds = visibleResults.value.map((r) => r.place_id)
+  if (placeIds.length === 0) return
+
+  adaError.value = null
+  adaErrors.value = []
   adaProgress.value = { completed: 0, total: placeIds.length }
 
   try {
@@ -115,9 +241,8 @@ async function runAdaReview() {
     const aggregateErrors: string[] = []
     const aggregateScored: Record<string, AdaScore> = {}
 
-    // Chunk the place_ids and call the Edge Function per chunk, sequentially.
-    // Sequential keeps Anthropic burst pressure low; each chunk merges into
-    // adaScores immediately so the user sees results stream in.
+    // Sequential chunks: keeps Anthropic burst pressure low and lets the
+    // UI update progressively as each chunk lands.
     for (let i = 0; i < placeIds.length; i += ADA_CHUNK_SIZE) {
       const chunk = placeIds.slice(i, i + ADA_CHUNK_SIZE)
       const res = await fetch(`${SUPABASE_URL}/functions/v1/score-leads-ada`, {
@@ -134,13 +259,11 @@ async function runAdaReview() {
       })
 
       if (!res.ok) {
-        // Try to surface a useful message; some errors aren't JSON
         let detail = ''
         try { detail = (await res.json())?.error ?? '' } catch { /* ignore */ }
         aggregateErrors.push(
           `Chunk ${Math.floor(i / ADA_CHUNK_SIZE) + 1} failed (${res.status})${detail ? ': ' + detail : ''}`,
         )
-        // Keep going — maybe later chunks succeed
         adaProgress.value = {
           completed: Math.min(i + chunk.length, placeIds.length),
           total: placeIds.length,
@@ -151,19 +274,13 @@ async function runAdaReview() {
       const data = await res.json()
       const scored = (data?.scored ?? {}) as Record<string, AdaScore>
       Object.assign(aggregateScored, scored)
-      // Merge into the live adaScores ref so the table updates progressively
       adaScores.value = { ...adaScores.value, ...scored }
-      if (Array.isArray(data?.errors)) {
-        aggregateErrors.push(...data.errors)
-      }
+      if (Array.isArray(data?.errors)) aggregateErrors.push(...data.errors)
       adaProgress.value = {
         completed: Math.min(i + chunk.length, placeIds.length),
         total: placeIds.length,
       }
 
-      // Brief delay between chunks lets the Anthropic rate-limit sliding
-      // window drain, keeping us under the 50k tokens/min ceiling even
-      // on long-review industries.
       if (i + ADA_CHUNK_SIZE < placeIds.length) {
         await new Promise((r) => setTimeout(r, INTER_CHUNK_DELAY_MS))
       }
@@ -171,28 +288,37 @@ async function runAdaReview() {
 
     if (aggregateErrors.length > 0) adaErrors.value = aggregateErrors
 
-    // Auto-uncheck low-scored leads (< 40) across all chunks
+    // Auto-uncheck low-scored leads (< 40)
     const next = new Set(excluded.value)
     for (const [pid, score] of Object.entries(aggregateScored)) {
       if (score.score < 40) next.add(pid)
     }
     excluded.value = next
 
-    // Switch sort to Ada score if anything came back
-    if (Object.keys(aggregateScored).length > 0) {
-      sortBy.value = 'ada'
-    } else if (aggregateErrors.length > 0 && !adaError.value) {
+    if (Object.keys(aggregateScored).length > 0) sortBy.value = 'ada'
+    else if (aggregateErrors.length > 0 && !adaError.value) {
       adaError.value = aggregateErrors[0]
     }
   } catch (err) {
     adaError.value = err instanceof Error ? err.message : String(err)
-  } finally {
-    runningAda.value = false
   }
 }
 
 const adaReviewedCount = computed(() => Object.keys(adaScores.value).length)
 const hasAdaScores = computed(() => adaReviewedCount.value > 0)
+
+// "Re-review with Ada" button on the preview stage — for retrying
+// failed chunks without a fresh Maps search.
+const rerunningAda = ref(false)
+async function rerunAdaOnly() {
+  if (rerunningAda.value) return
+  rerunningAda.value = true
+  try {
+    await runAdaReview()
+  } finally {
+    rerunningAda.value = false
+  }
+}
 
 // ── Score every result against current ICP for the preview
 const scoredResults = computed(() => {
@@ -224,13 +350,8 @@ const visibleResults = computed(() => {
       if (aScore !== bScore) return bScore - aScore
       return (b.icp_score ?? 0) - (a.icp_score ?? 0)
     }
-    if (sorter === 'rating') {
-      return (b.google_rating ?? 0) - (a.google_rating ?? 0)
-    }
-    if (sorter === 'review_count') {
-      return (b.rating_count ?? 0) - (a.rating_count ?? 0)
-    }
-    // heuristic (default)
+    if (sorter === 'rating') return (b.google_rating ?? 0) - (a.google_rating ?? 0)
+    if (sorter === 'review_count') return (b.rating_count ?? 0) - (a.rating_count ?? 0)
     return (b.icp_score ?? 0) - (a.icp_score ?? 0)
   })
 })
@@ -246,75 +367,6 @@ const stats = computed(() => {
   return { total, willImport, withWebsite, withPhone, avgScore }
 })
 
-// ── Run the search
-async function runSearch() {
-  if (submitting.value) return
-  error.value = null
-
-  const queries = queriesRaw.value
-    .split('\n')
-    .map((q) => q.trim())
-    .filter((q) => q.length > 0)
-
-  if (queries.length === 0) {
-    error.value = 'Add at least one query (one per line).'
-    return
-  }
-  if (queries.length > 10) {
-    error.value = 'Max 10 queries per run. Trim the list and re-run.'
-    return
-  }
-  if (!location.value.trim()) {
-    error.value = 'Location is required.'
-    return
-  }
-
-  submitting.value = true
-  try {
-    const session = (await supabase.auth.getSession()).data.session
-    if (!session) {
-      error.value = 'Not signed in. Refresh the page and try again.'
-      return
-    }
-
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/research-leads`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'authorization': `Bearer ${session.access_token}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        queries,
-        location: location.value.trim(),
-        max_per_query: maxPerQuery.value,
-      }),
-    })
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      error.value = body?.error ?? `Research failed (${res.status})`
-      return
-    }
-
-    const data = await res.json()
-    results.value = Array.isArray(data.results) ? data.results : []
-    queriesRun.value = Array.isArray(data.queries_run) ? data.queries_run : []
-    apiErrors.value = Array.isArray(data.errors) ? data.errors : []
-    excluded.value = new Set()
-
-    if (results.value.length === 0) {
-      error.value = 'No results returned. Try broader queries or a wider location.'
-      return
-    }
-    stage.value = 'preview'
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err)
-  } finally {
-    submitting.value = false
-  }
-}
-
 // ── Helpers
 function inferIndustry(query: string, types: string[]): string {
   const q = query.toLowerCase()
@@ -325,7 +377,6 @@ function inferIndustry(query: string, types: string[]): string {
   if (q.includes('lawn') || q.includes('landscap')) return 'Landscaping'
   if (q.includes('pool')) return 'Pool service'
   if (q.includes('pest')) return 'Pest control'
-  // Capitalize first word of the query as a fallback industry label
   return query.charAt(0).toUpperCase() + query.slice(1)
 }
 
@@ -360,7 +411,6 @@ function buildInsertRows(): CsLeadInsert[] {
     .filter((r) => !excluded.value.has(r.place_id))
     .map((r) => {
       const ada = adaScores.value[r.place_id]
-      // If Ada has reviewed, prefer her score over the heuristic for icp_score
       const finalScore = ada ? ada.score : r.icp_score
       const finalReason = ada ? `Ada: ${ada.reasoning}` : r.icp_score_reason
 
@@ -418,16 +468,16 @@ function confirmImport() {
   // Reset for next time
   results.value = []
   excluded.value = new Set()
-  stage.value = 'form'
+  phase.value = 'form'
   emit('close')
 }
 
 function backToForm() {
-  stage.value = 'form'
+  phase.value = 'form'
 }
 
 function close() {
-  if (submitting.value) return
+  if (phase.value === 'searching' || phase.value === 'ada-reading') return
   emit('close')
 }
 
@@ -438,6 +488,8 @@ function hostname(url: string): string {
     return url
   }
 }
+
+const isWorking = computed(() => phase.value === 'searching' || phase.value === 'ada-reading')
 </script>
 
 <template>
@@ -467,84 +519,128 @@ function hostname(url: string): string {
                 Lead research
               </div>
               <h2 class="text-lg font-semibold text-ink">
-                {{ stage === 'form' ? 'Research from Google Maps' : `Preview · ${stats.total} results` }}
+                {{ phase === 'preview'
+                    ? `Preview · ${stats.total} results`
+                    : 'Find prospects' }}
               </h2>
-              <p v-if="stage === 'preview'" class="text-xs text-ink-muted mt-0.5">
-                Uncheck rows you don't want before importing. Defaults to all approved.
+              <p v-if="phase === 'preview'" class="text-xs text-ink-muted mt-0.5">
+                Uncheck rows you don't want before saving. Approved rows get email-enriched automatically.
+              </p>
+              <p v-else-if="phase === 'form'" class="text-xs text-ink-muted mt-0.5">
+                Ada will search Google Maps and read reviews to score each business against your ICP.
               </p>
             </div>
             <button
               type="button"
-              class="text-ink-muted hover:text-ink text-2xl leading-none p-1 -mr-2"
+              class="text-ink-muted hover:text-ink text-2xl leading-none p-1 -mr-2 disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Close"
+              :disabled="isWorking"
               @click="close"
             >×</button>
           </div>
 
           <!-- ── Body ────────────────────────────────────────────────── -->
           <div class="flex-1 overflow-y-auto px-6 py-5">
-            <!-- ── Form stage ────────────────────────────────────── -->
-            <div v-if="stage === 'form'" class="space-y-5">
-              <div>
-                <label class="block text-xs font-semibold text-ink mb-1.5">
-                  Search queries <span class="text-ink-muted font-normal">(one per line)</span>
-                </label>
-                <textarea
-                  v-model="queriesRaw"
-                  rows="5"
-                  class="input font-mono text-xs"
-                  placeholder="HVAC contractor&#10;plumber&#10;electrician"
-                />
-                <p class="mt-1 text-xs text-ink-muted">
-                  Each line becomes one Google Maps query, joined with the location below. Up to 10 queries per run.
-                </p>
-              </div>
-
-              <div class="grid gap-4 sm:grid-cols-2">
+            <!-- ── Form / working stage ──────────────────────────────────────── -->
+            <div v-if="phase !== 'preview'" class="space-y-5">
+              <fieldset :disabled="isWorking" class="space-y-5 disabled:opacity-60">
                 <div>
                   <label class="block text-xs font-semibold text-ink mb-1.5">
-                    Location
+                    Search queries <span class="text-ink-muted font-normal">(one per line)</span>
                   </label>
-                  <input
-                    v-model="location"
-                    type="text"
-                    class="input"
-                    placeholder="Orlando, FL"
+                  <textarea
+                    v-model="queriesRaw"
+                    rows="5"
+                    class="input font-mono text-xs"
+                    placeholder="HVAC contractor&#10;plumber&#10;electrician"
                   />
                   <p class="mt-1 text-xs text-ink-muted">
-                    City + state, or zip code. Maps will return results within Google's typical search radius.
+                    Each line becomes one Google Maps query, joined with the location below. Up to 10 queries per run.
                   </p>
                 </div>
 
-                <div>
-                  <label class="block text-xs font-semibold text-ink mb-1.5">
-                    Max per query
-                  </label>
-                  <input
-                    v-model.number="maxPerQuery"
-                    type="number"
-                    min="1"
-                    max="20"
-                    class="input"
-                  />
-                  <p class="mt-1 text-xs text-ink-muted">
-                    Max 20 (Google's per-page limit). Three queries × 20 = up to 60 results per run.
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label class="block text-xs font-semibold text-ink mb-1.5">Location</label>
+                    <input
+                      v-model="location"
+                      type="text"
+                      class="input"
+                      placeholder="Orlando, FL"
+                    />
+                    <p class="mt-1 text-xs text-ink-muted">
+                      City + state, or zip code. Maps returns results within Google's typical search radius.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-semibold text-ink mb-1.5">Max per query</label>
+                    <input
+                      v-model.number="maxPerQuery"
+                      type="number"
+                      min="1"
+                      max="20"
+                      class="input"
+                    />
+                    <p class="mt-1 text-xs text-ink-muted">
+                      Max 20 (Google's per-page limit). Three queries × 20 = up to 60 results per run.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="rounded-card bg-surface-elevated border border-divider p-4">
+                  <p class="text-xs text-ink-muted leading-relaxed">
+                    <strong class="text-ink font-semibold">What happens:</strong>
+                    Search runs first (5-15s), then Ada reads each business's reviews and scores them against your ICP (~1.5s per result). You'll land on a preview where you can uncheck anything before saving.
                   </p>
                 </div>
-              </div>
+              </fieldset>
 
-              <div class="rounded-card bg-surface-elevated border border-divider p-4">
-                <p class="text-xs text-ink-muted leading-relaxed">
-                  <strong class="text-ink font-semibold">Quota note:</strong>
-                  Google's Places API (New) gives you ~1,000 free Pro-tier calls/month, plenty for several batches like this. Each line above counts as one call.
-                </p>
+              <!-- ── Multi-stage progress: search → Ada review ──────────────── -->
+              <div
+                v-if="isWorking"
+                class="rounded-card border border-brand/20 bg-brand/5 p-4 space-y-3"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <AssistantMark
+                      v-if="phase === 'ada-reading'"
+                      class="h-5 w-5 text-brand transition-opacity"
+                    />
+                    <div
+                      v-else
+                      class="h-5 w-5 rounded-full bg-brand/20 grid place-items-center text-brand text-[10px] font-bold"
+                      aria-hidden="true"
+                    >🔍</div>
+                    <span class="text-xs font-semibold text-ink">
+                      {{ phase === 'ada-reading' ? 'Ada is on it' : 'Searching' }}
+                    </span>
+                  </div>
+                  <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                    {{ stepLabel }}
+                  </span>
+                </div>
+                <LoadingBar :message="phaseMessage" :hint="phaseHint" />
+                <!-- Mini step indicator: one dot per stage, current is filled -->
+                <div class="flex items-center gap-1.5 pt-1">
+                  <span
+                    class="h-1 w-6 rounded-full"
+                    :class="phase === 'searching' ? 'bg-brand' : 'bg-success'"
+                    aria-label="Search stage"
+                  />
+                  <span
+                    class="h-1 w-6 rounded-full"
+                    :class="
+                      phase === 'ada-reading' ? 'bg-brand'
+                      : 'bg-brand/15'
+                    "
+                    aria-label="Ada review stage"
+                  />
+                  <span class="text-[10px] text-ink-muted ml-1">
+                    {{ phase === 'searching' ? 'Maps → Ada' : 'Maps ✓ → Ada' }}
+                  </span>
+                </div>
               </div>
-
-              <LoadingBar
-                v-if="submitting"
-                :message="`Searching Google Maps · ${queriesRaw.split('\\n').filter(q => q.trim()).length} ${queriesRaw.split('\\n').filter(q => q.trim()).length === 1 ? 'query' : 'queries'}…`"
-                hint="Usually 5-15 seconds depending on result volume"
-              />
 
               <p v-if="error" class="text-sm text-danger">{{ error }}</p>
             </div>
@@ -554,7 +650,7 @@ function hostname(url: string): string {
               <!-- Stats strip -->
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 <div class="rounded-card bg-surface-elevated px-3 py-2">
-                  <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Will import</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Will save</div>
                   <div class="text-xl font-bold text-ink leading-tight">{{ stats.willImport }}</div>
                 </div>
                 <div class="rounded-card bg-surface-elevated px-3 py-2">
@@ -571,7 +667,7 @@ function hostname(url: string): string {
                 </div>
               </div>
 
-              <!-- Filter / sort / Ada review row -->
+              <!-- Filter / sort / re-run row -->
               <div class="flex flex-wrap items-center gap-3 mb-3 text-xs">
                 <label class="flex items-center gap-2 text-ink-muted">
                   Min rating:
@@ -587,7 +683,7 @@ function hostname(url: string): string {
                   Sort:
                   <select v-model="sortBy" class="rounded-md border border-divider bg-surface px-2 py-1 text-xs">
                     <option value="heuristic">ICP score</option>
-                    <option value="ada" :disabled="!hasAdaScores">Ada score{{ hasAdaScores ? '' : ' (run Ada review first)' }}</option>
+                    <option value="ada" :disabled="!hasAdaScores">Ada score{{ hasAdaScores ? '' : ' (no review yet)' }}</option>
                     <option value="rating">Google rating</option>
                     <option value="review_count">Review count</option>
                   </select>
@@ -600,19 +696,35 @@ function hostname(url: string): string {
                   Exclude all without website
                 </button>
                 <span class="ml-auto flex items-center gap-2">
-                  <span v-if="hasAdaScores" class="text-[10px] font-semibold uppercase tracking-wider text-success">
+                  <span v-if="hasAdaScores" class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-success">
+                    <AssistantMark class="h-3 w-3 text-success" />
                     Ada reviewed {{ adaReviewedCount }}
                   </span>
                   <button
                     type="button"
-                    class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5"
-                    :disabled="runningAda || stats.total === 0"
-                    @click="runAdaReview"
+                    class="rounded-md border border-brand/40 text-brand bg-brand/5 px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50 inline-flex items-center gap-1.5"
+                    :disabled="rerunningAda || stats.total === 0"
+                    @click="rerunAdaOnly"
                   >
-                    <span v-if="runningAda">Ada thinking…</span>
-                    <span v-else>🤖 {{ hasAdaScores ? 'Re-review with Ada' : 'Run Ada review' }}</span>
+                    <AssistantMark class="h-3.5 w-3.5 text-brand" />
+                    <span v-if="rerunningAda">Ada thinking…</span>
+                    <span v-else>{{ hasAdaScores ? 'Re-review with Ada' : 'Run Ada review' }}</span>
                   </button>
                 </span>
+              </div>
+
+              <!-- Inline progress for re-run from preview -->
+              <div v-if="rerunningAda" class="mb-3 rounded-card border border-brand/20 bg-brand/5 p-3">
+                <div class="flex items-center gap-2 mb-2">
+                  <AssistantMark class="h-4 w-4 text-brand" />
+                  <span class="text-xs font-semibold text-ink">Ada is on it</span>
+                </div>
+                <LoadingBar
+                  :message="adaProgress.total > 0
+                    ? `Ada is reading reviews · ${adaProgress.completed} of ${adaProgress.total}`
+                    : 'Ada is starting her review…'"
+                  hint="Don't close this modal."
+                />
               </div>
 
               <p v-if="adaError" class="mb-3 text-xs text-danger bg-danger/10 border border-danger/30 rounded-card p-3">
@@ -622,17 +734,6 @@ function hostname(url: string): string {
                 <strong>Some leads couldn't be reviewed:</strong>
                 <span v-for="(err, i) in adaErrors" :key="i" class="block">· {{ err }}</span>
               </p>
-
-              <div v-if="runningAda" class="mb-4">
-                <LoadingBar
-                  :message="adaProgress.total > 0
-                    ? `Ada reading reviews · ${adaProgress.completed} of ${adaProgress.total} done`
-                    : `Ada reading reviews…`"
-                  :hint="adaProgress.total > ADA_CHUNK_SIZE
-                    ? `Processing in chunks of ${ADA_CHUNK_SIZE}. Don't close this modal.`
-                    : `Roughly 1 second per lead. Don't close this modal.`"
-                />
-              </div>
 
               <p v-if="apiErrors.length > 0" class="mb-3 text-xs text-warn bg-warn/10 border border-warn/30 rounded-card p-3">
                 <strong>Some queries had issues:</strong>
@@ -731,37 +832,41 @@ function hostname(url: string): string {
           <!-- ── Footer ──────────────────────────────────────────────── -->
           <div class="flex items-center justify-between gap-3 border-t border-divider px-6 py-4 bg-surface-elevated">
             <button
-              v-if="stage === 'preview'"
+              v-if="phase === 'preview'"
               type="button"
               class="btn-ghost !px-3 !text-xs"
               @click="backToForm"
-            >← Back to form</button>
+            >← New search</button>
             <span v-else></span>
 
             <div class="flex items-center gap-2">
               <button
                 type="button"
                 class="btn-secondary !text-sm"
-                :disabled="submitting"
+                :disabled="isWorking"
                 @click="close"
               >Cancel</button>
               <button
-                v-if="stage === 'form'"
+                v-if="phase !== 'preview'"
                 type="button"
-                class="btn-primary !text-sm"
-                :disabled="submitting"
-                @click="runSearch"
+                class="btn-primary !text-sm inline-flex items-center gap-1.5"
+                :disabled="isWorking"
+                @click="runFindProspects"
               >
-                <span v-if="submitting">Searching…</span>
-                <span v-else>Run search</span>
+                <span v-if="phase === 'searching'">Searching…</span>
+                <span v-else-if="phase === 'ada-reading'" class="inline-flex items-center gap-1">
+                  <AssistantMark class="h-3.5 w-3.5 text-white" />
+                  Ada is reviewing…
+                </span>
+                <span v-else>Find prospects</span>
               </button>
               <button
                 v-else
                 type="button"
                 class="btn-primary !text-sm"
-                :disabled="submitting || stats.willImport === 0"
+                :disabled="stats.willImport === 0"
                 @click="confirmImport"
-              >Import {{ stats.willImport }} leads</button>
+              >Save &amp; enrich {{ stats.willImport }} {{ stats.willImport === 1 ? 'lead' : 'leads' }}</button>
             </div>
           </div>
         </div>

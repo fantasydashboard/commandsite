@@ -212,19 +212,26 @@ export function useLeads() {
     loading.value = false
   }
 
-  /** Bulk insert. Caller has already scored them locally. */
-  async function importLeads(rows: CsLeadInsert[]): Promise<{ inserted: number; failed: number }> {
-    if (!rows.length) return { inserted: 0, failed: 0 }
+  /** Bulk insert. Caller has already scored them locally. Returns the
+   *  IDs of the actually-inserted rows so the caller can immediately
+   *  pipeline them into enrichment without a roundtrip. */
+  async function importLeads(rows: CsLeadInsert[]): Promise<{ inserted: number; failed: number; insertedIds: string[] }> {
+    if (!rows.length) return { inserted: 0, failed: 0, insertedIds: [] }
     const { data, error: e } = await supabase
       .from('cs_leads')
       .insert(rows)
-      .select()
+      .select('id')
     if (e) {
       error.value = e.message
-      return { inserted: 0, failed: rows.length }
+      return { inserted: 0, failed: rows.length, insertedIds: [] }
     }
+    const insertedIds = ((data ?? []) as { id: string }[]).map((r) => r.id)
     await load()
-    return { inserted: data?.length ?? 0, failed: rows.length - (data?.length ?? 0) }
+    return {
+      inserted: insertedIds.length,
+      failed: rows.length - insertedIds.length,
+      insertedIds,
+    }
   }
 
   async function updateStatus(id: string, status: CsLeadStatus) {
