@@ -38,7 +38,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 const MODEL = 'claude-sonnet-4-6'
-const MAX_TOOL_TURNS = 8     // cap to prevent runaway agent loops
+const MAX_TOOL_TURNS = 5     // cap to prevent runaway agent loops
 const MAX_FETCH_BYTES = 200_000  // strip huge pages down
 
 // ── Sage system prompt ──────────────────────────────────────────────
@@ -78,7 +78,14 @@ Call tools whenever you need data. Don't guess. If Josh asks "what should I eat 
 - Don't give exercise advice that contradicts his listed injuries (read_profile if uncertain).
 - Don't override his goals — you can suggest a tighter approach, but his goals are his.
 - Don't be sycophantic. He doesn't need "great question!" — just answer.
-- If a tool returns an error or empty result, tell Josh honestly and ask what's missing.`
+- If a tool returns an error or empty result, tell Josh honestly and ask what's missing.
+
+# CRITICAL TOOL-LOOP RULES (prevent infinite loops)
+
+- After calling **log_meal** and getting a successful result (ok: true), CONFIRM TO JOSH (e.g. "Logged: ~480 cal, 32g protein.") and STOP. Do NOT call log_meal again in the same response. Do NOT call additional tools to "verify" — trust the result.
+- After calling any tool that returns an **error**, tell Josh exactly what the error said in plain language and ASK HIM what to do. Do NOT silently retry the same tool with different inputs.
+- Maximum 4 tools per single response. If you find yourself reaching for a 5th tool, stop and answer with what you have.
+- Each unique tool should be called at most ONCE per response unless Josh explicitly asks for multiple lookups.`
 
 // ── Tool schemas ────────────────────────────────────────────────────
 

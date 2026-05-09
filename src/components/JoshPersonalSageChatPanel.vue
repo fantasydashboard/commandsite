@@ -15,7 +15,12 @@ import AssistantMark from '@/components/AssistantMark.vue'
 import { useSage, type ChatMessage } from '@/lib/clients/josh-personal/sageApi'
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ (e: 'close'): void }>()
+const emit = defineEmits<{
+  (e: 'close'): void
+  /** Fired whenever Sage's last response used a tool that mutates state
+   *  (currently log_meal). Parent reloads relevant data. */
+  (e: 'data-changed', payload: { tools: string[] }): void
+}>()
 
 const { messages, sending, error, sendMessage, clear } = useSage()
 
@@ -30,12 +35,25 @@ const samplePrompts = [
   'What are my macros remaining for the day?',
 ]
 
+// Tools that mutate state — when Sage uses these, we tell the parent
+// to reload its data (so the food log on the Today tab updates the
+// instant Sage logs a meal, etc.)
+const STATE_MUTATING_TOOLS = new Set(['log_meal'])
+
 async function onSend() {
   const text = input.value
   if (!text.trim() || sending.value) return
   input.value = ''
   await sendMessage(text)
   await scrollToBottom()
+
+  // Inspect the latest assistant message — if Sage used any state-
+  // mutating tool, notify the parent.
+  const last = messages.value[messages.value.length - 1]
+  if (last?.role === 'assistant' && last.tool_trace) {
+    const used = last.tool_trace.map((t) => t.name).filter((n) => STATE_MUTATING_TOOLS.has(n))
+    if (used.length > 0) emit('data-changed', { tools: used })
+  }
 }
 
 function onKeydown(e: KeyboardEvent) {

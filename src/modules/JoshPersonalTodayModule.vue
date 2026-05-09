@@ -30,6 +30,7 @@ import { useHealthData } from '@/lib/clients/josh-personal/healthData'
 import { useProfile } from '@/lib/clients/josh-personal/profileApi'
 import { useMorningBrief } from '@/lib/clients/josh-personal/morningBriefApi'
 import { useWeeklyPlan } from '@/lib/clients/josh-personal/weeklyPlanApi'
+import { useMealLog } from '@/lib/clients/josh-personal/mealLogApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -37,6 +38,24 @@ const { snapshot } = useHealthData()
 const { hasProfile, targets, loading: profileLoading } = useProfile()
 const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: regenerateBrief } = useMorningBrief()
 const { todaySlice: realTodaySlice } = useWeeklyPlan()
+const { todayMeals, todayTotals, recentDays, totalLogged, load: reloadMealLog, deleteMeal } = useMealLog()
+
+function fmtMealTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+function mealSlotLabel(slot: string | null): string {
+  if (!slot) return 'meal'
+  return slot.charAt(0).toUpperCase() + slot.slice(1)
+}
+function pct(part: number, whole: number): number {
+  if (!whole) return 0
+  return Math.min(100, Math.round((part / whole) * 100))
+}
+async function onDeleteMeal(id: string) {
+  if (!window.confirm('Delete this meal entry?')) return
+  await deleteMeal(id)
+}
+const showRecent = ref(false)
 
 const briefRegenError = ref<string | null>(null)
 async function onRegenerateBrief() {
@@ -409,6 +428,128 @@ const chatOpen = ref(false)
       </section>
     </div>
 
+    <!-- ── Today's logged meals (real food log) ────────────────────── -->
+    <section class="card p-0 overflow-hidden">
+      <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Today's food log</div>
+          <div class="font-semibold text-ink mt-0.5">
+            {{ todayTotals.cal.toLocaleString() }} cal logged · {{ todayTotals.protein_g.toFixed(0) }}g protein
+            <span v-if="todayTotals.sat_fat_g > 0" class="text-ink-muted text-xs font-normal ml-2">· {{ todayTotals.sat_fat_g.toFixed(1) }}g sat fat</span>
+          </div>
+          <div class="text-[11px] text-ink-muted mt-0.5">
+            <template v-if="todayMeals.length > 0">
+              {{ todayMeals.length }} {{ todayMeals.length === 1 ? 'meal' : 'meals' }} logged · log via Ask Sage chat
+            </template>
+            <template v-else>
+              Nothing logged yet today. Tell Sage what you ate.
+            </template>
+          </div>
+        </div>
+        <button
+          v-if="totalLogged > todayMeals.length"
+          type="button"
+          class="text-xs text-brand font-medium hover:underline"
+          @click="showRecent = !showRecent"
+        >{{ showRecent ? 'Hide' : 'Show' }} past 14d</button>
+      </header>
+
+      <!-- Empty state -->
+      <div v-if="todayMeals.length === 0" class="px-4 py-6 text-center">
+        <p class="text-xs text-ink-muted leading-relaxed">
+          Open Ask Sage and tell her what you ate.<br/>
+          <span class="text-ink-disabled">Try: <code class="font-mono">"Log: 3 eggs, oats with berries, black coffee"</code></span>
+        </p>
+      </div>
+
+      <!-- Today's meals -->
+      <ul v-else class="divide-y divide-divider">
+        <li v-for="m in todayMeals" :key="m.id" class="px-4 py-3 group">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                <span class="font-semibold text-ink text-sm">{{ mealSlotLabel(m.meal_slot) }}</span>
+                <span class="text-[10px] text-ink-disabled">· {{ fmtMealTime(m.logged_at) }}</span>
+                <span class="text-[10px] text-ink-disabled">· {{ m.source === 'chat' ? 'via Sage' : m.source }}</span>
+              </div>
+              <div class="text-sm text-ink leading-snug">{{ m.description }}</div>
+              <div class="flex items-center gap-3 mt-1 text-[11px] text-ink-muted tabular-nums">
+                <span v-if="m.estimated_cal != null">{{ m.estimated_cal }} cal</span>
+                <span v-if="m.estimated_protein_g != null">{{ m.estimated_protein_g }}g p</span>
+                <span v-if="m.estimated_fat_g != null">{{ m.estimated_fat_g }}g f</span>
+                <span v-if="m.estimated_sat_fat_g != null" class="text-warn">{{ m.estimated_sat_fat_g }}g sat</span>
+                <span v-if="m.estimated_carbs_g != null">{{ m.estimated_carbs_g }}g c</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="text-[11px] text-danger opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              @click="onDeleteMeal(m.id)"
+            >Delete</button>
+          </div>
+        </li>
+      </ul>
+
+      <!-- Targets-progress bars -->
+      <div v-if="targets && todayMeals.length > 0" class="px-4 py-3 bg-canvas border-t border-divider space-y-2">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Today vs. targets</div>
+        <div>
+          <div class="flex items-baseline justify-between text-[11px] mb-0.5">
+            <span class="text-ink-muted">Calories</span>
+            <span class="text-ink tabular-nums">{{ todayTotals.cal.toLocaleString() }} / {{ targets.daily_cal_target.toLocaleString() }}</span>
+          </div>
+          <div class="h-1 w-full bg-brand/15 rounded-full overflow-hidden">
+            <div class="h-full bg-brand rounded-full transition-all" :style="{ width: `${pct(todayTotals.cal, targets.daily_cal_target)}%` }" />
+          </div>
+        </div>
+        <div>
+          <div class="flex items-baseline justify-between text-[11px] mb-0.5">
+            <span class="text-ink-muted">Protein</span>
+            <span class="text-ink tabular-nums">{{ todayTotals.protein_g.toFixed(0) }}g / {{ targets.protein_g }}g</span>
+          </div>
+          <div class="h-1 w-full bg-success/15 rounded-full overflow-hidden">
+            <div class="h-full bg-success rounded-full transition-all" :style="{ width: `${pct(todayTotals.protein_g, targets.protein_g)}%` }" />
+          </div>
+        </div>
+        <div v-if="targets.sat_fat_g_ceiling">
+          <div class="flex items-baseline justify-between text-[11px] mb-0.5">
+            <span class="text-ink-muted">Sat fat (ceiling)</span>
+            <span
+              class="tabular-nums"
+              :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'text-danger font-semibold' : 'text-ink'"
+            >{{ todayTotals.sat_fat_g.toFixed(1) }}g / ≤{{ targets.sat_fat_g_ceiling }}g</span>
+          </div>
+          <div class="h-1 w-full bg-warn/15 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all"
+              :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'bg-danger' : 'bg-warn'"
+              :style="{ width: `${pct(todayTotals.sat_fat_g, targets.sat_fat_g_ceiling)}%` }"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent days history (collapsed) -->
+      <div v-if="showRecent && recentDays.length > 0" class="border-t border-divider divide-y divide-divider">
+        <div v-for="day in recentDays" :key="day.day" class="px-4 py-3">
+          <div class="flex items-baseline justify-between mb-2">
+            <div class="text-xs font-semibold text-ink">{{ day.dayLabel }}</div>
+            <div class="text-[11px] text-ink-muted tabular-nums">
+              {{ day.totals.cal.toLocaleString() }} cal · {{ day.totals.protein.toFixed(0) }}g p · {{ day.items.length }} {{ day.items.length === 1 ? 'meal' : 'meals' }}
+            </div>
+          </div>
+          <ul class="space-y-1">
+            <li v-for="m in day.items" :key="m.id" class="text-[11px] text-ink-muted leading-snug">
+              <span class="text-ink-disabled mr-1">{{ fmtMealTime(m.logged_at) }}</span>
+              <span class="text-ink">{{ mealSlotLabel(m.meal_slot) }}:</span>
+              {{ m.description }}
+              <span v-if="m.estimated_cal" class="text-ink-disabled tabular-nums ml-1">({{ m.estimated_cal }} cal)</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Active concerns reminder ────────────────────────────────── -->
     <section v-if="activeConcerns.length > 0" class="card p-3 border-warn/30">
       <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -442,7 +583,11 @@ const chatOpen = ref(false)
       <AssistantMark class="h-4 w-4 text-white" />
       Ask Sage
     </button>
-    <JoshPersonalSageChatPanel :open="chatOpen" @close="chatOpen = false" />
+    <JoshPersonalSageChatPanel
+      :open="chatOpen"
+      @close="chatOpen = false"
+      @data-changed="reloadMealLog"
+    />
 
     <!-- ── Onboarding wizard modal ─────────────────────────────────── -->
     <JoshPersonalOnboardingModal
