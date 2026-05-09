@@ -92,6 +92,14 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'social-distribution' },
     { key: 'social-listening' },
   ],
+  'josh-personal': [
+    // Josh Personal — private personal dashboard, sage-themed.
+    // Sage is the personal AI coach (vs. Ada/Grace on the business
+    // surfaces). v1 is a single Health module with rich mock data so
+    // Josh can react to the shape before we wire real data sources
+    // (Apple Health upload, blood-work PDF parser, food-log chat input).
+    { key: 'josh-personal-health' },
+  ],
 }
 
 export function modulesForClient(slug: string): ClientModuleConfig[] {

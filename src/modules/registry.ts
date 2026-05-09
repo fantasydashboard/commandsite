@@ -40,6 +40,7 @@ import UfdRedesignEmailModule from './UfdRedesignEmailModule.vue'
 import UfdRedesignSocialModule from './UfdRedesignSocialModule.vue'
 import UfdRedesignSettingsModule from './UfdRedesignSettingsModule.vue'
 import { mentions as ufdRedesignMentions } from '@/lib/clients/ufd-redesign/social'
+import JoshPersonalHealthModule from './JoshPersonalHealthModule.vue'
 import CornerstoneTodayModule from './CornerstoneTodayModule.vue'
 import CornerstoneFrontDeskGuestsModule from './CornerstoneFrontDeskGuestsModule.vue'
 import CornerstoneCareDriftModule from './CornerstoneCareDriftModule.vue'
@@ -90,6 +91,7 @@ export interface TabDefinition {
 // modules enabled (Apex Heating & Air etc.). UFD doesn't get them.
 export const dashboardTabs: TabDefinition[] = [
   { key: 'today', label: 'Today' },
+  { key: 'health', label: 'Health' },
   { key: 'overview', label: 'Overview' },
   { key: 'metrics', label: 'Metrics' },
   { key: 'pipeline', label: 'Pipeline' },
@@ -584,6 +586,16 @@ export const moduleRegistry: ModuleDefinition[] = [
     component: UfdRedesignSettingsModule,
     fullWidth: true,
     tab: 'settings',
+  },
+
+  // ── Josh Personal — private personal dashboard, sage-themed ─────────
+  {
+    key: 'josh-personal-health',
+    label: 'Josh Personal · Health',
+    description: 'Personal health dashboard — Sage drafts daily plans (meals + workout) from blood work, sleep, food log, and goals. Mock data v1.',
+    component: JoshPersonalHealthModule,
+    fullWidth: true,
+    tab: 'health',
   },
 
   // ── Cornerstone Community Church (Option 3 role-led layout) ─────────

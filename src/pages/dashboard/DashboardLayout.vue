@@ -110,6 +110,7 @@ const DEMO_CLIENT_NAMES: Record<string, string> = {
   'commandsite-demo': 'CommandSite (demo snapshot)',
   'ufd-redesign': 'Ultimate Fantasy Dashboard',
   'ultimate-fantasy-dashboard': 'Ultimate Fantasy Dashboard',
+  'josh-personal': 'Josh Personal',
 }
 
 function titleizeSlug(slug: string): string {
