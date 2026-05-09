@@ -19,19 +19,24 @@ import {
   TODAY_LABEL,
   STEPS_DAILY_TARGET,
   sageActivity,
-  snapshot,
   activeConcerns,
   todayPlan,
   trendArrow,
 } from '@/lib/clients/josh-personal/health'
+import { useHealthData } from '@/lib/clients/josh-personal/healthData'
+
+// Live snapshot from Apple Health (Phase 0 ingestion).
+// Replaces the static `snapshot` mock — same shape so UI doesn't change.
+const { snapshot } = useHealthData()
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 const today = computed(() => todayPlan())
 
-// Steps progress against 10k goal
+// Steps progress against 10k goal — snapshot is a ComputedRef now,
+// so .value to get the object then .steps.value for the metric.
 const stepsProgress = computed(() => {
-  const raw = String(snapshot.steps.value).replace(/,/g, '')
+  const raw = String(snapshot.value.steps.value).replace(/,/g, '')
   const n = parseInt(raw, 10) || 0
   return Math.min(1, n / STEPS_DAILY_TARGET)
 })

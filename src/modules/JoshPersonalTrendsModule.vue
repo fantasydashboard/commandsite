@@ -10,11 +10,13 @@
 import type { Client } from '@/types/database'
 import {
   STEPS_DAILY_TARGET,
-  trends,
-  stepsSummary,
   buildSparklinePath,
   sparklineTargetY,
 } from '@/lib/clients/josh-personal/health'
+import { useHealthData } from '@/lib/clients/josh-personal/healthData'
+
+// Live trends from Apple Health (Phase 0 ingestion).
+const { trends, stepsSummary } = useHealthData()
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
