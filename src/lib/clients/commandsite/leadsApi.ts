@@ -31,6 +31,14 @@ const FIXTURE_LEADS: CsLead[] = [
     status: 'new', notes: null, tags: [], promoted_deal_id: null,
     google_maps_place_id: null,
     google_maps_enriched_at: null,
+    review_excerpts: null,
+    website_extract: null,
+    draft_cold_email_subject: null,
+    draft_cold_email_body: null,
+    draft_cold_email_rationale: null,
+    draft_cold_email_signal: null,
+    draft_cold_email_at: null,
+    draft_cold_email_model: null,
     created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
   },
@@ -49,6 +57,14 @@ const FIXTURE_LEADS: CsLead[] = [
     promoted_deal_id: null,
     google_maps_place_id: null,
     google_maps_enriched_at: null,
+    review_excerpts: null,
+    website_extract: null,
+    draft_cold_email_subject: null,
+    draft_cold_email_body: null,
+    draft_cold_email_rationale: null,
+    draft_cold_email_signal: null,
+    draft_cold_email_at: null,
+    draft_cold_email_model: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
   },
@@ -67,6 +83,14 @@ const FIXTURE_LEADS: CsLead[] = [
     promoted_deal_id: null,
     google_maps_place_id: null,
     google_maps_enriched_at: null,
+    review_excerpts: null,
+    website_extract: null,
+    draft_cold_email_subject: null,
+    draft_cold_email_body: null,
+    draft_cold_email_rationale: null,
+    draft_cold_email_signal: null,
+    draft_cold_email_at: null,
+    draft_cold_email_model: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
   },
@@ -85,6 +109,14 @@ const FIXTURE_LEADS: CsLead[] = [
     promoted_deal_id: null,
     google_maps_place_id: null,
     google_maps_enriched_at: null,
+    review_excerpts: null,
+    website_extract: null,
+    draft_cold_email_subject: null,
+    draft_cold_email_body: null,
+    draft_cold_email_rationale: null,
+    draft_cold_email_signal: null,
+    draft_cold_email_at: null,
+    draft_cold_email_model: null,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
   },
@@ -103,6 +135,14 @@ const FIXTURE_LEADS: CsLead[] = [
     promoted_deal_id: null,
     google_maps_place_id: null,
     google_maps_enriched_at: null,
+    review_excerpts: null,
+    website_extract: null,
+    draft_cold_email_subject: null,
+    draft_cold_email_body: null,
+    draft_cold_email_rationale: null,
+    draft_cold_email_signal: null,
+    draft_cold_email_at: null,
+    draft_cold_email_model: null,
     created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
     updated_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
   },
@@ -247,6 +287,73 @@ export function useLeads() {
   async function disqualify(id: string) { await updateStatus(id, 'disqualified') }
   async function requeue(id: string) { await updateStatus(id, 'new') }
 
+  /** Update a draft cold email's subject + body in place. */
+  async function updateDraftEmail(id: string, subject: string, body: string): Promise<void> {
+    const idx = leads.value.findIndex((l) => l.id === id)
+    if (idx >= 0) {
+      leads.value[idx] = {
+        ...leads.value[idx],
+        draft_cold_email_subject: subject,
+        draft_cold_email_body: body,
+      }
+    }
+    if (usingFixture.value) return
+    const { error: e } = await supabase
+      .from('cs_leads')
+      .update({ draft_cold_email_subject: subject, draft_cold_email_body: body })
+      .eq('id', id)
+    if (e) error.value = e.message
+  }
+
+  /** Tag the draft as approved. Sending happens elsewhere. */
+  async function approveDraft(id: string): Promise<void> {
+    const lead = leads.value.find((l) => l.id === id)
+    if (!lead) return
+    const tags = [...new Set([...(lead.tags ?? []), 'cold_email_approved'])]
+    const idx = leads.value.findIndex((l) => l.id === id)
+    if (idx >= 0) leads.value[idx] = { ...leads.value[idx], tags }
+    if (usingFixture.value) return
+    const { error: e } = await supabase.from('cs_leads').update({ tags }).eq('id', id)
+    if (e) error.value = e.message
+  }
+
+  /** Clear a draft. Strips draft_cold_email_* + the cold_email_drafted
+   *  tag, leaving the lead itself intact. */
+  async function discardDraft(id: string): Promise<void> {
+    const lead = leads.value.find((l) => l.id === id)
+    if (!lead) return
+    const tags = (lead.tags ?? []).filter(
+      (t) => t !== 'cold_email_drafted' && t !== 'cold_email_approved',
+    )
+    const idx = leads.value.findIndex((l) => l.id === id)
+    if (idx >= 0) {
+      leads.value[idx] = {
+        ...leads.value[idx],
+        draft_cold_email_subject: null,
+        draft_cold_email_body: null,
+        draft_cold_email_rationale: null,
+        draft_cold_email_signal: null,
+        draft_cold_email_at: null,
+        draft_cold_email_model: null,
+        tags,
+      }
+    }
+    if (usingFixture.value) return
+    const { error: e } = await supabase
+      .from('cs_leads')
+      .update({
+        draft_cold_email_subject: null,
+        draft_cold_email_body: null,
+        draft_cold_email_rationale: null,
+        draft_cold_email_signal: null,
+        draft_cold_email_at: null,
+        draft_cold_email_model: null,
+        tags,
+      })
+      .eq('id', id)
+    if (e) error.value = e.message
+  }
+
   /** Promote a lead to a deal. Creates the cs_deals row + sets
    *  lead.promoted_deal_id + flips status. Returns the new deal id. */
   async function promoteToDeal(id: string): Promise<string | null> {
@@ -300,5 +407,6 @@ export function useLeads() {
   return {
     leads, loading, error, usingFixture,
     load, importLeads, updateStatus, archive, disqualify, requeue, promoteToDeal,
+    updateDraftEmail, approveDraft, discardDraft,
   }
 }

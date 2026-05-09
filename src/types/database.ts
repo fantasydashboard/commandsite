@@ -365,8 +365,24 @@ export type CsLead = {
   promoted_deal_id: string | null
   google_maps_place_id: string | null
   google_maps_enriched_at: string | null
+  // Source material captured for the cold-email drafter (mig 0027)
+  review_excerpts: ReviewExcerpt[] | null
+  website_extract: string | null
+  // Drafted cold email — populated by draft-cold-email Edge Function
+  draft_cold_email_subject: string | null
+  draft_cold_email_body: string | null
+  draft_cold_email_rationale: string | null
+  draft_cold_email_signal: string | null
+  draft_cold_email_at: string | null
+  draft_cold_email_model: string | null
   created_at: string
   updated_at: string
+}
+
+export type ReviewExcerpt = {
+  text: string
+  rating: number | null
+  relative_time: string | null
 }
 
 export type CsLeadInsert = Partial<Omit<CsLead, 'id' | 'created_at' | 'updated_at'>> & {
