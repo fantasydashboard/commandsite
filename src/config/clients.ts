@@ -95,10 +95,15 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
   'josh-personal': [
     // Josh Personal — private personal dashboard, sage-themed.
     // Sage is the personal AI coach (vs. Ada/Grace on the business
-    // surfaces). v1 is a single Health module with rich mock data so
-    // Josh can react to the shape before we wire real data sources
-    // (Apple Health upload, blood-work PDF parser, food-log chat input).
+    // surfaces). 5 tabs covering the daily landing + the deeper
+    // surfaces. Mock data lives in src/lib/clients/josh-personal/health.ts
+    // and gets swapped for real Supabase reads once Phase 0+1 (Apple
+    // Health webhook ingestion) lands.
     { key: 'josh-personal-health' },
+    { key: 'josh-personal-plan' },
+    { key: 'josh-personal-trends' },
+    { key: 'josh-personal-bloodwork' },
+    { key: 'josh-personal-goals' },
   ],
 }
 

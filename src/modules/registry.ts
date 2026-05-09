@@ -41,6 +41,10 @@ import UfdRedesignSocialModule from './UfdRedesignSocialModule.vue'
 import UfdRedesignSettingsModule from './UfdRedesignSettingsModule.vue'
 import { mentions as ufdRedesignMentions } from '@/lib/clients/ufd-redesign/social'
 import JoshPersonalHealthModule from './JoshPersonalHealthModule.vue'
+import JoshPersonalPlanModule from './JoshPersonalPlanModule.vue'
+import JoshPersonalTrendsModule from './JoshPersonalTrendsModule.vue'
+import JoshPersonalBloodworkModule from './JoshPersonalBloodworkModule.vue'
+import JoshPersonalGoalsModule from './JoshPersonalGoalsModule.vue'
 import CornerstoneTodayModule from './CornerstoneTodayModule.vue'
 import CornerstoneFrontDeskGuestsModule from './CornerstoneFrontDeskGuestsModule.vue'
 import CornerstoneCareDriftModule from './CornerstoneCareDriftModule.vue'
@@ -92,6 +96,10 @@ export interface TabDefinition {
 export const dashboardTabs: TabDefinition[] = [
   { key: 'today', label: 'Today' },
   { key: 'health', label: 'Health' },
+  { key: 'plan', label: 'Plan' },
+  { key: 'trends', label: 'Trends' },
+  { key: 'bloodwork', label: 'Bloodwork' },
+  { key: 'goals', label: 'Goals' },
   { key: 'overview', label: 'Overview' },
   { key: 'metrics', label: 'Metrics' },
   { key: 'pipeline', label: 'Pipeline' },
@@ -592,10 +600,42 @@ export const moduleRegistry: ModuleDefinition[] = [
   {
     key: 'josh-personal-health',
     label: 'Josh Personal · Health',
-    description: 'Personal health dashboard — Sage drafts daily plans (meals + workout) from blood work, sleep, food log, and goals. Mock data v1.',
+    description: 'Today-focused: snapshot + today\'s slice of the week plan + active concerns reminder. Default landing.',
     component: JoshPersonalHealthModule,
     fullWidth: true,
     tab: 'health',
+  },
+  {
+    key: 'josh-personal-plan',
+    label: 'Josh Personal · Plan',
+    description: 'Weekly meal + workout plan with Sage\'s Saturday-morning draft, swap rationale, and shopping list.',
+    component: JoshPersonalPlanModule,
+    fullWidth: true,
+    tab: 'plan',
+  },
+  {
+    key: 'josh-personal-trends',
+    label: 'Josh Personal · Trends',
+    description: 'Time-series across Apple Health: weight, sleep, HRV, steps (with 10k goal), active calories, weekly workout count.',
+    component: JoshPersonalTrendsModule,
+    fullWidth: true,
+    tab: 'trends',
+  },
+  {
+    key: 'josh-personal-bloodwork',
+    label: 'Josh Personal · Bloodwork',
+    description: 'Active concerns + full marker table with sparklines + Sage\'s panel-level read + upload UI for next draw.',
+    component: JoshPersonalBloodworkModule,
+    fullWidth: true,
+    tab: 'bloodwork',
+  },
+  {
+    key: 'josh-personal-goals',
+    label: 'Josh Personal · Goals',
+    description: 'Goal cards with progress bars + per-goal Sage narrative connecting the data to the goal.',
+    component: JoshPersonalGoalsModule,
+    fullWidth: true,
+    tab: 'goals',
   },
 
   // ── Cornerstone Community Church (Option 3 role-led layout) ─────────
