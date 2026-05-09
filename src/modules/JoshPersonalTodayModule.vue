@@ -17,6 +17,7 @@ import { RouterLink } from 'vue-router'
 import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalOnboardingModal from '@/components/JoshPersonalOnboardingModal.vue'
+import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
 import {
   TODAY_LABEL,
   STEPS_DAILY_TARGET,
@@ -76,15 +77,8 @@ const stepsProgress = computed(() => {
   return Math.min(1, n / STEPS_DAILY_TARGET)
 })
 
-// Ask Sage chat (mocked — wires up in a later session)
+// Ask Sage chat — real agent loop with tools
 const chatOpen = ref(false)
-const chatInput = ref('')
-const samplePrompts = [
-  'plan around 200g protein this week',
-  'why is my LDL not dropping faster?',
-  'i\'m sore tomorrow — should i swap workouts?',
-  'log: ate 2 eggs + oatmeal + coffee for breakfast',
-]
 </script>
 
 <template>
@@ -448,36 +442,7 @@ const samplePrompts = [
       <AssistantMark class="h-4 w-4 text-white" />
       Ask Sage
     </button>
-    <Transition
-      enter-active-class="transition-all duration-200 ease-out"
-      enter-from-class="opacity-0 translate-y-2"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition-all duration-150"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-2"
-    >
-      <div v-if="chatOpen" class="fixed bottom-24 right-6 z-40 w-96 max-w-[calc(100vw-3rem)] card p-4 shadow-2xl border-brand/30">
-        <div class="flex items-center gap-2 mb-3">
-          <AssistantMark class="h-5 w-5 text-brand" />
-          <span class="font-semibold text-ink">Ask Sage</span>
-          <span class="ml-auto text-[10px] text-ink-muted uppercase tracking-wider">demo</span>
-        </div>
-        <div class="space-y-2 mb-3">
-          <p class="text-xs text-ink-muted">Try:</p>
-          <button
-            v-for="p in samplePrompts"
-            :key="p"
-            type="button"
-            class="block w-full text-left text-xs text-brand bg-brand/5 hover:bg-brand/10 rounded-md px-2 py-1.5"
-            @click="chatInput = p"
-          >{{ p }}</button>
-        </div>
-        <input v-model="chatInput" type="text" placeholder="ask sage anything…" class="w-full rounded-md border border-divider bg-surface px-3 py-2 text-sm focus:outline-none focus:border-brand" />
-        <p class="text-[10px] text-ink-disabled mt-2">
-          Real chat wires up next session — morning brief generator first.
-        </p>
-      </div>
-    </Transition>
+    <JoshPersonalSageChatPanel :open="chatOpen" @close="chatOpen = false" />
 
     <!-- ── Onboarding wizard modal ─────────────────────────────────── -->
     <JoshPersonalOnboardingModal
