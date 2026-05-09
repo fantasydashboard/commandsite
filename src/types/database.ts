@@ -375,8 +375,32 @@ export type CsLead = {
   draft_cold_email_signal: string | null
   draft_cold_email_at: string | null
   draft_cold_email_model: string | null
+  // Outreach send aggregates (mig 0035)
+  contacted_at: string | null
+  last_contacted_at: string | null
+  send_count: number
   created_at: string
   updated_at: string
+}
+
+export type CsOutreachSend = {
+  id: string
+  lead_id: string
+  subject: string | null
+  body: string | null
+  channel: 'email' | 'linkedin' | 'sms' | 'phone'
+  source: 'manual_gmail' | 'manual_other' | 'smartlead' | 'smartlead_reply' | 'apollo' | 'instantly' | 'other'
+  sent_via_email_address: string | null
+  external_message_id: string | null
+  sequence_step_number: number | null
+  sequence_id: string | null
+  sent_at: string
+  sent_by: string | null
+  created_at: string
+}
+
+export type CsOutreachSendInsert = Partial<Omit<CsOutreachSend, 'id' | 'created_at'>> & {
+  lead_id: string
 }
 
 export type ReviewExcerpt = {
