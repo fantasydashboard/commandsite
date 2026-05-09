@@ -32,8 +32,8 @@ const { sends, sentToday, sentLastNDays, markSent } = useOutreachSends()
 const liveReplies = useReplies()
 
 // ── View state ────────────────────────────────────────────────────────
-type View = 'ready' | 'sent' | 'inbox' | 'manual_reply' | 'coming_next'
-const view = ref<View>('ready')
+type View = 'pipeline' | 'ready' | 'sent' | 'inbox' | 'manual_reply' | 'coming_next'
+const view = ref<View>('pipeline')
 
 // ── Buckets ───────────────────────────────────────────────────────────
 
@@ -212,7 +212,7 @@ async function openComposeAndMark(lead: CsLead) {
   flash(`✓ Gmail opened + marked sent (${lead.company_name})`)
 }
 
-// ── Manual reply paste form ──────────────────────────────────────────
+// ── Manual reply paste form (uses draft-reply, the adaptive drafter) ─
 const manualLeadId = ref<string>('')
 const manualFromEmail = ref('')
 const manualFromName = ref('')
@@ -223,8 +223,11 @@ const classifyResult = ref<{
   classification: string
   classification_confidence: number
   classification_reason: string
-  suggested_reply: string | null
+  drafted_response: string
+  suggested_action: string
+  reasoning: string
 } | null>(null)
+const editedDraftResponse = ref('')
 
 const manualLeadOptions = computed(() => {
   return sentLeads.value.map((l) => ({
@@ -244,6 +247,10 @@ function pickLeadForManual(leadId: string) {
 
 async function classifyManualReply() {
   if (classifying.value) return
+  if (!manualLeadId.value) {
+    errorMsg.value = 'Pick a lead first — Ada needs the conversation context.'
+    return
+  }
   classifying.value = true
   classifyResult.value = null
   errorMsg.value = null
@@ -253,7 +260,9 @@ async function classifyManualReply() {
       errorMsg.value = 'Not signed in'
       return
     }
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/classify-manual-reply`, {
+    // Phase 2: use the new adaptive drafter with full conversation
+    // history + KB injected, NOT the basic classifier.
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/draft-reply`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -261,7 +270,7 @@ async function classifyManualReply() {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        lead_id: manualLeadId.value || undefined,
+        lead_id: manualLeadId.value,
         from_email: manualFromEmail.value,
         from_name: manualFromName.value || undefined,
         subject: manualSubject.value || undefined,
@@ -278,14 +287,39 @@ async function classifyManualReply() {
       classification: data.classification,
       classification_confidence: data.classification_confidence,
       classification_reason: data.classification_reason,
-      suggested_reply: data.suggested_reply ?? null,
+      drafted_response: data.drafted_response,
+      suggested_action: data.suggested_action,
+      reasoning: data.reasoning,
     }
+    editedDraftResponse.value = data.drafted_response
     await Promise.all([reloadLeads(), liveReplies.load()])
   } catch (err) {
     errorMsg.value = err instanceof Error ? err.message : String(err)
   } finally {
     classifying.value = false
   }
+}
+
+async function copyDraftedReply() {
+  if (!classifyResult.value) return
+  try {
+    await navigator.clipboard.writeText(editedDraftResponse.value)
+    flash('✓ Drafted reply copied. Paste into Gmail to respond.')
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = editedDraftResponse.value
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    flash('✓ Drafted reply copied.')
+  }
+}
+
+async function regenerateDraft() {
+  // Re-run the same classify (it'll pick up any new context). For now
+  // just reruns — Phase 3 polish: pass a "make it different" hint.
+  await classifyManualReply()
 }
 
 function resetManualForm() {
@@ -295,6 +329,68 @@ function resetManualForm() {
   manualSubject.value = ''
   manualBody.value = ''
   classifyResult.value = null
+  editedDraftResponse.value = ''
+}
+
+// ── Pipeline view: kanban stages from cs_leads.status + send_count ──
+
+interface PipelineStage {
+  key: string
+  label: string
+  toneClass: string
+  filter: (l: CsLead) => boolean
+}
+
+const PIPELINE_STAGES: PipelineStage[] = [
+  {
+    key: 'new', label: 'New', toneClass: 'border-ink-muted/30',
+    filter: (l) => (l.status === 'new' || l.status === 'queued') && (l.send_count ?? 0) === 0
+      && !!l.draft_cold_email_body && !!l.contact_email,
+  },
+  {
+    key: 'touch_1', label: 'Touch 1 sent', toneClass: 'border-brand/30',
+    filter: (l) => l.status === 'contacted' && (l.send_count ?? 0) === 1,
+  },
+  {
+    key: 'touch_2', label: 'Touch 2 sent', toneClass: 'border-brand/30',
+    filter: (l) => l.status === 'contacted' && (l.send_count ?? 0) === 2,
+  },
+  {
+    key: 'touch_3plus', label: 'Touch 3+ sent', toneClass: 'border-brand/30',
+    filter: (l) => l.status === 'contacted' && (l.send_count ?? 0) >= 3,
+  },
+  {
+    key: 'replied', label: 'Replied', toneClass: 'border-success/30',
+    filter: (l) => l.status === 'replied',
+  },
+  {
+    key: 'pipeline', label: 'In pipeline', toneClass: 'border-success/40',
+    filter: (l) => l.status === 'promoted_to_pipeline',
+  },
+  {
+    key: 'closed', label: 'Disqualified / Archived', toneClass: 'border-ink-muted/20',
+    filter: (l) => l.status === 'disqualified' || l.status === 'archived',
+  },
+]
+
+const stageBuckets = computed<Record<string, CsLead[]>>(() => {
+  const out: Record<string, CsLead[]> = {}
+  for (const s of PIPELINE_STAGES) {
+    out[s.key] = leads.value.filter(s.filter)
+      .sort((a, b) => (b.icp_score ?? 0) - (a.icp_score ?? 0))
+  }
+  return out
+})
+
+function fmtLastAction(l: CsLead): string {
+  if (l.status === 'replied') return 'replied'
+  if (l.last_contacted_at) return `sent ${fmtAge(l.last_contacted_at)}`
+  return 'no activity'
+}
+
+function jumpToLeadInManualReply(leadId: string) {
+  view.value = 'manual_reply'
+  pickLeadForManual(leadId)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -385,6 +481,12 @@ function leadForReply(r: CsReply): CsLead | null {
         <button
           type="button"
           class="rounded-md px-3 py-1.5 text-sm font-semibold transition-colors"
+          :class="view === 'pipeline' ? 'bg-brand text-white' : 'text-ink hover:bg-canvas/50'"
+          @click="view = 'pipeline'"
+        >Pipeline</button>
+        <button
+          type="button"
+          class="rounded-md px-3 py-1.5 text-sm font-semibold transition-colors"
           :class="view === 'ready' ? 'bg-brand text-white' : 'text-ink hover:bg-canvas/50'"
           @click="view = 'ready'"
         >Ready to send <span class="opacity-70">({{ kpis.drafts_ready }})</span></button>
@@ -414,6 +516,53 @@ function leadForReply(r: CsReply): CsLead | null {
         >Coming next →</button>
       </div>
     </div>
+
+    <!-- ── VIEW: Pipeline (kanban) ─────────────────────────────────── -->
+    <section v-if="view === 'pipeline'">
+      <div class="overflow-x-auto pb-2">
+        <div class="inline-flex items-start gap-3 min-w-full">
+          <div
+            v-for="stage in PIPELINE_STAGES"
+            :key="stage.key"
+            class="rounded-card border bg-surface flex-shrink-0 w-72"
+            :class="stage.toneClass"
+          >
+            <header class="px-3 py-2 border-b border-divider bg-surface-elevated rounded-t-card">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-semibold text-ink">{{ stage.label }}</span>
+                <span class="text-[10px] font-bold tabular-nums text-ink-muted">{{ stageBuckets[stage.key].length }}</span>
+              </div>
+            </header>
+            <div class="p-2 space-y-2 max-h-[600px] overflow-y-auto">
+              <div
+                v-if="stageBuckets[stage.key].length === 0"
+                class="text-[11px] text-ink-disabled italic text-center py-4"
+              >Nothing here</div>
+              <button
+                v-for="lead in stageBuckets[stage.key]"
+                :key="lead.id"
+                type="button"
+                class="w-full text-left rounded-md border border-divider bg-surface-raised p-2 hover:border-brand/40 transition-colors"
+                @click="jumpToLeadInManualReply(lead.id)"
+              >
+                <div class="flex items-start justify-between gap-1.5 mb-1">
+                  <span class="text-[12px] font-semibold text-ink truncate flex-1 min-w-0">{{ lead.company_name }}</span>
+                  <span
+                    class="rounded-full px-1.5 py-0 text-[9px] font-bold tabular-nums shrink-0"
+                    :class="(lead.icp_score ?? 0) >= 80 ? 'bg-success/15 text-success' : (lead.icp_score ?? 0) >= 60 ? 'bg-warn/15 text-warn' : 'bg-ink-muted/15 text-ink-muted'"
+                  >{{ lead.icp_score ?? '—' }}</span>
+                </div>
+                <div class="text-[10px] text-ink-muted truncate">{{ lead.contact_email }}</div>
+                <div class="text-[10px] text-ink-disabled mt-0.5">{{ fmtLastAction(lead) }}</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="text-[11px] text-ink-disabled italic text-center mt-2">
+        Click any card → jump to the manual-reply form pre-loaded with that lead.
+      </p>
+    </section>
 
     <!-- ── VIEW: Ready to send ─────────────────────────────────────── -->
     <section v-if="view === 'ready'">
@@ -663,27 +812,81 @@ function leadForReply(r: CsReply): CsLead | null {
         </div>
       </div>
 
-      <!-- Classification result -->
-      <div v-if="classifyResult" class="card p-4 border-brand/30">
-        <div class="flex items-center gap-2 flex-wrap mb-3">
-          <AssistantMark class="h-5 w-5 text-brand" />
-          <span class="text-sm font-semibold text-ink">Sage classified this as:</span>
-          <span
-            class="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider"
-            :class="CLASSIFICATION_META[(classifyResult.classification as keyof typeof CLASSIFICATION_META)]?.pillClass ?? 'bg-ink-muted/10 text-ink-muted'"
-          >{{ classifyResult.classification }}</span>
-          <span class="text-[11px] text-ink-muted">{{ Math.round(classifyResult.classification_confidence * 100) }}% confidence</span>
-        </div>
-        <p class="text-xs text-ink-muted italic mb-3">
-          <strong>Why:</strong> {{ classifyResult.classification_reason }}
-        </p>
-        <div v-if="classifyResult.suggested_reply" class="rounded-card border border-brand/15 bg-brand/5 p-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-brand mb-1">Sage's suggested reply</div>
-          <p class="text-sm text-ink leading-relaxed whitespace-pre-wrap">"{{ classifyResult.suggested_reply }}"</p>
-          <p class="text-[10px] text-ink-muted mt-2 italic">
-            Copy + paste into Gmail to respond. (Auto-send via Smartlead is Phase 3.)
+      <!-- Classification result + Ada's drafted reply (editable) -->
+      <div v-if="classifyResult" class="card p-4 border-brand/30 space-y-3">
+        <!-- Header: classification + confidence + reasoning -->
+        <div>
+          <div class="flex items-center gap-2 flex-wrap mb-2">
+            <AssistantMark class="h-5 w-5 text-brand" />
+            <span class="text-sm font-semibold text-ink">Ada classified this as:</span>
+            <span
+              class="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider"
+              :class="CLASSIFICATION_META[(classifyResult.classification as keyof typeof CLASSIFICATION_META)]?.pillClass ?? 'bg-ink-muted/10 text-ink-muted'"
+            >{{ classifyResult.classification }}</span>
+            <span class="text-[11px] text-ink-muted">{{ Math.round(classifyResult.classification_confidence * 100) }}% confidence</span>
+            <span
+              class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+              :class="
+                classifyResult.suggested_action === 'send' ? 'bg-success/15 text-success' :
+                classifyResult.suggested_action === 'edit' ? 'bg-warn/15 text-warn' :
+                classifyResult.suggested_action === 'manual' ? 'bg-danger/15 text-danger' :
+                'bg-ink-muted/10 text-ink-muted'"
+            >suggested: {{ classifyResult.suggested_action }}</span>
+          </div>
+          <p class="text-xs text-ink-muted italic">
+            <strong class="text-ink">Why:</strong> {{ classifyResult.classification_reason }}
+          </p>
+          <p class="text-xs text-ink-muted italic mt-1">
+            <strong class="text-ink">Ada's reasoning:</strong> {{ classifyResult.reasoning }}
           </p>
         </div>
+
+        <!-- Editable drafted response -->
+        <div class="rounded-card border border-brand/30 bg-brand/5 overflow-hidden">
+          <div class="px-3 py-2 border-b border-brand/15 bg-brand/10 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <AssistantMark class="h-3.5 w-3.5 text-brand" />
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-brand">Ada's drafted reply (editable)</span>
+            </div>
+            <span class="text-[10px] text-ink-muted">{{ editedDraftResponse.split(/\s+/).filter(w => w).length }} words</span>
+          </div>
+          <textarea
+            v-model="editedDraftResponse"
+            rows="8"
+            class="w-full p-3 bg-surface text-sm text-ink leading-relaxed font-sans focus:outline-none resize-none"
+          />
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <button
+            type="button"
+            class="text-xs text-brand font-medium hover:underline inline-flex items-center gap-1"
+            :disabled="classifying"
+            @click="regenerateDraft"
+          >
+            <AssistantMark class="h-3 w-3 text-brand" />
+            Regenerate
+          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md border border-divider text-ink bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:border-brand inline-flex items-center gap-1"
+              @click="copyDraftedReply"
+            >📋 Copy reply</button>
+            <button
+              type="button"
+              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1"
+              @click="copyDraftedReply"
+            >
+              ✓ Copy + send via Gmail
+            </button>
+          </div>
+        </div>
+
+        <p class="text-[10px] text-ink-disabled italic text-center">
+          Conservative mode: Ada drafts, you approve. Copy → paste into Gmail → send. Auto-send via Smartlead comes in Phase 3.
+        </p>
       </div>
     </section>
 
