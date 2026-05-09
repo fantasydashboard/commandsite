@@ -206,7 +206,7 @@ NEVER write subjects in any of these patterns:
 
 ## Why these rules
 
-The recipient is an HVAC/plumbing/electrical owner reading on their phone between jobs. They get 5+ vendor pitches a week. They've learned to spot the templated `[Company] — [problem]` pattern in 0.5 seconds and delete. The lowercase-question-with-first-name pattern reads as a peer reaching out with something real, not a vendor running a campaign. Question format hits a measured ~46% open rate vs. lower for declarative subjects.
+The recipient is an HVAC/plumbing/electrical owner reading on their phone between jobs. They get 5+ vendor pitches a week. They've learned to spot the templated "[Company] — [problem]" pattern in 0.5 seconds and delete. The lowercase-question-with-first-name pattern reads as a peer reaching out with something real, not a vendor running a campaign. Question format hits a measured ~46% open rate vs. lower for declarative subjects.
 
 # CALL THE TOOL
 
