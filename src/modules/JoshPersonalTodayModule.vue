@@ -18,6 +18,7 @@ import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalOnboardingModal from '@/components/JoshPersonalOnboardingModal.vue'
 import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
+import JoshPersonalMealPhotoModal from '@/components/JoshPersonalMealPhotoModal.vue'
 import {
   TODAY_LABEL,
   STEPS_DAILY_TARGET,
@@ -219,6 +220,9 @@ const stepsProgress = computed(() => {
 
 // Ask Sage chat — real agent loop with tools
 const chatOpen = ref(false)
+
+// Snap-meal photo modal
+const mealPhotoOpen = ref(false)
 </script>
 
 <template>
@@ -653,12 +657,21 @@ const chatOpen = ref(false)
             </template>
           </div>
         </div>
-        <button
-          v-if="totalLogged > todayMeals.length"
-          type="button"
-          class="text-xs text-brand font-medium hover:underline"
-          @click="showRecent = !showRecent"
-        >{{ showRecent ? 'Hide' : 'Show' }} past 14d</button>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1"
+            @click="mealPhotoOpen = true"
+          >
+            📷 Snap meal
+          </button>
+          <button
+            v-if="totalLogged > todayMeals.length"
+            type="button"
+            class="text-xs text-brand font-medium hover:underline"
+            @click="showRecent = !showRecent"
+          >{{ showRecent ? 'Hide' : 'Show' }} past 14d</button>
+        </div>
       </header>
 
       <!-- Empty state -->
@@ -794,6 +807,13 @@ const chatOpen = ref(false)
       :open="chatOpen"
       @close="chatOpen = false"
       @data-changed="reloadMealLog"
+    />
+
+    <!-- ── Snap-meal photo modal ───────────────────────────────────── -->
+    <JoshPersonalMealPhotoModal
+      :open="mealPhotoOpen"
+      @close="mealPhotoOpen = false"
+      @logged="reloadMealLog"
     />
 
     <!-- ── Onboarding wizard modal ─────────────────────────────────── -->
