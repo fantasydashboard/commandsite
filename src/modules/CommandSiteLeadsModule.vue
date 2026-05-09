@@ -149,12 +149,16 @@ const drafting = ref(false)
 const draftMsg = ref<string | null>(null)
 const draftProgress = ref({ completed: 0, total: 0 })
 
+// Draftable = has an email + no existing draft. We deliberately do NOT
+// gate on `email_verified` here — that tag only exists on leads that
+// went through the newer NeverBounce-enabled enrichment flow. The
+// older 23 leads have `email_enriched` instead. Verification is a
+// separate concern from "is this a candidate for drafting" — if an
+// email turns out to be undeliverable later, the draft is wasted but
+// the wasted spend is ~$0.05.
 const draftableCount = computed(() => {
   return leads.value.filter(
-    (l) =>
-      !!l.contact_email
-      && !l.draft_cold_email_body
-      && (l.tags ?? []).includes('email_verified'),
+    (l) => !!l.contact_email && !l.draft_cold_email_body,
   ).length
 })
 
@@ -170,15 +174,10 @@ async function runDraftEmails() {
     return
   }
   const eligible = leads.value
-    .filter(
-      (l) =>
-        !!l.contact_email
-        && !l.draft_cold_email_body
-        && (l.tags ?? []).includes('email_verified'),
-    )
+    .filter((l) => !!l.contact_email && !l.draft_cold_email_body)
     .map((l) => l.id)
   if (eligible.length === 0) {
-    draftMsg.value = 'No leads need drafting (need a verified email + no existing draft).'
+    draftMsg.value = 'No leads need drafting (need an email + no existing draft).'
     setTimeout(() => { draftMsg.value = null }, 5000)
     return
   }
