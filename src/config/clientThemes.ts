@@ -68,20 +68,16 @@ const CornerstoneTheme: ClientTheme = {
 }
 
 /**
- * Josh Personal — sage-green palette to set it apart from the
- * business surfaces (Ada/Grace blue). Calm + wellness vibe;
- * distinct enough Josh knows immediately he's in his personal
- * dashboard, not a customer's.
- *
- * The brand color is the tonal anchor — bg-brand, text-brand,
- * border-brand all flow from this. Chrome stays default so the
- * header doesn't clash with the sage accents.
+ * Josh Personal — fresh teal-green (matches the "ON TRACK" success
+ * accent) instead of the original muted hunter green. Brighter,
+ * more "alive" feel for a wellness dashboard. Distinct from Ada/Grace
+ * blue so Josh knows immediately he's in his personal surface.
  */
 const JoshPersonalTheme: ClientTheme = {
   vars: {
-    '--color-brand': '106 142 95',         // sage green
-    '--color-brand-hover': '86 122 75',    // deeper on hover
-    '--color-brand-active': '66 102 55',   // pressed
+    '--color-brand': '14 165 160',         // teal-emerald (#0EA5A0)
+    '--color-brand-hover': '12 145 140',   // deeper on hover
+    '--color-brand-active': '10 125 120',  // pressed
   },
   wordmark: {
     text: 'Josh',
