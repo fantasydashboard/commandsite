@@ -27,6 +27,7 @@ const emit = defineEmits<{
   (e: 'update', payload: { leadId: string; subject: string; body: string }): void
   (e: 'approve', leadId: string): void
   (e: 'discard', leadId: string): void
+  (e: 'discardAll'): void
 }>()
 
 // Per-lead local edit state. Initialized from the lead's persisted
@@ -126,6 +127,11 @@ const stats = computed(() => {
 
 function close() {
   emit('close')
+}
+
+function discardAll() {
+  if (!window.confirm(`Discard all ${draftLeads.value.length} drafts? The leads themselves stay in your pipeline — only the drafts are cleared so you can re-draft with a fresh prompt.`)) return
+  emit('discardAll')
 }
 
 function fmtTimestamp(iso: string | null): string {
@@ -343,9 +349,17 @@ function bodyWordCount(lead: CsLead): number {
 
           <!-- ── Footer ──────────────────────────────────────────────── -->
           <div class="flex items-center justify-between gap-3 border-t border-divider px-6 py-4 bg-surface-elevated">
-            <p class="text-[11px] text-ink-muted">
-              Approve drafts you're happy with, then copy-paste into Gmail. Sending automation comes next.
-            </p>
+            <div class="flex items-center gap-3">
+              <button
+                v-if="draftLeads.length > 0"
+                type="button"
+                class="text-xs text-danger hover:underline"
+                @click="discardAll"
+              >Discard all drafts</button>
+              <p class="text-[11px] text-ink-muted">
+                Approve drafts you're happy with, then copy-paste into Gmail.
+              </p>
+            </div>
             <button
               type="button"
               class="btn-secondary !text-sm"

@@ -118,7 +118,7 @@ Voice characteristics to match:
 - Casual sign-off: "— Josh" (em dash here is permitted because it's a sig pattern, not in body prose)
 - NEVER use buzzwords like: leverage, synergy, transformative, groundbreaking, cutting-edge, robust, scalable, seamless
 
-# COLD EMAIL STRUCTURE (FOLLOW THIS — 5-7 short paragraphs total, 60-110 words)
+# COLD EMAIL STRUCTURE (FOLLOW THIS — 5-7 short paragraphs, HARD CAP 100 WORDS)
 
 1. **Opener** (1 line): "Hey — looking for [name if known, otherwise 'whoever answers the phones'] at [Company]."
 
@@ -136,6 +136,10 @@ Voice characteristics to match:
 6. **CTA** (1 line): "Worth a 15-min call this week? I can pull up a sample dashboard and show you what Ada would catch for [Company] specifically."
 
 7. **Sign-off** (1 line): "— Josh"
+
+# WORD COUNT — HARD CAP
+
+The body MUST be under 100 words. Target 70-90 words. Count your words before submitting. If you're over, cut the evidence to one sentence or trim the product description. Cold emails over 100 words get scrolled past on phone, where small business owners read.
 
 # HARD BANS (these are the AI tells that get this email deleted on sight)
 
@@ -156,17 +160,53 @@ NEVER use:
 - Any sentence that starts with "Just" as a softener ("Just wanted to reach out")
 - "Hope you're doing well" / "Hope your week is going great"
 
-# SUBJECT LINE
+# SUBJECT LINE — research-backed framework (read carefully, this is where most cold emails die)
 
-Write a subject line that:
-- References ONE specific thing from the lead's data (their company name + the specific pain, or a person's name from their reviews)
-- Is 4-8 words, all lowercase except proper nouns
-- Doesn't sound like marketing ("Save 30%!" / "Don't miss this!")
-- Examples that work:
-  - "Premium Electric — Saturday calls"
-  - "Sarah K's review of Sunshine Plumbing"
-  - "Quick thought on Apex's missed calls"
-  - "AllPro — the calls you're missing"
+The subject's ONLY job is to earn the open. The body's job is to earn the reply. Do not put pain in the subject — pain in the subject triggers defensive deletion before the recipient ever opens.
+
+## Hard constraints
+
+- **Lowercase only.** No Title Case. No ALL CAPS. Proper nouns can be capitalized but you can also leave them lowercase for the casual feel.
+- **Maximum 33 characters.** Gmail iOS truncates at 30, iPhone Mail at 41. Stay safely under both. Count every character including spaces.
+- **No exclamation marks. No emoji. No em dashes inside sentences** (one em dash separating two phrases is allowed: "tony — 2 minutes?").
+- **Do NOT start with the company name.** Every other vendor does. Absence of the company name is the differentiator in 2026.
+
+## The default formula (use this 70% of the time)
+
+**Lowercase question OR direct address using the owner's first name, no company name.**
+
+Examples that match:
+- \`quick question for tony\`              (23 chars)
+- \`quick question for ervin\`             (24 chars)
+- \`tony — 2 minutes?\`                    (17 chars)
+- \`ervin — quick idea\`                   (18 chars)
+- \`endry — 2 minutes?\`                   (18 chars)
+- \`yury — quick idea\`                    (17 chars)
+
+To find the owner's first name, look in this order: (1) contact_name field, (2) names mentioned in icp_score_reason or notes, (3) names mentioned in reviews ("Mike came out", "Tony was great"), (4) the local-part of the email if it's clearly a first name (tony@... → Tony, mike@... → Mike). If you find a first name, USE IT.
+
+## Fallbacks (use only when no owner first name is findable)
+
+- \`orlando hvac question\`              (city + industry + 'question')
+- \`orlando electrician — 2 minutes?\`   (city + industry + ask)
+- \`how do you handle after-hours calls?\` (40 chars — pain as a question, NOT as a statement)
+- \`noticed something on your reviews\`  (curiosity, no diagnosis)
+
+## HARD BANS (subjects that violate these get the email deleted unopened)
+
+NEVER write subjects in any of these patterns:
+- \`[Company] — [problem]\` — the templated vendor pattern. e.g. "Comfort Pros — missed calls" / "Bela Tech — scheduling issues"
+- "less than [positive word]" — "less than stellar," "less than ideal"
+- "can't [verb]" — "calls Endry can't catch," "when Ervin can't pick up"
+- "missing," "losing," "complaint," "broken," "problem with," "the [X] you're [Y-ing]"
+- Any subject that names a person + a failure ("the calls Endry can't catch" — banned)
+- Spam triggers: "free," "guarantee," "limited time," "act now," "exclusive," "risk-free," "urgent," "congratulations"
+- Title Case ("Quick Question For Tony" — banned, must be "quick question for tony")
+- Subject that doesn't match the body content (Gmail compares since 2024 — flags as deceptive)
+
+## Why these rules
+
+The recipient is an HVAC/plumbing/electrical owner reading on their phone between jobs. They get 5+ vendor pitches a week. They've learned to spot the templated `[Company] — [problem]` pattern in 0.5 seconds and delete. The lowercase-question-with-first-name pattern reads as a peer reaching out with something real, not a vendor running a campaign. Question format hits a measured ~46% open rate vs. lower for declarative subjects.
 
 # CALL THE TOOL
 
@@ -187,11 +227,11 @@ const TOOLS = [
       properties: {
         subject: {
           type: 'string',
-          description: 'Subject line. 4-8 words. Specific to this lead. No marketing language.',
+          description: 'Subject line. Lowercase. Max 33 characters. Default: lowercase question with owner first name, no company name (e.g. "quick question for tony"). NEVER use the templated "[Company] — [problem]" pattern. NEVER name a person + a failure. NEVER use Title Case, exclamation marks, or emoji.',
         },
         body: {
           type: 'string',
-          description: 'Email body, plain text. 60-110 words. 5-7 short paragraphs. Match Josh\'s voice exactly.',
+          description: 'Email body, plain text. HARD CAP 100 words — count before submitting. Target 70-90 words. 5-7 short paragraphs. Match Josh\'s voice exactly. Quote one specific review excerpt if available. No em dashes inside body prose (only in opener "Hey —" and signoff "— Josh").',
         },
         rationale: {
           type: 'string',

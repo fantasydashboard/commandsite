@@ -239,6 +239,18 @@ async function onDraftUpdate({ leadId, subject, body }: { leadId: string; subjec
 async function onDraftApprove(leadId: string) { await approveDraft(leadId) }
 async function onDraftDiscard(leadId: string) { await discardDraft(leadId) }
 
+/** Bulk-clear every drafted lead so the user can re-draft cleanly
+ *  after a prompt iteration. Sequential to keep the UI consistent
+ *  per-row as state updates. */
+async function onDraftDiscardAll() {
+  const drafted = leads.value.filter((l) => !!l.draft_cold_email_body).map((l) => l.id)
+  for (const id of drafted) {
+    await discardDraft(id)
+  }
+  draftMsg.value = `Cleared ${drafted.length} ${drafted.length === 1 ? 'draft' : 'drafts'}. Click "Draft cold emails" to re-run.`
+  setTimeout(() => { draftMsg.value = null }, 8000)
+}
+
 // ── Save & enrich pipeline state.
 //
 // Single phase machine that drives both standalone "Find emails" runs
@@ -815,6 +827,7 @@ function scoreClass(score: number | null): string {
       @update="onDraftUpdate"
       @approve="onDraftApprove"
       @discard="onDraftDiscard"
+      @discard-all="onDraftDiscardAll"
     />
   </div>
 </template>
