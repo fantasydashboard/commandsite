@@ -20,6 +20,7 @@ import type { Client, CsLead, CsReply } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
 import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
+import CommandSiteDemoLinkModal from '@/components/CommandSiteDemoLinkModal.vue'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useOutreachSends } from '@/lib/clients/commandsite/outreachSendsApi'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
@@ -393,6 +394,21 @@ function jumpToLeadInManualReply(leadId: string) {
   pickLeadForManual(leadId)
 }
 
+// ── Demo link modal (per lead) ───────────────────────────────────────
+const demoLinkOpen = ref(false)
+const demoLinkLead = ref<CsLead | null>(null)
+
+function openDemoLink(lead: CsLead) {
+  demoLinkLead.value = lead
+  demoLinkOpen.value = true
+}
+
+// When in manual-reply view + a lead is picked, expose it for demo
+const currentManualLead = computed<CsLead | null>(() => {
+  if (!manualLeadId.value) return null
+  return LEAD_INDEX.value.get(manualLeadId.value) ?? null
+})
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function fmtAge(iso: string): string {
@@ -538,23 +554,32 @@ function leadForReply(r: CsReply): CsLead | null {
                 v-if="stageBuckets[stage.key].length === 0"
                 class="text-[11px] text-ink-disabled italic text-center py-4"
               >Nothing here</div>
-              <button
+              <div
                 v-for="lead in stageBuckets[stage.key]"
                 :key="lead.id"
-                type="button"
-                class="w-full text-left rounded-md border border-divider bg-surface-raised p-2 hover:border-brand/40 transition-colors"
-                @click="jumpToLeadInManualReply(lead.id)"
+                class="rounded-md border border-divider bg-surface-raised p-2 hover:border-brand/40 transition-colors group"
               >
-                <div class="flex items-start justify-between gap-1.5 mb-1">
-                  <span class="text-[12px] font-semibold text-ink truncate flex-1 min-w-0">{{ lead.company_name }}</span>
-                  <span
-                    class="rounded-full px-1.5 py-0 text-[9px] font-bold tabular-nums shrink-0"
-                    :class="(lead.icp_score ?? 0) >= 80 ? 'bg-success/15 text-success' : (lead.icp_score ?? 0) >= 60 ? 'bg-warn/15 text-warn' : 'bg-ink-muted/15 text-ink-muted'"
-                  >{{ lead.icp_score ?? '—' }}</span>
-                </div>
-                <div class="text-[10px] text-ink-muted truncate">{{ lead.contact_email }}</div>
-                <div class="text-[10px] text-ink-disabled mt-0.5">{{ fmtLastAction(lead) }}</div>
-              </button>
+                <button
+                  type="button"
+                  class="w-full text-left"
+                  @click="jumpToLeadInManualReply(lead.id)"
+                >
+                  <div class="flex items-start justify-between gap-1.5 mb-1">
+                    <span class="text-[12px] font-semibold text-ink truncate flex-1 min-w-0">{{ lead.company_name }}</span>
+                    <span
+                      class="rounded-full px-1.5 py-0 text-[9px] font-bold tabular-nums shrink-0"
+                      :class="(lead.icp_score ?? 0) >= 80 ? 'bg-success/15 text-success' : (lead.icp_score ?? 0) >= 60 ? 'bg-warn/15 text-warn' : 'bg-ink-muted/15 text-ink-muted'"
+                    >{{ lead.icp_score ?? '—' }}</span>
+                  </div>
+                  <div class="text-[10px] text-ink-muted truncate">{{ lead.contact_email }}</div>
+                  <div class="text-[10px] text-ink-disabled mt-0.5">{{ fmtLastAction(lead) }}</div>
+                </button>
+                <button
+                  type="button"
+                  class="w-full mt-1.5 rounded-md text-[10px] font-medium text-brand bg-brand/5 hover:bg-brand/10 px-2 py-1 inline-flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.stop="openDemoLink(lead)"
+                >📊 Custom demo link</button>
+              </div>
             </div>
           </div>
         </div>
@@ -884,11 +909,33 @@ function leadForReply(r: CsReply): CsLead | null {
           </div>
         </div>
 
+        <!-- Custom demo CTA — appears for positive/interested replies -->
+        <div
+          v-if="currentManualLead && (classifyResult.classification === 'positive' || classifyResult.classification === 'interested')"
+          class="rounded-card border border-success/30 bg-success/5 p-3 flex items-center justify-between gap-3 flex-wrap"
+        >
+          <div class="text-xs text-ink leading-snug">
+            <strong class="text-success">They're interested.</strong> Want to send them a custom Ada demo URL too? It rebrands a real CommandSite for {{ currentManualLead.company_name }} so they can click around before the call.
+          </div>
+          <button
+            type="button"
+            class="rounded-md bg-success text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1.5 shrink-0"
+            @click="openDemoLink(currentManualLead)"
+          >📊 Generate custom demo link</button>
+        </div>
+
         <p class="text-[10px] text-ink-disabled italic text-center">
           Conservative mode: Ada drafts, you approve. Copy → paste into Gmail → send. Auto-send via Smartlead comes in Phase 3.
         </p>
       </div>
     </section>
+
+    <!-- ── Demo link modal ─────────────────────────────────────────── -->
+    <CommandSiteDemoLinkModal
+      :open="demoLinkOpen"
+      :lead="demoLinkLead"
+      @close="demoLinkOpen = false"
+    />
 
     <!-- ── VIEW: Coming next ──────────────────────────────────────── -->
     <section v-if="view === 'coming_next'" class="card p-6">

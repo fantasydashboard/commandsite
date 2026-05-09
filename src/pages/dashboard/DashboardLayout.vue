@@ -30,7 +30,49 @@ const enabledModuleKeys = computed<Set<string>>(
 // Per-client theme — CSS variable overrides. Applied to documentElement
 // (not the wrapper) so the body's page-wash gradient picks them up too.
 // Cleaned up on unmount and re-applied when the slug changes.
-const theme = computed(() => themeForClient(props.slug))
+//
+// In demo mode (URL has ?demo_company=...), we OVERRIDE the wordmark
+// to show the prospect's company name instead of the template's
+// (e.g. "Premium Electric" instead of "Apex Heating & Air"). Brand
+// color stays the same — the visual feels familiar but the chrome
+// reads as theirs.
+const theme = computed(() => {
+  const base = themeForClient(props.slug)
+  if (!demoCompany.value) return base
+  return {
+    ...base,
+    wordmark: {
+      text: demoCompany.value,
+      suffix: demoIndustry.value ?? base.wordmark?.suffix,
+    },
+  }
+})
+
+// ── Demo customization (URL params) ──────────────────────────────────
+// When a prospect clicks a custom demo link Josh sent them, the URL
+// includes ?demo_company=Premium%20Electric&demo_industry=Electrical
+// &demo_city=Orlando&demo_state=FL — we override the wordmark + show
+// an intro banner so the demo feels personalized to THEIR shop.
+//
+// Reuses existing public-demo dashboards (apex-heating-and-air, etc.)
+// as the underlying template — just rebrands the chrome.
+const demoCompany = computed<string | null>(() => {
+  const v = route.query.demo_company
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+})
+const demoIndustry = computed<string | null>(() => {
+  const v = route.query.demo_industry
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+})
+const demoCity = computed<string | null>(() => {
+  const v = route.query.demo_city
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+})
+const demoState = computed<string | null>(() => {
+  const v = route.query.demo_state
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+})
+const isDemoMode = computed(() => demoCompany.value !== null)
 
 let appliedKeys: string[] = []
 function applyTheme() {
@@ -252,6 +294,35 @@ async function onLogout() {
     </header>
 
     <main class="mx-auto max-w-7xl px-6 py-8">
+      <!-- Demo intro banner — shows when prospect clicks a custom demo URL -->
+      <section
+        v-if="isDemoMode"
+        class="mb-6 rounded-card border-2 border-brand bg-brand/5 p-5"
+      >
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-full bg-brand/15 grid place-items-center text-xl shrink-0">👋</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-1">
+              Custom Ada demo · for {{ demoCompany }}
+            </div>
+            <h2 class="text-lg font-bold text-ink mb-1">
+              This is what Ada would do for {{ demoCompany }}.
+            </h2>
+            <p class="text-sm text-ink-muted leading-relaxed">
+              You're looking at a real CommandSite dashboard, set up for a sample
+              <template v-if="demoIndustry">{{ demoIndustry.toLowerCase() }} shop</template>
+              <template v-else>service business</template><template v-if="demoCity && demoState"> in {{ demoCity }}, {{ demoState }}</template>.
+              Numbers + screenshots are illustrative — but every feature here is something
+              Ada would handle for {{ demoCompany }} from day one. Click around. When we hop
+              on the call, I'll walk through what your version would catch in the first week.
+            </p>
+            <p class="text-xs text-ink-disabled mt-2 italic">
+              — Josh, founder · CommandSite
+            </p>
+          </div>
+        </div>
+      </section>
+
       <p v-if="error" class="text-sm text-danger mb-4">{{ error }}</p>
       <div v-if="loading" class="text-sm text-ink-muted">Loading…</div>
       <div v-else-if="!client" class="card text-center text-ink-muted">
@@ -259,7 +330,10 @@ async function onLogout() {
       </div>
       <template v-else>
         <header class="mb-6 flex items-baseline justify-between gap-3 border-b border-divider pb-4">
-          <h1 class="text-2xl font-semibold text-ink tracking-tight">{{ client.name }}</h1>
+          <h1 class="text-2xl font-semibold text-ink tracking-tight">
+            <template v-if="isDemoMode">{{ demoCompany }}</template>
+            <template v-else>{{ client.name }}</template>
+          </h1>
           <div class="flex items-center gap-2">
             <span v-if="auth.profile?.email" class="text-xs text-ink-muted">{{ auth.profile.email }}</span>
             <RouterLink
