@@ -28,12 +28,14 @@ import {
 import { useHealthData } from '@/lib/clients/josh-personal/healthData'
 import { useProfile } from '@/lib/clients/josh-personal/profileApi'
 import { useMorningBrief } from '@/lib/clients/josh-personal/morningBriefApi'
+import { useWeeklyPlan } from '@/lib/clients/josh-personal/weeklyPlanApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 const { snapshot } = useHealthData()
 const { hasProfile, targets, loading: profileLoading } = useProfile()
 const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: regenerateBrief } = useMorningBrief()
+const { todaySlice: realTodaySlice } = useWeeklyPlan()
 
 const briefRegenError = ref<string | null>(null)
 async function onRegenerateBrief() {
@@ -65,7 +67,8 @@ const currentWeightLbs = computed<number | null>(() => {
   return null
 })
 
-const today = computed(() => todayPlan())
+// Prefer the real plan's today-slice when available, fall through to mock
+const today = computed(() => realTodaySlice.value ?? todayPlan())
 
 const stepsProgress = computed(() => {
   const raw = String(snapshot.value.steps.value).replace(/,/g, '')

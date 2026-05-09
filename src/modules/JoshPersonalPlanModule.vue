@@ -12,18 +12,67 @@ import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import {
   NEXT_WEEK_LABEL,
-  weeklyPlan,
-  weekTotals,
-  weekStrategy,
-  swaps,
-  shoppingList,
-  shoppingEstimateUsd,
+  weeklyPlan as mockWeeklyPlan,
+  weekTotals as mockWeekTotalsFn,
+  weekStrategy as mockWeekStrategy,
+  swaps as mockSwaps,
+  shoppingList as mockShoppingList,
+  shoppingEstimateUsd as mockShoppingEstimateUsd,
   activeConcerns,
 } from '@/lib/clients/josh-personal/health'
+import { useWeeklyPlan } from '@/lib/clients/josh-personal/weeklyPlanApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const totals = computed(() => weekTotals())
+// Live plan from DB; falls through to mock when no plan generated yet
+const { plan: realPlan, generating, isApproved, regenerate: regeneratePlan, approve: approvePlan } = useWeeklyPlan()
+const usingReal = computed(() => realPlan.value !== null)
+
+const weeklyPlan = computed(() => realPlan.value?.days ?? mockWeeklyPlan)
+const weekStrategy = computed(() => realPlan.value?.strategy ?? mockWeekStrategy)
+const swaps = computed(() => realPlan.value?.swaps ?? mockSwaps)
+const shoppingList = computed(() => realPlan.value?.shopping_list ?? mockShoppingList)
+const shoppingEstimateUsd = computed(() => realPlan.value?.totals?.shopping_estimate_usd ?? mockShoppingEstimateUsd)
+
+const weekLabel = computed(() => {
+  if (!realPlan.value) return NEXT_WEEK_LABEL
+  const start = new Date(realPlan.value.week_starting + 'T00:00:00')
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  return `${fmt(start)} - ${fmt(end)}`
+})
+
+const actionError = ref<string | null>(null)
+async function onRegenerate() {
+  actionError.value = null
+  const r = await regeneratePlan()
+  if (!r.ok) {
+    actionError.value = r.error ?? 'Failed to regenerate'
+    setTimeout(() => { actionError.value = null }, 8000)
+  }
+}
+async function onApprove() {
+  actionError.value = null
+  const r = await approvePlan()
+  if (!r.ok) {
+    actionError.value = r.error ?? 'Failed to approve'
+    setTimeout(() => { actionError.value = null }, 8000)
+  }
+}
+
+const totals = computed(() => {
+  if (realPlan.value?.totals) {
+    const t = realPlan.value.totals
+    return {
+      avgCal: t.avg_cal,
+      avgProtein: t.avg_protein,
+      workoutDays: t.workout_days,
+      deficitVsMaintain: t.deficit_vs_maintain,
+    }
+  }
+  return mockWeekTotalsFn()
+})
 
 // View toggle: see all / just meals / just workouts
 type ViewMode = 'all' | 'meals' | 'workouts'
@@ -35,10 +84,12 @@ function toggleDay(day: string) {
   expandedDay.value = expandedDay.value === day ? null : day
 }
 
-// Shopping list grouping + check-off
+// Shopping list grouping + check-off — shoppingList is a ComputedRef<ShopItem[]>
+// now, so .value to iterate
 const shoppingByCategory = computed(() => {
-  const grouped = new Map<string, typeof shoppingList>()
-  for (const item of shoppingList) {
+  type Item = (typeof shoppingList.value)[number]
+  const grouped = new Map<string, Item[]>()
+  for (const item of shoppingList.value) {
     if (!grouped.has(item.category)) grouped.set(item.category, [])
     grouped.get(item.category)!.push(item)
   }
@@ -66,22 +117,39 @@ function toggleItem(name: string) {
               <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-1">
                 Next week's plan ready
               </div>
-              <h3 class="text-lg font-bold text-ink">{{ NEXT_WEEK_LABEL }}</h3>
+              <h3 class="text-lg font-bold text-ink">{{ weekLabel }}</h3>
               <p class="text-xs text-ink-muted mt-0.5">
-                Sage drafted this 18 minutes ago. Review + edit before you head to the store.
+                <span v-if="!usingReal">Mock data — generate your first real plan to replace this.</span>
+                <span v-else-if="isApproved" class="text-success">✓ Approved · ready to shop</span>
+                <span v-else>Draft from Sage. Review + edit before you head to the store.</span>
               </p>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10">
-              Regenerate meals
+            <button
+              type="button"
+              class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50 inline-flex items-center gap-1.5"
+              :disabled="generating"
+              @click="onRegenerate"
+            >
+              <AssistantMark class="h-3.5 w-3.5 text-brand" />
+              <span v-if="generating">Sage is drafting…</span>
+              <span v-else>{{ usingReal ? 'Regenerate' : 'Generate first plan' }}</span>
             </button>
-            <button class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10">
-              Regenerate workouts
-            </button>
-            <button class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90">
-              Approve · generate shopping list
-            </button>
+            <button
+              v-if="usingReal && !isApproved"
+              type="button"
+              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+              :disabled="generating"
+              @click="onApprove"
+            >Approve · ready to shop</button>
+            <span
+              v-if="usingReal && isApproved"
+              class="inline-flex items-center gap-1 rounded-md bg-success/15 text-success px-3 py-1.5 text-xs font-semibold"
+            >
+              <span class="h-1.5 w-1.5 rounded-full bg-success" />
+              Approved
+            </span>
           </div>
         </div>
       </div>
@@ -148,7 +216,7 @@ function toggleItem(name: string) {
       <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
         <div>
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">This week's plan</div>
-          <div class="font-semibold text-ink mt-0.5">{{ NEXT_WEEK_LABEL }}</div>
+          <div class="font-semibold text-ink mt-0.5">{{ weekLabel }}</div>
           <div class="text-[11px] text-ink-muted mt-0.5">Click any day to expand. Today highlighted.</div>
         </div>
         <div class="inline-flex rounded-md border border-divider overflow-hidden text-xs">
