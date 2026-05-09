@@ -1,18 +1,22 @@
 <script setup lang="ts">
 /**
- * Josh Personal — Health module (mocked v1).
+ * Josh Personal — Health module (mocked v2: weekly cadence).
  *
- * The personal-life mirror of the Ada/Grace pattern: an AI coach (Sage)
- * reads everything Josh logs (sleep, weight, food, blood work, workouts)
- * and writes daily plans + surfaces patterns. This v1 is mock-data only
- * so Josh can react to the shape before we wire real ingestion.
+ * Architecture this mock represents:
+ *  - Sage drafts a NEW weekly plan every Saturday morning (Josh shops
+ *    Saturday for meals starting Monday). Drafted plan awaits Josh's
+ *    review/edit/approve before becoming the active week.
+ *  - Each weekly plan reads ALL of Josh's data holistically: weight
+ *    trend, sleep/HRV, last week's actuals (planned vs done), current
+ *    blood work concerns, and active goals.
+ *  - Blood work concerns become HARD CONSTRAINTS in the planning prompt
+ *    (e.g. "LDL high → saturated fat <20g/day, swap butter→olive oil").
+ *  - Sage shows the explicit SWAPS she made because of those concerns
+ *    so Josh can see why each meal looks the way it does.
+ *  - Daily view pulls today's slice from the active weekly plan.
  *
- * Real data sources on the roadmap once shape is approved:
- *   ─ Apple Health CSV export → upload + parse
- *   ─ Blood work PDF (Quest/LabCorp) → vision-model extract → time-series
- *   ─ Food log → "tell Sage what you ate" chat → Claude estimates macros
- *   ─ Workouts → preset programs Josh ticks "done" on, Sage adjusts split
- *   ─ Daily check-in form (mood/energy 1-10 sliders, weight, supplements)
+ * Demo state is locked to "Saturday morning, 18 minutes after Sage
+ * drafted next week's plan" — the highest-information moment to show.
  */
 import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
@@ -20,103 +24,256 @@ import AssistantMark from '@/components/AssistantMark.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-// ── MOCK DATA ──────────────────────────────────────────────────────────
-//
-// Realistic-feeling values so Josh can read the surface and judge the
-// shape. Numbers are tuned to a 38-year-old male, mid-cut, lifting 4x/wk.
-// Replace each block when the corresponding ingestion path ships.
+// ── DEMO TIME ANCHOR ──────────────────────────────────────────────────
+// Locked to a specific Saturday morning so the "next week's plan ready"
+// flow makes sense. Real version reads from `new Date()`.
+const todayLabel = 'Saturday, May 9'
+const nextWeekLabel = 'Mon May 11 - Sun May 17'
 
-const today = computed(() => {
-  const now = new Date()
-  return now.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
-})
-
-// Sage activity strip — what she's done lately
+// ── SAGE ACTIVITY ─────────────────────────────────────────────────────
 const sageActivity = [
   {
-    icon: '🍽️',
-    label: 'Drafted today\'s meal + workout plan',
-    detail: '2,200 cal · 180g protein · push day · timed for 10am gym',
-    ago: '35m ago',
+    icon: '📋',
+    label: 'Drafted next week\'s plan',
+    detail: '7-day meals · 4-day push/pull/legs split · 23-item shopping list ready',
+    ago: '18m ago',
+    cta: true,
   },
   {
     icon: '⚠️',
-    label: 'Flagged: LDL trending up 4 panels in a row',
-    detail: '110 → 128 → 141 → 148 over 12 months · added recommendation to today\'s plan',
-    ago: '2d ago',
+    label: 'Pulled saturated fat to 18g/day',
+    detail: 'Your LDL is trending wrong direction (110→128→141→148 over 4 panels)',
+    ago: '18m ago',
   },
   {
-    icon: '🛌',
-    label: 'Updated workout split: deload week',
-    detail: 'HRV dropped to 52 average over 3 days · pulled volume 30% on lifts',
-    ago: '5d ago',
+    icon: '💪',
+    label: 'Bumped protein target to 185g/day',
+    detail: 'You\'ve been undereating it 3 weeks running (avg 168g vs 180 target)',
+    ago: '18m ago',
+  },
+  {
+    icon: '📈',
+    label: 'Increased push-day volume +8%',
+    detail: 'HRV recovered (52 → 58 avg this week), on schedule for week 5 of program',
+    ago: '18m ago',
   },
 ]
 
-// Today snapshot
+// ── SNAPSHOT ──────────────────────────────────────────────────────────
 const snapshot = {
   sleep: { value: 7.4, unit: 'h', delta: '+0.3h vs avg', trend: 'up' as const },
-  energy: { value: 7, unit: '/10', delta: 'predicted', trend: 'flat' as const },
+  steps: { value: '8,247', unit: '', delta: 'on pace · 10k goal', trend: 'flat' as const },
   weight: { value: 172.4, unit: 'lbs', delta: '−2.1 lbs / 30d', trend: 'down' as const },
   hrv: { value: 58, unit: 'ms', delta: '+4ms vs avg', trend: 'up' as const },
   streak: { value: 12, unit: 'days', delta: 'logged', trend: 'flat' as const },
 }
 
-// Today's plan
-const todaysMeals = {
-  total: { cal: 2200, protein: 180, carbs: 220, fat: 75 },
-  meals: [
-    {
-      name: 'Breakfast',
-      cal: 520,
-      detail: '3 whole eggs scrambled, ½ cup oats with berries, black coffee',
-      protein: 32,
-      time: '7:30am',
-    },
-    {
-      name: 'Lunch',
-      cal: 680,
-      detail: 'Chipotle bowl: double chicken, brown rice, fajita peppers, salsa, no cheese',
-      protein: 62,
-      time: '12:30pm',
-    },
-    {
-      name: 'Dinner',
-      cal: 700,
-      detail: '6 oz salmon, roasted sweet potato (200g), large mixed-greens salad with olive oil + lemon',
-      protein: 50,
-      time: '7:00pm',
-    },
-    {
-      name: 'Snacks',
-      cal: 300,
-      detail: 'Greek yogurt + almonds (3pm), 1 apple post-workout',
-      protein: 36,
-      time: 'split',
-    },
-  ],
-  rationale: 'Hit 180g protein target on a ~500-cal deficit, supporting cut to 168 by July. Olive-oil-forward dinner reflects this week\'s LDL recommendation (swap from butter).',
+// ── ACTIVE CONCERNS (from latest blood work, drive weekly planning) ──
+const activeConcerns = [
+  {
+    label: 'LDL high',
+    value: '148 mg/dL',
+    target: '<130',
+    severity: 'warn' as const,
+    constraint: 'Saturated fat <20g/day · butter → olive oil · red meat ≤2x/week',
+  },
+  {
+    label: 'Vit D borderline',
+    value: '32 ng/mL',
+    target: '>30',
+    severity: 'warn' as const,
+    constraint: 'Continue 2k IU/day supplement + sunlight exposure',
+  },
+]
+
+// ── WEEKLY PLAN (the new draft, awaiting approval) ───────────────────
+type Meal = { name: string; cal: number; protein: number; detail: string }
+type DayPlan = {
+  day: string
+  date: string
+  workout: string | null
+  workoutDetail?: string
+  meals: { breakfast: Meal; lunch: Meal; dinner: Meal; snacks: Meal }
+  totalCal: number
+  totalProtein: number
+  isToday?: boolean
 }
 
-const todaysWorkout = {
-  name: 'Push day',
-  duration: '~45 min',
-  scheduledAt: '10:00am',
-  exercises: [
-    { name: 'Bench press', sets: '4 × 6', load: '185 lbs', notes: 'Add 5 lbs vs last session' },
-    { name: 'Overhead press', sets: '3 × 8', load: '105 lbs', notes: '' },
-    { name: 'Incline DB press', sets: '3 × 10', load: '50s', notes: '' },
-    { name: 'Tricep pushdown', sets: '3 × 12', load: '70 lbs', notes: 'Superset' },
-    { name: 'Lateral raises', sets: '3 × 15', load: '15s', notes: 'Superset with above' },
-  ],
-  rationale: 'HRV 58 today (good — back from deload). On schedule for week 4 of the program. Bench progression is on track for 225×5 by Q3.',
+const weeklyPlan: DayPlan[] = [
+  {
+    day: 'Mon', date: 'May 11',
+    workout: 'Push',
+    workoutDetail: 'Bench 4×6, OHP 3×8, Incline DB 3×10, Tri+Lat raises',
+    meals: {
+      breakfast: { name: 'Overnight oats + berries', cal: 480, protein: 28, detail: '½ cup oats, Greek yogurt, mixed berries, almonds' },
+      lunch:     { name: 'Chipotle bowl', cal: 680, protein: 62, detail: 'Double chicken, brown rice, fajita peppers, salsa, no cheese' },
+      dinner:    { name: 'Olive-oil-poached salmon', cal: 720, protein: 50, detail: '6oz salmon, roasted sweet potato 200g, large salad with EVOO' },
+      snacks:    { name: 'Protein + apple', cal: 320, protein: 38, detail: 'Greek yogurt + almonds (3pm), apple post-workout' },
+    },
+    totalCal: 2200, totalProtein: 178,
+  },
+  {
+    day: 'Tue', date: 'May 12',
+    workout: 'Pull',
+    workoutDetail: 'Pull-ups 4×8, Rows 3×8, Lat pulldown 3×12, Curls + face pulls',
+    meals: {
+      breakfast: { name: 'Greek yogurt parfait', cal: 460, protein: 38, detail: '2 cups Greek yogurt, granola, blueberries, honey' },
+      lunch:     { name: 'Grilled chicken salad', cal: 620, protein: 58, detail: 'Romaine, grilled chicken 6oz, chickpeas, cucumber, lemon-EVOO' },
+      dinner:    { name: 'Chicken thigh + quinoa', cal: 740, protein: 56, detail: 'Boneless thigh 6oz, quinoa 200g cooked, roasted broccoli' },
+      snacks:    { name: 'Protein + nuts', cal: 320, protein: 35, detail: 'Whey shake + 1oz almonds + 1 banana' },
+    },
+    totalCal: 2200, totalProtein: 187,
+  },
+  {
+    day: 'Wed', date: 'May 13',
+    workout: 'Legs',
+    workoutDetail: 'Squat 4×6, RDL 3×8, Lunges 3×10/leg, Calf raises 4×15',
+    meals: {
+      breakfast: { name: 'Veggie omelette + toast', cal: 510, protein: 32, detail: '3 eggs, spinach, tomato, mushroom, 2 slices sprouted toast' },
+      lunch:     { name: 'Turkey burrito bowl', cal: 690, protein: 55, detail: '6oz ground turkey, brown rice, beans, avocado, salsa' },
+      dinner:    { name: 'Tofu stir-fry + jasmine rice', cal: 700, protein: 42, detail: '8oz extra-firm tofu, mixed veggies, low-sodium soy, ginger' },
+      snacks:    { name: 'Cottage cheese + fruit', cal: 300, protein: 36, detail: 'Cottage cheese 1 cup, sliced peach, walnuts' },
+    },
+    totalCal: 2200, totalProtein: 165,
+  },
+  {
+    day: 'Thu', date: 'May 14',
+    workout: null,
+    meals: {
+      breakfast: { name: 'Oatmeal + protein', cal: 460, protein: 32, detail: '½ cup oats with whey scoop, banana, peanut butter' },
+      lunch:     { name: 'Turkey + avocado wrap', cal: 580, protein: 48, detail: 'Whole-grain tortilla, turkey 6oz, avocado, spinach, mustard' },
+      dinner:    { name: 'Olive-oil-poached salmon', cal: 660, protein: 48, detail: 'Same as Mon — repeat for grocery efficiency' },
+      snacks:    { name: 'Greek yogurt + berries', cal: 200, protein: 24, detail: 'Lower today — rest day, smaller calorie target' },
+    },
+    totalCal: 1900, totalProtein: 152,
+  },
+  {
+    day: 'Fri', date: 'May 15',
+    workout: 'Full body',
+    workoutDetail: 'Trap bar deadlift 4×5, DB press 3×10, Pull-ups 3×AMRAP, Plank',
+    meals: {
+      breakfast: { name: 'Pancakes (protein) + fruit', cal: 540, protein: 36, detail: 'Kodiak Cakes mix, blueberries, sugar-free syrup' },
+      lunch:     { name: 'Salmon poké bowl', cal: 660, protein: 50, detail: 'Brown rice, raw salmon 5oz, edamame, cucumber, sesame, ponzu' },
+      dinner:    { name: 'Chicken parm (lighter)', cal: 700, protein: 60, detail: 'Baked chicken 6oz, marinara, ¼ cup mozz, side zucchini noodles' },
+      snacks:    { name: 'Protein + nuts', cal: 300, protein: 33, detail: 'Whey shake + 1oz almonds' },
+    },
+    totalCal: 2200, totalProtein: 179,
+  },
+  {
+    day: 'Sat', date: 'May 16',
+    workout: 'Cardio (zone 2)',
+    workoutDetail: '45 min easy bike or walk · zone 2 HR · low impact',
+    isToday: true,
+    meals: {
+      breakfast: { name: 'Veggie omelette + toast', cal: 480, protein: 30, detail: '3 eggs, peppers, onion, sprouted toast' },
+      lunch:     { name: 'Chipotle bowl', cal: 680, protein: 62, detail: 'Same template as Mon' },
+      dinner:    { name: 'Olive-oil-poached salmon', cal: 720, protein: 50, detail: 'Final salmon serving for the week' },
+      snacks:    { name: 'Yogurt + berries', cal: 320, protein: 38, detail: 'Greek yogurt + frozen berries + almonds' },
+    },
+    totalCal: 2200, totalProtein: 180,
+  },
+  {
+    day: 'Sun', date: 'May 17',
+    workout: null,
+    meals: {
+      breakfast: { name: 'Breakfast burrito', cal: 540, protein: 38, detail: 'Whole-grain wrap, 3 eggs, black beans, salsa, avocado' },
+      lunch:     { name: 'Chicken Caesar (light)', cal: 580, protein: 56, detail: 'Romaine, grilled chicken, parm, anchovy, lemon-EVOO dressing' },
+      dinner:    { name: 'Pizza night (controlled)', cal: 750, protein: 36, detail: '2 slices thin-crust + large salad — flexed weekly treat' },
+      snacks:    { name: 'Protein + fruit', cal: 330, protein: 32, detail: 'Whey shake + apple, evening' },
+    },
+    totalCal: 2200, totalProtein: 162,
+  },
+]
+
+const weekTotals = computed(() => {
+  const days = weeklyPlan.length
+  const totalCal = weeklyPlan.reduce((s, d) => s + d.totalCal, 0)
+  const totalProtein = weeklyPlan.reduce((s, d) => s + d.totalProtein, 0)
+  const workoutDays = weeklyPlan.filter((d) => d.workout).length
+  return {
+    avgCal: Math.round(totalCal / days),
+    avgProtein: Math.round(totalProtein / days),
+    workoutDays,
+    deficitVsMaintain: 2700 - Math.round(totalCal / days), // assumes 2700 maintenance
+  }
+})
+
+const weekStrategy = `Continue the cut at ~500 cal/day deficit. Saturated fat aggressively reduced (your LDL is the priority signal). Protein bumped to 185g/day to fix the under-hitting we saw the last 3 weeks. Push volume +8% — HRV recovered, you're on schedule for week 5 of the program. One flexed Sunday treat (pizza) keeps the cut sustainable.`
+
+// ── SAGE'S SWAPS (biomarker-driven changes vs. her default plan) ─────
+const swaps = [
+  {
+    day: 'Mon, Thu, Sat',
+    change: 'Olive-oil-poached salmon (instead of butter-poached)',
+    why: 'LDL flagged · saturated fat ceiling 18g/day',
+  },
+  {
+    day: 'Wed lunch',
+    change: 'Ground turkey burrito (instead of ground beef)',
+    why: 'LDL flagged · red meat capped at 2x/week (Fri & Sun)',
+  },
+  {
+    day: 'Fri dinner',
+    change: 'Lighter chicken parm — reduced mozzarella from 1 cup to ¼',
+    why: 'LDL flagged · would have put you 6g over saturated fat ceiling',
+  },
+  {
+    day: 'Daily',
+    change: 'Bumped Greek yogurt + nut snacks (high protein density)',
+    why: 'Protein under-hit by 12g/day for 3 weeks running',
+  },
+]
+
+// ── SHOPPING LIST (aggregated from weekly plan) ──────────────────────
+type ShopItem = { name: string; qty: string; category: string }
+const shoppingList: ShopItem[] = [
+  // Proteins
+  { name: 'Wild salmon fillets', qty: '24 oz (3 servings)', category: 'Proteins' },
+  { name: 'Chicken breast', qty: '2 lbs', category: 'Proteins' },
+  { name: 'Chicken thighs (boneless)', qty: '12 oz', category: 'Proteins' },
+  { name: 'Ground turkey 93/7', qty: '1 lb', category: 'Proteins' },
+  { name: 'Eggs', qty: '2 dozen', category: 'Proteins' },
+  { name: 'Greek yogurt (plain, 2%)', qty: '32 oz tub', category: 'Proteins' },
+  { name: 'Cottage cheese', qty: '16 oz', category: 'Proteins' },
+  { name: 'Extra-firm tofu', qty: '14 oz', category: 'Proteins' },
+  // Carbs
+  { name: 'Steel-cut oats', qty: '1 lb bag', category: 'Carbs & Grains' },
+  { name: 'Brown rice (cooked)', qty: '4 cups (or 1 lb dry)', category: 'Carbs & Grains' },
+  { name: 'Quinoa', qty: '1 lb', category: 'Carbs & Grains' },
+  { name: 'Sweet potatoes', qty: '4 medium', category: 'Carbs & Grains' },
+  { name: 'Sprouted whole-grain bread', qty: '1 loaf', category: 'Carbs & Grains' },
+  // Produce
+  { name: 'Spinach + romaine mix', qty: '2 boxes', category: 'Produce' },
+  { name: 'Mixed berries (frozen)', qty: '32 oz bag', category: 'Produce' },
+  { name: 'Bananas', qty: '6', category: 'Produce' },
+  { name: 'Apples', qty: '4', category: 'Produce' },
+  { name: 'Avocado', qty: '3', category: 'Produce' },
+  { name: 'Broccoli', qty: '2 crowns', category: 'Produce' },
+  // Pantry
+  { name: 'Extra-virgin olive oil', qty: '500ml (replenish)', category: 'Pantry' },
+  { name: 'Almonds (raw)', qty: '8 oz', category: 'Pantry' },
+  { name: 'Whey protein', qty: 'restock if low', category: 'Pantry' },
+  { name: 'Black beans (canned, low-sodium)', qty: '2 cans', category: 'Pantry' },
+]
+
+const shoppingByCategory = computed(() => {
+  const grouped = new Map<string, ShopItem[]>()
+  for (const item of shoppingList) {
+    if (!grouped.has(item.category)) grouped.set(item.category, [])
+    grouped.get(item.category)!.push(item)
+  }
+  return Array.from(grouped.entries()).map(([category, items]) => ({ category, items }))
+})
+
+const shoppingChecked = ref<Set<string>>(new Set())
+function toggleItem(name: string) {
+  const next = new Set(shoppingChecked.value)
+  if (next.has(name)) next.delete(name)
+  else next.add(name)
+  shoppingChecked.value = next
 }
 
-// Blood work
+// ── BLOOD WORK ──────────────────────────────────────────────────────
 type Marker = {
   name: string
   latest: number
@@ -134,15 +291,14 @@ const bloodwork = {
     { name: 'HDL Cholesterol',  latest: 52,  unit: 'mg/dL', range: '>40',      status: 'good'   as const, history: [48, 50, 51, 52],     trendNote: 'Steady, on the right side' },
     { name: 'Triglycerides',    latest: 88,  unit: 'mg/dL', range: '<150',     status: 'good'   as const, history: [90, 85, 92, 88],     trendNote: 'Solid' },
     { name: 'Hemoglobin A1C',   latest: 5.4, unit: '%',     range: '<5.7',     status: 'good'   as const, history: [5.5, 5.4, 5.4, 5.4], trendNote: 'No glucose drift' },
-    { name: 'Vitamin D',        latest: 32,  unit: 'ng/mL', range: '30-100',   status: 'warn'   as const, history: [24, 28, 30, 32],     trendNote: 'Just over the floor — sunlight + 2k IU/day worked' },
+    { name: 'Vitamin D',        latest: 32,  unit: 'ng/mL', range: '30-100',   status: 'warn'   as const, history: [24, 28, 30, 32],     trendNote: 'Just over the floor — sun + 2k IU/day worked' },
     { name: 'Total Testosterone', latest: 640, unit: 'ng/dL', range: '264-916', status: 'good' as const, history: [610, 605, 625, 640], trendNote: 'Trending up since strength block' },
     { name: 'TSH',              latest: 2.1, unit: 'mIU/L', range: '0.4-4.5',  status: 'good'   as const, history: [2.0, 1.9, 2.2, 2.1], trendNote: 'Thyroid stable' },
     { name: 'CRP (inflammation)', latest: 0.8, unit: 'mg/L', range: '<3.0',    status: 'good'   as const, history: [0.6, 0.9, 0.7, 0.8], trendNote: 'Low — recovery is good' },
   ] satisfies Marker[],
-  sageRead: 'LDL is up 38 points across 4 draws — ~12% per panel. Strongest correlation in your food log: saturated fat averaged 32g/day this quarter (vs 18g in the prior year). Recommend swapping butter → olive oil for cooking and reducing red meat to 2x/week. Re-test in 90 days. Everything else is in good shape and trending the right direction.',
 }
 
-// Trends — values for sparklines (simple SVG paths)
+// ── TRENDS ──────────────────────────────────────────────────────────
 function buildSparklinePath(values: number[], width = 200, height = 40): string {
   if (values.length === 0) return ''
   const min = Math.min(...values)
@@ -157,37 +313,33 @@ function buildSparklinePath(values: number[], width = 200, height = 40): string 
     })
     .join(' ')
 }
-
 const trends = {
   weight: {
     values: [177.2, 176.8, 175.9, 175.1, 174.6, 173.8, 172.9, 172.4],
     label: 'Weight, last 8 weeks',
     summary: '−4.8 lbs in 8 weeks · on pace for 168 by Jul 1',
-    unit: 'lbs',
   },
   sleep: {
     values: [6.8, 7.0, 6.5, 7.4, 7.2, 7.6, 7.4, 7.4],
     label: 'Sleep, last 8 weeks',
     summary: '7.2h average · best week was 7.6h',
-    unit: 'h',
   },
   workouts: {
-    // 0/1 booleans → bar count per week
     weeklyCounts: [3, 4, 4, 3, 4, 5, 4, 4],
     label: 'Workouts/week, last 8 weeks',
     summary: 'Avg 3.9/week · target is 4',
   },
 }
 
-// Goals
+// ── GOALS ──────────────────────────────────────────────────────────
 const goals = [
   { label: 'Cut to 168 lbs by Jul 1', progress: 0.69, status: 'on-track', detail: '−2.1 lbs / 30d · 4.4 lbs to go' },
-  { label: 'LDL under 130 by next draw', progress: 0.0, status: 'off-track', detail: 'Trending wrong direction · re-test 90 days' },
+  { label: 'LDL under 130 by next draw', progress: 0.0, status: 'off-track', detail: 'Trending wrong · this week\'s plan addresses it' },
   { label: 'Bench 225 × 5 by Q3', progress: 0.78, status: 'on-track', detail: 'At 205 × 5 · adding 5 lbs / 2 sessions' },
   { label: 'Sleep 7.5h average', progress: 0.99, status: 'on-track', detail: '7.4h 30-day · within margin' },
 ]
 
-// ── Helpers ────────────────────────────────────────────────────────────
+// ── HELPERS ──────────────────────────────────────────────────────────
 function statusClass(status: 'good' | 'warn' | 'danger'): string {
   if (status === 'good')   return 'bg-success/15 text-success'
   if (status === 'warn')   return 'bg-warn/15 text-warn'
@@ -209,16 +361,21 @@ function goalToneClass(status: string): string {
   return 'bg-warn'
 }
 
-// Ask Sage chat (mock — clicks a no-op for now)
+// ── EXPANSION STATE for week grid ───────────────────────────────────
+const expandedDay = ref<string | null>(null)
+function toggleDay(day: string) {
+  expandedDay.value = expandedDay.value === day ? null : day
+}
+
+// ── ASK SAGE ──────────────────────────────────────────────────────────
 const chatOpen = ref(false)
 const chatInput = ref('')
-const chatPlaceholders = [
-  'plan tomorrow around 200g protein',
-  'why is my LDL up?',
-  'i\'m sore — should i push or rest?',
-  'what should i eat for dinner tonight?',
+const samplePrompts = [
+  'plan around 200g protein this week',
+  'why is my LDL not dropping faster?',
+  'i\'m sore tomorrow — should i swap workouts?',
+  'log: ate 2 eggs + oatmeal + coffee for breakfast',
 ]
-const samplePrompts = chatPlaceholders.slice(0, 3)
 </script>
 
 <template>
@@ -238,7 +395,7 @@ const samplePrompts = chatPlaceholders.slice(0, 3)
             </span>
           </div>
           <p class="text-xs text-ink-muted leading-relaxed">
-            Sage reads your blood work, food log, sleep, and workouts to draft daily plans and surface trends you'd miss. She nudges; you decide.
+            Sage drafts your weekly meal + workout plan every Saturday before you shop, then adjusts daily as your data flows in. She filters everything through your current blood work concerns.
           </p>
         </div>
       </div>
@@ -263,128 +420,275 @@ const samplePrompts = chatPlaceholders.slice(0, 3)
       </div>
     </section>
 
-    <!-- ── Header ───────────────────────────────────────────────────── -->
-    <div class="flex items-end justify-between gap-3 flex-wrap">
-      <div>
-        <h2 class="text-xl font-semibold text-ink">Health · {{ today }}</h2>
-        <p class="text-xs text-ink-muted mt-0.5">
-          Today's snapshot, Sage's daily plan, blood work, and trends. Logging takes ~30 seconds.
-        </p>
-      </div>
-      <button
-        type="button"
-        class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
-      >
-        <span>+ Log today</span>
-      </button>
-    </div>
-
-    <!-- ── Snapshot strip ───────────────────────────────────────────── -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      <div class="card p-3">
-        <div class="kpi-label">Sleep</div>
-        <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.sleep.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.sleep.unit }}</span></div>
-        <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.sleep.trend) }} {{ snapshot.sleep.delta }}</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">Energy (predicted)</div>
-        <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.energy.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.energy.unit }}</span></div>
-        <div class="text-[11px] text-ink-muted mt-0.5">based on sleep + plan</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">Weight</div>
-        <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.weight.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.weight.unit }}</span></div>
-        <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.weight.trend) }} {{ snapshot.weight.delta }}</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">HRV (morning)</div>
-        <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.hrv.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.hrv.unit }}</span></div>
-        <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.hrv.trend) }} {{ snapshot.hrv.delta }}</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">Logging streak</div>
-        <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.streak.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.streak.unit }}</span></div>
-        <div class="text-[11px] text-ink-muted mt-0.5">keep it going</div>
-      </div>
-    </div>
-
-    <!-- ── Today's plan: meals + workout side by side ──────────────── -->
-    <div class="grid gap-4 lg:grid-cols-2">
-      <!-- Meals -->
-      <section class="card p-0 overflow-hidden">
-        <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
-          <div>
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Today's meals</div>
-            <div class="font-semibold text-ink mt-0.5">
-              {{ todaysMeals.total.cal.toLocaleString() }} cal · {{ todaysMeals.total.protein }}g protein
-            </div>
-            <div class="text-[11px] text-ink-muted mt-0.5">
-              {{ todaysMeals.total.carbs }}g carbs · {{ todaysMeals.total.fat }}g fat
+    <!-- ── HERO: Next week's plan ready for review ──────────────────── -->
+    <section class="rounded-card border-2 border-brand/40 bg-brand/5 overflow-hidden">
+      <div class="px-5 py-4 border-b border-brand/20 bg-brand/10">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div class="flex items-start gap-3">
+            <AssistantMark class="h-6 w-6 text-brand mt-0.5" />
+            <div>
+              <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-1">
+                Next week's plan ready
+              </div>
+              <h3 class="text-lg font-bold text-ink">{{ nextWeekLabel }}</h3>
+              <p class="text-xs text-ink-muted mt-0.5">
+                Sage drafted this 18 minutes ago. Review + edit before you head to the store.
+              </p>
             </div>
           </div>
-          <button class="text-xs font-medium text-brand hover:underline">Regenerate</button>
-        </header>
-        <ul class="divide-y divide-divider">
-          <li v-for="m in todaysMeals.meals" :key="m.name" class="px-4 py-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="font-semibold text-ink text-sm">{{ m.name }}</span>
-              <span class="text-[11px] text-ink-muted tabular-nums">{{ m.cal }} cal · {{ m.protein }}g p · {{ m.time }}</span>
-            </div>
-            <p class="text-xs text-ink-muted mt-1 leading-snug">{{ m.detail }}</p>
-          </li>
-        </ul>
-        <div class="px-4 py-3 bg-brand/5 border-t border-brand/15">
-          <div class="flex items-start gap-2">
-            <AssistantMark class="h-3.5 w-3.5 text-brand mt-0.5 shrink-0" />
-            <p class="text-[12px] text-ink-muted leading-relaxed">
-              <strong class="text-ink font-semibold">Why this:</strong> {{ todaysMeals.rationale }}
-            </p>
+          <div class="flex flex-wrap items-center gap-2">
+            <button class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10">
+              Regenerate
+            </button>
+            <button class="rounded-md border border-divider text-ink bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:border-brand">
+              Review &amp; edit
+            </button>
+            <button class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90">
+              Approve · generate shopping list
+            </button>
           </div>
         </div>
-      </section>
-
-      <!-- Workout -->
-      <section class="card p-0 overflow-hidden">
-        <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
-          <div>
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Today's workout</div>
-            <div class="font-semibold text-ink mt-0.5">
-              {{ todaysWorkout.name }} · {{ todaysWorkout.duration }}
-            </div>
-            <div class="text-[11px] text-ink-muted mt-0.5">scheduled {{ todaysWorkout.scheduledAt }}</div>
-          </div>
-          <button class="text-xs font-medium text-brand hover:underline">Mark done</button>
-        </header>
-        <ul class="divide-y divide-divider">
-          <li v-for="ex in todaysWorkout.exercises" :key="ex.name" class="px-4 py-3 flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <div class="font-semibold text-ink text-sm">{{ ex.name }}</div>
-              <div v-if="ex.notes" class="text-[11px] text-ink-muted mt-0.5">{{ ex.notes }}</div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="font-mono text-sm text-ink tabular-nums">{{ ex.sets }}</div>
-              <div class="text-[11px] text-ink-muted tabular-nums">{{ ex.load }}</div>
-            </div>
-          </li>
-        </ul>
-        <div class="px-4 py-3 bg-brand/5 border-t border-brand/15">
-          <div class="flex items-start gap-2">
-            <AssistantMark class="h-3.5 w-3.5 text-brand mt-0.5 shrink-0" />
-            <p class="text-[12px] text-ink-muted leading-relaxed">
-              <strong class="text-ink font-semibold">Why this:</strong> {{ todaysWorkout.rationale }}
-            </p>
-          </div>
+      </div>
+      <div class="px-5 py-4 grid gap-4 sm:grid-cols-4">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Avg daily cal</div>
+          <div class="text-xl font-bold text-ink tabular-nums">{{ weekTotals.avgCal.toLocaleString() }}</div>
+          <div class="text-[11px] text-ink-muted">{{ weekTotals.deficitVsMaintain }} deficit</div>
         </div>
-      </section>
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Avg protein</div>
+          <div class="text-xl font-bold text-ink tabular-nums">{{ weekTotals.avgProtein }}g</div>
+          <div class="text-[11px] text-ink-muted">target 185g</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Workouts</div>
+          <div class="text-xl font-bold text-ink tabular-nums">{{ weekTotals.workoutDays }} of 7</div>
+          <div class="text-[11px] text-ink-muted">push/pull/legs/full</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Shopping list</div>
+          <div class="text-xl font-bold text-ink tabular-nums">{{ shoppingList.length }} items</div>
+          <div class="text-[11px] text-ink-muted">~$94 estimated</div>
+        </div>
+      </div>
+      <div class="px-5 pb-4">
+        <div class="rounded-card bg-surface-raised border border-brand/15 p-3">
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-brand mb-1">
+            Sage's strategy this week
+          </div>
+          <p class="text-sm text-ink leading-relaxed">{{ weekStrategy }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Today snapshot ───────────────────────────────────────────── -->
+    <div>
+      <div class="flex items-end justify-between gap-3 mb-3">
+        <div>
+          <h2 class="text-lg font-semibold text-ink">Today · {{ todayLabel }}</h2>
+          <p class="text-xs text-ink-muted">Apple Watch + Apple Health, synced this morning.</p>
+        </div>
+        <button class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90">
+          + Quick log
+        </button>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div class="card p-3">
+          <div class="kpi-label">Sleep</div>
+          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.sleep.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.sleep.unit }}</span></div>
+          <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.sleep.trend) }} {{ snapshot.sleep.delta }}</div>
+        </div>
+        <div class="card p-3">
+          <div class="kpi-label">Steps</div>
+          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.steps.value }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ snapshot.steps.delta }}</div>
+        </div>
+        <div class="card p-3">
+          <div class="kpi-label">Weight</div>
+          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.weight.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.weight.unit }}</span></div>
+          <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.weight.trend) }} {{ snapshot.weight.delta }}</div>
+        </div>
+        <div class="card p-3">
+          <div class="kpi-label">HRV (morning)</div>
+          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.hrv.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.hrv.unit }}</span></div>
+          <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.hrv.trend) }} {{ snapshot.hrv.delta }}</div>
+        </div>
+        <div class="card p-3">
+          <div class="kpi-label">Streak</div>
+          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.streak.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.streak.unit }}</span></div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ snapshot.streak.delta }}</div>
+        </div>
+      </div>
     </div>
+
+    <!-- ── Active concerns (drives the weekly plan) ────────────────── -->
+    <section class="card p-0 overflow-hidden border-warn/30">
+      <header class="flex items-center justify-between gap-3 px-4 py-3 bg-warn/10 border-b border-warn/20">
+        <div class="flex items-center gap-2">
+          <span class="text-base">⚠️</span>
+          <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-warn">
+            Active concerns · driving this week's plan
+          </span>
+        </div>
+        <span class="text-[11px] text-ink-muted">From blood work · {{ bloodwork.drawnAt }}</span>
+      </header>
+      <ul class="divide-y divide-divider">
+        <li v-for="c in activeConcerns" :key="c.label" class="px-4 py-3 flex items-start gap-3">
+          <span class="inline-flex items-center rounded-full bg-warn/15 text-warn px-2 py-0.5 text-[11px] font-bold tabular-nums shrink-0">
+            {{ c.value }}
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-semibold text-ink">{{ c.label }} <span class="text-ink-muted font-normal text-xs">· target {{ c.target }}</span></div>
+            <div class="text-[12px] text-ink-muted mt-0.5">
+              <strong class="text-ink">Sage's constraint:</strong> {{ c.constraint }}
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ── Weekly plan grid ─────────────────────────────────────────── -->
+    <section class="card p-0 overflow-hidden">
+      <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">This week's plan</div>
+          <div class="font-semibold text-ink mt-0.5">{{ nextWeekLabel }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">Click any day to expand. Today highlighted.</div>
+        </div>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs min-w-[800px]">
+          <thead class="bg-canvas text-[10px] font-semibold text-ink-muted uppercase tracking-wide">
+            <tr>
+              <th class="px-3 py-2 text-left w-20">Day</th>
+              <th class="px-3 py-2 text-left">Workout</th>
+              <th class="px-3 py-2 text-left">Breakfast</th>
+              <th class="px-3 py-2 text-left">Lunch</th>
+              <th class="px-3 py-2 text-left">Dinner</th>
+              <th class="px-3 py-2 text-left">Snacks</th>
+              <th class="px-3 py-2 text-right w-20">Cal · P</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-divider">
+            <template v-for="d in weeklyPlan" :key="d.day">
+              <tr
+                class="cursor-pointer hover:bg-canvas/50"
+                :class="d.isToday ? 'bg-brand/5' : ''"
+                @click="toggleDay(d.day)"
+              >
+                <td class="px-3 py-2 font-semibold text-ink">
+                  {{ d.day }}
+                  <div class="text-[10px] font-normal text-ink-muted">{{ d.date }}</div>
+                  <span v-if="d.isToday" class="inline-block mt-1 rounded-full bg-brand text-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">today</span>
+                </td>
+                <td class="px-3 py-2">
+                  <span v-if="d.workout" class="inline-flex items-center rounded-full bg-brand/10 text-brand px-2 py-0.5 text-[10px] font-semibold">
+                    {{ d.workout }}
+                  </span>
+                  <span v-else class="text-ink-disabled text-[10px] uppercase tracking-wider">Rest</span>
+                </td>
+                <td class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals.breakfast.name">{{ d.meals.breakfast.name }}</td>
+                <td class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals.lunch.name">{{ d.meals.lunch.name }}</td>
+                <td class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals.dinner.name">{{ d.meals.dinner.name }}</td>
+                <td class="px-3 py-2 text-ink-muted truncate max-w-[140px]" :title="d.meals.snacks.name">{{ d.meals.snacks.name }}</td>
+                <td class="px-3 py-2 text-right tabular-nums text-ink">
+                  {{ d.totalCal }}
+                  <div class="text-[10px] text-ink-muted">{{ d.totalProtein }}g p</div>
+                </td>
+              </tr>
+              <tr v-if="expandedDay === d.day" :class="d.isToday ? 'bg-brand/5' : 'bg-canvas/40'">
+                <td colspan="7" class="px-4 py-3 text-xs text-ink-muted">
+                  <div v-if="d.workoutDetail" class="mb-3">
+                    <strong class="text-ink">Workout detail:</strong> {{ d.workoutDetail }}
+                  </div>
+                  <div class="grid sm:grid-cols-2 gap-3">
+                    <div v-for="(meal, slot) in d.meals" :key="slot">
+                      <div class="text-[10px] uppercase tracking-wider text-ink-muted mb-0.5">{{ slot }}</div>
+                      <div class="text-ink font-semibold">{{ meal.name }}</div>
+                      <div class="text-ink-muted text-[12px] leading-snug">{{ meal.detail }}</div>
+                      <div class="text-[10px] text-ink-disabled mt-0.5">{{ meal.cal }} cal · {{ meal.protein }}g protein</div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Sage's swaps this week ──────────────────────────────────── -->
+    <section class="card p-0 overflow-hidden border-brand/20">
+      <header class="flex items-center gap-2 px-4 py-3 border-b border-brand/15 bg-brand/5">
+        <AssistantMark class="h-4 w-4 text-brand" />
+        <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
+          Sage's swaps this week · because of your active concerns
+        </span>
+      </header>
+      <ul class="divide-y divide-divider">
+        <li v-for="(s, i) in swaps" :key="i" class="px-4 py-3">
+          <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-brand mb-0.5">{{ s.day }}</div>
+              <div class="text-sm text-ink font-semibold">{{ s.change }}</div>
+            </div>
+            <div class="text-[11px] text-ink-muted italic shrink-0 max-w-[280px] text-right">
+              {{ s.why }}
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ── Shopping list ───────────────────────────────────────────── -->
+    <section class="card p-0 overflow-hidden">
+      <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Shopping list</div>
+          <div class="font-semibold text-ink mt-0.5">{{ shoppingList.length }} items · ~$94 estimated</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">Auto-generated from this week's plan. Check off as you shop.</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="rounded-md border border-divider text-ink bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:border-brand">
+            Send to Notes
+          </button>
+          <button class="rounded-md border border-divider text-ink bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:border-brand">
+            Email me
+          </button>
+        </div>
+      </header>
+      <div class="grid gap-4 md:grid-cols-2 px-4 py-4">
+        <div v-for="group in shoppingByCategory" :key="group.category">
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-2">{{ group.category }}</div>
+          <ul class="space-y-1.5">
+            <li
+              v-for="item in group.items"
+              :key="item.name"
+              class="flex items-center gap-2 text-sm cursor-pointer"
+              :class="shoppingChecked.has(item.name) ? 'text-ink-disabled line-through' : 'text-ink'"
+              @click="toggleItem(item.name)"
+            >
+              <input
+                type="checkbox"
+                :checked="shoppingChecked.has(item.name)"
+                class="h-3.5 w-3.5 rounded border-divider"
+                @click.stop="toggleItem(item.name)"
+              />
+              <span class="flex-1">{{ item.name }}</span>
+              <span class="text-[11px] text-ink-muted">{{ item.qty }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
     <!-- ── Blood work ──────────────────────────────────────────────── -->
     <section class="card p-0 overflow-hidden">
       <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
         <div>
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Blood work</div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Blood work · full panel</div>
           <div class="font-semibold text-ink mt-0.5">Last drawn {{ bloodwork.drawnAt }}</div>
-          <div class="text-[11px] text-ink-muted mt-0.5">via {{ bloodwork.drawnBy }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">via {{ bloodwork.drawnBy }} · concerns above already drive your plan</div>
         </div>
         <button class="rounded-md border border-brand text-brand bg-brand/5 px-3 py-1.5 text-xs font-semibold hover:bg-brand/10">
           + Upload new panel
@@ -422,15 +726,6 @@ const samplePrompts = chatPlaceholders.slice(0, 3)
             </tr>
           </tbody>
         </table>
-      </div>
-      <div class="px-4 py-4 bg-brand/5 border-t border-brand/15">
-        <div class="flex items-start gap-2">
-          <AssistantMark class="h-4 w-4 text-brand mt-0.5 shrink-0" />
-          <div>
-            <div class="text-[10px] font-semibold uppercase tracking-wider text-brand mb-1">Sage's read on this panel</div>
-            <p class="text-sm text-ink leading-relaxed">{{ bloodwork.sageRead }}</p>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -474,7 +769,7 @@ const samplePrompts = chatPlaceholders.slice(0, 3)
       </ul>
     </section>
 
-    <!-- ── Ask Sage floating chat (placeholder) ────────────────────── -->
+    <!-- ── Ask Sage floating chat ──────────────────────────────────── -->
     <button
       type="button"
       class="fixed bottom-6 right-6 z-40 rounded-full bg-brand text-white shadow-2xl px-4 py-3 text-sm font-semibold hover:opacity-90 inline-flex items-center gap-2"
@@ -483,8 +778,6 @@ const samplePrompts = chatPlaceholders.slice(0, 3)
       <AssistantMark class="h-4 w-4 text-white" />
       Ask Sage
     </button>
-
-    <!-- Sample chat panel (visual only — not wired) -->
     <Transition
       enter-active-class="transition-all duration-200 ease-out"
       enter-from-class="opacity-0 translate-y-2"
@@ -515,11 +808,11 @@ const samplePrompts = chatPlaceholders.slice(0, 3)
         <input
           v-model="chatInput"
           type="text"
-          :placeholder="chatPlaceholders[0]"
+          placeholder="ask sage anything…"
           class="w-full rounded-md border border-divider bg-surface px-3 py-2 text-sm focus:outline-none focus:border-brand"
         />
         <p class="text-[10px] text-ink-disabled mt-2">
-          Real chat wires up after you tell me to ship this for real.
+          Real chat wires up after Phase 5. Phase 0+1 (Apple Health ingestion) is next on deck.
         </p>
       </div>
     </Transition>
