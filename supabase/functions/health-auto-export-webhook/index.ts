@@ -295,7 +295,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const secret = req.headers.get('X-Webhook-Secret') ?? req.headers.get('x-webhook-secret') ?? ''
   const expected = Deno.env.get('HEALTH_AUTO_EXPORT_SECRET') ?? ''
   if (!expected) return json({ error: 'Server missing HEALTH_AUTO_EXPORT_SECRET' }, 500)
-  if (secret !== expected) return json({ error: 'Invalid webhook secret' }, 401)
+  if (secret !== expected) {
+    // Diagnostic: dump everything about what we received so we can
+    // figure out why HAE's secret isn't matching ours. Safe to log
+    // here because the secret can be rotated trivially after debug.
+    const headerSnapshot: Record<string, string> = {}
+    for (const [k, v] of req.headers.entries()) {
+      // Mask Authorization / cookies; show everything else verbatim.
+      if (/authoriz|cookie/i.test(k)) {
+        headerSnapshot[k] = `<masked, len=${v.length}>`
+      } else {
+        headerSnapshot[k] = v
+      }
+    }
+    // Try to log to DB for debugging (best-effort).
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const dbg = createClient(supabaseUrl, serviceRoleKey)
+      await dbg.from('personal_health_webhook_log').insert({
+        status: 'error',
+        metrics_count: 0,
+        workouts_count: 0,
+        errors: [{
+          stage: 'auth',
+          message: 'invalid webhook secret',
+          received_secret_len: secret.length,
+          received_secret_first4: secret.slice(0, 4),
+          received_secret_last4: secret.slice(-4),
+          expected_secret_len: expected.length,
+          expected_secret_first4: expected.slice(0, 4),
+          expected_secret_last4: expected.slice(-4),
+          all_headers: headerSnapshot,
+        }],
+      })
+    } catch { /* swallow — debug logging shouldn't break auth response */ }
+
+    return json({
+      error: 'Invalid webhook secret',
+      hint: 'Check personal_health_webhook_log for diagnostic entry',
+    }, 401)
+  }
 
   // ── Pre-flight size check from Content-Length (cheap; no body read).
   // If the sender lies about Content-Length we'll still catch it after
