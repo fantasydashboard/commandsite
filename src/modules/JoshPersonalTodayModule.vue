@@ -27,11 +27,29 @@ import {
 } from '@/lib/clients/josh-personal/health'
 import { useHealthData } from '@/lib/clients/josh-personal/healthData'
 import { useProfile } from '@/lib/clients/josh-personal/profileApi'
+import { useMorningBrief } from '@/lib/clients/josh-personal/morningBriefApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 const { snapshot } = useHealthData()
 const { hasProfile, targets, loading: profileLoading } = useProfile()
+const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: regenerateBrief } = useMorningBrief()
+
+const briefRegenError = ref<string | null>(null)
+async function onRegenerateBrief() {
+  briefRegenError.value = null
+  const result = await regenerateBrief()
+  if (!result.ok) {
+    briefRegenError.value = result.error ?? 'Failed to regenerate brief'
+    setTimeout(() => { briefRegenError.value = null }, 8000)
+  }
+}
+
+function formatBriefDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+}
 
 const onboardingOpen = ref(false)
 
@@ -184,6 +202,117 @@ const samplePrompts = [
         {{ targets.computed_from.bloodwork_adjustments.join(' · ') }}
       </div>
     </section>
+
+    <!-- ── Sage's morning brief ───────────────────────────────────── -->
+    <section
+      v-if="hasProfile && brief"
+      class="rounded-card border-2 border-brand/40 bg-brand/5 overflow-hidden"
+    >
+      <header class="flex items-start justify-between gap-3 px-5 py-4 border-b border-brand/20 bg-brand/10">
+        <div class="flex items-start gap-3 min-w-0">
+          <AssistantMark class="h-6 w-6 text-brand mt-0.5 shrink-0" />
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
+                Sage's brief · {{ formatBriefDate(brief.brief_date) }}
+              </span>
+              <span
+                v-if="briefIsStale"
+                class="rounded-full bg-warn/15 text-warn px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+              >stale · regenerate for today</span>
+            </div>
+            <p v-if="brief.headline" class="text-base font-semibold text-ink leading-snug">
+              {{ brief.headline }}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50 inline-flex items-center gap-1.5 shrink-0"
+          :disabled="briefGenerating"
+          @click="onRegenerateBrief"
+        >
+          <AssistantMark class="h-3.5 w-3.5 text-brand" />
+          <span v-if="briefGenerating">Sage is writing…</span>
+          <span v-else>Regenerate</span>
+        </button>
+      </header>
+
+      <div class="grid sm:grid-cols-2 gap-px bg-divider">
+        <div v-if="brief.todays_focus" class="bg-surface px-5 py-4">
+          <div class="flex items-center gap-1.5 mb-2">
+            <span class="text-base">🟢</span>
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Today's focus</span>
+          </div>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.todays_focus }}</p>
+        </div>
+        <div v-if="brief.watch_out_for" class="bg-surface px-5 py-4">
+          <div class="flex items-center gap-1.5 mb-2">
+            <span class="text-base">⚠️</span>
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Watch out for</span>
+          </div>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.watch_out_for }}</p>
+        </div>
+        <div v-if="brief.patterns_noticed" class="bg-surface px-5 py-4">
+          <div class="flex items-center gap-1.5 mb-2">
+            <span class="text-base">📈</span>
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Pattern Sage noticed</span>
+          </div>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.patterns_noticed }}</p>
+        </div>
+        <div v-if="brief.goal_check" class="bg-surface px-5 py-4">
+          <div class="flex items-center gap-1.5 mb-2">
+            <span class="text-base">💪</span>
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Goal check</span>
+          </div>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.goal_check }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Empty-state for brief when profile exists but no brief yet ─ -->
+    <section
+      v-else-if="hasProfile && !brief && !briefGenerating"
+      class="card p-4 border-brand/20"
+    >
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-start gap-3">
+          <AssistantMark class="h-5 w-5 text-brand mt-0.5" />
+          <div>
+            <div class="text-sm font-semibold text-ink">Generate today's brief</div>
+            <p class="text-xs text-ink-muted mt-0.5">
+              Sage will read your profile, latest bloodwork, and last 7 days of metrics, then write your action plan for today.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
+          :disabled="briefGenerating"
+          @click="onRegenerateBrief"
+        >
+          <AssistantMark class="h-3.5 w-3.5 text-white" />
+          <span v-if="briefGenerating">Generating…</span>
+          <span v-else>Generate brief</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Brief generation in progress -->
+    <section
+      v-else-if="briefGenerating"
+      class="card p-4 border-brand/20 bg-brand/[0.02]"
+    >
+      <div class="flex items-center gap-3">
+        <AssistantMark class="h-5 w-5 text-brand" />
+        <div>
+          <div class="text-sm font-semibold text-ink">Sage is writing your brief…</div>
+          <p class="text-xs text-ink-muted mt-0.5">Reading your data, looking for patterns, drafting your action plan.</p>
+        </div>
+      </div>
+    </section>
+
+    <p v-if="briefRegenError" class="text-sm text-danger">{{ briefRegenError }}</p>
 
     <!-- ── Today header + snapshot ──────────────────────────────────── -->
     <div>
