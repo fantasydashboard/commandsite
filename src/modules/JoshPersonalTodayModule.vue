@@ -35,7 +35,7 @@ import { useMealLog } from '@/lib/clients/josh-personal/mealLogApi'
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 const { snapshot } = useHealthData()
-const { hasProfile, targets, loading: profileLoading } = useProfile()
+const { profile, hasProfile, targets, loading: profileLoading } = useProfile()
 const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: regenerateBrief } = useMorningBrief()
 const { todaySlice: realTodaySlice } = useWeeklyPlan()
 const { todayMeals, todayTotals, recentDays, totalLogged, load: reloadMealLog, deleteMeal } = useMealLog()
@@ -56,6 +56,127 @@ async function onDeleteMeal(id: string) {
   await deleteMeal(id)
 }
 const showRecent = ref(false)
+
+// ── Weight-goal progress (for the "bigger goals" strip) ───────────────
+//
+// Compute progress toward the user's target weight. Uses snapshot's
+// current weight + profile's target_weight_lbs + target_deadline.
+// Status logic:
+//   - On track: trending toward target at >= required pace
+//   - At risk:  trending toward target but slower than required pace
+//   - Off track: not trending toward target (or already at target)
+
+interface WeightGoalProgress {
+  current: number
+  target: number
+  toGo: number             // positive = lbs to lose (cut), negative = lbs to gain
+  pctRemaining: number     // % of journey still ahead (assumes start = current + delta-30d)
+  pctComplete: number      // 100 - pctRemaining
+  daysLeft: number | null
+  weeksLeft: number | null
+  requiredPaceLbsWk: number | null
+  status: 'on-track' | 'at-risk' | 'off-track' | 'achieved'
+  statusLabel: string
+  detail: string
+}
+
+const weightGoal = computed<WeightGoalProgress | null>(() => {
+  if (!profile.value) return null
+  const target = profile.value.target_weight_lbs
+  if (!target) return null
+
+  const v = snapshot.value.weight.value
+  const current = typeof v === 'number' ? v : parseFloat(String(v))
+  if (isNaN(current)) return null
+
+  const goal = profile.value.primary_goal
+  const isCut = goal === 'cut'
+  const toGo = isCut ? current - target : target - current
+
+  // Already there?
+  if (toGo <= 0.5 && toGo >= -0.5) {
+    return {
+      current, target, toGo: 0, pctComplete: 100, pctRemaining: 0,
+      daysLeft: null, weeksLeft: null, requiredPaceLbsWk: null,
+      status: 'achieved', statusLabel: 'Goal hit', detail: `You're at your target weight.`,
+    }
+  }
+
+  // Time math
+  let daysLeft: number | null = null
+  let weeksLeft: number | null = null
+  let requiredPace: number | null = null
+  if (profile.value.target_deadline) {
+    const deadline = new Date(profile.value.target_deadline + 'T00:00:00')
+    const now = new Date()
+    daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+    weeksLeft = daysLeft / 7
+    if (weeksLeft > 0) {
+      requiredPace = Math.abs(toGo) / weeksLeft
+    }
+  }
+
+  // Use 30-day delta as a proxy for pace (snapshot.weight.delta has it
+  // as a string like "-2.1 lbs / 30d"). Parse it best-effort.
+  let recentPaceLbsWk: number | null = null
+  const deltaStr = String(snapshot.value.weight.delta ?? '')
+  const m = deltaStr.match(/(-?[\d.]+)\s*lbs?\s*\/\s*30d/i)
+  if (m) {
+    const delta30d = parseFloat(m[1])
+    recentPaceLbsWk = delta30d / (30 / 7)  // weekly pace from 30-day delta
+  }
+
+  // Status
+  let status: WeightGoalProgress['status'] = 'on-track'
+  let statusLabel = 'On track'
+  if (recentPaceLbsWk == null) {
+    statusLabel = 'No recent trend'
+    status = 'at-risk'
+  } else {
+    const movingRightWay = isCut ? recentPaceLbsWk < 0 : recentPaceLbsWk > 0
+    if (!movingRightWay) {
+      status = 'off-track'
+      statusLabel = isCut ? 'Weight not dropping' : 'Weight not climbing'
+    } else if (requiredPace != null && Math.abs(recentPaceLbsWk) < requiredPace * 0.6) {
+      status = 'at-risk'
+      statusLabel = 'Behind pace'
+    }
+  }
+
+  // Progress estimate: assume "start" = current + (toGo × 1.5) so the
+  // bar shows meaningful progress even without explicit start weight.
+  // Future: store a starting weight on profile for accurate %.
+  const journey = Math.abs(toGo) * 2
+  const completed = journey - Math.abs(toGo)
+  const pctComplete = Math.max(0, Math.min(100, Math.round((completed / journey) * 100)))
+
+  // Detail line
+  const parts: string[] = []
+  parts.push(`${Math.abs(toGo).toFixed(1)} lbs to ${isCut ? 'lose' : 'gain'}`)
+  if (weeksLeft != null && weeksLeft > 0) parts.push(`${Math.ceil(weeksLeft)} wks left`)
+  if (requiredPace != null) parts.push(`need ${requiredPace.toFixed(2)} lb/wk`)
+  if (recentPaceLbsWk != null) parts.push(`actual ${Math.abs(recentPaceLbsWk).toFixed(2)} lb/wk`)
+
+  return {
+    current, target, toGo, pctComplete, pctRemaining: 100 - pctComplete,
+    daysLeft, weeksLeft, requiredPaceLbsWk: requiredPace,
+    status, statusLabel,
+    detail: parts.join(' · '),
+  }
+})
+
+function weightGoalStatusClass(s: WeightGoalProgress['status']): string {
+  if (s === 'on-track')  return 'bg-success'
+  if (s === 'at-risk')   return 'bg-warn'
+  if (s === 'off-track') return 'bg-danger'
+  return 'bg-success'
+}
+function weightGoalStatusBadge(s: WeightGoalProgress['status']): string {
+  if (s === 'on-track')  return 'bg-success/15 text-success'
+  if (s === 'at-risk')   return 'bg-warn/15 text-warn'
+  if (s === 'off-track') return 'bg-danger/15 text-danger'
+  return 'bg-success/15 text-success'
+}
 
 const briefRegenError = ref<string | null>(null)
 async function onRegenerateBrief() {
@@ -183,30 +304,80 @@ const chatOpen = ref(false)
         >Edit profile</button>
       </header>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-divider">
+        <!-- Calories -->
         <div class="bg-surface px-4 py-3">
           <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Calories</div>
-          <div class="text-xl font-bold text-ink tabular-nums">{{ targets.daily_cal_target.toLocaleString() }}</div>
-          <div class="text-[10px] text-ink-muted mt-0.5">
-            {{ targets.deficit_or_surplus_kcal !== 0
-              ? `${targets.deficit_or_surplus_kcal > 0 ? '+' : ''}${targets.deficit_or_surplus_kcal} vs TDEE`
-              : 'maintenance' }}
+          <div class="text-xl font-bold text-ink tabular-nums">
+            <span :class="todayTotals.cal > 0 ? 'text-brand' : 'text-ink'">{{ Math.round(todayTotals.cal).toLocaleString() }}</span>
+            <span class="text-sm font-normal text-ink-muted">/ {{ targets.daily_cal_target.toLocaleString() }}</span>
+          </div>
+          <div class="mt-1.5 h-1 w-full bg-brand/15 rounded-full overflow-hidden">
+            <div class="h-full bg-brand rounded-full transition-all" :style="{ width: `${pct(todayTotals.cal, targets.daily_cal_target)}%` }" />
+          </div>
+          <div class="text-[10px] text-ink-muted mt-1">
+            {{ Math.max(0, Math.round(targets.daily_cal_target - todayTotals.cal)).toLocaleString() }} cal left
+            <span class="text-ink-disabled ml-1">·
+              {{ targets.deficit_or_surplus_kcal !== 0
+                ? `${targets.deficit_or_surplus_kcal > 0 ? '+' : ''}${targets.deficit_or_surplus_kcal} vs TDEE`
+                : 'maintenance' }}
+            </span>
           </div>
         </div>
+
+        <!-- Protein -->
         <div class="bg-surface px-4 py-3">
           <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Protein</div>
-          <div class="text-xl font-bold text-ink tabular-nums">{{ targets.protein_g }}g</div>
-          <div class="text-[10px] text-ink-muted mt-0.5">{{ targets.protein_per_lb }}g/lb bodyweight</div>
+          <div class="text-xl font-bold text-ink tabular-nums">
+            <span :class="todayTotals.protein_g > 0 ? 'text-success' : 'text-ink'">{{ Math.round(todayTotals.protein_g) }}</span>
+            <span class="text-sm font-normal text-ink-muted">/ {{ targets.protein_g }}g</span>
+          </div>
+          <div class="mt-1.5 h-1 w-full bg-success/15 rounded-full overflow-hidden">
+            <div class="h-full bg-success rounded-full transition-all" :style="{ width: `${pct(todayTotals.protein_g, targets.protein_g)}%` }" />
+          </div>
+          <div class="text-[10px] text-ink-muted mt-1">
+            {{ Math.max(0, Math.round(targets.protein_g - todayTotals.protein_g)) }}g left
+            <span class="text-ink-disabled ml-1">· {{ targets.protein_per_lb }}g/lb</span>
+          </div>
         </div>
+
+        <!-- Fat -->
         <div class="bg-surface px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Fat / Carbs</div>
-          <div class="text-base font-bold text-ink tabular-nums">{{ targets.fat_g_target }}g · {{ targets.carbs_g }}g</div>
-          <div class="text-[10px] text-ink-muted mt-0.5">target / remainder</div>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Fat</div>
+          <div class="text-xl font-bold text-ink tabular-nums">
+            <span :class="todayTotals.fat_g > 0 ? 'text-brand' : 'text-ink'">{{ Math.round(todayTotals.fat_g) }}</span>
+            <span class="text-sm font-normal text-ink-muted">/ {{ targets.fat_g_target }}g</span>
+          </div>
+          <div class="mt-1.5 h-1 w-full bg-brand/15 rounded-full overflow-hidden">
+            <div class="h-full bg-brand rounded-full transition-all" :style="{ width: `${pct(todayTotals.fat_g, targets.fat_g_target)}%` }" />
+          </div>
+          <div class="text-[10px] text-ink-muted mt-1">
+            {{ Math.max(0, Math.round(targets.fat_g_target - todayTotals.fat_g)) }}g left
+            <span class="text-ink-disabled ml-1">· carbs {{ targets.carbs_g }}g</span>
+          </div>
         </div>
+
+        <!-- Sat fat ceiling -->
         <div class="bg-surface px-4 py-3">
           <div class="text-[10px] font-semibold uppercase tracking-wider text-warn">Sat fat ceiling</div>
-          <div class="text-xl font-bold text-warn tabular-nums">≤ {{ targets.sat_fat_g_ceiling }}g</div>
-          <div class="text-[10px] text-ink-muted mt-0.5">
-            {{ targets.computed_from.has_bloodwork_concerns ? 'tightened by bloodwork' : 'general ceiling' }}
+          <div class="text-xl font-bold tabular-nums">
+            <span :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'text-danger' : 'text-warn'">{{ todayTotals.sat_fat_g.toFixed(1) }}</span>
+            <span class="text-sm font-normal text-ink-muted">/ ≤{{ targets.sat_fat_g_ceiling }}g</span>
+          </div>
+          <div class="mt-1.5 h-1 w-full bg-warn/15 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all"
+              :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'bg-danger' : 'bg-warn'"
+              :style="{ width: `${pct(todayTotals.sat_fat_g, targets.sat_fat_g_ceiling)}%` }"
+            />
+          </div>
+          <div class="text-[10px] mt-1" :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'text-danger font-semibold' : 'text-ink-muted'">
+            <template v-if="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling">
+              {{ (todayTotals.sat_fat_g - targets.sat_fat_g_ceiling).toFixed(1) }}g over
+            </template>
+            <template v-else>
+              {{ Math.max(0, (targets.sat_fat_g_ceiling - todayTotals.sat_fat_g)).toFixed(1) }}g headroom
+            </template>
+            <span class="text-ink-disabled ml-1">· {{ targets.computed_from.has_bloodwork_concerns ? 'bloodwork-tightened' : 'general' }}</span>
           </div>
         </div>
       </div>
@@ -217,6 +388,42 @@ const chatOpen = ref(false)
         <strong class="font-semibold">Sage's blood-work guardrails:</strong>
         {{ targets.computed_from.bloodwork_adjustments.join(' · ') }}
       </div>
+    </section>
+
+    <!-- ── Bigger goal: weight progress ────────────────────────────── -->
+    <section v-if="weightGoal" class="card p-4">
+      <div class="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
+            Weight goal
+            <span v-if="profile?.target_deadline" class="text-ink-muted font-normal normal-case ml-1">
+              · {{ profile.primary_goal === 'cut' ? 'cut to' : 'reach' }} {{ weightGoal.target }} lbs by {{ new Date(profile.target_deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }}
+            </span>
+          </div>
+          <div class="text-base font-semibold text-ink mt-0.5">
+            <span class="tabular-nums">{{ weightGoal.current }} lbs</span>
+            <span class="text-ink-muted text-sm font-normal mx-1">→</span>
+            <span class="tabular-nums text-ink-muted">{{ weightGoal.target }} lbs</span>
+          </div>
+        </div>
+        <span
+          class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+          :class="weightGoalStatusBadge(weightGoal.status)"
+        >{{ weightGoal.statusLabel }}</span>
+      </div>
+
+      <!-- Progress bar with start / current / target markers -->
+      <div class="relative h-2 w-full bg-canvas rounded-full overflow-hidden mb-2">
+        <div
+          class="h-full rounded-full transition-all"
+          :class="weightGoalStatusClass(weightGoal.status)"
+          :style="{ width: `${weightGoal.pctComplete}%` }"
+        />
+      </div>
+
+      <p class="text-xs text-ink-muted leading-snug">
+        {{ weightGoal.detail }}
+      </p>
     </section>
 
     <!-- ── Sage's morning brief ───────────────────────────────────── -->
