@@ -280,6 +280,13 @@ function extractWorkout(w: HAEWorkout): ExtractedWorkout | null {
   }
 }
 
+// Hard upper limit for a single POST body. Edge Functions have ~150MB
+// memory; JSON.parse on a 5MB string can balloon to 50MB+ during parse,
+// and we still need headroom for extracted-row arrays. 5MB is the
+// proven-safe ceiling. Health Auto Export's "Batch Requests" toggle
+// keeps payloads well under this when enabled.
+const MAX_BODY_BYTES = 5 * 1024 * 1024  // 5MB
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -290,26 +297,91 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!expected) return json({ error: 'Server missing HEALTH_AUTO_EXPORT_SECRET' }, 500)
   if (secret !== expected) return json({ error: 'Invalid webhook secret' }, 401)
 
+  // ── Pre-flight size check from Content-Length (cheap; no body read).
+  // If the sender lies about Content-Length we'll still catch it after
+  // the body arrives, but most clients honor it.
+  const contentLengthHeader = req.headers.get('content-length')
+  const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0
+  if (contentLength > MAX_BODY_BYTES) {
+    return json({
+      error: `Payload ${(contentLength / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_BODY_BYTES / 1024 / 1024}MB limit. In Health Auto Export, enable "Batch Requests" under Export Settings, or shrink the date range.`,
+      hint: 'enable_batch_requests',
+    }, 413)
+  }
+
   // ── Supabase client (service role bypasses RLS)
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!supabaseUrl || !serviceRoleKey) return json({ error: 'Server misconfigured' }, 500)
   const admin = createClient(supabaseUrl, serviceRoleKey)
 
-  // ── Parse body (capture size for the log)
-  const rawText = await req.text()
+  // ── Receipt-first logging: insert a 'received' row before we touch
+  // the body. If the function OOMs on parse, we still see the receipt
+  // in the log table, which is dramatically easier to debug than
+  // 502s with no DB trace at all.
+  const { data: logRow, error: logErr } = await admin
+    .from('personal_health_webhook_log')
+    .insert({
+      status: 'received',
+      metrics_count: 0,
+      workouts_count: 0,
+      raw_size_bytes: contentLength || null,
+    })
+    .select('id')
+    .single()
+  const logId = logRow?.id ?? null
+  if (logErr) {
+    // Logging failed — keep going, but the receipt-trace is gone for this request.
+    console.error('Failed to write receipt log:', logErr.message)
+  }
+
+  // Helper: update the log row with the final outcome.
+  async function finishLog(
+    status: 'ok' | 'partial' | 'error',
+    counts: { metrics: number; workouts: number },
+    errors: { stage: string; metric?: string; message: string }[] | null,
+    sizeBytes: number,
+  ) {
+    if (!logId) return
+    await admin.from('personal_health_webhook_log')
+      .update({
+        status,
+        metrics_count: counts.metrics,
+        workouts_count: counts.workouts,
+        errors,
+        raw_size_bytes: sizeBytes,
+      })
+      .eq('id', logId)
+  }
+
+  // ── Read body. If Content-Length lied, this is where we catch it.
+  let rawText: string
+  try {
+    rawText = await req.text()
+  } catch (err) {
+    await finishLog('error', { metrics: 0, workouts: 0 }, [
+      { stage: 'read_body', message: err instanceof Error ? err.message : String(err) },
+    ], 0)
+    return json({ error: 'Failed to read body' }, 400)
+  }
   const sizeBytes = rawText.length
+  if (sizeBytes > MAX_BODY_BYTES) {
+    await finishLog('error', { metrics: 0, workouts: 0 }, [
+      { stage: 'size_check', message: `Body ${sizeBytes} bytes exceeds ${MAX_BODY_BYTES} limit` },
+    ], sizeBytes)
+    return json({
+      error: `Payload ${(sizeBytes / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_BODY_BYTES / 1024 / 1024}MB limit. Enable Batch Requests in Health Auto Export.`,
+      hint: 'enable_batch_requests',
+    }, 413)
+  }
+
   let payload: HAEPayload
   try {
     payload = JSON.parse(rawText) as HAEPayload
   } catch (err) {
-    await admin.from('personal_health_webhook_log').insert({
-      status: 'error',
-      metrics_count: 0,
-      workouts_count: 0,
-      errors: [{ stage: 'parse', message: err instanceof Error ? err.message : String(err) }],
-      raw_size_bytes: sizeBytes,
-    })
+    await finishLog('error', { metrics: 0, workouts: 0 }, [
+      { stage: 'parse', message: err instanceof Error ? err.message : String(err) },
+    ], sizeBytes)
     return json({ error: 'Invalid JSON' }, 400)
   }
 
@@ -375,14 +447,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  // ── Log
-  await admin.from('personal_health_webhook_log').insert({
-    status: errors.length === 0 ? 'ok' : (metricsInserted + workoutsInserted > 0 ? 'partial' : 'error'),
-    metrics_count: metricsInserted,
-    workouts_count: workoutsInserted,
-    errors: errors.length > 0 ? errors : null,
-    raw_size_bytes: sizeBytes,
-  })
+  // ── Update the receipt log with final outcome (single row per request)
+  await finishLog(
+    errors.length === 0 ? 'ok' : (metricsInserted + workoutsInserted > 0 ? 'partial' : 'error'),
+    { metrics: metricsInserted, workouts: workoutsInserted },
+    errors.length > 0 ? errors : null,
+    sizeBytes,
+  )
 
   return json({
     metrics_inserted: metricsInserted,
