@@ -12,6 +12,7 @@ import { ref, computed } from 'vue'
 import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalBloodworkEntryModal from '@/components/JoshPersonalBloodworkEntryModal.vue'
+import JoshPersonalBloodworkUploadModal from '@/components/JoshPersonalBloodworkUploadModal.vue'
 import {
   useBloodwork,
   MARKERS,
@@ -30,6 +31,7 @@ defineProps<{ client: Client; config: Record<string, unknown> }>()
 const { panels, latestPanel, hasAnyPanel, activeConcerns: realConcerns, loading } = useBloodwork()
 
 const entryOpen = ref(false)
+const uploadOpen = ref(false)
 
 // Active concerns: real if we have a panel, mock otherwise
 const concerns = computed<DerivedConcern[] | typeof mockActiveConcerns>(() => {
@@ -58,16 +60,45 @@ type RowDisplay = {
   trendNote: string
   latest: number
 }
-const realMarkerRows = computed<RowDisplay[]>(() => {
+type RegistryRow = RowDisplay & { isRegistry: true }
+type AdditionalRow = {
+  name: string
+  unit: string
+  history: number[]
+  trendNote: string
+  latest: number
+  isRegistry: false
+  key: string
+}
+type AnyRow = RegistryRow | AdditionalRow
+
+function humanizeKey(key: string): string {
+  return key
+    .replace(/_(mg|ng|pg|miu|ug|u|g)_(dl|ml|l)$/, '')
+    .replace(/_pct$/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function unitFromKey(key: string): string {
+  const matches = key.match(/_(mg|ng|pg|miu|ug|u|g)_(dl|ml|l)$/)
+  if (matches) return `${matches[1]}/${matches[2]}`.replace('miu/l', 'mIU/L').replace('ug/dl', 'µg/dL')
+  if (key.endsWith('_pct')) return '%'
+  return ''
+}
+
+const realMarkerRows = computed<AnyRow[]>(() => {
   if (!latestPanel.value) return []
-  const rows: RowDisplay[] = []
+  const rows: AnyRow[] = []
+  const registryKeys = new Set(MARKERS.map((m) => m.key))
+
+  // Pass 1: registry markers (full status / range / sparkline)
   for (const def of MARKERS) {
     const v = latestPanel.value.markers[def.key]
     if (typeof v !== 'number') continue
     const status = markerStatus(def, v)
     if (status === 'unknown') continue
 
-    // Build history from older panels' values for this marker
     const history: number[] = []
     for (const p of panels.value.slice().reverse()) {
       const pv = p.markers[def.key]
@@ -80,16 +111,44 @@ const realMarkerRows = computed<RowDisplay[]>(() => {
       range: def.rangeNote,
       status,
       history,
-      trendNote: history.length > 1
-        ? `${history.length} panels on file`
-        : 'first panel',
+      trendNote: history.length > 1 ? `${history.length} panels on file` : 'first panel',
       latest: v,
+      isRegistry: true,
     })
   }
-  // Sort: concerns first, then by name
+
+  // Pass 2: additional markers (anything in markers JSONB not in registry)
+  // — extracted from PDFs, displayed verbatim, no in-range coloring
+  for (const [key, value] of Object.entries(latestPanel.value.markers)) {
+    if (registryKeys.has(key)) continue
+    if (typeof value !== 'number') continue
+
+    const history: number[] = []
+    for (const p of panels.value.slice().reverse()) {
+      const pv = p.markers[key]
+      if (typeof pv === 'number') history.push(pv)
+    }
+
+    rows.push({
+      name: humanizeKey(key),
+      unit: unitFromKey(key),
+      history,
+      trendNote: history.length > 1 ? `${history.length} panels` : 'first panel',
+      latest: value,
+      isRegistry: false,
+      key,
+    })
+  }
+
+  // Sort: concerns first (registry only), then registry good, then additional
   return rows.sort((a, b) => {
-    const sev = (s: string) => (s === 'danger' ? 0 : s === 'warn' ? 1 : 2)
-    if (sev(a.status) !== sev(b.status)) return sev(a.status) - sev(b.status)
+    const aGroup = a.isRegistry
+      ? (a.status === 'danger' ? 0 : a.status === 'warn' ? 1 : 2)
+      : 3
+    const bGroup = b.isRegistry
+      ? (b.status === 'danger' ? 0 : b.status === 'warn' ? 1 : 2)
+      : 3
+    if (aGroup !== bGroup) return aGroup - bGroup
     return a.name.localeCompare(b.name)
   })
 })
@@ -116,13 +175,23 @@ function statusIcon(status: 'good' | 'warn' | 'danger'): string {
           Lab panels + active concerns. Concerns become hard constraints in your weekly meal plan.
         </p>
       </div>
-      <button
-        type="button"
-        class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
-        @click="entryOpen = true"
-      >
-        + Add panel
-      </button>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
+          @click="uploadOpen = true"
+        >
+          <AssistantMark class="h-3.5 w-3.5 text-white" />
+          Upload PDF
+        </button>
+        <button
+          type="button"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand"
+          @click="entryOpen = true"
+        >
+          + Type manually
+        </button>
+      </div>
     </div>
 
     <!-- ── Empty state when no panels ──────────────────────────────── -->
@@ -140,11 +209,21 @@ function statusIcon(status: 'good' | 'warn' | 'danger'): string {
           <p class="text-xs text-ink-muted mb-4">
             The form below shows mock data from someone who has labs entered, so you can see what the surface looks like. Click <strong class="text-ink">+ Add panel</strong> to enter your own.
           </p>
-          <button
-            type="button"
-            class="rounded-md bg-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
-            @click="entryOpen = true"
-          >+ Add panel</button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              class="rounded-md bg-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
+              @click="uploadOpen = true"
+            >
+              <AssistantMark class="h-4 w-4 text-white" />
+              Upload PDF (Sage extracts)
+            </button>
+            <button
+              type="button"
+              class="rounded-md bg-surface-raised border border-brand text-brand px-4 py-2 text-sm font-semibold hover:bg-brand/5"
+              @click="entryOpen = true"
+            >Or type manually</button>
+          </div>
         </div>
       </div>
     </section>
@@ -232,16 +311,27 @@ function statusIcon(status: 'good' | 'warn' | 'danger'): string {
           <tbody class="divide-y divide-divider">
             <!-- Real rows -->
             <template v-if="showingReal">
-              <tr v-for="m in realMarkerRows" :key="m.name" class="hover:bg-canvas/50">
-                <td class="px-4 py-2 font-medium text-ink">{{ m.name }}</td>
+              <tr v-for="(m, idx) in realMarkerRows" :key="m.name + idx" class="hover:bg-canvas/50">
+                <td class="px-4 py-2 font-medium text-ink">
+                  {{ m.name }}
+                  <span v-if="!m.isRegistry" class="ml-1.5 text-[9px] uppercase tracking-wider text-ink-disabled font-normal">extra</span>
+                </td>
                 <td class="px-4 py-2">
-                  <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums" :class="statusClass(m.status)">
-                    <span>{{ statusIcon(m.status) }}</span>
-                    <span>{{ m.latest }}</span>
-                  </span>
+                  <template v-if="m.isRegistry">
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums" :class="statusClass(m.status)">
+                      <span>{{ statusIcon(m.status) }}</span>
+                      <span>{{ m.latest }}</span>
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span class="text-sm text-ink tabular-nums font-medium">{{ m.latest }}</span>
+                  </template>
                   <span class="ml-1.5 text-[11px] text-ink-muted">{{ m.unit }}</span>
                 </td>
-                <td class="px-4 py-2 text-xs text-ink-muted font-mono">{{ m.range }}</td>
+                <td class="px-4 py-2 text-xs text-ink-muted font-mono">
+                  <span v-if="m.isRegistry">{{ m.range }}</span>
+                  <span v-else class="text-ink-disabled italic">no built-in range</span>
+                </td>
                 <td class="px-4 py-2">
                   <svg v-if="m.history.length > 1" :viewBox="`0 0 200 40`" class="h-6 w-32 text-brand">
                     <path :d="buildSparklinePath(m.history)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -296,11 +386,18 @@ function statusIcon(status: 'good' | 'warn' | 'danger'): string {
       </ul>
     </section>
 
-    <!-- ── Entry modal ─────────────────────────────────────────────── -->
+    <!-- ── Entry modal (manual typing) ─────────────────────────────── -->
     <JoshPersonalBloodworkEntryModal
       :open="entryOpen"
       @close="entryOpen = false"
       @saved="entryOpen = false"
+    />
+
+    <!-- ── Upload modal (PDF + Claude extraction) ──────────────────── -->
+    <JoshPersonalBloodworkUploadModal
+      :open="uploadOpen"
+      @close="uploadOpen = false"
+      @saved="uploadOpen = false"
     />
   </div>
 </template>
