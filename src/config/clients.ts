@@ -99,7 +99,7 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     // surfaces. Mock data lives in src/lib/clients/josh-personal/health.ts
     // and gets swapped for real Supabase reads once Phase 0+1 (Apple
     // Health webhook ingestion) lands.
-    { key: 'josh-personal-health' },
+    { key: 'josh-personal-today' },
     { key: 'josh-personal-plan' },
     { key: 'josh-personal-trends' },
     { key: 'josh-personal-bloodwork' },

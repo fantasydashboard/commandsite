@@ -40,7 +40,7 @@ import UfdRedesignEmailModule from './UfdRedesignEmailModule.vue'
 import UfdRedesignSocialModule from './UfdRedesignSocialModule.vue'
 import UfdRedesignSettingsModule from './UfdRedesignSettingsModule.vue'
 import { mentions as ufdRedesignMentions } from '@/lib/clients/ufd-redesign/social'
-import JoshPersonalHealthModule from './JoshPersonalHealthModule.vue'
+import JoshPersonalTodayModule from './JoshPersonalTodayModule.vue'
 import JoshPersonalPlanModule from './JoshPersonalPlanModule.vue'
 import JoshPersonalTrendsModule from './JoshPersonalTrendsModule.vue'
 import JoshPersonalBloodworkModule from './JoshPersonalBloodworkModule.vue'
@@ -95,7 +95,6 @@ export interface TabDefinition {
 // modules enabled (Apex Heating & Air etc.). UFD doesn't get them.
 export const dashboardTabs: TabDefinition[] = [
   { key: 'today', label: 'Today' },
-  { key: 'health', label: 'Health' },
   { key: 'plan', label: 'Plan' },
   { key: 'trends', label: 'Trends' },
   { key: 'bloodwork', label: 'Bloodwork' },
@@ -598,12 +597,12 @@ export const moduleRegistry: ModuleDefinition[] = [
 
   // ── Josh Personal — private personal dashboard, sage-themed ─────────
   {
-    key: 'josh-personal-health',
-    label: 'Josh Personal · Health',
-    description: 'Today-focused: snapshot + today\'s slice of the week plan + active concerns reminder. Default landing.',
-    component: JoshPersonalHealthModule,
+    key: 'josh-personal-today',
+    label: 'Josh Personal · Today',
+    description: 'AI-assistant landing — Sage\'s morning brief, today\'s focus, calculated targets, snapshot KPIs.',
+    component: JoshPersonalTodayModule,
     fullWidth: true,
-    tab: 'health',
+    tab: 'today',
   },
   {
     key: 'josh-personal-plan',
