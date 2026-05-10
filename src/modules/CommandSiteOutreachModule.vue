@@ -727,7 +727,17 @@ function leadForReply(r: CsReply): CsLead | null {
                   >{{ lead.icp_score ?? '—' }}</span>
                 </td>
                 <td class="px-3 py-3">
-                  <div class="text-ink font-semibold text-sm">{{ lead.company_name }}</div>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <div class="text-ink font-semibold text-sm">{{ lead.company_name }}</div>
+                    <span
+                      v-if="(lead.tags ?? []).includes('followup_drafted_touch_3')"
+                      class="inline-flex items-center rounded-full bg-warn/15 text-warn px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                    >Touch 3 · breakup</span>
+                    <span
+                      v-else-if="(lead.tags ?? []).includes('followup_drafted_touch_2')"
+                      class="inline-flex items-center rounded-full bg-brand/15 text-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                    >Touch 2</span>
+                  </div>
                   <div class="text-[11px] text-ink-muted font-mono">{{ lead.contact_email }}</div>
                   <div class="text-[10px] text-ink-disabled">{{ lead.industry || '—' }}{{ lead.city ? ' · ' + lead.city : '' }}</div>
                 </td>
