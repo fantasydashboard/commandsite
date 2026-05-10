@@ -12,7 +12,7 @@
  * separate modules built in subsequent phases.
  */
 import { computed, nextTick, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   Chart,
   LineController,
@@ -50,6 +50,13 @@ defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 // ── Ada persona + chat ─────────────────────────────────────────────────
 const router = useRouter()
+const route = useRoute()
+
+// Hide the inner "Demo mode: Sample data for Apex" banner when the
+// outer DashboardLayout is already rendering a custom-prospect
+// banner (i.e. ?demo_company=... is in the URL). Two demo banners
+// stacked is noisy; the outer one wins.
+const isCustomDemo = computed(() => typeof route.query.demo_company === 'string')
 function goToRole(tab: string) {
   router.push({ name: 'dashboard.tab', params: { slug: 'apex-heating-and-air', tab } })
 }
@@ -275,8 +282,12 @@ const thisWeek = [
 
 <template>
   <div class="space-y-4">
-    <!-- Demo mode banner -->
-    <div class="rounded-card bg-accent/10 border border-accent/30 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+    <!-- Demo mode banner — hidden when DashboardLayout's custom
+         per-prospect banner is already showing -->
+    <div
+      v-if="!isCustomDemo"
+      class="rounded-card bg-accent/10 border border-accent/30 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2"
+    >
       <div class="text-sm text-ink">
         <span class="font-semibold">Demo mode:</span>
         Sample data for Apex Heating & Air — illustrating what CommandSite looks like for a home-services business.
