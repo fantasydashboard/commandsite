@@ -1050,9 +1050,10 @@ function leadForReply(r: CsReply): CsLead | null {
         <p class="text-xs text-ink-disabled">
           When prospects click your Calendly link and book, they'll appear here automatically (Calendly webhook → cs_deals).
         </p>
-        <p class="text-[11px] text-ink-disabled mt-3 italic">
-          Your Calendly URL: <code class="font-mono">https://calendly.com/josh-commandsite/15min</code>
-        </p>
+        <div class="text-[11px] text-ink-disabled mt-3 space-y-1">
+          <p>Service-business prospects: <code class="font-mono">calendly.com/josh-commandsite/30-min-discovery-services-walkthrough</code></p>
+          <p>Church / ministry prospects: <code class="font-mono">calendly.com/josh-commandsite/30-min-discovery-church-walkthrough</code></p>
+        </div>
       </div>
 
       <!-- Upcoming -->

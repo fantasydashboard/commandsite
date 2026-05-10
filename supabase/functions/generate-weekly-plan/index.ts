@@ -15,7 +15,11 @@
 //
 // Auth:    Authorization: Bearer <admin user JWT>     (manual / on-demand)
 //      OR  X-Cron-Secret: <WEEKLY_PLAN_CRON_SECRET>   (Saturday cron later)
-// Body:    { week_starting?: 'YYYY-MM-DD' }    // defaults to next Monday
+// Body:    { week_starting?: 'YYYY-MM-DD', revision_request?: string }
+//          revision_request: free-text Josh feedback ("swap fish for chicken",
+//          "more carbs Tuesday", "less repetitive"). When present, Sage
+//          loads the existing plan for that week + applies the requested
+//          changes, preserving everything else.
 // Returns: { plan: { ...row }, generated: 'manual' | 'cron' }
 // Secrets: ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
 //          WEEKLY_PLAN_CRON_SECRET (optional)
@@ -99,7 +103,18 @@ Your job: a complete, executable 7-day plan that respects his real biology + rea
 - Push/pull/legs split: balanced volume across rotations.
 - Cardio (zone 2) on rest-from-lifting days if he's targeting >4 workouts/wk.
 
-If something genuinely conflicts (e.g. "he wants 6 workouts/wk but his HRV is trending down"), program 5 with a deload day, and explain it in strategy.`
+If something genuinely conflicts (e.g. "he wants 6 workouts/wk but his HRV is trending down"), program 5 with a deload day, and explain it in strategy.
+
+# REVISIONS
+
+If the user message contains an EXISTING PLAN + a REVISION REQUEST, you are NOT building from scratch. Treat the existing plan as the baseline. Apply ONLY the changes Josh asked for. Preserve every meal, exercise, and detail he didn't object to.
+
+After applying the change:
+- Re-aggregate the shopping_list from the updated days (combine duplicates the same way).
+- Recalculate totals (avg_cal, avg_protein, workout_days).
+- Re-check hard constraints — if the revision pushed any day out of cal/protein/sat-fat range, adjust the changed item's portions or pair it with a complementary swap and note this in strategy.
+- In the strategy field, lead with one sentence on the change made ("Swapped fish for chicken across the week as requested. Same protein hit, marginally lower omega-3 intake — flagging for next bloodwork."). Do NOT rewrite the strategy from scratch.
+- swaps: only NEW swaps added because of this revision get added; preserve the existing biomarker-driven swaps too.`
 
 interface PlanContext {
   week_starting: string
@@ -445,16 +460,38 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (userIds.length === 0) return json({ generated: trigger, plans: [], message: 'No admin users with profiles' })
 
   // Body
-  let body: { week_starting?: string }
+  let body: { week_starting?: string; revision_request?: string }
   try { body = await req.json() } catch { body = {} }
   const weekStarting = body.week_starting ?? nextMondayIso()
+  const revisionRequest = (body.revision_request ?? '').trim() || null
 
   const plans: { user_id: string; week_starting: string; status: 'ok' | 'error'; error?: string }[] = []
 
   for (const userId of userIds) {
     try {
       const ctx = await assemblePlanContext(admin, userId, weekStarting)
-      const userMessage = buildUserMessage(ctx)
+      let userMessage = buildUserMessage(ctx)
+
+      // Revision mode: load the existing plan and inject it + Josh's request
+      if (revisionRequest) {
+        const { data: existing } = await admin
+          .from('personal_weekly_plans')
+          .select('strategy, days, shopping_list, swaps, totals')
+          .eq('user_id', userId)
+          .eq('week_starting', weekStarting)
+          .maybeSingle()
+        if (!existing) {
+          plans.push({ user_id: userId, week_starting: weekStarting, status: 'error', error: 'No existing plan to revise — generate one first' })
+          continue
+        }
+        const e = existing as Record<string, unknown>
+        userMessage += `\n\n# EXISTING PLAN (revise this — preserve what wasn't called out)\n` +
+          `Current strategy: ${e.strategy ?? '—'}\n\n` +
+          `Days:\n${JSON.stringify(e.days, null, 2)}\n\n` +
+          `Existing swaps:\n${JSON.stringify(e.swaps, null, 2)}\n\n` +
+          `# JOSH'S REVISION REQUEST\n${revisionRequest}\n\n` +
+          `Apply Josh's request. Preserve everything else. Re-aggregate shopping_list + totals. Call save_weekly_plan with the revised plan.`
+      }
 
       const anthropicBody = {
         model: MODEL,

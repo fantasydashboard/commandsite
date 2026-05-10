@@ -62,7 +62,7 @@ Classify each inbound reply into ONE category:
 
 For each, also output a confidence (0-1) and a one-line reasoning. If positive or interested, draft a short suggested_reply (~30-60 words) that:
 - Directly addresses what they said
-- Includes a Calendly link placeholder ("https://calendly.com/josh-commandsite/15min")
+- Includes the right Calendly link: services prospects → "https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough", churches/ministry → "https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough"
 - Is conversational, no buzzwords, no em dashes inside sentences
 - Sounds like Josh (founder of CommandSite) wrote it
 

@@ -62,7 +62,7 @@ export function useWeeklyPlan() {
     loading.value = false
   }
 
-  async function regenerate(): Promise<{ ok: boolean; error?: string }> {
+  async function callGenerator(payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
     if (generating.value) return { ok: false, error: 'Already generating' }
     generating.value = true
     error.value = null
@@ -76,7 +76,7 @@ export function useWeeklyPlan() {
           'authorization': `Bearer ${session.access_token}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const detail = await res.text().catch(() => '')
@@ -92,6 +92,21 @@ export function useWeeklyPlan() {
     } finally {
       generating.value = false
     }
+  }
+
+  async function regenerate(): Promise<{ ok: boolean; error?: string }> {
+    return callGenerator({})
+  }
+
+  /** Revise the existing plan with Josh's feedback ("swap fish for chicken", etc.). */
+  async function revise(revisionRequest: string): Promise<{ ok: boolean; error?: string }> {
+    const trimmed = revisionRequest.trim()
+    if (!trimmed) return { ok: false, error: 'Tell Sage what to change' }
+    if (!plan.value) return { ok: false, error: 'No plan to revise — generate one first' }
+    return callGenerator({
+      week_starting: plan.value.week_starting,
+      revision_request: trimmed,
+    })
   }
 
   async function approve(): Promise<{ ok: boolean; error?: string }> {
@@ -117,5 +132,5 @@ export function useWeeklyPlan() {
 
   onMounted(load)
 
-  return { plan, loading, generating, error, hasPlan, isApproved, todaySlice, load, regenerate, approve }
+  return { plan, loading, generating, error, hasPlan, isApproved, todaySlice, load, regenerate, revise, approve }
 }

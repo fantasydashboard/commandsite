@@ -25,7 +25,7 @@ import { useWeeklyPlan } from '@/lib/clients/josh-personal/weeklyPlanApi'
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 // Live plan from DB; falls through to mock when no plan generated yet
-const { plan: realPlan, generating, isApproved, regenerate: regeneratePlan, approve: approvePlan } = useWeeklyPlan()
+const { plan: realPlan, generating, isApproved, regenerate: regeneratePlan, revise: revisePlan, approve: approvePlan } = useWeeklyPlan()
 const usingReal = computed(() => realPlan.value !== null)
 
 const weeklyPlan = computed(() => realPlan.value?.days ?? mockWeeklyPlan)
@@ -60,6 +60,30 @@ async function onApprove() {
     setTimeout(() => { actionError.value = null }, 8000)
   }
 }
+
+const revisionDraft = ref('')
+const revisionError = ref<string | null>(null)
+const revisionSuccess = ref(false)
+async function onRevise() {
+  revisionError.value = null
+  revisionSuccess.value = false
+  const r = await revisePlan(revisionDraft.value)
+  if (!r.ok) {
+    revisionError.value = r.error ?? 'Sage could not apply that change'
+    setTimeout(() => { revisionError.value = null }, 8000)
+    return
+  }
+  revisionSuccess.value = true
+  revisionDraft.value = ''
+  setTimeout(() => { revisionSuccess.value = false }, 4000)
+}
+
+const REVISION_EXAMPLES = [
+  'Swap any fish meals for chicken — too many fish in a row',
+  'Add 20g more protein on workout days, less on rest days',
+  'Less repetitive on dinners, I had this exact lunch last week',
+  'I have a dinner out Wednesday — make it a free meal',
+]
 
 const totals = computed(() => {
   if (realPlan.value?.totals) {
@@ -181,6 +205,55 @@ function toggleItem(name: string) {
             Sage's strategy this week
           </div>
           <p class="text-sm text-ink leading-relaxed">{{ weekStrategy }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Ask Sage to adjust ──────────────────────────────────────── -->
+    <section v-if="usingReal" class="card p-0 overflow-hidden border-brand/20">
+      <header class="flex items-center gap-2 px-4 py-3 border-b border-brand/15 bg-brand/5">
+        <AssistantMark class="h-4 w-4 text-brand" />
+        <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
+          Ask Sage to adjust this plan
+        </span>
+      </header>
+      <div class="px-4 py-4 space-y-3">
+        <p class="text-xs text-ink-muted">
+          Tell Sage what to change in plain English. She'll revise the plan, keep what you didn't object to, and re-do the shopping list.
+        </p>
+        <textarea
+          v-model="revisionDraft"
+          rows="3"
+          placeholder="e.g. 'swap fish for chicken on Tue and Sat — too much salmon this week'"
+          class="w-full rounded-md border border-divider bg-surface-raised px-3 py-2 text-sm text-ink placeholder:text-ink-disabled focus:border-brand focus:outline-none resize-none"
+          :disabled="generating"
+        />
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5"
+            :disabled="generating || !revisionDraft.trim()"
+            @click="onRevise"
+          >
+            <AssistantMark class="h-3.5 w-3.5 text-white" />
+            <span v-if="generating">Sage is revising…</span>
+            <span v-else>Apply changes</span>
+          </button>
+          <span v-if="revisionSuccess" class="text-xs text-success font-semibold">✓ Revised — review the updated plan above</span>
+          <span v-if="revisionError" class="text-xs text-danger">{{ revisionError }}</span>
+        </div>
+        <div class="pt-2 border-t border-divider/60">
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1.5">Examples</div>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="ex in REVISION_EXAMPLES"
+              :key="ex"
+              type="button"
+              class="text-[11px] text-ink-muted bg-canvas hover:bg-brand/10 hover:text-brand border border-divider rounded-full px-2.5 py-1 transition-colors"
+              :disabled="generating"
+              @click="revisionDraft = ex"
+            >{{ ex }}</button>
+          </div>
         </div>
       </div>
     </section>
