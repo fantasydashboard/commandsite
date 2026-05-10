@@ -24,6 +24,7 @@ import CommandSiteDemoLinkModal from '@/components/CommandSiteDemoLinkModal.vue'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useOutreachSends } from '@/lib/clients/commandsite/outreachSendsApi'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
+import { useDiscovery, type DiscoveryDeal } from '@/lib/clients/commandsite/discoveryApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -33,8 +34,11 @@ const { sends, sentToday, sentLastNDays, markSent } = useOutreachSends()
 const liveReplies = useReplies()
 
 // ── View state ────────────────────────────────────────────────────────
-type View = 'pipeline' | 'ready' | 'sent' | 'inbox' | 'manual_reply' | 'coming_next'
+type View = 'pipeline' | 'ready' | 'sent' | 'inbox' | 'manual_reply' | 'demos' | 'coming_next'
 const view = ref<View>('pipeline')
+
+// Discovery / Demos
+const discovery = useDiscovery()
 
 // ── Buckets ───────────────────────────────────────────────────────────
 
@@ -394,6 +398,103 @@ function jumpToLeadInManualReply(leadId: string) {
   pickLeadForManual(leadId)
 }
 
+// ── Demos view handlers ─────────────────────────────────────────────
+
+const briefError = ref<string | null>(null)
+async function onGenerateBrief(dealId: string) {
+  briefError.value = null
+  const r = await discovery.generateBrief(dealId)
+  if (!r.ok) {
+    briefError.value = r.error ?? 'Failed to generate brief'
+    setTimeout(() => { briefError.value = null }, 8000)
+  }
+}
+
+// Per-deal post-call form state — keyed by deal id so multiple cards
+// can hold their own form drafts simultaneously
+const postCallForms = ref<Record<string, {
+  interest_level: 'hot' | 'warm' | 'lukewarm' | 'cold'
+  specific_concern: string
+  next_step: string
+  extra_notes: string
+  expanded: boolean
+}>>({})
+
+function ensureForm(dealId: string) {
+  if (!postCallForms.value[dealId]) {
+    postCallForms.value[dealId] = {
+      interest_level: 'warm',
+      specific_concern: '',
+      next_step: '',
+      extra_notes: '',
+      expanded: false,
+    }
+  }
+}
+
+function togglePostCallForm(dealId: string) {
+  ensureForm(dealId)
+  postCallForms.value[dealId].expanded = !postCallForms.value[dealId].expanded
+}
+
+const followupResult = ref<Record<string, { subject: string; body: string }>>({})
+const followupError = ref<string | null>(null)
+
+async function onDraftFollowup(deal: DiscoveryDeal) {
+  ensureForm(deal.id)
+  const f = postCallForms.value[deal.id]
+  if (!f.next_step.trim()) {
+    followupError.value = 'Add a next-step note before drafting.'
+    setTimeout(() => { followupError.value = null }, 5000)
+    return
+  }
+  followupError.value = null
+  const r = await discovery.draftFollowup({
+    deal_id: deal.id,
+    interest_level: f.interest_level,
+    specific_concern: f.specific_concern || undefined,
+    next_step: f.next_step,
+    extra_notes: f.extra_notes || undefined,
+  })
+  if (!r.ok) {
+    followupError.value = r.error ?? 'Failed to draft'
+    setTimeout(() => { followupError.value = null }, 8000)
+    return
+  }
+  if (r.subject && r.body) {
+    followupResult.value[deal.id] = { subject: r.subject, body: r.body }
+  }
+}
+
+async function copyAndMarkFollowupSent(deal: DiscoveryDeal) {
+  const result = followupResult.value[deal.id]
+  if (!result) return
+  const text = `Subject: ${result.subject}\nTo: ${deal.contact_email}\n\n${result.body}`
+  try { await navigator.clipboard.writeText(text) }
+  catch { /* fallback omitted for brevity */ }
+  await discovery.markFollowupSent(deal.id)
+  flash(`✓ Copied + marked sent (${deal.company_name})`)
+}
+
+function fmtScheduled(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })
+}
+
+function fmtTimeUntil(iso: string | null): string {
+  if (!iso) return ''
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms < 0) return 'past'
+  const hr = Math.floor(ms / (60 * 60 * 1000))
+  if (hr < 1) return 'in <1h'
+  if (hr < 24) return `in ${hr}h`
+  return `in ${Math.floor(hr / 24)}d`
+}
+
 // ── Demo link modal (per lead) ───────────────────────────────────────
 const demoLinkOpen = ref(false)
 const demoLinkLead = ref<CsLead | null>(null)
@@ -524,6 +625,14 @@ function leadForReply(r: CsReply): CsLead | null {
           :class="view === 'manual_reply' ? 'bg-brand text-white' : 'text-ink hover:bg-canvas/50'"
           @click="view = 'manual_reply'"
         >+ Log a reply</button>
+        <button
+          type="button"
+          class="rounded-md px-3 py-1.5 text-sm font-semibold transition-colors inline-flex items-center gap-1"
+          :class="view === 'demos' ? 'bg-brand text-white' : 'text-ink hover:bg-canvas/50'"
+          @click="view = 'demos'"
+        >📅 Demos
+          <span v-if="discovery.upcoming.value.length > 0" class="ml-1 rounded-full bg-success/20 text-success text-[10px] font-bold px-1.5 py-0.5">{{ discovery.upcoming.value.length }}</span>
+        </button>
         <button
           type="button"
           class="rounded-md px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-canvas/50 ml-auto"
@@ -927,6 +1036,183 @@ function leadForReply(r: CsReply): CsLead | null {
         <p class="text-[10px] text-ink-disabled italic text-center">
           Conservative mode: Ada drafts, you approve. Copy → paste into Gmail → send. Auto-send via Smartlead comes in Phase 3.
         </p>
+      </div>
+    </section>
+
+    <!-- ── VIEW: Demos (discovery calls) ───────────────────────────── -->
+    <section v-if="view === 'demos'" class="space-y-4">
+      <p v-if="briefError" class="text-sm text-danger">{{ briefError }}</p>
+      <p v-if="followupError" class="text-sm text-danger">{{ followupError }}</p>
+
+      <!-- Empty state -->
+      <div v-if="!discovery.loading.value && discovery.upcoming.value.length === 0 && discovery.past.value.length === 0" class="card p-8 text-center">
+        <p class="text-sm text-ink-muted mb-2">No discovery calls booked yet.</p>
+        <p class="text-xs text-ink-disabled">
+          When prospects click your Calendly link and book, they'll appear here automatically (Calendly webhook → cs_deals).
+        </p>
+        <p class="text-[11px] text-ink-disabled mt-3 italic">
+          Your Calendly URL: <code class="font-mono">https://calendly.com/josh-commandsite/15min</code>
+        </p>
+      </div>
+
+      <!-- Upcoming -->
+      <div v-if="discovery.upcoming.value.length > 0">
+        <div class="flex items-baseline gap-2 mb-3">
+          <h3 class="text-sm font-semibold text-ink">Upcoming</h3>
+          <span class="text-[10px] text-ink-muted">{{ discovery.upcoming.value.length }} {{ discovery.upcoming.value.length === 1 ? 'call' : 'calls' }}</span>
+        </div>
+        <div class="space-y-3">
+          <article v-for="deal in discovery.upcoming.value" :key="deal.id" class="card p-4 border-success/20">
+            <header class="flex items-start justify-between gap-3 flex-wrap mb-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                  <h4 class="text-base font-semibold text-ink">{{ deal.company_name }}</h4>
+                  <span class="rounded-full bg-success/15 text-success px-2 py-0.5 text-[10px] font-semibold">
+                    {{ fmtTimeUntil(deal.scheduled_at) }}
+                  </span>
+                </div>
+                <div class="text-[11px] text-ink-muted">
+                  {{ deal.contact_name }} · {{ deal.contact_email }}
+                  <template v-if="deal.industry"> · {{ deal.industry }}</template>
+                  <template v-if="deal.city"> · {{ deal.city }}, {{ deal.state }}</template>
+                </div>
+                <div class="text-[11px] text-brand font-semibold mt-0.5">
+                  📅 {{ fmtScheduled(deal.scheduled_at) }}
+                  <span v-if="deal.scheduled_call_duration_min" class="text-ink-muted font-normal ml-1">· {{ deal.scheduled_call_duration_min }}min</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <a
+                  v-if="deal.discovery_demo_url"
+                  :href="deal.discovery_demo_url"
+                  target="_blank"
+                  rel="noopener"
+                  class="rounded-md border border-divider text-ink bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:border-brand inline-flex items-center gap-1"
+                >📊 Preview demo</a>
+                <button
+                  type="button"
+                  class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5"
+                  :disabled="discovery.generatingBriefId.value === deal.id"
+                  @click="onGenerateBrief(deal.id)"
+                >
+                  <AssistantMark class="h-3.5 w-3.5 text-white" />
+                  <span v-if="discovery.generatingBriefId.value === deal.id">Drafting…</span>
+                  <span v-else-if="deal.discovery_brief">Regenerate brief</span>
+                  <span v-else>Generate brief</span>
+                </button>
+              </div>
+            </header>
+
+            <!-- The brief itself, if generated -->
+            <div v-if="deal.discovery_brief" class="rounded-card border border-brand/20 bg-brand/5 p-4 mt-2">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-brand mb-2 inline-flex items-center gap-1.5">
+                <AssistantMark class="h-3 w-3 text-brand" />
+                Ada's pre-call brief
+                <span v-if="deal.discovery_brief_generated_at" class="text-ink-disabled font-normal normal-case ml-1">
+                  · drafted {{ new Date(deal.discovery_brief_generated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) }}
+                </span>
+              </div>
+              <pre class="whitespace-pre-wrap text-sm text-ink leading-relaxed font-sans">{{ deal.discovery_brief }}</pre>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- Past -->
+      <div v-if="discovery.past.value.length > 0">
+        <div class="flex items-baseline gap-2 mb-3 mt-6">
+          <h3 class="text-sm font-semibold text-ink">Past calls</h3>
+          <span class="text-[10px] text-ink-muted">{{ discovery.past.value.length }} {{ discovery.past.value.length === 1 ? 'call' : 'calls' }}</span>
+        </div>
+        <div class="space-y-3">
+          <article v-for="deal in discovery.past.value" :key="deal.id" class="card p-4">
+            <header class="flex items-start justify-between gap-3 flex-wrap mb-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                  <h4 class="text-base font-semibold text-ink">{{ deal.company_name }}</h4>
+                  <span
+                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    :class="deal.post_call_followup_sent_at ? 'bg-success/15 text-success' : 'bg-warn/15 text-warn'"
+                  >
+                    {{ deal.post_call_followup_sent_at ? 'Follow-up sent' : 'Awaiting follow-up' }}
+                  </span>
+                </div>
+                <div class="text-[11px] text-ink-muted">
+                  {{ deal.contact_name }} · {{ deal.contact_email }}
+                  · {{ fmtScheduled(deal.scheduled_at) }}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="text-xs text-brand font-medium hover:underline"
+                @click="togglePostCallForm(deal.id)"
+              >{{ postCallForms[deal.id]?.expanded ? 'Hide' : 'Log notes + draft follow-up' }}</button>
+            </header>
+
+            <!-- Inline post-call form -->
+            <div v-if="postCallForms[deal.id]?.expanded" class="space-y-3 mt-3 pt-3 border-t border-divider">
+              <div class="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-ink mb-1">Interest level</label>
+                  <select v-model="postCallForms[deal.id].interest_level" class="input text-sm">
+                    <option value="hot">🔥 Hot — wants to move forward</option>
+                    <option value="warm">☀️ Warm — interested, needs nudge</option>
+                    <option value="lukewarm">🟡 Lukewarm — on the fence</option>
+                    <option value="cold">❄️ Cold — likely no</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-ink mb-1">Specific concern (optional)</label>
+                  <input v-model="postCallForms[deal.id].specific_concern" type="text" class="input text-sm" placeholder="Pricing, timing, AI skepticism…" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-ink mb-1">Next step agreed</label>
+                <input v-model="postCallForms[deal.id].next_step" type="text" class="input text-sm" placeholder="Send pricing proposal Tuesday · Demo their setup live · etc." />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-ink mb-1">Extra notes (optional)</label>
+                <textarea v-model="postCallForms[deal.id].extra_notes" rows="2" class="input text-sm font-sans" placeholder="Anything else Ada should know when drafting the recap…"></textarea>
+              </div>
+              <div class="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  class="btn-primary !text-sm inline-flex items-center gap-1.5"
+                  :disabled="discovery.draftingFollowupId.value === deal.id || !postCallForms[deal.id].next_step"
+                  @click="onDraftFollowup(deal)"
+                >
+                  <AssistantMark class="h-3.5 w-3.5 text-white" />
+                  <span v-if="discovery.draftingFollowupId.value === deal.id">Ada is drafting…</span>
+                  <span v-else>Draft follow-up email</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Drafted follow-up result -->
+            <div v-if="followupResult[deal.id]" class="rounded-card border border-brand/30 bg-brand/5 p-4 mt-3">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-brand mb-2 inline-flex items-center gap-1.5">
+                <AssistantMark class="h-3 w-3 text-brand" />
+                Ada's follow-up draft
+              </div>
+              <div class="text-sm font-semibold text-ink mb-2">Subject: {{ followupResult[deal.id].subject }}</div>
+              <pre class="whitespace-pre-wrap text-sm text-ink leading-relaxed font-sans mb-3">{{ followupResult[deal.id].body }}</pre>
+              <div class="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+                  @click="copyAndMarkFollowupSent(deal)"
+                >📋 Copy + mark sent</button>
+              </div>
+            </div>
+
+            <!-- Already-sent follow-up summary -->
+            <div v-else-if="deal.post_call_followup_draft" class="text-[11px] text-ink-muted mt-2 italic">
+              Ada drafted a follow-up
+              <span v-if="deal.post_call_followup_drafted_at">{{ new Date(deal.post_call_followup_drafted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }}</span>
+              <span v-if="deal.post_call_followup_sent_at"> · marked sent {{ new Date(deal.post_call_followup_sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }}</span>
+            </div>
+          </article>
+        </div>
       </div>
     </section>
 
