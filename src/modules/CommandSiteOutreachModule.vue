@@ -335,6 +335,86 @@ function resetManualForm() {
   manualBody.value = ''
   classifyResult.value = null
   editedDraftResponse.value = ''
+  rawPastedEmail.value = ''
+  parseStatus.value = null
+}
+
+// ── Raw-email paste + parser ─────────────────────────────────────────
+// Lets Josh paste the entire raw Gmail reply (headers + body + quote)
+// and we extract From email/name, Subject, Body, then auto-match the
+// lead from sent leads. Saves ~30s per reply on dropdown scrolling.
+
+const rawPastedEmail = ref('')
+const parseStatus = ref<{ ok: boolean; message: string } | null>(null)
+
+function parseRawEmail(raw: string): {
+  fromEmail?: string
+  fromName?: string
+  subject?: string
+  body?: string
+} {
+  const out: { fromEmail?: string; fromName?: string; subject?: string; body?: string } = {}
+
+  // From header — handle both "Name <email>" and bare email
+  const fromMatch = raw.match(/^\s*From:\s*(?:"?([^"<\n]+?)"?\s*)?<?([\w.+-]+@[\w.-]+\.[a-zA-Z]+)>?/im)
+  if (fromMatch) {
+    if (fromMatch[1]) out.fromName = fromMatch[1].trim()
+    out.fromEmail = fromMatch[2].toLowerCase()
+  } else {
+    // Fallback: any email address that's not Josh's
+    const emailMatch = raw.match(/<?([\w.+-]+@[\w.-]+\.[a-zA-Z]+)>?/)
+    if (emailMatch) out.fromEmail = emailMatch[1].toLowerCase()
+  }
+
+  const subjectMatch = raw.match(/^\s*Subject:\s*(.+)$/im)
+  if (subjectMatch) out.subject = subjectMatch[1].trim()
+
+  // Body: strip headers, strip "On X wrote:" + quoted lines
+  let body = raw
+  body = body.replace(/^(From|To|Date|Subject|Cc|Bcc|Reply-To|Sent|Message-ID|MIME-Version|Content-Type|Content-Transfer-Encoding):\s*.*$/gim, '')
+  body = body.replace(/On\s+[^\n]+\s+wrote:[\s\S]*$/m, '')
+  body = body.split('\n').filter((l) => !l.trim().startsWith('>')).join('\n')
+  body = body.replace(/\n{3,}/g, '\n\n').trim()
+  if (body) out.body = body
+
+  return out
+}
+
+function findLeadByEmail(email: string): string | null {
+  const e = email.toLowerCase().trim()
+  const lead = sentLeads.value.find((l) => (l.contact_email ?? '').toLowerCase().trim() === e)
+  return lead?.id ?? null
+}
+
+function parseAndAutofill() {
+  parseStatus.value = null
+  const raw = rawPastedEmail.value.trim()
+  if (!raw) {
+    parseStatus.value = { ok: false, message: 'Paste a Gmail reply (with headers + body) above first.' }
+    return
+  }
+  const parsed = parseRawEmail(raw)
+  if (!parsed.fromEmail) {
+    parseStatus.value = { ok: false, message: 'Could not find a From: email. Paste the full raw email including headers.' }
+    return
+  }
+
+  manualFromEmail.value = parsed.fromEmail
+  if (parsed.fromName) manualFromName.value = parsed.fromName
+  if (parsed.subject) manualSubject.value = parsed.subject
+  if (parsed.body) manualBody.value = parsed.body
+
+  // Auto-match lead from sent
+  const matchedId = findLeadByEmail(parsed.fromEmail)
+  if (matchedId) {
+    manualLeadId.value = matchedId
+    parseStatus.value = { ok: true, message: `✓ Auto-filled and matched lead by ${parsed.fromEmail}` }
+  } else {
+    parseStatus.value = {
+      ok: false,
+      message: `Auto-filled, but no sent lead matches ${parsed.fromEmail}. Pick the lead manually below.`,
+    }
+  }
 }
 
 // ── Pipeline view: kanban stages from cs_leads.status + send_count ──
@@ -889,12 +969,45 @@ function leadForReply(r: CsReply): CsLead | null {
 
     <!-- ── VIEW: Manual reply (paste) ──────────────────────────────── -->
     <section v-if="view === 'manual_reply'" class="space-y-4">
+      <!-- Quick paste: dump the raw Gmail reply, auto-fill the form -->
+      <div class="card p-4 border-brand/30 bg-brand/5">
+        <div class="flex items-start gap-2 mb-2">
+          <AssistantMark class="h-4 w-4 text-brand mt-0.5" />
+          <div class="flex-1">
+            <h3 class="text-sm font-semibold text-ink">Quick paste · auto-fill from Gmail</h3>
+            <p class="text-xs text-ink-muted">
+              In Gmail: ⋮ → "Show original" → copy. Or just copy the visible reply with the From: line. We'll find the lead, fill the form, and queue Ada's draft response.
+            </p>
+          </div>
+        </div>
+        <textarea
+          v-model="rawPastedEmail"
+          rows="5"
+          placeholder="Paste the raw email (headers + body)…"
+          class="input font-mono text-xs"
+        />
+        <div class="flex items-center justify-between gap-2 mt-2">
+          <div v-if="parseStatus" class="text-xs flex-1" :class="parseStatus.ok ? 'text-success' : 'text-warn'">
+            {{ parseStatus.message }}
+          </div>
+          <div v-else class="text-[11px] text-ink-disabled flex-1">
+            Auto-detects From email + name, Subject, Body. Matches the lead from your Sent list.
+          </div>
+          <button
+            type="button"
+            class="btn-primary !text-xs whitespace-nowrap"
+            :disabled="!rawPastedEmail.trim()"
+            @click="parseAndAutofill"
+          >Parse + auto-fill</button>
+        </div>
+      </div>
+
       <div class="card p-4">
         <h3 class="text-sm font-semibold text-ink mb-2">
-          Paste a reply you got in Gmail
+          Reply details
         </h3>
         <p class="text-xs text-ink-muted mb-3">
-          Sage classifies it (positive / objection / OOF / etc.) + drafts a suggested reply for the right categories.
+          Ada classifies (positive / objection / OOF / etc.) + drafts a suggested response for the right categories.
         </p>
 
         <div class="space-y-3">
