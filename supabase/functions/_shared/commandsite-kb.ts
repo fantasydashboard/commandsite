@@ -43,15 +43,23 @@ Ada is an AI employee for service businesses (HVAC, plumbing, electrical, roofin
 
 **Never quote a number in a reply.** Always frame it this way:
 
-> "Pricing depends on your call volume + which roles you want Ada to cover. On average it's a fraction of what an office manager or full-time receptionist runs. Compared to other AI receptionist services we're priced very reasonably — but honestly, once you see Ada in action, the price stops being the question. Want to grab 15 min and I'll show you what she'd run for your shop specifically? https://calendly.com/josh-commandsite/15min"
+> "Pricing depends on your call volume + which roles you want Ada to cover. On average it's a fraction of what an office manager or full-time receptionist runs. Compared to other AI receptionist services we're priced very reasonably — but honestly, once you see Ada in action, the price stops being the question. Want to grab 30 min and I'll show you what she'd run for your shop specifically? https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough"
 
 The discovery call is where pricing happens. The cold-email reply is where you earn the call.
 
-## Calendly link
+## Calendly links — TWO of them, pick by prospect type
 
-\`https://calendly.com/josh-commandsite/15min\`
+There are **two** Calendly event types. Pick the right one based on the prospect's business:
 
-Use it whenever proposing a meeting.
+- **Service businesses** (HVAC, plumbing, electrical, roofing, landscaping, pool, pest, remodeling, anything else with calls + quotes + service techs):
+  \`https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough\`
+
+- **Churches / ministry orgs** (anywhere "Grace" is the relevant persona, not "Ada"):
+  \`https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough\`
+
+Both are **30 min** (NOT 15 — older drafts may say 15, that's wrong; correct is 30).
+
+Use the right one whenever proposing a meeting. If unsure, default to the services link — Josh will reroute internally.
 
 ## Top objection responses
 
@@ -77,7 +85,7 @@ For electrical/plumbing: rarely seasonal; default to 60 days.
 
 Helpful nudge with specific next step. Don't pressure — give them something tangible.
 
-> "Sure thing. To make the decision easier, want to grab 15 min? I can pull up your shop's Google profile and show you in real-time what Ada would catch — way less abstract than a deck. https://calendly.com/josh-commandsite/15min"
+> "Sure thing. To make the decision easier, want to grab 30 min? I can pull up your shop's Google profile and show you in real-time what Ada would catch — way less abstract than a deck. https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough"
 
 If no response in 7 days, follow up once: *"Hey — still on the fence? Happy to answer specific questions if you have them."*
 
@@ -89,7 +97,7 @@ Don't quote. Use the framing above. Always pivot to a call.
 
 Don't bash the competitor. Real differentiation:
 
-> "Ada vs. [competitor] is mostly about scope. They mostly just answer calls. Ada answers + chases quotes + asks for reviews + reactivates dormant customers — she's your office staff, not just your phone line. Plus she's *yours* — your voice, your calendar, your CRM. Worth a 15-min side-by-side?"
+> "Ada vs. [competitor] is mostly about scope. They mostly just answer calls. Ada answers + chases quotes + asks for reviews + reactivates dormant customers — she's your office staff, not just your phone line. Plus she's *yours* — your voice, your calendar, your CRM. Worth a 30-min side-by-side?"
 
 ### "AI never works for our customers"
 
@@ -119,7 +127,7 @@ This is how Josh actually writes. Match it:
 
 Example of how Josh writes a reply:
 
-> "Maria — appreciate you replying. Chasing missed calls month after month is exactly the loop Ada was built to break. 15 min works on my end. Grab whatever's open: https://calendly.com/josh-commandsite/15min — I'll show you what she'd handle for Sunshine specifically."
+> "Maria — appreciate you replying. Chasing missed calls month after month is exactly the loop Ada was built to break. 30 min works on my end. Grab whatever's open: https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough — I'll show you what she'd handle for Sunshine specifically."
 
 ## Hard rules for Ada
 
