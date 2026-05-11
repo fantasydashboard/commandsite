@@ -112,8 +112,12 @@ const hasAnyLogged = computed(() =>
       </div>
     </header>
 
-    <div v-if="!workout || exercises.length === 0" class="px-4 py-6 text-center text-xs text-ink-muted">
+    <div v-if="!workout" class="px-4 py-6 text-center text-xs text-ink-muted">
       Rest day. Walk, hydrate, sleep. Sage will check HRV in the morning.
+    </div>
+    <div v-else-if="exercises.length === 0" class="px-4 py-6 text-center text-xs">
+      <p class="text-ink-muted mb-2">No exercises in this week's plan yet for <strong class="text-ink">{{ workout }}</strong>.</p>
+      <p class="text-[11px] text-ink-disabled">Open the <strong>Plan</strong> tab and click <strong>Regenerate</strong> — Sage will fill in 3-4 research-backed exercises for a 20-30 min session.</p>
     </div>
 
     <ul v-else class="divide-y divide-divider">
