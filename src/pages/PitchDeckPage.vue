@@ -55,23 +55,38 @@ const founderFirst = 'Josh'
 // Pull a few specific review quotes if available
 const topReviews = computed(() => (lead.value?.review_excerpts ?? []).slice(0, 4))
 
-// Pricing presented (per current discussion — service vs church tier)
+// Pricing — both standard rate AND the founding-customer intro rate.
+// The intro rate is what new prospects actually get; the standard
+// rate is what shows up "slashed" to communicate the value of the
+// discount without us having to say "first 5 customers."
 const pricing = computed(() => {
   if (isChurch.value) {
     return {
-      tier: 'Standard church',
-      setup: '$999',
-      monthly: '$499',
-      annualPrepay: '$5,490 (saves $999)',
+      tier: 'Founding customer · ministry rate',
+      // Standard (slashed)
+      stdSetup: '$999',
+      stdMonthly: '$499',
+      // Founding rate (active)
+      setup: '$499',
+      monthly: '$299',
+      annualPrepay: '$2,990 (saves another $498)',
       lockMonths: 12,
+      year1Cost: 499 + 299 * 12,        // $4,087
+      year1CostStandard: 999 + 499 * 12, // $6,987
+      year1Savings: (999 + 499 * 12) - (499 + 299 * 12), // $2,900
     }
   }
   return {
-    tier: 'Standard',
-    setup: '$2,500',
-    monthly: '$999',
-    annualPrepay: '$9,990 (saves $2,000)',
+    tier: 'Founding customer · service business rate',
+    stdSetup: '$2,500',
+    stdMonthly: '$999',
+    setup: '$1,499',
+    monthly: '$499',
+    annualPrepay: '$4,990 (saves another $497)',
     lockMonths: 12,
+    year1Cost: 1499 + 499 * 12,         // $7,487
+    year1CostStandard: 2500 + 999 * 12, // $14,488
+    year1Savings: (2500 + 999 * 12) - (1499 + 499 * 12), // $7,001
   }
 })
 
@@ -104,8 +119,8 @@ const quotesRevenue = computed(() =>
 )
 
 const totalCaught = computed(() => missedRevenue.value + quotesRevenue.value)
-const adaCostYear1 = computed(() => isChurch.value ? 6_987 : 14_488) // setup + 12 × monthly
-const roi = computed(() => Math.round(totalCaught.value / adaCostYear1.value))
+// ROI uses the FOUNDING rate (what they're being offered), not standard
+const roi = computed(() => Math.round(totalCaught.value / pricing.value.year1Cost))
 
 function money(n: number): string {
   return '$' + n.toLocaleString()
@@ -167,14 +182,14 @@ const notes = computed<string[]>(() => [
   `Math slide #1. Don't lecture — make THEM do the math out loud. "How many calls do you think you miss in a typical day?" "What's your average closed-call value?" Then build the math live with their numbers, not mine. End with: "Even if I'm half wrong on these, what's the rough number that feels right?"`,
   // 4 — quote follow-up leak
   `Math slide #2. Same shape. "How many quotes do you send a month?" "What's your close rate on the ones you follow up vs the ones you don't?" Most owners DON'T track this — when they realize they don't, that's a soft moment of recognition. Use it.`,
-  // 5 — solutions table
-  `THE timeshare slide. Walk down the list one row at a time. The "you yourself" row is the secret weapon — when they say "8 hours/week," multiply by their hourly rate live. They will gasp. That's the moment.`,
-  // 6 — the math
-  `Cost vs catch. Don't read it — show it on the screen and ask: "Even if I'm off by half — does this still pencil for you?" Almost everyone says yes. That's your buying signal.`,
-  // 7 — show her work
-  `Click out to the live dashboard URL — ${demoUrl.value}. Don't try to demo all 4 roles. Pick ONE that maps to their #1 pain. Drive the wow moment: click Approve on a queue card, watch the animation, narrate it: "Right now, ${persona.value} just sent that on your behalf. That's the loop you'd live in."`,
-  // 8 — the pilot
-  `Pricing slide. Don't dance around it. State the numbers, then frame it: "${money(adaCostYear1.value)} year-one to catch ${money(totalCaught.value)}. The math is what the math is." Mention the 30-day money-back. Mention the 12-month rate lock. Mention you're raising prices in Q3 (true, not fake urgency).`,
+  // 5 — show her work (DEMO — moved up before price)
+  `THE wow moment. Click out to the live dashboard URL — ${demoUrl.value}. Don't try to demo all 4 roles. Pick ONE that maps to their #1 pain. Drive the wow moment: click Approve on a queue card, watch the animation, narrate it: "Right now, ${persona.value} just sent that on your behalf. That's the loop you'd live in." Spend 5-7 minutes here. They should ask questions. After this slide they're imagining themselves using it — that's exactly when we should NOT show price yet.`,
+  // 6 — solutions table (no Ada price yet)
+  `THE alternative-cost slide. Walk down the list one row at a time. The "you yourself" row is the secret weapon — when they say "8 hours/week," multiply by their hourly rate live. They will gasp. That's the moment. ${persona.value}'s row says "From ${pricing.value.monthly}/mo — we'll get to the full breakdown next." Plant the floor without revealing the deal.`,
+  // 7 — the catch (year 1 catch math, no cost number)
+  `Now that they've seen ${persona.value} work AND seen the alternatives, this is the catch math. Show ${money(totalCaught.value)} caught year one. Ask: "Even if I'm off by half — does this still pencil for you?" Almost everyone says yes. THAT is your buying signal. End with: "Now let's talk about what she costs." This sets up the reveal.`,
+  // 8 — pricing reveal with founding rate
+  `THE PRICE REVEAL. The visual does the work — standard rate slashed, founding rate active, savings strip green. Frame it as: "${company.value} would be coming on while ${persona.value} is still new — that earns you the founding rate, half off, locked ${pricing.value.lockMonths} months. Worth being early." Don't apologize for the price — the catch math already justified it. Mention: 30-day money-back, no setup work for them, and that AFTER 12 months it renews at standard rate (be honest about this — surprise renewal would burn trust). Annual prepay if they want a single PO.`,
   // 9 — next steps
   `Don't ask "do you want to do this?" Ask "what's the right next step for you?" Two clean options: (1) "send a proposal this afternoon, target start next week" or (2) "send the deck + recap, you sit on it for a week, we reconnect Tuesday." Both are real options. Picking one IS the close.`,
 ])
@@ -264,9 +279,9 @@ const notes = computed<string[]>(() => [
         <ol class="space-y-5">
           <li v-for="(it, i) in [
             'What I noticed about ' + company,
-            'The math: what\'s leaking + what it costs',
-            persona + ' in action — live, on your data',
-            'Pricing + what happens if we move forward',
+            'Where revenue is leaking right now',
+            persona + ' in action — live demo on your data',
+            'What it catches, what it costs, what happens next',
           ]" :key="i" class="flex items-start gap-4">
             <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white font-bold text-sm flex-shrink-0">{{ i + 1 }}</span>
             <span class="text-xl text-ink leading-snug pt-1">{{ it }}</span>
@@ -332,10 +347,31 @@ const notes = computed<string[]>(() => [
         </p>
       </section>
 
-      <!-- ── Slide 5: Solutions table (the "timeshare" slide) ────── -->
-      <section v-else-if="slideIdx === 5" class="max-w-5xl">
+      <!-- ── Slide 5: Show her work (DEMO — moved up before price) ─ -->
+      <section v-else-if="slideIdx === 5" class="max-w-3xl text-center">
+        <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">Live · in your browser</div>
+        <h2 class="text-5xl font-bold text-ink mb-6 tracking-tight">Let's stop talking and watch {{ persona }} do it.</h2>
+        <p class="text-xl text-ink-muted mb-10 leading-relaxed">
+          A CommandSite dashboard set up specifically for {{ company }}. Click around. Numbers are illustrative — every <em>behavior</em> is what {{ persona }} would actually do for you from day one.
+        </p>
+        <a
+          :href="demoUrl"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-3 rounded-xl bg-brand text-white px-8 py-4 text-base font-semibold hover:opacity-90 transition-opacity shadow-2xl"
+        >
+          Open {{ company }}'s {{ persona }} dashboard
+          <span>→</span>
+        </a>
+        <p class="mt-12 text-[11px] text-ink-disabled italic">
+          During the call I'll drive. After the call this link is yours — share it with your team.
+        </p>
+      </section>
+
+      <!-- ── Slide 6: Solutions table — Ada price held back ──────── -->
+      <section v-else-if="slideIdx === 6" class="max-w-5xl">
         <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">Who could fix this — and what it costs</div>
-        <h2 class="text-3xl font-bold text-ink mb-6 tracking-tight">Five ways to plug the leaks.</h2>
+        <h2 class="text-3xl font-bold text-ink mb-6 tracking-tight">You'd want to plug those leaks no matter what. Here are the options.</h2>
         <div class="overflow-x-auto rounded-xl border border-divider">
           <table class="w-full text-sm">
             <thead class="bg-canvas/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
@@ -373,7 +409,7 @@ const notes = computed<string[]>(() => [
               </tr>
               <tr class="bg-brand/10 border-l-4 border-brand">
                 <td class="px-4 py-3 font-bold text-brand">{{ persona }} (CommandSite)</td>
-                <td class="px-4 py-3 font-bold text-brand">~{{ money(adaCostYear1) }}</td>
+                <td class="px-4 py-3 font-bold text-brand">From {{ pricing.monthly }}/mo<br /><span class="text-[10px] font-medium opacity-70">we'll get to the full breakdown next</span></td>
                 <td class="px-4 py-3 text-ink">Calls + quotes + reviews + reactivation</td>
                 <td class="px-4 py-3 text-ink-muted">New product · founder-built · so I respond same-day</td>
               </tr>
@@ -385,16 +421,12 @@ const notes = computed<string[]>(() => [
         </p>
       </section>
 
-      <!-- ── Slide 6: The math ───────────────────────────────────── -->
-      <section v-else-if="slideIdx === 6" class="max-w-3xl">
-        <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">The math</div>
-        <h2 class="text-4xl font-bold text-ink mb-8 tracking-tight">Cost vs. catch.</h2>
+      <!-- ── Slide 7: The catch (math — cost held back for reveal) ─ -->
+      <section v-else-if="slideIdx === 7" class="max-w-3xl">
+        <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">What {{ persona }} catches</div>
+        <h2 class="text-4xl font-bold text-ink mb-8 tracking-tight">A real number, year one.</h2>
         <div class="rounded-xl bg-surface-raised border border-divider divide-y divide-divider">
-          <div class="flex items-center justify-between px-6 py-4">
-            <span class="text-ink-muted">{{ persona }} year-one cost:</span>
-            <span class="text-2xl font-bold tabular-nums text-ink">{{ money(adaCostYear1) }}</span>
-          </div>
-          <div class="px-6 py-3 text-[11px] uppercase tracking-wider text-ink-disabled font-bold bg-canvas/40">What she catches (year one)</div>
+          <div class="px-6 py-3 text-[11px] uppercase tracking-wider text-ink-disabled font-bold bg-canvas/40">For {{ company }}, year one</div>
           <div class="flex items-center justify-between px-6 py-3">
             <span class="text-ink-muted">Missed calls recovered:</span>
             <span class="text-lg font-bold tabular-nums text-success">{{ money(missedRevenue) }}</span>
@@ -411,68 +443,73 @@ const notes = computed<string[]>(() => [
             <span class="text-ink-muted">Dormant customers reactivated:</span>
             <span class="text-lg font-bold tabular-nums text-success">$6,800+</span>
           </div>
-          <div class="flex items-center justify-between px-6 py-5 bg-brand/10">
-            <span class="text-ink font-bold text-lg">Total caught:</span>
-            <span class="text-3xl font-bold tabular-nums text-brand">{{ money(totalCaught) }}</span>
-          </div>
-          <div class="flex items-center justify-between px-6 py-5">
-            <span class="text-ink font-bold">Year-1 ROI:</span>
-            <span class="text-2xl font-bold tabular-nums text-success">{{ roi }}× return</span>
+          <div class="flex items-center justify-between px-6 py-6 bg-brand/10">
+            <span class="text-ink font-bold text-lg">Total she catches:</span>
+            <span class="text-4xl font-bold tabular-nums text-brand">{{ money(totalCaught) }}</span>
           </div>
         </div>
         <p class="mt-6 text-lg text-ink font-medium text-center">
           Even if I'm off by half — does this still pencil for you?
         </p>
-      </section>
-
-      <!-- ── Slide 7: Show her work ──────────────────────────────── -->
-      <section v-else-if="slideIdx === 7" class="max-w-3xl text-center">
-        <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">Live demo</div>
-        <h2 class="text-5xl font-bold text-ink mb-6 tracking-tight">Let's stop talking and watch {{ persona }} do it.</h2>
-        <p class="text-xl text-ink-muted mb-10 leading-relaxed">
-          I'm going to share a CommandSite dashboard set up specifically for {{ company }}. Click around. The numbers are illustrative — but every behavior is what {{ persona }} would do for you from day one.
-        </p>
-        <a
-          :href="demoUrl"
-          target="_blank"
-          rel="noopener"
-          class="inline-flex items-center gap-3 rounded-xl bg-brand text-white px-8 py-4 text-base font-semibold hover:opacity-90 transition-opacity shadow-2xl"
-        >
-          Open {{ company }}'s {{ persona }} dashboard
-          <span>→</span>
-        </a>
-        <p class="mt-12 text-[11px] text-ink-disabled italic">
-          During the call, click here. After the call, this same link is yours to share with your team.
+        <p class="mt-3 text-sm text-ink-muted italic text-center">
+          Now let's talk about what she costs.
         </p>
       </section>
 
-      <!-- ── Slide 8: Pilot terms ────────────────────────────────── -->
+      <!-- ── Slide 8: Pricing reveal — founding rate with slash ──── -->
       <section v-else-if="slideIdx === 8" class="max-w-3xl">
-        <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">If you want in</div>
-        <h2 class="text-4xl font-bold text-ink mb-8 tracking-tight">Pilot terms.</h2>
-        <div class="rounded-xl bg-surface-raised border-2 border-brand/30 divide-y divide-divider mb-6">
-          <div class="px-6 py-4 grid grid-cols-2 gap-4 items-baseline">
-            <span class="text-ink-muted">Setup (one-time):</span>
-            <span class="text-2xl font-bold tabular-nums text-ink text-right">{{ pricing.setup }}</span>
+        <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">{{ pricing.tier }}</div>
+        <h2 class="text-4xl font-bold text-ink mb-3 tracking-tight">An introductory rate, just for you.</h2>
+        <p class="text-sm text-ink-muted mb-8 leading-relaxed">
+          {{ company }} would be coming on while {{ persona }} is still new to the world. That earns you the founding rate — half off, locked for {{ pricing.lockMonths }} months. Worth being early.
+        </p>
+
+        <div class="rounded-2xl bg-gradient-to-br from-brand/5 via-surface-raised to-success/5 border-2 border-brand/40 overflow-hidden mb-6 shadow-xl">
+          <!-- Two-column: standard slashed vs founding active -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-divider">
+            <!-- Standard (slashed) -->
+            <div class="px-6 py-5 opacity-60">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-3">Standard rate</div>
+              <div class="line-through text-ink text-2xl font-bold tabular-nums leading-tight">{{ pricing.stdSetup }}</div>
+              <div class="text-[11px] text-ink-disabled mb-3">setup, one-time</div>
+              <div class="line-through text-ink text-2xl font-bold tabular-nums leading-tight">{{ pricing.stdMonthly }}/mo</div>
+              <div class="text-[11px] text-ink-disabled">monthly</div>
+            </div>
+            <!-- Founding rate (active) -->
+            <div class="px-6 py-5 bg-brand/10 relative">
+              <div class="absolute top-3 right-3 rounded-full bg-success text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">Yours</div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Founding rate</div>
+              <div class="text-brand text-3xl font-bold tabular-nums leading-tight">{{ pricing.setup }}</div>
+              <div class="text-[11px] text-ink-muted mb-3">setup, one-time</div>
+              <div class="text-brand text-3xl font-bold tabular-nums leading-tight">{{ pricing.monthly }}/mo</div>
+              <div class="text-[11px] text-ink-muted">monthly · locked {{ pricing.lockMonths }} months</div>
+            </div>
           </div>
-          <div class="px-6 py-4 grid grid-cols-2 gap-4 items-baseline">
-            <span class="text-ink-muted">Monthly:</span>
-            <span class="text-2xl font-bold tabular-nums text-ink text-right">{{ pricing.monthly }}/mo</span>
-          </div>
-          <div class="px-6 py-4 grid grid-cols-2 gap-4 items-baseline bg-success/5">
-            <span class="text-success font-semibold">Annual prepay alternative:</span>
-            <span class="text-lg font-bold tabular-nums text-success text-right">{{ pricing.annualPrepay }}</span>
-          </div>
-          <div class="px-6 py-4 grid grid-cols-2 gap-4 items-baseline">
-            <span class="text-ink-muted">Rate locked for:</span>
-            <span class="text-lg font-bold text-ink text-right">{{ pricing.lockMonths }} months</span>
+          <!-- Savings strip -->
+          <div class="bg-success/10 px-6 py-3 flex items-center justify-between border-t border-divider">
+            <span class="text-success font-semibold text-sm">Year-one savings:</span>
+            <span class="text-success text-xl font-bold tabular-nums">{{ money(pricing.year1Savings) }}</span>
           </div>
         </div>
-        <div class="space-y-2 text-sm text-ink-muted">
-          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">30-day money-back</strong> if {{ persona }} doesn't catch enough to cover her cost in month one.</span></p>
-          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">We set everything up.</strong> You don't lift a finger past the kickoff call.</span></p>
-          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Cancel anytime</strong> after the {{ pricing.lockMonths }}-month term.</span></p>
-          <p class="flex items-start gap-2"><span class="text-warn font-bold">!</span><span class="italic">We're raising standard pricing in Q3 — this rate is current customers only.</span></p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <div class="rounded-lg border border-divider bg-surface-raised px-4 py-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1">Year-1 cost (founding)</div>
+            <div class="text-xl font-bold tabular-nums text-ink">{{ money(pricing.year1Cost) }}</div>
+            <div class="text-[11px] text-ink-disabled">setup + 12 × monthly</div>
+          </div>
+          <div class="rounded-lg border border-success/30 bg-success/5 px-4 py-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-success mb-1">Year-1 ROI</div>
+            <div class="text-xl font-bold tabular-nums text-success">{{ roi }}× return</div>
+            <div class="text-[11px] text-ink-muted">{{ money(totalCaught) }} caught ÷ {{ money(pricing.year1Cost) }} cost</div>
+          </div>
+        </div>
+
+        <div class="space-y-1.5 text-[13px] text-ink-muted">
+          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Annual prepay</strong> available: {{ pricing.annualPrepay }}</span></p>
+          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">30-day money-back</strong> if {{ persona }} doesn't pay for herself in month one</span></p>
+          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">We set everything up.</strong> You don't lift a finger</span></p>
+          <p class="flex items-start gap-2"><span class="text-ink-muted">·</span><span class="italic">After {{ pricing.lockMonths }} months, renews at standard rate. No surprises — we'll tell you 60 days out.</span></p>
         </div>
       </section>
 
