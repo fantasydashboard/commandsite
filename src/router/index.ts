@@ -72,6 +72,15 @@ const routes = [
     ],
   },
   {
+    // Pitch deck — public, optional ?lead query (or :slug param).
+    // Used live on discovery calls + sharable post-call.
+    path: '/pitch/:slug?',
+    name: 'pitch',
+    component: () => import('@/pages/PitchDeckPage.vue'),
+    meta: { public: true },
+    props: true,
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/pages/NotFoundPage.vue'),
