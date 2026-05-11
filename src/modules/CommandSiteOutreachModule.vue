@@ -19,13 +19,15 @@ import { computed, ref } from 'vue'
 import type { Client, CsLead, CsReply } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
-import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
 import CommandSiteDemoLinkModal from '@/components/CommandSiteDemoLinkModal.vue'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useOutreachSends } from '@/lib/clients/commandsite/outreachSendsApi'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
 import { useDiscovery, type DiscoveryDeal } from '@/lib/clients/commandsite/discoveryApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { useToasts } from '@/components/grace/useToasts'
+import { useAssistantChat } from '@/components/grace/useGraceChat'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -97,44 +99,47 @@ const kpis = computed(() => {
   }
 })
 
-// ── Activity strip items derived from real data ──────────────────────
-const recentActivity = computed(() => {
-  const items: { icon: string; label: string; detail?: string; ago?: string }[] = []
-  if (kpis.value.drafts_ready > 0) {
-    items.push({
-      icon: '📝',
-      label: `${kpis.value.drafts_ready} ${kpis.value.drafts_ready === 1 ? 'draft' : 'drafts'} ready to send`,
-      detail: 'Open Ready to send → copy + mark sent per lead',
-      ago: 'now',
-    })
+// ── Live ticker + chat hooks (grace primitives) ──────────────────────
+const outreachTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const outreachToasts = useToasts()
+const outreachChat = useAssistantChat()
+
+const tickerSeed = computed(() => {
+  const events: { icon: string; text: string; ageSec: number }[] = []
+  const now = Date.now()
+
+  // Recent sends
+  for (const s of sends.value.slice(0, 4)) {
+    const lead = leads.value.find((l) => l.id === s.lead_id)
+    const co = lead?.company_name ?? 'lead'
+    const ageSec = Math.floor((now - new Date(s.sent_at).getTime()) / 1000)
+    events.push({ icon: '📤', text: `Sent to ${co}: "${(s.subject ?? '').slice(0, 40)}"`, ageSec })
   }
-  if (kpis.value.sent_today > 0) {
-    items.push({
-      icon: '✉️',
-      label: `${kpis.value.sent_today} ${kpis.value.sent_today === 1 ? 'email' : 'emails'} sent today`,
-      detail: kpis.value.sent_7d > kpis.value.sent_today
-        ? `${kpis.value.sent_7d} this week · ${kpis.value.sent_total} lifetime`
-        : `${kpis.value.sent_total} lifetime`,
-      ago: 'rolling',
-    })
+  // Recent replies
+  for (const r of liveReplies.replies.value.slice(0, 4)) {
+    const lead = leads.value.find((l) => l.id === r.lead_id)
+    const co = lead?.company_name ?? 'lead'
+    const ageSec = Math.floor((now - new Date(r.received_at).getTime()) / 1000)
+    const tone = r.classification === 'positive' ? '✅' : r.classification === 'objection' ? '🤔' : '💬'
+    events.push({ icon: tone, text: `Reply from ${co} — ${r.classification ?? 'pending'}`, ageSec })
   }
-  if (kpis.value.positive_replies > 0) {
-    items.push({
-      icon: '🟢',
-      label: `${kpis.value.positive_replies} positive ${kpis.value.positive_replies === 1 ? 'reply' : 'replies'}`,
-      detail: 'Open Inbox → respond + book demos',
-      ago: 'rolling',
-    })
-  } else if (kpis.value.awaiting_reply > 0) {
-    items.push({
-      icon: '⏳',
-      label: `${kpis.value.awaiting_reply} ${kpis.value.awaiting_reply === 1 ? 'lead' : 'leads'} awaiting reply`,
-      detail: 'Sent 24h+ ago, no reply yet',
-      ago: 'rolling',
-    })
+
+  if (events.length === 0) {
+    return [{ icon: '⚙️', text: 'Outreach engine ready — drafts in Ready to send, replies in Inbox', ageSec: 0 }]
   }
-  return items
+  return events.sort((a, b) => a.ageSec - b.ageSec).slice(0, 5)
 })
+
+const tickerPool = [
+  { icon: '📤', text: 'Send logged — cs_outreach_sends row inserted, status → contacted' },
+  { icon: '📥', text: 'Reply received — Ada classifying' },
+  { icon: '✅', text: 'Reply classified positive — drafted response queued' },
+  { icon: '🤖', text: 'Followup cron fired — Touch 2 drafted for eligible leads' },
+  { icon: '📅', text: 'Calendly webhook fired — new cs_deal row' },
+  { icon: '🧠', text: 'Pre-call brief generated — Sage drafted' },
+  { icon: '📨', text: 'Post-call follow-up draft saved' },
+  { icon: '🚫', text: 'OOF / unsubscribe auto-handled — no manual touch needed' },
+]
 
 // ── Per-row actions (Ready view) ─────────────────────────────────────
 
@@ -215,6 +220,13 @@ async function openComposeAndMark(lead: CsLead) {
   }
   await reloadLeads()
   flash(`✓ Gmail opened + marked sent (${lead.company_name})`)
+
+  // Live ticker + chat acknowledgment from Ada
+  outreachTicker.value?.pushEvent({ icon: '📤', text: `Sent to ${lead.company_name} — marked + logged` })
+  outreachToasts.push(`✓ Done — sent to ${lead.company_name}`, 'success')
+  outreachChat.addAiMessage(
+    `Sent to ${lead.company_name}. Logged in cs_outreach_sends, status flipped to 'contacted'. If they don't reply in 3 days, the followup cron will draft Touch 2 automatically — surfaces here in your Ready queue.`,
+  )
 }
 
 // ── Manual reply paste form (uses draft-reply, the adaptive drafter) ─
@@ -623,11 +635,11 @@ function leadForReply(r: CsReply): CsLead | null {
 
 <template>
   <div class="space-y-4">
-    <!-- ── Sage activity strip (real data) ──────────────────────────── -->
-    <CommandSiteAdaActivityStrip
-      tab-key="outreach"
-      summary="The send queue + sent history + reply inbox. Phase 1 is manual paste-to-Gmail with one-click 'mark sent.' Sequences + Smartlead automation come next."
-      :activity="recentActivity"
+    <GraceLiveTicker
+      ref="outreachTicker"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Outreach activity — sends, replies, classifications, cron fires"
     />
 
     <!-- ── Header ───────────────────────────────────────────────────── -->

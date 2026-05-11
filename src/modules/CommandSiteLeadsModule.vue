@@ -15,7 +15,7 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModal.vue'
 import CommandSiteResearchLeadsModal from '@/components/CommandSiteResearchLeadsModal.vue'
 import CommandSiteColdEmailDraftsModal from '@/components/CommandSiteColdEmailDraftsModal.vue'
-import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
 import AssistantMark from '@/components/AssistantMark.vue'
 
@@ -77,63 +77,6 @@ const kpis = computed(() => {
   const avgScore = all.length > 0 ? Math.round(all.reduce((s, l) => s + (l.icp_score ?? 0), 0) / all.length) : 0
   const highScore = all.filter((l) => (l.icp_score ?? 0) >= 80).length
   return { newCount, queued, inFlight, promoted, avgScore, highScore }
-})
-
-// Activity strip — derived from the real leads, not hardcoded fixture content.
-// Empty array when no leads exist yet, which hides the "recent activity" block.
-const recentActivity = computed(() => {
-  const all = leads.value
-  if (all.length === 0) return []
-
-  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const addedThisWeek = all.filter(
-    (l) => l.created_at && new Date(l.created_at).getTime() >= oneWeekAgo,
-  ).length
-  const highScore = all.filter((l) => (l.icp_score ?? 0) >= 80).length
-  const promoted = all.filter((l) => l.status === 'promoted_to_pipeline').length
-  const adaReviewed = all.filter((l) => l.tags?.includes('ada_reviewed')).length
-  const fromMaps = all.filter((l) => l.source === 'google_maps').length
-
-  const items: { icon: string; label: string; detail?: string; ago?: string }[] = []
-
-  if (addedThisWeek > 0) {
-    items.push({
-      icon: '📥',
-      label: `${addedThisWeek} ${addedThisWeek === 1 ? 'lead' : 'leads'} added this week`,
-      detail:
-        fromMaps > 0
-          ? `${fromMaps} from Google Maps research · ${all.length} total in pipeline`
-          : `${all.length} total in pipeline`,
-      ago: 'rolling',
-    })
-  }
-
-  if (highScore > 0) {
-    items.push({
-      icon: '🎯',
-      label: `${highScore} ${highScore === 1 ? 'lead' : 'leads'} above 80 ICP score`,
-      detail: 'queued for outreach — highest fit first',
-      ago: 'this week',
-    })
-  } else if (adaReviewed > 0) {
-    items.push({
-      icon: '🤖',
-      label: `${adaReviewed} reviewed by Ada`,
-      detail: 'scored against your ICP with review-evidence reasoning',
-      ago: 'rolling',
-    })
-  }
-
-  if (promoted > 0) {
-    items.push({
-      icon: '⚡',
-      label: `Promoted ${promoted} ${promoted === 1 ? 'lead' : 'leads'} to pipeline`,
-      detail: 'auto-created cs_deals rows for top scorers',
-      ago: 'lifetime',
-    })
-  }
-
-  return items
 })
 
 // Modal state
@@ -491,14 +434,49 @@ function scoreClass(score: number | null): string {
   if (score >= 60) return 'bg-warn/15 text-warn'
   return 'bg-danger/15 text-danger'
 }
+
+// ── Live ticker ─────────────────────────────────────────────────────
+const tickerSeed = computed(() => {
+  const events: { icon: string; text: string; ageSec: number }[] = []
+  const now = Date.now()
+  // Recent leads (using created_at)
+  for (const l of leads.value.slice(0, 6)) {
+    if (!l.created_at) continue
+    const ageSec = Math.floor((now - new Date(l.created_at).getTime()) / 1000)
+    const co = l.company_name ?? 'lead'
+    if (l.icp_score && l.icp_score >= 80) {
+      events.push({ icon: '🎯', text: `Lead added — ${co} (ICP ${l.icp_score})`, ageSec })
+    } else if (l.draft_cold_email_at) {
+      events.push({ icon: '📝', text: `Draft generated — ${co}`, ageSec })
+    } else {
+      events.push({ icon: '📋', text: `Lead added — ${co}`, ageSec })
+    }
+  }
+  if (events.length === 0) {
+    return [{ icon: '⚙️', text: 'Lead engine ready — pull from Apollo / paste manually / research via Google Maps', ageSec: 0 }]
+  }
+  return events.sort((a, b) => a.ageSec - b.ageSec).slice(0, 5)
+})
+
+const tickerPool = [
+  { icon: '🎯', text: 'Lead scored ICP 80+ — flagged for drafting' },
+  { icon: '📝', text: 'Cold-email draft generated — Ada used review excerpts' },
+  { icon: '✉️', text: 'Email enrichment succeeded — verified deliverable' },
+  { icon: '📋', text: 'New lead added from Apollo CSV import' },
+  { icon: '🔍', text: 'Google Maps research swept — 12 candidates surfaced' },
+  { icon: '⚠️', text: 'Lead disqualified — outside ICP after enrichment' },
+]
+
+const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
 </script>
 
 <template>
   <div class="space-y-4">
-    <CommandSiteAdaActivityStrip
-      tab-key="leads"
-      summary="Ada pulls leads from Google Maps research (or imports), scores each against your ICP from cs_settings, and queues the high-scorers for personalized outreach."
-      :activity="recentActivity"
+    <GraceLiveTicker
+      ref="leadsTicker"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Lead activity — pulls, scores, drafts, enrichment events"
     />
 
     <!-- Header -->

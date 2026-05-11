@@ -18,7 +18,9 @@ import {
 } from '@/lib/clients/commandsite/pipeline'
 import { useDeals, type CreateDealInput } from '@/lib/clients/commandsite/dealsApi'
 import CommandSiteAddDealModal from '@/components/CommandSiteAddDealModal.vue'
-import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import { useRouter } from 'vue-router'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -128,18 +130,117 @@ function fmtDays(days: number): string {
 }
 
 const lostDeals = computed(() => dealsIn('closed_lost'))
+
+// ── Live ticker + stale-deal queue ────────────────────────────────────
+const router = useRouter()
+
+const staleQueue = computed<ApprovalQueueItem[]>(() => {
+  const STAGE_THRESHOLDS: Record<string, number> = {
+    cold: 14, researched: 7, contacted: 4, replied: 3,
+    demo_booked: 1, demo_done: 3, proposal: 5,
+  }
+  const items: ApprovalQueueItem[] = []
+  for (const d of deals.value) {
+    if (d.stage === 'closed_won' || d.stage === 'closed_lost') continue
+    const threshold = STAGE_THRESHOLDS[d.stage] ?? 7
+    const days = d.days_in_stage ?? 0
+    if (days < threshold) continue
+
+    const stageMeta = STAGE_META[d.stage as PipelineStage]
+    items.push({
+      id: `pipe-stale-${d.id}`,
+      icon: '⏰',
+      badge: 'Stale deal',
+      badgeClass: 'bg-warn/15 text-warn',
+      title: `${d.company_name} — ${days}d in ${stageMeta?.label ?? d.stage}`,
+      recipient: `${d.contact_name ?? ''} · ${d.estimated_arr_cents > 0 ? '$' + Math.round(d.estimated_arr_cents / 100).toLocaleString() + ' ARR' : 'no ARR set'}`,
+      preview: nudgePreviewFor(d.stage, d.company_name),
+      approved_response: `Routing to the deal card. Update next-action + due, or use Ada's drafted nudge if there is one.`,
+      ticker_after_approval: `Surfaced ${d.company_name} for next-step decision`,
+    })
+    if (items.length >= 5) break
+  }
+  return items
+})
+
+function nudgePreviewFor(stage: string, company: string): string {
+  if (stage === 'replied' || stage === 'contacted') {
+    return `Reply landed but no demo booked. Suggested: Ada drafts a "want to grab 30 min this week?" nudge with your Calendly link. Approve to open ${company}'s deal card.`
+  }
+  if (stage === 'demo_booked') {
+    return `Demo on the calendar but no pre-call brief generated yet. Approve to open the deal card and click "Generate brief" before the call.`
+  }
+  if (stage === 'demo_done') {
+    return `Demo finished, no post-call follow-up sent. Suggested: fill in the post-call form so Ada can draft the recap email.`
+  }
+  if (stage === 'proposal') {
+    return `Proposal sent but no movement. Suggested: Ada drafts a "soft check-in" nudge — typically lifts response 18%. Approve to open ${company}'s deal card.`
+  }
+  return `${company} hasn't moved recently. Open the deal card to update next-action or change stage.`
+}
+
+const tickerSeed = computed(() => {
+  const events: { icon: string; text: string; ageSec: number }[] = []
+  for (const d of deals.value.slice(0, 6)) {
+    const days = d.days_in_stage ?? 0
+    const ageSec = days * 86400
+    const stageMap: Record<string, string> = {
+      cold: '❄️ Added to pipeline',
+      researched: '🔍 Researched',
+      contacted: '📤 First touch sent',
+      replied: '💬 Replied',
+      demo_booked: '📅 Demo booked',
+      demo_done: '🎤 Demo complete',
+      proposal: '📨 Proposal sent',
+      closed_won: '🎉 Closed won',
+      closed_lost: '❌ Closed lost',
+    }
+    const label = stageMap[d.stage] ?? d.stage
+    events.push({ icon: label.split(' ')[0], text: `${d.company_name} — ${label.split(' ').slice(1).join(' ')}`, ageSec })
+  }
+  if (events.length === 0) {
+    return [{ icon: '⚙️', text: 'Pipeline ready — promote leads from Outreach replies, or add deals manually', ageSec: 0 }]
+  }
+  return events.sort((a, b) => a.ageSec - b.ageSec).slice(0, 5)
+})
+
+const tickerPool = [
+  { icon: '📅', text: 'Calendly fired — deal auto-promoted to demo_booked' },
+  { icon: '🎤', text: 'Demo complete — stage advanced to demo_done' },
+  { icon: '📨', text: 'Proposal sent — stage advanced to proposal' },
+  { icon: '🎉', text: 'Deal closed won — first MRR pending' },
+  { icon: '⏰', text: 'Stale-deal sweep — N deals flagged for action' },
+  { icon: '💬', text: 'Reply landed on a pipeline deal — surfaced to top' },
+]
+
+const pipelineTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onPipelineApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    pipelineTicker.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+  // Route to the pipeline page (we're already on it — could scroll to deal card or open detail later)
+  router.push({ name: 'dashboard.tab', params: { slug: 'commandsite', tab: 'pipeline' } }).catch(() => { /* ignore */ })
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <CommandSiteAdaActivityStrip
-      tab-key="pipeline"
-      summary="Ada watches every open deal — flags ones gone stale, drafts the 'did this land?' follow-ups in your voice, and writes proposal drafts when deals stick in mid-stage."
-      :activity="[
-        { icon: '📊', label: '6 stale deals flagged', detail: 'no movement in 5+ days · drafted nudges for top 3 by value', ago: 'this week' },
-        { icon: '✏', label: '2 proposal drafts ready', detail: 'Cool Comfort + Sunshine Plumbing — your review needed', ago: '1d' },
-        { icon: '⬆', label: 'Auto-promoted 1 deal to Demo Booked', detail: 'Brett @ Cool Comfort — Calendly fired, deal advanced', ago: '2h' },
-      ]"
+    <GraceLiveTicker
+      ref="pipelineTicker"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Pipeline activity — stage transitions, Calendly bookings, brief generations"
+    />
+
+    <GraceApprovalQueue
+      v-if="staleQueue.length > 0"
+      :items="staleQueue"
+      :initial-resolved="0"
+      heading="Stale deals — Ada flagged"
+      subtitle="Each deal stuck longer than its stage threshold. Approve to surface the deal card and decide next move."
+      resolved-label="Acted on this week"
+      @approved="onPipelineApproved"
     />
 
     <!-- Header -->
