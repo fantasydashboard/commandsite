@@ -157,9 +157,22 @@ function extractRowsFromMetric(metric: HAEMetric): ExtractedRow[] {
         const v = point[f]
         if (typeof v === 'number') {
           any = true
+          // HAE bug/format change: `asleep` and `inBed` are sometimes
+          // reported as 0 and the real total lives in `totalSleep`.
+          // Prefer totalSleep for sleep_asleep when present + non-zero;
+          // fall back to summing stages if neither is usable.
+          let value = v
+          if (f === 'asleep' && v === 0 && typeof point.totalSleep === 'number' && point.totalSleep > 0) {
+            value = point.totalSleep
+          }
+          if (f === 'inBed' && v === 0 && typeof point.totalSleep === 'number' && point.totalSleep > 0) {
+            // Without an inBed value, totalSleep is the next-best proxy
+            // for "time in bed" (slight underestimate by ~10-20 min).
+            value = point.totalSleep
+          }
           rows.push({
             metric_type: `sleep_${f.toLowerCase()}`,
-            value: v,
+            value,
             unit: 'h',
             recorded_at: recordedAt,
             source,
