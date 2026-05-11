@@ -19,6 +19,8 @@ import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalOnboardingModal from '@/components/JoshPersonalOnboardingModal.vue'
 import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
 import JoshPersonalMealPhotoModal from '@/components/JoshPersonalMealPhotoModal.vue'
+import JoshPersonalWorkoutPanel from '@/components/JoshPersonalWorkoutPanel.vue'
+import JoshPersonalWeightTrendCard from '@/components/JoshPersonalWeightTrendCard.vue'
 import {
   TODAY_LABEL,
   STEPS_DAILY_TARGET,
@@ -35,7 +37,7 @@ import { useMealLog } from '@/lib/clients/josh-personal/mealLogApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const { snapshot } = useHealthData()
+const { snapshot, dailyWeight } = useHealthData()
 const { profile, hasProfile, targets, loading: profileLoading } = useProfile()
 const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: regenerateBrief } = useMorningBrief()
 const { todaySlice: realTodaySlice } = useWeeklyPlan()
@@ -166,12 +168,6 @@ const weightGoal = computed<WeightGoalProgress | null>(() => {
   }
 })
 
-function weightGoalStatusClass(s: WeightGoalProgress['status']): string {
-  if (s === 'on-track')  return 'bg-success'
-  if (s === 'at-risk')   return 'bg-warn'
-  if (s === 'off-track') return 'bg-danger'
-  return 'bg-success'
-}
 function weightGoalStatusBadge(s: WeightGoalProgress['status']): string {
   if (s === 'on-track')  return 'bg-success/15 text-success'
   if (s === 'at-risk')   return 'bg-warn/15 text-warn'
@@ -211,6 +207,17 @@ const currentWeightLbs = computed<number | null>(() => {
 
 // Prefer the real plan's today-slice when available, fall through to mock
 const today = computed(() => realTodaySlice.value ?? todayPlan())
+
+interface PlannedWorkoutExercise { name: string; sets: string; load: string; notes?: string }
+const todayPlannedExercises = computed<PlannedWorkoutExercise[]>(() => {
+  const raw = (today.value?.workoutExercises ?? []) as Array<Record<string, unknown>>
+  return raw.map((ex) => ({
+    name: String(ex.name ?? ''),
+    sets: String(ex.sets ?? ''),
+    load: String(ex.load ?? ''),
+    notes: ex.notes ? String(ex.notes) : undefined,
+  }))
+})
 
 const stepsProgress = computed(() => {
   const raw = String(snapshot.value.steps.value).replace(/,/g, '')
@@ -394,41 +401,18 @@ const mealPhotoOpen = ref(false)
       </div>
     </section>
 
-    <!-- ── Bigger goal: weight progress ────────────────────────────── -->
-    <section v-if="weightGoal" class="card p-4">
-      <div class="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
-        <div>
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
-            Weight goal
-            <span v-if="profile?.target_deadline" class="text-ink-muted font-normal normal-case ml-1">
-              · {{ profile.primary_goal === 'cut' ? 'cut to' : 'reach' }} {{ weightGoal.target }} lbs by {{ new Date(profile.target_deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }}
-            </span>
-          </div>
-          <div class="text-base font-semibold text-ink mt-0.5">
-            <span class="tabular-nums">{{ weightGoal.current }} lbs</span>
-            <span class="text-ink-muted text-sm font-normal mx-1">→</span>
-            <span class="tabular-nums text-ink-muted">{{ weightGoal.target }} lbs</span>
-          </div>
-        </div>
-        <span
-          class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-          :class="weightGoalStatusBadge(weightGoal.status)"
-        >{{ weightGoal.statusLabel }}</span>
-      </div>
-
-      <!-- Progress bar with start / current / target markers -->
-      <div class="relative h-2 w-full bg-canvas rounded-full overflow-hidden mb-2">
-        <div
-          class="h-full rounded-full transition-all"
-          :class="weightGoalStatusClass(weightGoal.status)"
-          :style="{ width: `${weightGoal.pctComplete}%` }"
-        />
-      </div>
-
-      <p class="text-xs text-ink-muted leading-snug">
-        {{ weightGoal.detail }}
-      </p>
-    </section>
+    <!-- ── Bigger goal: weight trend (line graph) ─────────────────── -->
+    <JoshPersonalWeightTrendCard
+      v-if="weightGoal"
+      :current="weightGoal.current"
+      :target="weightGoal.target"
+      :series="dailyWeight"
+      :target-deadline="profile?.target_deadline ?? null"
+      :primary-goal="profile?.primary_goal"
+      :status-label="weightGoal.statusLabel"
+      :status-badge-class="weightGoalStatusBadge(weightGoal.status)"
+      :detail="weightGoal.detail"
+    />
 
     <!-- ── Sage's morning brief ───────────────────────────────────── -->
     <section
@@ -586,35 +570,10 @@ const mealPhotoOpen = ref(false)
 
     <!-- ── Today's plan slice (workout + meals from current week) ──── -->
     <div v-if="today" class="grid gap-4 lg:grid-cols-2">
-      <section class="card p-0 overflow-hidden">
-        <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
-          <div>
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Today's workout</div>
-            <div class="font-semibold text-ink mt-0.5">
-              <span v-if="today.workout">{{ today.workout }}</span>
-              <span v-else class="text-ink-muted">Rest day</span>
-            </div>
-          </div>
-          <button v-if="today.workout" class="rounded-md border border-divider text-ink bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:border-brand">
-            Mark done
-          </button>
-        </header>
-        <ul v-if="today.workoutExercises && today.workoutExercises.length > 0" class="divide-y divide-divider">
-          <li v-for="ex in today.workoutExercises" :key="ex.name" class="px-4 py-3 flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <div class="font-semibold text-ink text-sm">{{ ex.name }}</div>
-              <div v-if="ex.notes" class="text-[11px] text-ink-muted mt-0.5">{{ ex.notes }}</div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="font-mono text-sm text-ink tabular-nums">{{ ex.sets }}</div>
-              <div class="text-[11px] text-ink-muted tabular-nums">{{ ex.load }}</div>
-            </div>
-          </li>
-        </ul>
-        <div v-else class="px-4 py-6 text-center text-xs text-ink-muted">
-          Recovery day. Walk, hydrate, sleep. Sage will check HRV in the morning.
-        </div>
-      </section>
+      <JoshPersonalWorkoutPanel
+        :workout="today.workout ?? null"
+        :exercises="todayPlannedExercises"
+      />
 
       <section class="card p-0 overflow-hidden">
         <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">

@@ -438,6 +438,7 @@ export function useHealthData() {
     snapshot,
     trends,
     stepsSummary,
+    dailyWeight,
   }
 }
 

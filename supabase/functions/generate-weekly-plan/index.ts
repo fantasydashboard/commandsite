@@ -128,13 +128,65 @@ If the annotation math doesn't add up to the qty, the qty is wrong. Recompute.
 - Lean on cuisines from cuisines_loved. Default to Mediterranean if list is empty.
 - Snacks are usually high-protein (Greek yogurt, cottage cheese, whey + nuts) since they're easiest way to hit protein target.
 
-# WORKOUT DESIGN PRINCIPLES
+# WORKOUT DESIGN PRINCIPLES (research-backed, 20-30 min sessions)
 
-- Progressive overload: if last week's data shows he's been training, suggest +5 lbs on main lifts. If first plan, start at conservative loads for his stated experience.
-- Match his workouts/wk target. If 4/wk → 4 training days + 3 rest. If 6/wk → 6 + 1.
-- Each session matches session_duration_min target ± 10 min.
-- Push/pull/legs split: balanced volume across rotations.
-- Cardio (zone 2) on rest-from-lifting days if he's targeting >4 workouts/wk.
+## Time budget — non-negotiable
+
+Josh trains in a 20-30 minute window. Real sessions, not lifestyle "I'd like 90 min" wishes. Every plan respects this hard constraint.
+
+**The math:** with ~90 sec rest between sets, a 25-min session fits:
+- 1 compound lift (3-4 sets, slower) → ~12 min
+- 2-3 accessory lifts (3 sets each, faster) → ~13 min
+
+That's it. Don't program 6 exercises in a 25-min session — he'll either skip 2 of them or rush form. Better to program 3-4 hard exercises he'll actually finish.
+
+## Day templates (use these as the skeleton; vary specifics by week)
+
+**Push day (25 min):**
+1. Bench press OR overhead press — 3-4 sets × 5-8 reps (the compound)
+2. Dips OR incline DB press — 3 sets × 8-10
+3. Lateral raise — 3 sets × 12-15
+4. Tricep pushdown OR overhead extension — 3 sets × 10-12
+
+**Pull day (25 min):**
+1. Weighted pull-up OR barbell row — 3-4 sets × 5-8 (the compound)
+2. Seated cable row OR chest-supported row — 3 sets × 8-10
+3. Face pull — 3 sets × 12-15
+4. Bicep curl (BB or DB) — 3 sets × 8-12
+
+**Legs day (25 min):**
+1. Back squat OR front squat — 3-4 sets × 5-8 (the compound)
+2. Romanian deadlift — 3 sets × 6-8
+3. Walking lunge OR Bulgarian split squat — 3 sets × 8-10 per leg
+4. Standing calf raise — 3 sets × 12-15
+
+**Full body (cardio days, ~25 min):**
+- 4-5 compound movements at moderate intensity, 2-3 sets each, shorter rest (~60 sec). Pick from: goblet squat, kettlebell swing, push-up variant, row variant, plank carry.
+
+**Cardio / Zone 2 day:** 20-30 min steady-state (incline walk, bike, row). Target HR around (220 - age) × 0.65. No need to program specific exercises — just the duration + target HR.
+
+## Progressive overload — read last week's logged sets
+
+If the user message includes a RECENT WORKOUT LOG section, treat it as ground truth and progress conservatively:
+
+- **All sets at RPE ≤8 last week** → add 5 lbs to top set (or 1 rep if at the high end of rep range).
+- **Last set was RPE 9-10** → hold the weight, focus on adding 1 rep next session.
+- **Couldn't hit the prescribed reps** (e.g., planned 5 but got 3) → drop weight 5-10 lbs.
+- **No log for this exercise** → start at "experience-appropriate conservative" (40% bodyweight for novice bench, 60% for intermediate, etc.) and use a 10 rep set to gauge.
+- **Skipped last session** → repeat the prior session's load — don't progress when missing weeks.
+
+Always write the `notes` field on workout_exercises to explain the load choice when it's a progression: e.g. "Add 5 lbs vs last Mon (all sets RPE 7-8, room to push)" or "Hold from last week — top set was RPE 9, get the rep first".
+
+## Match his split
+
+- workouts_per_week=4 → push, pull, legs, full-body OR push, pull, legs, cardio
+- workouts_per_week=6 → push, pull, legs, push, pull, legs (PPL twice)
+- workouts_per_week=3 → push, pull, legs
+- workouts_per_week=2 → upper, lower
+- If "custom" in preferred_split, balance major muscle groups across the week
+- Always 1+ true rest day per week regardless of count
+
+If HRV trended down 10%+ from baseline, swap one strength day for cardio/recovery and explain in strategy.
 
 If something genuinely conflicts (e.g. "he wants 6 workouts/wk but his HRV is trending down"), program 5 with a deload day, and explain it in strategy.
 
@@ -148,6 +200,15 @@ After applying the change:
 - Re-check hard constraints — if the revision pushed any day out of cal/protein/sat-fat range, adjust the changed item's portions or pair it with a complementary swap and note this in strategy.
 - In the strategy field, lead with one sentence on the change made ("Swapped fish for chicken across the week as requested. Same protein hit, marginally lower omega-3 intake — flagging for next bloodwork."). Do NOT rewrite the strategy from scratch.
 - swaps: only NEW swaps added because of this revision get added; preserve the existing biomarker-driven swaps too.`
+
+interface WorkoutLogSet { weight: number | null; reps: number | null; rpe: number | null }
+interface WorkoutLogExercise { name: string; sets: WorkoutLogSet[]; notes?: string }
+interface WorkoutLogEntry {
+  workout_date: string
+  workout_type: string
+  status: string
+  actual_exercises: WorkoutLogExercise[]
+}
 
 interface PlanContext {
   week_starting: string
@@ -164,6 +225,7 @@ interface PlanContext {
     workout_days_last_7: number
   }
   goals: { label: string; status: string; detail: string }[]
+  recent_workout_log: WorkoutLogEntry[]
 }
 
 function buildUserMessage(ctx: PlanContext): string {
@@ -236,6 +298,27 @@ function buildUserMessage(ctx: PlanContext): string {
     for (const g of ctx.goals) {
       lines.push(`- ${g.label} — ${g.status} — ${g.detail}`)
     }
+    lines.push('')
+  }
+
+  // Recent workout log — fuel for progressive-overload decisions
+  if (ctx.recent_workout_log.length > 0) {
+    lines.push(`# RECENT WORKOUT LOG (last 14 days, newest first)`)
+    lines.push(`Use this for progressive overload. Each set: weight × reps @ RPE (RPE optional). "—" = not logged.`)
+    for (const w of ctx.recent_workout_log) {
+      lines.push(`\n## ${w.workout_date} · ${w.workout_type} · ${w.status}`)
+      for (const ex of w.actual_exercises) {
+        const setStrs = ex.sets
+          .filter((s) => s.weight !== null || s.reps !== null)
+          .map((s) => `${s.weight ?? '—'}×${s.reps ?? '—'}${s.rpe ? ` @${s.rpe}` : ''}`)
+        if (setStrs.length === 0) continue
+        lines.push(`  - ${ex.name}: ${setStrs.join(', ')}`)
+      }
+    }
+    lines.push('')
+  } else {
+    lines.push(`# RECENT WORKOUT LOG`)
+    lines.push(`No prior logged sessions. Start at experience-appropriate conservative loads and let Josh log this week's actuals.`)
     lines.push('')
   }
 
@@ -434,6 +517,20 @@ async function assemblePlanContext(admin: any, userId: string, weekStartingIso: 
     }
   }
 
+  // Recent workout log — last 14 days of completed/in-progress sessions
+  // so the model can apply progressive overload on a per-exercise basis.
+  const fourteenAgo = new Date()
+  fourteenAgo.setDate(fourteenAgo.getDate() - 14)
+  const { data: workoutLogRows } = await admin
+    .from('personal_workouts')
+    .select('workout_date, workout_type, status, actual_exercises')
+    .eq('user_id', userId)
+    .gte('workout_date', fourteenAgo.toISOString().slice(0, 10))
+    .in('status', ['completed', 'in_progress'])
+    .order('workout_date', { ascending: false })
+    .limit(14)
+  const workoutLog: WorkoutLogEntry[] = (workoutLogRows ?? []) as unknown as WorkoutLogEntry[]
+
   return {
     week_starting: weekStartingIso,
     date_label: dateLabel,
@@ -449,6 +546,7 @@ async function assemblePlanContext(admin: any, userId: string, weekStartingIso: 
       workout_days_last_7: workoutDays,
     },
     goals,
+    recent_workout_log: workoutLog,
   }
 }
 
