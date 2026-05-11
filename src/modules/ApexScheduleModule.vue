@@ -15,7 +15,8 @@ import {
   type JobStatus,
 } from '@/lib/clients/apex/schedule'
 import SourceIndicator from '@/components/SourceIndicator.vue'
-import ApexAdaActivityStrip from '@/components/ApexAdaActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -112,18 +113,95 @@ const weekGroups = computed<DayGroup[]>(() => {
       return { dateLabel: label, jobs: jobs.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()) }
     })
 })
+
+// ── Approval queue: scheduling decisions Ada needs your eyes on ──────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'sch-conflict-fri',
+    icon: '🔀',
+    badge: 'Conflict',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Tech swap proposed — Friday 11 AM',
+    recipient: 'Marcus double-booked · suggesting Tony for the Patterson job',
+    preview: 'Marcus has the Coronado emergency overrun blocking the Patterson 11 AM slot. Tony has the slot open and worked on the Patterson system 3 months ago — minimal context loss. Customer would get a heads-up text from me automatically.',
+    approved_response: "Done — Tony assigned, Patterson texted with the swap heads-up. He just got Tony's bio + photo so it doesn't feel cold. Marcus stays on Coronado.",
+    ticker_after_approval: 'Friday 11 AM swapped — Tony now on Patterson',
+  },
+  {
+    id: 'sch-overtime-sat',
+    icon: '💰',
+    badge: 'Overtime ask',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Saturday overtime — new customer wants Sat AM',
+    recipient: 'Mendoza Family · no cooling · willing to pay $40 weekend surcharge',
+    preview: 'They\'re a brand-new customer and the AC just died Friday afternoon. Tony is technically off Saturday but has said yes to OT before. Want me to ping Tony with the offer (incl. his standard OT cut)?',
+    approved_response: "Pinged Tony with the OT offer. He's a fast yes on emergencies — usually responds within 10 min. I'll surface his answer the moment it lands.",
+    ticker_after_approval: 'OT ask sent to Tony — Sat AM Mendoza emergency',
+  },
+  {
+    id: 'sch-cancel-batch',
+    icon: '📵',
+    badge: 'Cancellations',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Reschedule outreach — 3 cancellations today',
+    recipient: 'All 3 cited weather + work · Hsu, Foster, Rios',
+    preview: 'Drafted personalized "no problem, here\'s next week\'s availability" texts to all three. None are at-risk customers — just bad-luck day. Want me to send them all at once or hold for tomorrow?',
+    approved_response: "Sent. They got specific available slots already filtered to their preferred days/times based on past bookings. I'll surface any rebooking the moment it lands.",
+    ticker_after_approval: '3 reschedule outreach sent — Hsu, Foster, Rios',
+  },
+  {
+    id: 'sch-photo-prompt',
+    icon: '📸',
+    badge: 'Photo nudge',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Completion photo prompt — Marcus',
+    recipient: '3 jobs from yesterday still missing photos · warranty + marketing both want them',
+    preview: '"Hey Marcus — 3 jobs from yesterday still showing as no-photos in the system. Warranty needs them and they\'re also great for the website. Want me to ping you each one or just send one batch reminder?"',
+    approved_response: "Pinged Marcus directly. He's responsive when I tag specific jobs vs send a generic ask. Photos usually trickle in within an hour.",
+    ticker_after_approval: 'Photo nudge sent to Marcus — 3 jobs pending',
+  },
+]
+
+const tickerSeed = [
+  { icon: '🚐', text: 'Marcus en-route to Coronado emergency · ETA 18 min', ageSec: 4 * 60 },
+  { icon: '✅', text: 'Tony arrived at Patterson — clocked in', ageSec: 12 * 60 },
+  { icon: '📨', text: '12 first-slot reminder texts sent — 2 confirmed', ageSec: 38 * 60 },
+  { icon: '📵', text: '3rd cancellation today — weather impact', ageSec: 2 * 3600 },
+]
+const tickerPool = [
+  { icon: '🚐', text: 'Tech dispatched — en-route to next appointment' },
+  { icon: '✅', text: 'Job complete — invoice auto-sent + review request queued' },
+  { icon: '📨', text: '"Tech is 15 min out" text sent to next customer' },
+  { icon: '📸', text: 'Completion photo received — uploaded to job ticket' },
+  { icon: '🔀', text: 'Schedule auto-rebalanced — overrun adjusted next 2 slots' },
+  { icon: '⏰', text: 'After-hours emergency caught — on-call dispatched' },
+  { icon: '📅', text: 'New booking confirmed — slotted into open window' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <ApexAdaActivityStrip
-      tab-key="schedule"
-      summary="Ada keeps the board moving — reshuffles around weather, sends 'tech is 15 min out' texts, and prompts the crew for completion photos so warranty + marketing have what they need."
-      :activity="[
-        { icon: '🗓️', label: 'Reshuffled today\'s board', detail: '4 jobs moved around this morning\'s storms · all customers re-confirmed', ago: '6h ago' },
-        { icon: '📨', label: 'Sent 12 reminder texts', detail: 'Tomorrow\'s first-slot customers · 2 confirmed, 1 needs to reschedule', ago: 'auto' },
-        { icon: '📸', label: '12 jobs awaiting photos', detail: 'Marcus has 3 pending from yesterday — auto-prompt sent', ago: 'live' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Live dispatch — techs, jobs, ETAs. Auto-updates."
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="6"
+      heading="Schedule decisions"
+      subtitle="Conflicts, OT asks, reschedule outreach. Approve to send."
+      @approved="onApproved"
     />
 
     <!-- Header -->

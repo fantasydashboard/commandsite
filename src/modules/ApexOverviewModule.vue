@@ -11,7 +11,7 @@
  * Phase 1 scope: this Overview only. Calls / Quotes / Reviews etc. are
  * separate modules built in subsequent phases.
  */
-import { computed, nextTick, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   Chart,
@@ -30,7 +30,6 @@ import {
 import { Line, Bar, Doughnut } from 'vue-chartjs'
 import type { Client } from '@/types/database'
 import { adaRoles, ROLE_STATUS_META } from '@/lib/clients/apex/roles'
-import AssistantMark from '@/components/AssistantMark.vue'
 
 import { calls, callStats } from '@/lib/clients/apex/calls'
 import { quoteFollowupCounts } from '@/lib/clients/apex/quotes'
@@ -38,6 +37,8 @@ import { recentActivity } from '@/lib/clients/apex/recentActivity'
 import { revenueRecovered } from '@/lib/clients/apex/revenueRecovered'
 
 import { brandAreaDataset, lineDefaults, barDefaults, chartColors } from '@/lib/chartTheme'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 Chart.register(
   LineController, LineElement, PointElement,
@@ -48,7 +49,6 @@ Chart.register(
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-// ── Ada persona + chat ─────────────────────────────────────────────────
 const router = useRouter()
 const route = useRoute()
 
@@ -61,70 +61,97 @@ function goToRole(tab: string) {
   router.push({ name: 'dashboard.tab', params: { slug: 'apex-heating-and-air', tab } })
 }
 
-const adaGreeting = computed(() => {
+const greeting = computed(() => {
   const hr = new Date().getHours()
-  const name = 'Brett'
-  if (hr < 12) return `Good morning, ${name}`
-  if (hr < 17) return `Good afternoon, ${name}`
-  return `Good evening, ${name}`
+  if (hr < 12) return `Good morning, Brett`
+  if (hr < 17) return `Good afternoon, Brett`
+  return `Good evening, Brett`
 })
 
-interface ChatMessage { role: 'user' | 'ada'; text: string }
-interface SuggestedQuestion { q: string; a: string }
-const suggestedQuestions: SuggestedQuestion[] = [
-  { q: 'What did you handle while I was on the truck?',
-    a: "Today so far: caught 12 calls, booked 4 service appts (incl. one no-cooling emergency I escalated to Marcus), sent 3 quote follow-ups (one already replied — Rodriguez wants to schedule), and texted yesterday's customers for reviews (got 2 five-stars back already). Two things flagged for your eyes — see Front Desk & Quotes." },
-  { q: "How's revenue this week vs last?",
-    a: "$48,920 booked this week vs $43,210 last week — up 13%. Service calls drove most of the lift (storms last week + I caught 8 weekend calls that would've gone to voicemail). Quote close rate is 87% on the ones I followed up. Full breakdown's on Insights." },
-  { q: 'Which customers should I be worried about?',
-    a: "Three to flag: The Hendersons (recurring AC tune-up overdue 6 weeks, normally schedule Mar — sent a reminder, no response), Coronado Property Mgmt (3 service calls in 60 days, last tech notes mentioned 'system at end of life' — possible replace job), and Mike Patel (paid late twice, last invoice 31 days out). Details on Customer Care." },
-  { q: 'Which quotes are stale?',
-    a: "Six quotes past 7 days with no movement. The big one: Riverpoint Condos — $14,800 commercial RTU replace, sent 11 days ago, opened twice. I drafted a soft check-in for your review. Five smaller residential quotes ($800-$2,400 range) are at day 5-7, scheduled to send Day-7 nudges automatically tomorrow morning. See Front Desk & Quotes." },
-  { q: 'What did the reviews say last week?',
-    a: "11 new reviews — avg 4.8 stars. Standout: Maria Chen (5★) called out Tony by name for explaining her thermostat options without pressure. One 3-star from Jim Castellanos (technician was late + didn't call) — I drafted an apology reply for your review before it goes live. See Reputation & Marketing." },
-  { q: "Who hasn't called us in over a year?",
-    a: "47 dormant customers (last service > 365 days). I've already contacted 24 with personalized re-engagement messages this month — 5 booked jobs back ($6,840 in recovered revenue). 23 still on the do list. Want me to send the next batch this week or hold off? See Customer Care." },
+// ── Approval queue: Ada's drafts waiting on Brett ─────────────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'ovw-riverpoint',
+    icon: '💬',
+    badge: 'Quote follow-up',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Stale quote nudge — Riverpoint Condos ($14,800)',
+    recipient: 'Commercial RTU replace · sent 11 days ago · opened twice',
+    preview: '"Hey Tom — circling back on the proposal we sent for the rooftop unit. Saw it got opened a couple times so I figured I\'d check in. Happy to walk through the line items, swap parts for budget options, or just answer questions. No pressure — just want to make sure it didn\'t get lost in the inbox. — Brett, Apex Heating & Air"',
+    approved_response: "Sent. Tom usually replies within a day on a soft nudge. If he doesn't bite by Wed, I'll surface the deal as cooled and we can decide whether to drop the price or close it out.",
+    ticker_after_approval: 'Riverpoint nudge sent — $14,800 RTU opportunity',
+  },
+  {
+    id: 'ovw-castellanos-apology',
+    icon: '⭐',
+    badge: 'Review reply',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Apology reply — Jim Castellanos 3★ review',
+    recipient: 'Tech was 40 min late + didn\'t call ahead · before this goes live',
+    preview: '"Jim — Brett here, owner at Apex. You\'re right — we missed on the heads-up call and that\'s on us. I\'ve talked with the tech and we\'re tightening up the dispatch routing so this doesn\'t happen again. I\'d like to credit your next service call to make it right if you\'ll give us another shot. Either way, thanks for the honest feedback. — Brett"',
+    approved_response: 'Posted to Google. Reviews with owner replies (especially humble ones on negative reviews) get 3.4× more positive engagement than ones without. Watching for a follow-up reply from Jim.',
+    ticker_after_approval: 'Apology reply posted to Castellanos 3★ review',
+  },
+  {
+    id: 'ovw-hendersons-tuneup',
+    icon: '🔁',
+    badge: 'Reactivation',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Tune-up reminder — The Hendersons',
+    recipient: 'Recurring AC tune-up overdue 6 wks · normally schedule Mar',
+    preview: '"Hi Henderson Family — Ada here from Apex. Noticed your spring AC tune-up usually lands in March and we hadn\'t heard from you yet — wanted to flag it before the heat really hits. Want me to grab you a slot this week? I have Tue and Thu morning open. — Ada (for Brett at Apex)"',
+    approved_response: 'Sent. The Hendersons are in the "easy yes" tier — they\'ve booked every spring + fall tune-up for 4 years. If they don\'t respond by Friday I\'ll surface them again as soft re-engage.',
+    ticker_after_approval: 'Tune-up reminder sent to the Hendersons',
+  },
+  {
+    id: 'ovw-coronado',
+    icon: '🏢',
+    badge: 'Replace opportunity',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Replace-job outreach — Coronado Property Mgmt',
+    recipient: '3 service calls in 60d · last tech notes: "system at end of life"',
+    preview: '"Hey Marcus — Brett at Apex. Saw the recent service tickets on the building 2 unit and Tony\'s notes flagged it as nearing end of life. Before another emergency call eats your weekend, want to grab 30 min and walk through replacement options? No obligation — just want to give you the budget picture for next year. — Brett"',
+    approved_response: "Sent. Property managers usually bite on the budget framing — saves them a board explanation. I'll surface his reply within the hour and route to your calendar if he wants the walkthrough.",
+    ticker_after_approval: 'Replace-job outreach sent to Coronado Property',
+  },
+  {
+    id: 'ovw-marie-review',
+    icon: '⭐',
+    badge: 'Review request',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Review request — Maria Chen (yesterday\'s job)',
+    recipient: 'New thermostat install · Tony was the tech · Maria mentioned thank-you in passing',
+    preview: '"Hi Maria — thanks for letting Tony come out yesterday. He mentioned how patient you were while he walked through the thermostat options, which I really appreciate. If you\'re happy with how it\'s running, would you mind dropping a quick Google review? Two clicks: [link]. No pressure either way. — Brett, Apex"',
+    approved_response: "Sent. Day-after timing has the highest review-conversion rate (~38% for residential). Tony's a tech customers consistently call out by name — I'd expect a 5★.",
+    ticker_after_approval: 'Review request sent to Maria Chen',
+  },
 ]
 
-const chatMessages = ref<ChatMessage[]>([
-  { role: 'ada', text: "Hi Brett — I'm Ada. Ask me anything about the shop. Try one of the questions below." },
-])
-const customQuestion = ref('')
-const chatScrollEl = ref<HTMLElement | null>(null)
+// Live ticker
+const tickerSeed = [
+  { icon: '📞', text: 'Caught a call — AC not cooling, escalated to Marcus', ageSec: 6 * 60 },
+  { icon: '📅', text: 'Service appt booked — Patterson, Tue 10 AM', ageSec: 14 * 60 },
+  { icon: '⭐', text: 'New 5★ review — Maria Chen, Tony called out by name', ageSec: 38 * 60 },
+  { icon: '💬', text: 'Quote follow-up reply — Rodriguez wants to schedule', ageSec: 73 * 60 },
+]
+const tickerPool = [
+  { icon: '📞', text: 'Caught a call — service times question, info text sent' },
+  { icon: '📅', text: 'Service slot auto-confirmed — tomorrow PM' },
+  { icon: '🚐', text: 'Tech dispatched — Marcus en-route to Coronado' },
+  { icon: '⭐', text: 'Review request opened — clicked through to Google' },
+  { icon: '💬', text: 'Quote sent — residential AC replace, $4,200' },
+  { icon: '🔁', text: 'Reactivation reply — dormant customer wants tune-up' },
+  { icon: '✅', text: 'Job complete — invoice auto-sent + review request queued' },
+  { icon: '⏰', text: 'After-hours emergency caught — overflow line, escalated' },
+]
 
-async function askSuggested(q: SuggestedQuestion) {
-  chatMessages.value.push({ role: 'user', text: q.q })
-  await nextTick()
-  scrollChatToBottom()
-  setTimeout(() => {
-    chatMessages.value.push({ role: 'ada', text: q.a })
-    nextTick(scrollChatToBottom)
-  }, 600)
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
 }
-
-async function askCustom() {
-  const text = customQuestion.value.trim()
-  if (!text) return
-  chatMessages.value.push({ role: 'user', text })
-  customQuestion.value = ''
-  await nextTick()
-  scrollChatToBottom()
-  setTimeout(() => {
-    chatMessages.value.push({
-      role: 'ada',
-      text: "Let me check on that. Give me a moment to pull what I have for the shop — I'll draft something for your review and queue it on the right page based on what fits.",
-    })
-    nextTick(scrollChatToBottom)
-  }, 700)
-}
-
-function scrollChatToBottom() {
-  if (chatScrollEl.value) chatScrollEl.value.scrollTop = chatScrollEl.value.scrollHeight
-}
-
-const adaSummaryLine = computed(() =>
-  `I've handled 84 calls, 18 quote follow-ups, and 24 reactivations this week — a few things flagged for your eyes.`,
-)
 
 // ── Data ────────────────────────────────────────────────────────────────
 const stats = computed(() => callStats())
@@ -295,106 +322,47 @@ const thisWeek = [
       <a href="#" class="text-xs text-brand font-semibold hover:underline">Book a real walkthrough →</a>
     </div>
 
-    <!-- ── Ada persona panel + chat ───────────────────────────────── -->
-    <section class="card overflow-hidden p-0">
-      <div class="flex items-center gap-3 bg-gradient-to-r from-brand to-brand/80 text-ink-inverse px-5 py-4">
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm">
-          <AssistantMark class="h-8 w-8 text-brand" />
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-base font-semibold">Ada</span>
-            <span class="rounded-full bg-success/30 text-ink-inverse px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
-              <span class="h-1.5 w-1.5 rounded-full" style="background-color:#86efac"></span>
-              Online
-            </span>
-            <span class="text-[11px] opacity-80 hidden sm:inline">your AI employee · named for Ada Lovelace</span>
-          </div>
-          <p class="text-sm opacity-90 mt-0.5">{{ adaGreeting }}. {{ adaSummaryLine }}</p>
-        </div>
-      </div>
+    <!-- ── Live ticker ─────────────────────────────────────────────── -->
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Ada's activity stream — calls, dispatches, replies. Auto-updates."
+    />
 
-      <div class="flex flex-col">
-        <div ref="chatScrollEl" class="max-h-[280px] overflow-y-auto px-5 py-4 space-y-3 bg-canvas/40">
-          <div
-            v-for="(m, i) in chatMessages"
-            :key="i"
-            class="flex"
-            :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
-          >
-            <div
-              class="max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed"
-              :class="m.role === 'user'
-                ? 'bg-ink text-ink-inverse rounded-br-sm'
-                : 'bg-surface-raised text-ink border border-divider rounded-bl-sm'"
-            >
-              {{ m.text }}
-            </div>
-          </div>
-        </div>
+    <!-- ── Approval queue (THE hero) ───────────────────────────────── -->
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="11"
+      :subtitle="`${greeting}. Approve to send, edit to revise, skip to resurface tomorrow.`"
+      @approved="onApproved"
+    />
 
-        <div class="border-t border-divider bg-surface-raised px-5 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-2">Try asking</div>
-          <div class="flex flex-wrap gap-1.5">
-            <button
-              v-for="(q, i) in suggestedQuestions"
-              :key="i"
-              type="button"
-              class="rounded-full border border-divider bg-surface px-3 py-1 text-[11px] font-medium text-ink-muted hover:text-ink hover:border-brand hover:bg-brand/5 transition-colors"
-              @click="askSuggested(q)"
-            >{{ q.q }}</button>
-          </div>
-        </div>
-
-        <form
-          class="flex items-center gap-2 border-t border-divider bg-surface-raised px-5 py-3"
-          @submit.prevent="askCustom"
-        >
-          <input
-            v-model="customQuestion"
-            type="text"
-            placeholder="Ask Ada anything..."
-            class="flex-1 rounded-full border border-divider bg-canvas px-4 py-2 text-sm text-ink placeholder:text-ink-disabled focus:outline-none focus:border-brand"
-          />
-          <button
-            type="submit"
-            class="rounded-full bg-brand text-ink-inverse px-4 py-2 text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-50"
-            :disabled="!customQuestion.trim()"
-          >Send</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- ── Ada's Roles status grid ────────────────────────────────── -->
-    <section class="card">
-      <div class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+    <!-- ── Command bridge: roles compressed into chips ─────────────── -->
+    <section class="rounded-card overflow-hidden border border-divider bg-surface-raised">
+      <header class="px-4 py-3 border-b border-divider bg-canvas/50 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Ada's roles</span>
-          <span class="text-xs text-ink-muted">— what she handles for Apex</span>
+          <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Ada's roles</span>
+          <span class="text-xs text-ink-muted">— click any to drill in</span>
         </div>
-        <span class="text-[11px] text-ink-disabled">{{ adaRoles.filter((r) => r.status === 'active').length }} of {{ adaRoles.length }} active · click any to drill in</span>
-      </div>
-
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <span class="text-[11px] text-ink-disabled">
+          {{ adaRoles.filter((r) => r.status === 'active').length }} of {{ adaRoles.length }} active
+        </span>
+      </header>
+      <div class="p-3 flex flex-wrap gap-1.5">
         <button
           v-for="role in adaRoles"
           :key="role.key"
           type="button"
-          class="flex flex-col items-start gap-2 rounded-card border border-divider bg-surface-raised p-3 text-left hover:border-brand hover:shadow-card transition-all"
+          class="inline-flex items-center gap-1.5 rounded-full border border-divider bg-surface px-2.5 py-1 text-[11px] hover:border-brand hover:bg-brand/5 transition-colors"
           @click="goToRole(role.tab)"
         >
-          <div class="flex items-center gap-2 w-full">
-            <span class="text-2xl flex-shrink-0">{{ role.icon }}</span>
-            <span
-              class="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-              :class="ROLE_STATUS_META[role.status].pillClass"
-            >{{ ROLE_STATUS_META[role.status].label }}</span>
-          </div>
-          <div class="text-sm font-semibold text-ink leading-snug">{{ role.name }}</div>
-          <div class="text-[11px] text-ink-muted leading-snug">{{ role.description }}</div>
-          <div class="mt-auto pt-2 border-t border-divider/60 text-[10px] text-ink-disabled font-medium w-full">
-            {{ role.this_week_snippet }}
-          </div>
+          <span>{{ role.icon }}</span>
+          <span class="font-semibold text-ink">{{ role.name }}</span>
+          <span
+            class="rounded-full px-1 text-[8px] font-bold uppercase tracking-wider"
+            :class="ROLE_STATUS_META[role.status].pillClass"
+          >{{ role.status === 'active' ? '●' : ROLE_STATUS_META[role.status].label }}</span>
         </button>
       </div>
     </section>

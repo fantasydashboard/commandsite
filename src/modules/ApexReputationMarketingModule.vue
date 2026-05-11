@@ -2,11 +2,12 @@
 /**
  * Apex — Reputation & Marketing (Ada's roles 6 + 7).
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
 import { reviews, reviewStats } from '@/lib/clients/apex/reviews'
 import { campaigns, recentSends, campaignStats } from '@/lib/clients/apex/emailCampaigns'
-import ApexAdaActivityStrip from '@/components/ApexAdaActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -18,10 +19,6 @@ const liveCampaigns = computed(() => campaigns.filter((c) => c.active).slice(0, 
 const recentSendsList = computed(() => recentSends.slice(0, 6))
 
 function pct(v: number): string { return Math.round(v * 100) + '%' }
-function money(cents: number): string {
-  if (cents >= 100_000) return '$' + Math.round(cents / 100_000) + 'k'
-  return '$' + Math.round(cents / 100).toLocaleString()
-}
 function fmtAgo(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000))
   if (days === 0) return 'today'
@@ -41,17 +38,105 @@ function sendStatusClass(s: string): string {
   if (s === 'bounced') return 'bg-danger/10 text-danger'
   return 'bg-ink-muted/10 text-ink-muted'
 }
+
+// ── Approval queue: review replies + campaign drafts ─────────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'rep-castellanos',
+    icon: '⭐',
+    badge: 'Review reply · 3★',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Apology reply — Jim Castellanos',
+    recipient: 'Tech 40 min late + didn\'t call · before this goes live',
+    preview: '"Jim — Brett here, owner at Apex. You\'re right — we missed on the heads-up call and that\'s on us. I\'ve talked with the tech and we\'re tightening dispatch routing so this doesn\'t happen again. I\'d like to credit your next service call to make it right if you\'ll give us another shot. — Brett"',
+    approved_response: 'Posted to Google. Owner replies on negative reviews lift positive engagement by ~3.4×. Watching for Jim\'s follow-up.',
+    ticker_after_approval: 'Apology reply posted to Castellanos 3★ review',
+  },
+  {
+    id: 'rep-maria-thanks',
+    icon: '⭐',
+    badge: 'Review reply · 5★',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Thank-you reply — Maria Chen 5★',
+    recipient: 'Called Tony out by name · "no pressure, just options"',
+    preview: '"Maria — thanks so much for the kind words. I\'ll make sure Tony sees this — he genuinely cares about the no-pressure part of his job and it shows. Glad the new thermostat is working out. — Brett"',
+    approved_response: "Posted. Public thank-you to a 5★ that names a specific tech is great recruiting material AND signals to other reviewers that we read everything.",
+    ticker_after_approval: 'Thank-you reply posted to Maria Chen 5★',
+  },
+  {
+    id: 'rep-spring-tuneup',
+    icon: '📧',
+    badge: 'Campaign draft',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Spring tune-up campaign — drafted',
+    recipient: '847 active customers · ICP-segmented · ready to schedule',
+    preview: '"Subject: Spring tune-up time — book before the May rush. Body: Hey [first_name] — quick heads-up that May fills up fast for AC tune-ups. We\'re holding tune-up pricing at last year\'s $89 if you book by April 30th..."',
+    approved_response: "Scheduled for Tuesday 7 AM send. Past spring campaigns averaged 31% open + booked 40-60 tune-ups. I'll surface the booking spike as it lands.",
+    ticker_after_approval: 'Spring tune-up campaign scheduled — 847 recipients',
+  },
+  {
+    id: 'rep-yelp-batch',
+    icon: '🌟',
+    badge: 'Yelp replies',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Yelp review batch reply — 4 new this week',
+    recipient: 'All 4★+ · personalized replies drafted for each',
+    preview: 'Each reply names the tech the customer mentioned + thanks them for specific feedback. Yelp prioritizes replied-to listings in local search — every reply is SEO + reputation in one.',
+    approved_response: "Posted to Yelp. Watching for any cascade replies — sometimes a thoughtful owner reply triggers other satisfied customers to leave their own review.",
+    ticker_after_approval: '4 Yelp review replies posted',
+  },
+  {
+    id: 'rep-bf-newsletter',
+    icon: '🎯',
+    badge: 'Local SEO post',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Google Business Profile post — drafted',
+    recipient: '"3 signs your AC needs a tune-up before summer" · seasonal authority post',
+    preview: 'Short visual post for the GBP feed — tied to spring campaign. Drives both customer engagement AND Google\'s local search algorithm reads activity as relevance signal.',
+    approved_response: "Posted. GBP posts decay after 7 days so I'll auto-draft the next one for next Wednesday. Watching for click-through to the booking page.",
+    ticker_after_approval: 'Google Business Profile post published',
+  },
+]
+
+const tickerSeed = [
+  { icon: '⭐', text: 'New 5★ — Maria Chen, named Tony in the review', ageSec: 38 * 60 },
+  { icon: '📧', text: 'Spring tune-up draft auto-generated · ready for review', ageSec: 2 * 3600 },
+  { icon: '🌟', text: 'Yelp review opened — auto-drafted reply queued', ageSec: 3 * 3600 },
+  { icon: '🎯', text: 'GBP post engagement: 47 views, 8 clicks', ageSec: 6 * 3600 },
+]
+const tickerPool = [
+  { icon: '⭐', text: 'Review request opened — clicked through to Google' },
+  { icon: '⭐', text: 'New 5★ posted — added to homepage carousel queue' },
+  { icon: '📧', text: 'Newsletter delivered to 847 — opens flowing in' },
+  { icon: '📨', text: 'Email reply — campaign-attributed booking inquiry' },
+  { icon: '🎯', text: 'GBP click → website → booking form view' },
+  { icon: '🌟', text: 'Yelp listing impression count: +18% week-over-week' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <ApexAdaActivityStrip
-      tab-key="reputation-marketing"
-      summary="Ada handles your outbound brand work — texts every customer for a review 2 hours after the job, drafts thoughtful replies to anything 3 stars or below, and runs your monthly newsletter + seasonal campaigns."
-      :activity="[
-        { icon: '⭐', label: `${rstats.this_week} new reviews this week`, detail: `avg ${rstats.avg_rating.toFixed(1)}★ · ${rstats.unanswered} awaiting your reply (Ada drafted them)`, ago: 'rolling' },
-        { icon: '📧', label: `${cstats.sends_30d.toLocaleString()} emails sent (30d)`, detail: `${pct(cstats.avg_open_rate)} avg open · ${money(cstats.attributed_revenue_90d_cents)} attributed revenue (90d)`, ago: 'this month' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Reputation + marketing signals — reviews, opens, clicks"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="8"
+      heading="Reputation + marketing queue"
+      subtitle="Review replies + campaign drafts + GBP posts. Approve to publish."
+      @approved="onApproved"
     />
 
     <!-- KPI strip -->

@@ -2,11 +2,12 @@
 /**
  * Apex — Front Desk & Quotes (Ada's roles 1 + 2).
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
 import { calls, callStats } from '@/lib/clients/apex/calls'
 import { quotes, quoteFollowupCounts } from '@/lib/clients/apex/quotes'
-import ApexAdaActivityStrip from '@/components/ApexAdaActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -63,18 +64,106 @@ function stageClass(s: string): string {
   if (s === 'new') return 'bg-accent/15 text-accent'
   return 'bg-warn/15 text-warn'
 }
+
+// ── Approval queue: quote follow-ups + after-hours triage ────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'fd-riverpoint',
+    icon: '💬',
+    badge: 'Quote · stale',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Day-11 nudge — Riverpoint Condos ($14,800)',
+    recipient: 'Commercial RTU replace · opened twice · soft tone',
+    preview: '"Hey Tom — circling back on the proposal we sent for the rooftop unit. Saw it got opened a couple times so I figured I\'d check in. Happy to walk through the line items, swap parts for budget options, or just answer questions. — Brett, Apex Heating & Air"',
+    approved_response: "Sent. If Tom doesn't bite by Wednesday I'll surface the deal as cooled and we'll talk price drop or close-out.",
+    ticker_after_approval: 'Riverpoint nudge sent — $14,800 RTU pipeline',
+  },
+  {
+    id: 'fd-patterson',
+    icon: '💬',
+    badge: 'Quote · day 7',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Day-7 follow-up — Patterson residential ($2,400)',
+    recipient: 'Furnace replace · sent 7d ago · 1 click on link',
+    preview: '"Hi Sarah — Brett with Apex. Wanted to check in on the furnace quote we sent last week. The financing options I mentioned (24mo no-interest) are still good through end of month if it helps. Otherwise totally fine to take your time — just here when you\'re ready. — Brett"',
+    approved_response: "Sent. The financing line tends to convert ~30% of stalled residential quotes — Sarah's clicked the link once which is a buying signal.",
+    ticker_after_approval: 'Patterson day-7 nudge sent — $2,400 furnace quote',
+  },
+  {
+    id: 'fd-batch-day7',
+    icon: '📋',
+    badge: 'Quote · batch',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Day-7 batch nudge — 5 small residential quotes',
+    recipient: '$800-$2,400 range · scheduled for tomorrow 9 AM auto-send',
+    preview: 'Scheduled batch — each personalized using the customer\'s service address + the specific quote line items. None require your eyes individually but you can scrub the list if you want.',
+    approved_response: "Confirmed — auto-send at 9 AM tomorrow. I'll surface any reply that lands within the day for your eyes.",
+    ticker_after_approval: '5 day-7 quote nudges scheduled for 9 AM tomorrow',
+  },
+  {
+    id: 'fd-emergency-callback',
+    icon: '🚨',
+    badge: 'After-hours',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'After-hours emergency callback — Lisa Reyes',
+    recipient: 'Called 11 PM last night · no cooling · house at 87°F · escalated to Marcus',
+    preview: 'Marcus dispatched at 11:18 PM, arrived at 11:54 PM. Issue resolved (capacitor swap, $340). Want me to send Lisa a follow-up text this morning checking in + offering a free spring tune-up as a thank-you?',
+    approved_response: "Sent. The free-tune-up offer on emergencies converts to recurring customers ~70% of the time — Lisa's exactly the customer you want to keep.",
+    ticker_after_approval: 'After-hours follow-up sent to Lisa Reyes',
+  },
+  {
+    id: 'fd-rodriguez',
+    icon: '📅',
+    badge: 'Booking confirm',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Rodriguez wants to schedule — confirm window',
+    recipient: 'Replied to quote follow-up · prefers Sat AM',
+    preview: '"Hey Carlos — great, glad we connected. Looks like Sat 9 AM works on our end. Tony would be your tech (he was the one who came out for the original estimate). Fair warning, Sat appointments run a $40 weekend surcharge — totally optional, can do Mon AM at no extra. Your call. — Brett"',
+    approved_response: "Sent. The transparent surcharge framing is the right call — most customers pick weekday, but giving them the option without forcing the conversation builds trust.",
+    ticker_after_approval: 'Rodriguez Sat AM booking confirmation sent',
+  },
+]
+
+const tickerSeed = [
+  { icon: '📞', text: 'Caught a call — service times question, info text sent', ageSec: 4 * 60 },
+  { icon: '✅', text: 'Quote opened — Patterson clicked the financing link', ageSec: 21 * 60 },
+  { icon: '🚐', text: 'Marcus en-route to no-cooling emergency, ETA 18 min', ageSec: 47 * 60 },
+  { icon: '💬', text: 'Quote follow-up reply — Rodriguez wants to schedule Sat', ageSec: 2 * 3600 },
+]
+const tickerPool = [
+  { icon: '📞', text: 'Caught a call — booking inquiry, scheduled for Thu' },
+  { icon: '📋', text: 'New quote sent — residential AC replace, $4,200' },
+  { icon: '✅', text: 'Quote opened — link clicked from email' },
+  { icon: '💬', text: 'Day-3 follow-up landed — open rate 71%' },
+  { icon: '⏰', text: 'After-hours line caught a call — escalated to on-call' },
+  { icon: '🎯', text: 'Quote closed — $3,800 ductwork repair booked' },
+  { icon: '📞', text: 'Caught a call — voicemail captured, transcript sent to Brett' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <ApexAdaActivityStrip
-      tab-key="front-desk-quotes"
-      summary="Ada catches every call your shop misses + chases every quote you send. Two of the highest-leverage things she does — first-touch revenue and estimate close rate."
-      :activity="[
-        { icon: '📞', label: `Caught ${cstats.total} calls this week`, detail: `${cstats.booked} booked service appts · ${cstats.emergency_dispatched} emergencies escalated to you`, ago: 'rolling' },
-        { icon: '📋', label: `${quoteStats.open} quotes in active follow-up`, detail: `${money(quoteStats.pipelineValue)} pipeline · 7-day SMS sequence in your voice`, ago: 'live' },
-        { icon: '✏', label: 'Drafted 1 soft check-in', detail: 'Largest open quote — opened twice, no response', ago: '2h ago' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Front desk + quotes activity — auto-updates"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="9"
+      heading="Front desk + quotes queue"
+      subtitle="Quote follow-ups + after-hours triage drafted by Ada. Approve to send."
+      @approved="onApproved"
     />
 
     <!-- KPI strip -->

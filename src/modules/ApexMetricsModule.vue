@@ -3,7 +3,7 @@
  * Apex Performance Metrics — service-business analytics: revenue trend,
  * lead-source ROI, tech leaderboard, service mix, conversion funnel.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   Chart,
   LineController, LineElement, PointElement,
@@ -22,7 +22,8 @@ import {
   metricsHeadline,
 } from '@/lib/clients/apex/metrics'
 import { brandAreaDataset, lineDefaults, chartColors } from '@/lib/chartTheme'
-import ApexAdaActivityStrip from '@/components/ApexAdaActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 Chart.register(
   LineController, LineElement, PointElement,
@@ -118,18 +119,106 @@ function srcCpa(s: typeof leadSources[number]): number | null {
 const sortedSources = computed(() =>
   [...leadSources].sort((a, b) => b.revenue_cents - a.revenue_cents),
 )
+
+// ── Insights queue: patterns Ada noticed + proposed action ───────────
+// Same format as Cornerstone Insights — Ada as analyst, not just clerk.
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'ins-yelp-conversion',
+    icon: '⚡',
+    badge: 'Conversion signal',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Yelp lead conversion dropped 9 pts',
+    recipient: 'Was 38% last month · now 29% · 5 lost deals to investigate',
+    preview: 'Want me to pull the 5 Yelp-sourced leads we lost in the last 30d, find what they had in common, and draft a hypothesis? My early read: 3 of 5 were quoted on day-of-call which felt rushed — they may have wanted a real visit first.',
+    approved_response: "Pulling the 5 lost-deal records now. I'll surface the analysis with 2-3 candidate explanations + recommended A/B test for next month's Yelp leads. Done in ~10 min.",
+    ticker_after_approval: 'Investigating Yelp conversion drop — 5 lost deals',
+  },
+  {
+    id: 'ins-saturday-cap',
+    icon: '📈',
+    badge: 'Demand signal',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Saturday bookings up 22% — capacity check?',
+    recipient: 'Last 4 Saturdays trending up · turning down ~2 calls/week now',
+    preview: 'Want me to draft a "Saturday-availability ask" to Tony and Marcus to gauge interest in alternating Saturdays at premium pay? Math: even at 1.5× pay, 1 extra Saturday ticket/week pencils to ~$28k/yr revenue lift.',
+    approved_response: "Drafting the ask to Tony + Marcus. Framing it as opt-in (not mandatory) with the math attached so they can decide. I'll surface their answers individually so you can talk to each one personally.",
+    ticker_after_approval: 'Saturday capacity ask drafted for Tony + Marcus',
+  },
+  {
+    id: 'ins-reactivation-batch2',
+    icon: '🔁',
+    badge: 'Reactivation signal',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Reactivation revenue trending up — invest in Batch 2?',
+    recipient: 'Batch 1: 24 contacted, 5 booked, $6,840 revenue (28× ROI on time)',
+    preview: 'Want me to expand the next batch from 23 to 50? I can score the dormant pool more aggressively (pull in 12-18 month dormant, not just 18+ month). My estimate: 8-12 additional bookings worth $10-15k.',
+    approved_response: "Expanding to 50. New tier is dormant 12-24mo with 2+ prior services. Pacing the sends so any positive reply gets a fast human response. Batch will surface as Customer Care queue items tomorrow.",
+    ticker_after_approval: 'Reactivation Batch 2 expanded to 50 customers',
+  },
+  {
+    id: 'ins-after-hours',
+    icon: '⏰',
+    badge: 'Coverage signal',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'After-hours call volume rising — coverage gap?',
+    recipient: 'Up 30% over 90d · Marcus + Tony alternating but rotation getting tight',
+    preview: 'Want me to pull a 90-day after-hours pattern (which nights, which job types, conversion rates) so you can decide whether to add a 3rd on-call or stay the course? I\'ll have the analysis in 5 min.',
+    approved_response: "Pulling now. I'll structure it as: nights with peak volume, job-type breakdown, conversion vs daytime, and what a 3rd on-call would cost vs revenue at risk. Decision-ready, not just data-dump.",
+    ticker_after_approval: 'After-hours analysis running — 90-day pattern',
+  },
+  {
+    id: 'ins-pricing-test',
+    icon: '🔬',
+    badge: 'Revenue signal',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Diagnostic fee test — willing to A/B?',
+    recipient: 'Currently $89 · competitor avg $109 · close rate sensitive',
+    preview: 'Want me to A/B test $89 vs $109 diagnostic fee for next month\'s residential calls? Hypothesis: $109 holds if framed as "applied to repair" — but I\'d only test on Yelp + cold-Google leads, not on repeat customers.',
+    approved_response: "Setting up the test. I'll randomize at the call-source level so it's clean. Holding for your final OK before flipping the variant on — confirm and I'll go live tomorrow morning.",
+    ticker_after_approval: 'Diagnostic fee A/B test queued — pending Brett OK',
+  },
+]
+
+const tickerSeed = [
+  { icon: '📊', text: 'Performance dashboard recomputed — $135k MTD', ageSec: 18 * 60 },
+  { icon: '🎯', text: 'Lead-source ROI refreshed — Google LSA at 6.7×', ageSec: 47 * 60 },
+  { icon: '⚡', text: 'Yelp conversion alert triggered — 9pt drop', ageSec: 3 * 3600 },
+  { icon: '📈', text: 'Saturday demand pattern flagged — +22% MoM', ageSec: 6 * 3600 },
+]
+const tickerPool = [
+  { icon: '📊', text: 'Daily metrics rolled up — KPIs synced' },
+  { icon: '💰', text: 'Revenue attributed — Yelp lead → booked job, $1,840' },
+  { icon: '🎯', text: 'Lead source ROI: Google LSA 6.7× · Yelp 4.2× · Repeat 8.1×' },
+  { icon: '⚡', text: 'Conversion alert: change >10% from baseline detected' },
+  { icon: '📈', text: 'Capacity utilization: 87% (target 80-90%)' },
+  { icon: '🔬', text: 'A/B test result trickling in — significance pending' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <ApexAdaActivityStrip
-      tab-key="insights"
-      summary="Ada watches the numbers so you don't have to. Weekly + monthly revenue, conversion, lead-source ROI, and tech utilization — drafted into a snapshot ready before Monday morning."
-      :activity="[
-        { icon: '📊', label: 'Drafted Monday\'s snapshot', detail: '$135k MTD · +18% vs last month · in your inbox Monday 7 AM', ago: 'auto' },
-        { icon: '⚡', label: 'Conversion shift flagged', detail: 'Yelp leads converting at 29% (was 38% last month) — review the 5 lost deals?', ago: '6h ago' },
-        { icon: '🎯', label: 'Lead-source ROI refreshed', detail: 'Google LSA still your best return at 6.7× · Repeat customers $42.8k driven', ago: 'live' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Performance signals — auto-updates from your stack"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="3"
+      heading="Patterns Ada noticed this week"
+      subtitle="She's not just reporting numbers — she's spotting trends + proposing action. Approve to dig in or run the test."
+      @approved="onApproved"
     />
 
     <!-- Header -->
