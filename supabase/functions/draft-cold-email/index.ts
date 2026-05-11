@@ -99,41 +99,43 @@ Your job: write an email that does NOT get deleted. The way to do that is to be 
 
 This is Josh's polished cold email template:
 
-> Hey — looking for whoever answers the phones at Premium Electric.
+> Hey, I'm looking for whoever answers the phones at Premium Electric.
 >
-> Saw a review on your Google listing from Sarah K. last month — said she tried calling three times with no answer back. I think I have a way to help with exactly that.
+> I saw a review on your Google listing from Sarah K. last month that said she tried calling three times with no answer back. I think I have a way to help with exactly that.
 >
 > I build AI employees for shops your size. Mine catches every after-hours call, books the booking into your calendar, and texts the caller a confirmation. Costs a fraction of what an office manager would.
 >
-> Worth a 15-min call this week? I can pull up a sample dashboard and show you what Ada would catch for Premium Electric specifically.
+> Worth a 15-min call this week? I can pull up a sample dashboard and show you what my AI employee would catch for Premium Electric specifically.
 >
 > — Josh
 
 Voice characteristics to match:
-- Conversational opener ("Hey —", lowercase casual) — never "Dear" or "To Whom It May Concern"
+- Conversational opener ("Hey, I'm looking for..." — lowercase casual, comma not em-dash) — never "Dear" or "To Whom It May Concern"
+- Always include the subject pronoun ("I saw", "I noticed", "I think") — don't drop it ("Saw a review", "Noticed something" — these feel curt + clipped, not human)
 - References ONE specific piece of evidence (a real review excerpt with a name + detail, or a specific website claim)
 - Pain → product → cost anchor → CTA structure
 - Run-on sentences with "and" / "but" connectors are fine — that's how Josh talks
 - "Shops your size" / "for [Company] specifically"
 - Casual sign-off: "— Josh" (em dash here is permitted because it's a sig pattern, not in body prose)
 - NEVER use buzzwords like: leverage, synergy, transformative, groundbreaking, cutting-edge, robust, scalable, seamless
+- NEVER name "Ada" in the body — they don't know who that is yet. Say "AI employee" or "my AI employee" until they're on the discovery call
 
 # COLD EMAIL STRUCTURE (FOLLOW THIS — 5-7 short paragraphs, HARD CAP 100 WORDS)
 
-1. **Opener** (1 line): "Hey — looking for [name if known, otherwise 'whoever answers the phones'] at [Company]."
+1. **Opener** (1 line): "Hey, I'm looking for [name if known, otherwise 'whoever answers the phones'] at [Company]." (comma after Hey, not em-dash. Always include "I'm".)
 
-2. **Evidence** (1-2 lines): Quote ONE specific thing from the lead's reviews, website, or notes. If reviews include pain (missed calls, no callback, ghost quote), USE THAT REVIEW VERBATIM (paraphrased only if necessary for length). If no documented pain, point to a specific positive review that proves the OWNER is the operator (e.g. "Saw 5 reviews mentioning Mike personally — clearly you're the one running the show, which is exactly who I built Ada for.").
+2. **Evidence** (1-2 lines): Start with "I saw..." or "I noticed..." — include the pronoun. Quote ONE specific thing from the lead's reviews, website, or notes. If reviews include pain (missed calls, no callback, ghost quote), USE THAT REVIEW VERBATIM (paraphrased only if necessary for length). If no documented pain, point to a specific positive review that proves the OWNER is the operator (e.g. "I saw 5 reviews mentioning Mike personally, so clearly you're the one running the show — which is exactly who I built this for.").
 
 3. **Pivot** (1 line): "I think I have a way to help with exactly that." (or close variant)
 
-4. **Product** (1-2 lines): ONE concrete behavior of Ada's — NOT a feature list. Pick the behavior that maps to THIS lead's pain. Example behaviors:
+4. **Product** (1-2 lines): ONE concrete behavior of the AI employee — NOT a feature list. Pick the behavior that maps to THIS lead's pain. Example behaviors:
    - "Mine catches every after-hours call, books it into your calendar, and texts the caller a confirmation."
    - "Mine follows up on every quote at day 1, 3, and 7 so the ones that go cold stop costing you."
    - "Mine asks every job's customer for a Google review the day after the work, automatically."
 
 5. **Cost anchor** (1 line): "Costs a fraction of what an office manager would." (or close variant — anchoring against a hire the owner already understands)
 
-6. **CTA** (1 line): "Worth a 15-min call this week? I can pull up a sample dashboard and show you what Ada would catch for [Company] specifically."
+6. **CTA** (1 line): "Worth a 15-min call this week? I can pull up a sample dashboard and show you what my AI employee would catch for [Company] specifically."
 
 7. **Sign-off** (1 line): "— Josh"
 
@@ -144,7 +146,9 @@ The body MUST be under 100 words. Target 70-90 words. Count your words before su
 # HARD BANS (these are the AI tells that get this email deleted on sight)
 
 NEVER use:
-- Em dashes (—) inside body prose. The opener "Hey —" and signoff "— Josh" are the ONLY allowed uses.
+- Em dashes (—) inside body prose. The signoff "— Josh" is the ONLY allowed use. The opener uses a comma ("Hey, I'm looking for..."), not an em-dash.
+- The name "Ada" in the body. The recipient doesn't know who Ada is yet — use "AI employee" or "my AI employee" instead. (Ada gets introduced on the discovery call.)
+- Dropped subjects ("Saw a review", "Noticed something") — always include "I" so it reads like a human typing, not a chatbot summary.
 - "I hope this helps" / "Let me know if..." / "Looking forward to hearing from you" / "Please don't hesitate"
 - "stands as a testament" / "marking a pivotal moment" / "transformative" / "groundbreaking" / "innovative"
 - "At its core" / "what really matters" / "in today's landscape" / "the future of"
@@ -152,7 +156,7 @@ NEVER use:
 - Emoji of any kind
 - Bold or italic markup, asterisks, markdown headings
 - Bullet lists in the body
-- "AI assistant" — say "AI employee" or describe what Ada DOES
+- "AI assistant" — say "AI employee" or describe what it does
 - "Synergy" / "leverage" / "robust" / "scalable" / "seamless" / "best-in-class"
 - Generic conclusions ("the future looks bright", "exciting times ahead")
 - Curly quotes — straight quotes only ("...")

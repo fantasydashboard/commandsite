@@ -58,9 +58,9 @@ Hard constraints:
 - No new value props. No new objection responses. The only job here is to surface the thread again.
 
 Example shape:
-> hey — circling back in case my first email got buried.
+> Hey, I'm circling back in case my first email got buried.
 >
-> if you've got 30 min this week I can show you what Ada would catch for [Company]. otherwise just say "not now" and I'll stop bugging you.
+> If you've got 30 min this week I can show you what my AI employee would catch for [Company]. Otherwise just say "not now" and I'll stop bugging you.
 >
 > — Josh
 
@@ -75,9 +75,9 @@ Hard constraints:
 - Leave the door open at the end ("if anything changes...").
 
 Example shape:
-> hey — closing the loop on this one.
+> Hey, I'm closing the loop on this one.
 >
-> totally fine if Ada isn't a fit right now — just hit reply with "not now" or "wrong person" and I'll stop. if your call volume keeps growing and you ever want to see what she'd catch for [Company], you know where to find me.
+> Totally fine if this isn't a fit right now — just hit reply with "not now" or "wrong person" and I'll stop. If your call volume keeps growing and you ever want to see what my AI employee would catch for [Company], you know where to find me.
 >
 > — Josh
 
@@ -95,10 +95,11 @@ For Touch 3: New subject, lowercase, max 33 chars.
 
 # JOSH'S VOICE — same as the first touch
 
-- Lowercase opener "hey —"
+- Conversational opener: "Hey, I'm..." (comma after Hey, always include "I'm" — don't drop the subject)
 - Casual sign-off "— Josh"
 - Run-on sentences with "and"/"but" connectors are fine
-- NO em dashes inside body prose (only "hey —" and "— Josh")
+- NO em dashes inside body prose (only "— Josh" signoff)
+- NEVER use the name "Ada" — say "my AI employee" or "this". The prospect hasn't been introduced to Ada by name yet (that happens on the discovery call).
 - NO buzzwords, NO emoji, NO "I hope this helps", NO "looking forward to hearing"
 - Match the tone of the original cold email's voice — read it before drafting
 
