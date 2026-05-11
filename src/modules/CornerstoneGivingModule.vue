@@ -6,7 +6,7 @@
  * household flag. No individual snooping. The pastoral value is
  * spotting drift, not surveillance.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   Chart, BarController, BarElement, DoughnutController, ArcElement,
   CategoryScale, LinearScale, Tooltip,
@@ -21,6 +21,8 @@ import {
   STOP_REASON_LABEL,
 } from '@/lib/clients/cornerstone/giving'
 import { barDefaults, chartColors } from '@/lib/chartTheme'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 Chart.register(BarController, BarElement, DoughnutController, ArcElement, CategoryScale, LinearScale, Tooltip)
 
@@ -136,6 +138,78 @@ const sortedStopped = computed(() =>
     return b.days_silent - a.days_silent
   }),
 )
+
+// ── Approval queue: card-update reminders + thank-yous + reactivation ─
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'gv-hawthorne',
+    icon: '💳',
+    badge: 'Card update',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Card-update reminder — Hawthorne Family',
+    recipient: 'Recurring gift card expired 22d ago · 3-yr giving streak',
+    preview: '"The Hawthorne Family — your monthly gift didn\'t process this month because the card on file expired. Whenever you have a moment, here\'s the link to update it. Zero pressure, just wanted to flag it before another cycle slips. Thank you for your faithfulness. — Grace, for Cornerstone"',
+    approved_response: 'Sent. I\'ll watch for the card update for 5 days. If they update, I\'ll quietly retry the gift. If not, I\'ll surface it again next Monday.',
+    ticker_after_approval: 'Card-update reminder sent to the Hawthornes',
+  },
+  {
+    id: 'gv-bigift-thanks',
+    icon: '🙏',
+    badge: 'Big-gift thanks',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Thank-you note — anonymous $5,000 Building Fund gift',
+    recipient: 'Cleared yesterday · gift attached to a household but anonymized in display',
+    preview: '"Friend — wanted to send a quiet thank-you for the gift toward the building fund this week. Generosity at that scale moves things forward in ways that ripple out for years. Pastor Mark and the elders are deeply grateful. We\'ll honor it well. — Pastor Mark"',
+    approved_response: 'Sent — addressed by their preferred name from the household record (kept off display per privacy settings). They\'ve made one prior anonymous gift; matching tone with that one.',
+    ticker_after_approval: 'Big-gift thank-you sent — $5k Building Fund contributor',
+  },
+  {
+    id: 'gv-stopped-1',
+    icon: '🏡',
+    badge: 'Reactivation',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Reactivation outreach — multi-flag stopped giver',
+    recipient: 'Gave consistently for 4 yrs · stopped 60d ago · also 1 People-page flag',
+    preview: '"Hey — we noticed you haven\'t been giving recently and just wanted to check in. No pressure to share what\'s going on, and absolutely no agenda about getting you back into a giving rhythm. We just wanted you to know we noticed and we care. Pastor Mark is here whenever. — Grace"',
+    approved_response: 'Sent. The frame is intentionally pastoral, not financial. If they reply about a hardship, I\'ll route directly to Pastor Mark and not touch giving.',
+    ticker_after_approval: 'Reactivation outreach sent — long-time giver who paused',
+  },
+  {
+    id: 'gv-bf-update',
+    icon: '🏗️',
+    badge: 'Stewardship comms',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Building Fund 60% milestone — contributor update',
+    recipient: '38 contributing households YTD · 14 days ahead of pace',
+    preview: '"Friends — quick update for you specifically since you\'ve been part of this. We just crossed 60% of the building fund goal. Your gifts got us here — every one of them. There\'s real momentum and we\'re feeling it. Thank you. (No ask in this note, just wanted to share the win.) — Pastor Mark"',
+    approved_response: 'Drafting individualized version per household. The personal-name token + "you specifically" framing tests at 71% open vs 41% for generic. Will land in your queue at Sundays + Comms shortly.',
+    ticker_after_approval: 'Building Fund update drafting for 38 contributors',
+  },
+]
+
+const tickerSeed = [
+  { icon: '💚', text: '$240 anonymous gift just cleared — General Fund', ageSec: 6 * 60 },
+  { icon: '🏗️', text: 'Building Fund pace check: 14 days ahead of plan', ageSec: 28 * 60 },
+  { icon: '⚠', text: 'Hawthorne card-on-file failure detected', ageSec: 2 * 3600 },
+  { icon: '🔄', text: 'Recurring gift retry succeeded — Marsh family', ageSec: 6 * 3600 },
+]
+
+const tickerPool = [
+  { icon: '💚', text: 'Recurring gift processed — General Fund' },
+  { icon: '💳', text: 'Card-update link clicked — gift retried successfully' },
+  { icon: '🏗️', text: 'Building Fund crossed 61% of goal' },
+  { icon: '🙏', text: 'Big-gift thank-you delivered — opened in 4 min' },
+  { icon: '📈', text: 'Monthly recurring giving up 3.2% MoM' },
+  { icon: '⚠', text: 'Stopped-giving flag triggered — auto-drafted reactivation' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
@@ -147,6 +221,21 @@ const sortedStopped = computed(() =>
         Aggregate trends + drift flags only — no individual gift amounts. Visible to senior pastor + finance team only.
       </div>
     </div>
+
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Giving signals — auto-updates from the merchant + your stack"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="4"
+      heading="Stewardship queue"
+      subtitle="Card-updates, big-gift thank-yous, reactivation — all drafted with restraint. Approve to send."
+      @approved="onApproved"
+    />
 
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">

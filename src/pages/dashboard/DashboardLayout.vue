@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import ClientWordmark from '@/components/ClientWordmark.vue'
 import AskAiFloatingButton from '@/components/AskAiFloatingButton.vue'
+import GraceToastContainer from '@/components/grace/GraceToastContainer.vue'
 import { modulesForClient } from '@/config/clients'
 import { themeForClient } from '@/config/clientThemes'
 import { visibleTabsFor, badgesForTab, type TabBadge } from '@/modules/registry'
@@ -366,5 +367,8 @@ async function onLogout() {
     <!-- Floating Ask-Ada / Ask-Grace button — only renders for clients
          that have a persona configured in personas/registry.ts -->
     <AskAiFloatingButton :slug="props.slug" />
+
+    <!-- Global toast container — used by approval-queue actions etc. -->
+    <GraceToastContainer />
   </div>
 </template>

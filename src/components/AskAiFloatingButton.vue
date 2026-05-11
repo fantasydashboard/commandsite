@@ -8,20 +8,23 @@
  * registry (zero-latency, zero-cost, scripted-on-purpose). The custom
  * input streams a real response from the ask-ada Edge Function via SSE.
  */
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch, onMounted } from 'vue'
 import { personaForSlug, type SuggestedQuestion } from '@/lib/personas/registry'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import AssistantMark from '@/components/AssistantMark.vue'
+import { useAssistantChat } from '@/components/grace/useGraceChat'
 
 const props = defineProps<{ slug: string }>()
 
 const persona = computed(() => personaForSlug(props.slug))
+const chat = useAssistantChat()
 
-const isOpen = ref(false)
-const isStreaming = ref(false)
+// Local refs proxied to the shared composable so the existing template
+// keeps working with minimal changes.
+const isOpen = chat.isOpen
+const isStreaming = chat.isStreaming
+const chatMessages = chat.messages
 
-interface ChatMessage { role: 'user' | 'ai'; text: string }
-const chatMessages = ref<ChatMessage[]>([])
 const customQuestion = ref('')
 const chatScrollEl = ref<HTMLElement | null>(null)
 let activeAbort: AbortController | null = null
@@ -29,33 +32,36 @@ let activeAbort: AbortController | null = null
 // Reset chat when persona changes (switching demos)
 watch(persona, (p) => {
   cancelActiveStream()
-  chatMessages.value = p ? [{ role: 'ai', text: p.greeting }] : []
+  chat.reset(p?.greeting)
 }, { immediate: true })
 
+onMounted(() => {
+  chat.setScrollEl(chatScrollEl.value)
+})
+
 function open() {
-  isOpen.value = true
+  chat.open()
   nextTick(scrollChatToBottom)
 }
 function close() {
-  isOpen.value = false
+  chat.close()
   cancelActiveStream()
 }
 
 function cancelActiveStream() {
   activeAbort?.abort()
   activeAbort = null
-  isStreaming.value = false
+  chat.setStreaming(false)
 }
 
 async function askSuggested(q: SuggestedQuestion) {
   if (isStreaming.value) return
-  chatMessages.value.push({ role: 'user', text: q.q })
+  chat.addUserMessage(q.q)
   await nextTick()
   scrollChatToBottom()
   // Brief pause so the canned answer doesn't pop instantly (feels artificial otherwise).
   setTimeout(() => {
-    chatMessages.value.push({ role: 'ai', text: q.a })
-    nextTick(scrollChatToBottom)
+    chat.addAiMessage(q.a, false)
   }, 450)
 }
 
@@ -67,11 +73,10 @@ async function askCustom() {
   // The greeting (first assistant turn) is filtered server-side.
   const history = chatMessages.value.map((m) => ({ role: m.role, text: m.text }))
 
-  chatMessages.value.push({ role: 'user', text })
-  chatMessages.value.push({ role: 'ai', text: '' })
-  const aiIndex = chatMessages.value.length - 1
+  chat.addUserMessage(text)
+  const aiIndex = chat.appendStreamPlaceholder()
   customQuestion.value = ''
-  isStreaming.value = true
+  chat.setStreaming(true)
   await nextTick()
   scrollChatToBottom()
 
@@ -93,9 +98,9 @@ async function askCustom() {
     if (!res.ok || !res.body) {
       let detail = ''
       try { detail = (await res.json())?.error ?? '' } catch { /* ignore */ }
-      chatMessages.value[aiIndex].text = detail
+      chat.setStreamText(aiIndex, detail
         ? `Sorry, something went wrong. ${detail}`
-        : "Sorry, I'm offline right now. Try again in a moment."
+        : "Sorry, I'm offline right now. Try again in a moment.")
       return
     }
 
@@ -118,13 +123,14 @@ async function askCustom() {
         if (parsed.event === 'content_block_delta' && parsed.data?.delta?.type === 'text_delta') {
           const delta = parsed.data.delta.text
           if (typeof delta === 'string') {
-            chatMessages.value[aiIndex].text += delta
+            chat.appendStreamText(aiIndex, delta)
             await nextTick()
             scrollChatToBottom()
           }
         } else if (parsed.event === 'error') {
-          chatMessages.value[aiIndex].text =
-            chatMessages.value[aiIndex].text || "Sorry, the connection dropped."
+          if (!chatMessages.value[aiIndex].text) {
+            chat.setStreamText(aiIndex, "Sorry, the connection dropped.")
+          }
         }
       }
     }
@@ -134,12 +140,12 @@ async function askCustom() {
       return
     }
     if (!chatMessages.value[aiIndex].text) {
-      chatMessages.value[aiIndex].text = "Sorry, I lost the connection. Try again?"
+      chat.setStreamText(aiIndex, "Sorry, I lost the connection. Try again?")
     }
   } finally {
     if (activeAbort === controller) {
       activeAbort = null
-      isStreaming.value = false
+      chat.setStreaming(false)
     }
   }
 }
@@ -171,7 +177,7 @@ function scrollChatToBottom() {
     <button
       v-if="persona && !isOpen"
       type="button"
-      class="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-full bg-brand text-ink-inverse pl-3 pr-4 py-2.5 shadow-raised hover:shadow-card hover:opacity-95 transition-all"
+      class="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-full bg-brand text-ink-inverse pl-3 pr-4 py-2.5 shadow-raised hover:shadow-card hover:opacity-95 transition-all relative"
       :aria-label="`Open chat with ${persona.name}`"
       @click="open"
     >
@@ -180,6 +186,10 @@ function scrollChatToBottom() {
       </span>
       <span class="text-sm font-semibold">Ask {{ persona.name }}</span>
       <span class="hidden sm:inline-flex h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
+      <span
+        v-if="chat.unread.value > 0"
+        class="absolute -top-1.5 -right-1.5 h-5 min-w-[1.25rem] px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-surface"
+      >{{ chat.unread.value }}</span>
     </button>
 
     <!-- Chat panel (slides up from bottom-right on open) -->

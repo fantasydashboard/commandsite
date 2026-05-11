@@ -7,10 +7,11 @@
  * the Story Engine (testimony collection). Same fixture data the
  * old Engagement module pulled from for visitor stats.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
 import { visitorStats, STAGE_META as VISITOR_STAGE_META, visitors } from '@/lib/clients/cornerstone/visitors'
-import CornerstoneGraceActivityStrip from '@/components/CornerstoneGraceActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -52,19 +53,95 @@ function storyStatusClass(s: Story['status']): string {
   if (s === 'drafted')  return 'bg-brand/15 text-brand'
   return 'bg-warn/15 text-warn'
 }
+
+// ── Approval queue: visitor sequences + story drafts ──────────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'fd-yates-nudge',
+    icon: '👋',
+    badge: 'Guest Follow-Up',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Day-7 nudge — The Yates Family',
+    recipient: 'First-time visitor · welcome SMS sent · no response after 4 days',
+    preview: '"Hey Yates Family — just wanted to circle back from last week. No pressure to reply, but if you\'re thinking about coming back this Sunday, we\'d love to see you again. Happy to answer anything about kids ministry or small groups whenever. — Pastor Mark"',
+    approved_response: "Sent. If they don't respond by next Sunday I'll move them from 'first-time' to 'cooled' so we don't keep nudging. They opened the welcome SMS though, so I'm cautiously optimistic.",
+    ticker_after_approval: 'Day-7 nudge sent to the Yates Family',
+  },
+  {
+    id: 'fd-tellez-story',
+    icon: '🌱',
+    badge: 'Story Engine',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Share story — The Téllez Family',
+    recipient: 'DC graduation testimony · drafted · awaiting your sign-off',
+    preview: '"\'We\'d been church-shopping for two years — this was the first place that felt like home.\' — The Téllez Family. Permission to share on socials + the new-member welcome packet. Drafted with their consent on the form. Edit before publish or approve as-is."',
+    approved_response: "Posted — socials, welcome packet, the next bulletin email. The Téllez Family will get a heads-up text from me 30 sec after publish so they're not surprised.",
+    ticker_after_approval: 'Téllez story published — socials + bulletin',
+  },
+  {
+    id: 'fd-ellison-permission',
+    icon: '🌱',
+    badge: 'Story Engine',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Story permission ask — Baby Ellison',
+    recipient: 'Birth Tue · need Marc + Hannah\'s OK before share',
+    preview: '"Marc and Hannah — would you be open to us sharing the news of Baby Ellison\'s arrival on socials + in this Sunday\'s announcement? Totally optional, no pressure either way. If yes, I\'ll draft something simple for your approval first. — Pastor Mark (via Grace)"',
+    approved_response: "Sent. Asking for permission first is the right move with births — I'll surface their reply the moment it lands and only THEN draft the announcement.",
+    ticker_after_approval: 'Permission ask sent to the Ellisons',
+  },
+  {
+    id: 'fd-kennedy-day3',
+    icon: '👋',
+    badge: 'Guest Follow-Up',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Day-3 nudge — Kennedy Park',
+    recipient: '2nd visit Sunday · filled out connect card',
+    preview: '"Hey Kennedy — wanted to follow up after Sunday and just say it was great having you with us again. Saw the connect card — thanks for that. If you\'re open to it, our Newcomers Lunch is May 19th — informal, no commitment. Otherwise: looking forward to seeing you again whenever feels right. — Pastor Mark"',
+    approved_response: "Sent. Kennedy's a soft pipeline lead — I'll watch for an RSVP or a reply, and surface either to you within minutes.",
+    ticker_after_approval: 'Day-3 nudge sent to Kennedy Park',
+  },
+]
+
+const tickerSeed = [
+  { icon: '📞', text: 'Caught a call — Sun service times question, info text sent', ageSec: 6 * 60 },
+  { icon: '👋', text: 'Riley opened welcome SMS — 11 min after send', ageSec: 11 * 60 },
+  { icon: '✅', text: 'Connect form submitted — Kennedy Park (2nd visit)', ageSec: 47 * 60 },
+  { icon: '🌱', text: 'Owen Holloway story captured — 1-yr Youth Leader milestone', ageSec: 3 * 3600 },
+]
+
+const tickerPool = [
+  { icon: '📞', text: 'Caught a call — pastoral request, escalated to Pastor Mark' },
+  { icon: '✅', text: 'Connect card submitted via web form' },
+  { icon: '👋', text: 'Welcome SMS opened — first-time visitor' },
+  { icon: '🌱', text: 'Story drafted — testimony ready for review' },
+  { icon: '📅', text: 'Newcomers Lunch RSVP — Maddux Family' },
+  { icon: '💬', text: 'Forwarded inquiry — kids ministry routed to team lead' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <!-- Grace activity strip -->
-    <CornerstoneGraceActivityStrip
-      tab-key="front-desk-guests"
-      summary="This is where Grace catches every first touch — calls, forms, connect cards — then runs the follow-up sequences and captures the stories worth sharing."
-      :activity="[
-        { icon: '📞', label: 'Caught 47 calls', detail: 'this week, 12 captured first-time visitor info', ago: 'rolling' },
-        { icon: '👋', label: 'Sent 8 welcome SMS', detail: 'avg open: 11 min', ago: 'this week' },
-        { icon: '🌱', label: 'Captured 2 stories', detail: 'Owen Holloway 1-yr milestone + Téllez DC graduation', ago: 'this week' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Front-desk activity — calls, forms, stories. Auto-updates."
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="5"
+      heading="First-touch queue"
+      subtitle="Visitor sequences + story permissions awaiting your eyes. Approve to send."
+      @approved="onApproved"
     />
 
     <!-- KPI strip -->

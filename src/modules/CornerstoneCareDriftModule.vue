@@ -15,7 +15,8 @@ import {
   type Household, type HouseholdStage,
 } from '@/lib/clients/cornerstone/people'
 import { careCases, careStats, KIND_META as CARE_KIND_META, URGENCY_META, type CareCase } from '@/lib/clients/cornerstone/care'
-import CornerstoneGraceActivityStrip from '@/components/CornerstoneGraceActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -74,19 +75,96 @@ function fmtAgo(iso?: string): string {
   if (day < 365) return `${Math.floor(day / 30)}mo ago`
   return `${(day / 365).toFixed(1)}yr ago`
 }
+
+// ── Approval queue: pastoral check-ins Grace has drafted ──────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'care-whitaker',
+    icon: '🤝',
+    badge: 'Care Triage',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Pastoral check-in — The Whitaker Family',
+    recipient: '2 red flags · kids missed 3 of last 4 Sundays',
+    preview: '"Hey Mark and Julia — noticed the kids haven\'t been with us the last few Sundays and just wanted to check in. No agenda, just thinking of your family. If anything\'s going on we can support you with, I\'d love to know. Otherwise — looking forward to seeing you all when the timing\'s right. — Pastor Mark"',
+    approved_response: "Sent. The Whitakers responded within 30 min last time I drafted to them — so likely a quick reply. I'll surface their response the moment it lands.",
+    ticker_after_approval: 'Pastoral check-in sent to the Whitakers',
+  },
+  {
+    id: 'care-castellano',
+    icon: '🤝',
+    badge: 'Care Triage',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Pastoral check-in — The Castellano Family',
+    recipient: 'Drifting · stopped serving 2mo ago · giving paused',
+    preview: '"Hey Diego and Sofia — was just thinking about you both and realized we haven\'t had a real chat in a while. I know things have been busy with the new house. Would love to grab coffee sometime if you\'re open. No church business, just want to catch up. — Pastor Mark"',
+    approved_response: "Sent. The Castellanos asked Diego about a small group last quarter — if they reply I'll surface that thread too so you have context.",
+    ticker_after_approval: 'Pastoral check-in sent to the Castellanos',
+  },
+  {
+    id: 'care-foster-funeral',
+    icon: '🕯️',
+    badge: 'Care · Urgent',
+    badgeClass: 'bg-danger/15 text-danger',
+    title: 'Funeral logistics confirm — Foster Family',
+    recipient: 'James Foster · father\'s funeral Friday 10 AM',
+    preview: '"James — confirming we\'re all set for Friday at 10 AM. Meal train is coordinated through your small group (8 families signed up, dinners covered through next Wednesday). I\'ll be at the service early to greet folks. If anything else comes up before then, just text. Praying for you and your mom. — Pastor Mark"',
+    approved_response: "Sent. I'll keep a close watch on this one — if anyone in the Foster orbit asks about the meal train or the service, I'll route directly to you.",
+    ticker_after_approval: 'Funeral logistics confirmed with James Foster',
+  },
+  {
+    id: 'care-reyes-followup',
+    icon: '🏡',
+    badge: 'Re-engagement',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Day-7 follow-up — The Reyes Family',
+    recipient: 'Came back after 4-mo gap · "we missed you" got no reply',
+    preview: '"Hey Reyes Family — just wanted to follow up on the note from last week. No pressure to reply, but I\'d genuinely love to know how you\'re both doing. If a coffee or a call would be easier, my Tuesday afternoon is wide open. — Pastor Mark"',
+    approved_response: "Sent. If they don't reply by next Sunday, I'll surface them again as a possible drop-off rather than re-engagement. The first SMS got opened though, so they're still warm.",
+    ticker_after_approval: 'Day-7 nudge sent to the Reyes Family',
+  },
+]
+
+// Live ticker — care/drift specific events
+const tickerSeed = [
+  { icon: '⚠', label: 'Drift flag', text: 'Hawthorne household crossed 2-flag threshold', ageSec: 8 * 60 },
+  { icon: '🤝', text: 'Whitaker draft updated with new context', ageSec: 27 * 60 },
+  { icon: '🏡', text: 'Reyes Family opened "we missed you" SMS', ageSec: 73 * 60 },
+  { icon: '📞', text: 'James Foster called — funeral logistics confirmed', ageSec: 4 * 3600 },
+].map(({ icon, text, ageSec }) => ({ icon, text, ageSec }))
+
+const tickerPool = [
+  { icon: '🤝', text: 'Pastoral check-in queued — auto-drafted from drift signals' },
+  { icon: '⚠', text: 'Sullivan Family — flag count refreshed (still 3 red)' },
+  { icon: '🏡', text: 'Drift detection swept 142 households, 4 new flags' },
+  { icon: '💬', text: 'Reyes Family replied — moved to Pastor inbox' },
+  { icon: '✉️', text: 'Whitaker check-in opened (12 min ago)' },
+  { icon: '📅', text: 'Coffee scheduled — Pastor Mark + Castellanos for Tue' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <!-- Grace activity strip -->
-    <CornerstoneGraceActivityStrip
-      tab-key="care-drift"
-      summary="Grace watches the three flags on every household, drafts pastoral check-ins for at-risk families, and re-engages members who've quietly drifted past 60 days."
-      :activity="[
-        { icon: '⚠', label: 'Escalated 1 household past 2-flag threshold', detail: 'The Sullivan Family — paged you', ago: '4d' },
-        { icon: '🤝', label: 'Drafted 3 pastoral check-ins', detail: 'Whitakers, Castellanos, Foster — awaiting your review', ago: 'this week' },
-        { icon: '🏡', label: 'Sent 1 re-engagement check-in', detail: 'The Reyes Family — back after 4-month gap', ago: '5d' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Drift flags + care signals — auto-updates"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="3"
+      heading="Grace's care queue"
+      subtitle="Pastoral check-ins drafted from drift signals + open care cases. Approve to send."
+      @approved="onApproved"
     />
 
     <!-- KPI strip -->

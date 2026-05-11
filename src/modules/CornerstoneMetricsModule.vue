@@ -6,7 +6,7 @@
  * with year-over-year compare, adults vs kids breakdown, service-time
  * split, visitor flow, and growth indicators (baptisms / new members).
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   Chart, LineController, BarController, LineElement, PointElement,
   BarElement, ArcElement, DoughnutController,
@@ -20,7 +20,8 @@ import {
 } from '@/lib/clients/cornerstone/attendance'
 import { givingStats, monthlyGiving } from '@/lib/clients/cornerstone/giving'
 import { peopleStats } from '@/lib/clients/cornerstone/people'
-import CornerstoneGraceActivityStrip from '@/components/CornerstoneGraceActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 Chart.register(
   LineController, BarController, LineElement, PointElement,
@@ -201,18 +202,108 @@ function money(cents: number): string {
   if (cents >= 100_000) return '$' + Math.round(cents / 1000) + 'k'
   return '$' + Math.round(cents / 100).toLocaleString()
 }
+
+// ── Insights queue: patterns Grace noticed + proposed action ──────────
+// This is the most distinctive use of the queue — Grace as an analyst.
+// Each item is a finding she surfaced + a one-click "yes, do it" action.
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'ins-attendance-dip',
+    icon: '📉',
+    badge: 'Attendance signal',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Attendance dipped 6% from 4-wk avg',
+    recipient: 'Last 2 Sundays trended below baseline · spring break could explain part',
+    preview: 'Want me to draft a "we missed you this Sunday" SMS to the 14 first-timers from 4 weeks ago who haven\'t come back? Their day-3 nudges all landed but no second visit. Worth a soft re-engage before they cool fully.',
+    approved_response: 'Drafting now. Each one is personalized using their connect-card answer about what brought them. They\'ll be in your queue on Front Desk & Guests for review in ~30 sec.',
+    ticker_after_approval: '14 re-engagement drafts queued — first-timers from 4 weeks back',
+  },
+  {
+    id: 'ins-building-fund',
+    icon: '🏗️',
+    badge: 'Giving signal',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Building Fund just crossed 60% of goal',
+    recipient: '14 days ahead of pace · 38 contributing households YTD',
+    preview: 'Want me to draft a thank-you / progress update to the building-fund contributors? It\'s been ~5 weeks since the last update and momentum is real. I\'d frame it warmly without the next ask attached — let people feel the win first.',
+    approved_response: 'Drafting. Personalized open ("Hey [first_name] — quick update for you specifically since you\'ve been part of this") — those have a 71% open rate vs 41% for generic broadcasts. In your Sundays + Comms queue shortly.',
+    ticker_after_approval: 'Building Fund thank-you drafted for 38 contributors',
+  },
+  {
+    id: 'ins-newsletter-ab',
+    icon: '🔬',
+    badge: 'Communications signal',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Newsletter open rate dropped 4 pts',
+    recipient: 'Last 3 Sundays: 38% → 36% → 34% open · subject lines all started with "This Sunday at Cornerstone"',
+    preview: 'Want me to A/B test 2 subject-line variants for next Sunday\'s newsletter? Hypothesis: leading with the personal-name token vs the church name will lift opens 5-8 pts. I\'d split the list 50/50, send same time, and surface results Wednesday.',
+    approved_response: 'Test set up. List split, both variants written, scheduled for Wed 6 AM. I\'ll surface the comparison Wednesday afternoon when statistical significance lands (~12k impressions in).',
+    ticker_after_approval: 'A/B test scheduled for Wed newsletter — subject-line variants',
+  },
+  {
+    id: 'ins-baptism-pipeline',
+    icon: '🌊',
+    badge: 'Pastoral signal',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Baptism pipeline: 6 candidates from DC',
+    recipient: '6 from this Discover Cornerstone cohort indicated baptism interest · none scheduled',
+    preview: 'Want me to draft individual outreach to each one to walk them through the next step? I\'d use the question they asked on the DC form as the opener so it doesn\'t feel like a mailing-list ask. Goal: get 4-5 of them on the baptism Sunday calendar within 2 weeks.',
+    approved_response: 'Drafting 6 individualized notes — each grounded in what they specifically said on the DC form. Will be in your Front Desk & Guests queue for review.',
+    ticker_after_approval: '6 baptism-step outreach notes drafting (1 per DC candidate)',
+  },
+  {
+    id: 'ins-volunteer-burnout',
+    icon: '⚠',
+    badge: 'Volunteer signal',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Volunteer burnout flag: 3 serving 4+ Sundays in a row',
+    recipient: 'Mia Pham, Casey Holmes, Jess Lehrer all on the schedule 4+ consecutive Sundays',
+    preview: 'Want me to draft a personal "thank you, here\'s your Sunday off" note to each + auto-block them from the next 2 schedules? You can re-add them whenever, but the breather signal lands stronger as a Pastor-Mark personal text than a Planning Center auto-message.',
+    approved_response: 'Drafting all 3. Each one mentions the specific weeks they covered. I\'ll soft-block them in Planning Center too — you can override anytime. Notes in your queue shortly.',
+    ticker_after_approval: '3 burnout-prevention notes drafting (Mia, Casey, Jess)',
+  },
+]
+
+const tickerSeed = [
+  { icon: '📊', text: 'Sunday attendance synced from Planning Center', ageSec: 18 * 60 },
+  { icon: '💚', text: '7th first-time visitor this week — Connect form just submitted', ageSec: 41 * 60 },
+  { icon: '🌊', text: 'Baptism interest captured from DC form — Marcus L.', ageSec: 2 * 3600 },
+  { icon: '📉', text: 'Attendance trend recalculated — 6% below 4-wk avg', ageSec: 3 * 3600 },
+]
+
+const tickerPool = [
+  { icon: '📊', text: 'Engagement summary draft auto-generated for Tuesday meeting' },
+  { icon: '💰', text: 'Giving trend recalculated — Building Fund at 61%' },
+  { icon: '🔄', text: 'First-time visitor → returning conversion: 57% (4-wk rolling)' },
+  { icon: '👀', text: 'Newsletter open: 36% (down 2pt week-over-week)' },
+  { icon: '✅', text: 'Day-3 follow-up landing rate: 89%' },
+  { icon: '📈', text: 'Year-over-year attendance: +12.4%' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <CornerstoneGraceActivityStrip
-      tab-key="insights"
-      summary="Grace turns the week's activity into a one-page picture: attendance, first-time visitors, follow-ups landed, and the families on the watch list. Drafted before Tuesday's staff meeting, ready for your eyes."
-      :activity="[
-        { icon: '📊', label: 'Drafted this week\'s engagement summary', detail: 'Attendance, first-timers, day-3 follow-ups landed · in your inbox Tuesday 7 AM', ago: 'auto' },
-        { icon: '💚', label: '7 first-time visitors this week', detail: '4 returned within 14 days · 2 still in the welcome sequence', ago: 'this week' },
-        { icon: '📨', label: '12 day-3 follow-ups sent', detail: '8 responses logged · 1 family wants to schedule a coffee', ago: 'live' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Engagement signals — auto-updates from Planning Center + your stack"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="2"
+      heading="Patterns Grace noticed this week"
+      subtitle="She's not just reporting numbers — she's spotting trends + proposing action. Approve to draft."
+      @approved="onApproved"
     />
 
     <!-- Header -->

@@ -7,11 +7,12 @@
  * Communications (drafts + sent + performance). Pulls from the
  * existing sundays + comms fixtures.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
 import { sundayStats, upcomingService, VOLUNTEER_ROLE_META } from '@/lib/clients/cornerstone/sundays'
 import { commsStats, posts, CHANNEL_META } from '@/lib/clients/cornerstone/comms'
-import CornerstoneGraceActivityStrip from '@/components/CornerstoneGraceActivityStrip.vue'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -41,19 +42,105 @@ function readinessTone(p: number): string {
   if (p >= 0.6)  return 'text-warn'
   return 'text-danger'
 }
+
+// ── Approval queue: Sunday volunteer asks + comms drafts ──────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'sun-nursery-9',
+    icon: '🙋',
+    badge: 'Volunteer Coord',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Fill ask — Nursery Sunday 9 AM',
+    recipient: '2 spots open · Mia Pham + Amanda Foster suggested',
+    preview: '"Hey Mia and Amanda — Linda and Aanya are both off this Sunday and we\'re short for the 9 AM nursery slot. You\'ve both filled in last-minute before and saved the day. Any chance one (or both) of you could swing it? Totally fine if not. — Pastor Mark (via Grace)"',
+    approved_response: "Sent to both. Planning Center will auto-confirm if either says yes. I'll surface the result Saturday morning if no one bites — usually they reply same-day.",
+    ticker_after_approval: 'Nursery fill ask sent — Mia + Amanda',
+  },
+  {
+    id: 'sun-parking-11',
+    icon: '🅿️',
+    badge: 'Volunteer Coord',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Fill ask — Parking Sunday 11 AM',
+    recipient: '1 spot open · Kyle Marris suggested',
+    preview: '"Hey Kyle — we\'re one short on the parking team for the 11 AM Sunday. Saw you covered it last month and folks loved you out there. Free to grab the slot? — Pastor Mark"',
+    approved_response: "Sent. Kyle's responded within an hour every previous ask, so likely a fast yes. I'll bump him to Pastor Mark's calendar if confirmed.",
+    ticker_after_approval: 'Parking fill ask sent — Kyle Marris',
+  },
+  {
+    id: 'sun-newsletter',
+    icon: '📧',
+    badge: 'Communications',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Sunday newsletter — week of May 11',
+    recipient: '847 subscribers · scheduled for Wed 6 AM',
+    preview: '"This Sunday — guest worship leader, baptism Sunday for two from Discover Cornerstone, and a special update from the building fund (we\'re past 60% of our goal). Plus: Newcomers Lunch RSVPs are open, Wednesday night small groups resume next week. Hope to see you Sunday."',
+    approved_response: 'Scheduled for Wed 6 AM. Past 4 newsletters averaged 38% open rate at that send time. I\'ll surface the open-rate result Wednesday afternoon.',
+    ticker_after_approval: 'Newsletter scheduled for Wed 6 AM — 847 subscribers',
+  },
+  {
+    id: 'sun-recap',
+    icon: '✏️',
+    badge: 'Communications',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Sunday recap email draft',
+    recipient: 'Auto-drafts every Sun PM · ready for Mon AM send',
+    preview: '"Sunday recap — 412 of you joined us in person, with 3 first-time visitors (Riley, Kennedy, the Madduxes — welcome again!). Big moment: 6 baptisms on the calendar for next month. Worship setlist is on Spotify. Sermon link below. Praying for everyone Pastor Mark talked with after service."',
+    approved_response: 'Sent to the all-church list. Mon morning open rate trends 42% — I\'ll surface anyone who clicked but didn\'t come Sunday as warm re-engagement leads.',
+    ticker_after_approval: 'Sunday recap sent to all-church list',
+  },
+  {
+    id: 'sun-ribbon-cutting',
+    icon: '🏗️',
+    badge: 'Communications',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Building fund milestone post',
+    recipient: '60% of goal hit — share-ready',
+    preview: '"Friends — we just crossed 60% of the building fund goal. Thank you. Every gift, every prayer, every Sunday you\'ve shown up has gotten us here. There\'s real momentum and we\'re feeling it. Specific number + what\'s next in this Sunday\'s announcement."',
+    approved_response: 'Posted to socials + church app. Church-app push notifications usually get 18-22% engagement on milestone posts.',
+    ticker_after_approval: 'Building fund milestone posted — socials + app',
+  },
+]
+
+const tickerSeed = [
+  { icon: '🎵', text: 'Worship setlist locked — Jess + Marcus + Holloway', ageSec: 12 * 60 },
+  { icon: '✅', text: 'Holloway confirmed for backing vocals 9 AM', ageSec: 38 * 60 },
+  { icon: '📧', text: 'Newsletter open: 38% (847 subscribers)', ageSec: 4 * 3600 },
+  { icon: '🅿️', text: 'Parking team — 1 short for 11 AM, ask drafted', ageSec: 6 * 3600 },
+]
+const tickerPool = [
+  { icon: '🙋', text: 'Volunteer accept — Mia Pham confirmed for 9 AM nursery' },
+  { icon: '📅', text: 'Sunday slot auto-confirmed — Kids Ministry team complete' },
+  { icon: '✏️', text: 'Sermon notes uploaded for Sunday — formatted for app' },
+  { icon: '📧', text: 'Newsletter delivered to 847 — opens trickling in' },
+  { icon: '🎵', text: 'Worship rehearsal Tuesday 7 PM — calendar invite sent' },
+  { icon: '💬', text: 'New small group inquiry routed to Pastor Mark' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <!-- Grace activity strip -->
-    <CornerstoneGraceActivityStrip
-      tab-key="sundays-comms"
-      summary="Grace coordinates the Sunday roster (spotting gaps + suggesting fills based on past last-minute responses) and runs all your communications — drafting, scheduling, and sending."
-      :activity="[
-        { icon: '🙋', label: 'Flagged 2 nursery gaps', detail: 'Sun 9 AM — suggested Mia Pham + Amanda Foster as fills', ago: '2d' },
-        { icon: '📧', label: 'Sent Sunday newsletter', detail: '847 recipients · 38% open · 12% click', ago: '5d' },
-        { icon: '✏', label: 'Drafted 4 birthday cards', detail: 'auto-printed Mon AM, posted Tue', ago: '6d' },
-      ]"
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Sunday + comms activity — auto-updates"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="6"
+      heading="Sunday + comms queue"
+      subtitle="Volunteer asks + drafted comms ready to schedule. Approve to send."
+      @approved="onApproved"
     />
 
     <!-- KPI strip -->
