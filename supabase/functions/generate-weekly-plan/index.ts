@@ -175,7 +175,7 @@ If the user message includes a RECENT WORKOUT LOG section, treat it as ground tr
 - **No log for this exercise** → start at "experience-appropriate conservative" (40% bodyweight for novice bench, 60% for intermediate, etc.) and use a 10 rep set to gauge.
 - **Skipped last session** → repeat the prior session's load — don't progress when missing weeks.
 
-Always write the `notes` field on workout_exercises to explain the load choice when it's a progression: e.g. "Add 5 lbs vs last Mon (all sets RPE 7-8, room to push)" or "Hold from last week — top set was RPE 9, get the rep first".
+Always write the notes field on workout_exercises to explain the load choice when it's a progression: e.g. "Add 5 lbs vs last Mon (all sets RPE 7-8, room to push)" or "Hold from last week — top set was RPE 9, get the rep first".
 
 ## Match his split
 
