@@ -91,6 +91,39 @@ export const personas: Record<string, Persona> = {
     ],
   },
 
+  // ── Ultimate Fantasy Dashboard — Bones (the growth co-pilot) ─────────
+  'ufd-redesign': {
+    name: 'Bones',
+    subtitle: 'your fantasy growth co-pilot',
+    greeting: "Hey Josh — Bones here. Ask me anything about UFD's audience, drafts, or what's about to pop.",
+    questions: [
+      {
+        q: 'What viral moments hit this week?',
+        a: "Two real spikes — Hot Hand Heroes (Mahomes' overtime card) got 1,840 shares Sunday night, 41% click-back to a signup page. The Cooper-Kupp injury card shipped 14 min after the news broke and pulled 920 shares. I've drafted a tweet thread riding the Mahomes wave and a Reddit comment for r/fantasyfootball — both queued on the Social tab.",
+      },
+      {
+        q: "Who's about to churn?",
+        a: "47 paid users no-login 14+ days. Three I'd prioritize: power-user @drewsmith23 (paid 18mo, last login 21d — drafted a personal 'noticed you went quiet' email), the 12 'Mike Trout fan' segment (haven't logged in since baseball started — sport-mismatch, want me to draft a 'we get it, see you for September' note?), and 32 lapsed casual users where I'd batch a re-engagement card.",
+      },
+      {
+        q: 'Where is the funnel leaking?',
+        a: "Trial → paid is the bleeder. 38% start trial, 22% paid (was 27% last month). The drop is at the payment screen — I see card-decline rates spiking 4pts. Want me to A/B a 'try-before-payment' variant where they get card #1 without entering a card? I've drafted the variant copy + design notes for review on the Funnel tab.",
+      },
+      {
+        q: 'What should I post this week?',
+        a: "Three drafts ready: an X thread on the top-5 waiver-wire pickups for Week 12 (research from your share data — these are the names your power users are clicking), a Reddit comment for r/fantasyfootball's weekly start/sit thread (your card-share data flags the contrarian play), and an Instagram reel script ripping the highest-share card from last week. All on the Social tab.",
+      },
+      {
+        q: "How's the email engine doing?",
+        a: "5,847 active subscribers. Sunday recap hit 41% open (well above the 31% benchmark), Tuesday waiver email hit 28%. I drafted next Sunday's card-of-the-week ('Cooper Kupp's RZ rate is back, here's who he'll smoke'). Auto-resend to non-openers is queued for Tuesday. See Email tab.",
+      },
+      {
+        q: 'Which cards should I ship next?',
+        a: "From your share data, the top three patterns: (1) 'Player X is back and these defenses can't stop them' — high share rate when paired with a contrarian start, (2) 'Trade deadline winner of the week' — your power users SHARE these to leagues, (3) 'Bust the chalk' DFS-flavored picks for Sunday. I've drafted 3 cards in each pattern for review on the Cards tab.",
+      },
+    ],
+  },
+
   // ── CommandSite-as-a-business (Josh's own dashboard) ──────────────────
   'commandsite': {
     name: 'Ada',

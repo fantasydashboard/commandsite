@@ -18,6 +18,8 @@ import {
   type CardType,
   type Card,
 } from '@/lib/clients/ufd-redesign/cards'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -36,6 +38,79 @@ function pct(v: number, opts: { signed?: boolean } = {}): string {
   const value = (v * 100).toFixed(0)
   if (opts.signed) return (v >= 0 ? '+' : '') + value + '%'
   return value + '%'
+}
+
+// ── Bones-drafted card queue ──────────────────────────────────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'card-kupp-rz',
+    icon: '🎴',
+    badge: 'Sunday card',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Cooper Kupp\'s RZ rate is back — 3 defenses can\'t stop him',
+    recipient: 'Pattern: "Player X is back" · this template averages 740 shares',
+    preview: '"Cooper Kupp\'s RZ rate is back to 2021 levels (24% over last 3 weeks). The defenses he\'s about to face: Carolina (28th vs WR), Atlanta (24th), Saints (22nd). If you have him, start him. If you can buy low, do it now." — Full card with chart + "Share to your league" CTA.',
+    approved_response: 'Approved + scheduled for Sunday 8 AM blast to 5,847 subscribers. I\'ll auto-cross-post to socials at peak shares and surface the engagement Sunday afternoon.',
+    ticker_after_approval: 'Cooper Kupp card scheduled — Sunday 8 AM blast',
+  },
+  {
+    id: 'card-waiver-week12',
+    icon: '🎴',
+    badge: 'Tuesday card',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Week 12 waiver wire — the 3 names your power users are watching',
+    recipient: 'Pattern: top-share dynamic from this week\'s click data',
+    preview: 'Top picks: Jaylen Wright (RB, MIA — Achane injury makes him a top-5 add), Romeo Doubs (WR, GB — emergent target after Watson trade), Cole Kmet (TE, CHI — finally a usable streamer). Card pulls share data showing these are the names YOUR users are clicking.',
+    approved_response: 'Approved + scheduled for Tuesday 7 AM. Past waiver-wire cards average 920 shares — this one references your audience\'s own clicks which usually adds ~15%.',
+    ticker_after_approval: 'Week 12 waiver wire card scheduled — Tuesday 7 AM',
+  },
+  {
+    id: 'card-bust-chalk',
+    icon: '🎴',
+    badge: 'Saturday DFS',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Bust the chalk — 3 contrarian DFS picks for Sunday',
+    recipient: 'Pattern: "contrarian + data-backed" · highest share-to-conversion ratio',
+    preview: 'Fade Saquon (38% ownership against a top-5 run D), play Dameon Pierce (3% ownership against the 31st-ranked run D), pivot from Hill to Wilson at WR (similar usage, 12% vs 41% ownership). Card includes ownership projections from the major DFS sites.',
+    approved_response: 'Approved for Saturday 10 AM. Contrarian DFS cards are your highest share-to-signup converter (DFS players have leagues — they share to validate before posting their lineup).',
+    ticker_after_approval: 'Bust the chalk DFS card scheduled — Saturday 10 AM',
+  },
+  {
+    id: 'card-trade-deadline',
+    icon: '🎴',
+    badge: 'Special',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Trade deadline winner of the week',
+    recipient: 'Pattern: "power-user shares" · these get DM-shared not just public-shared',
+    preview: 'This week\'s pick: the team that landed Devontae Booker on waivers + Kareem Hunt off the bench. Bench depth → playoff insulation. Card includes the trade math (why "boring" trades win leagues at the deadline).',
+    approved_response: 'Approved for Friday 6 PM (when leagues panic-trade before weekend lineups lock). Trade-deadline cards historically pull more DMs than retweets — your power users SHARE these to their leagues.',
+    ticker_after_approval: 'Trade-deadline winner card scheduled — Friday 6 PM',
+  },
+]
+
+const tickerSeed = [
+  { icon: '🔥', text: 'Hot Hand Heroes (Mahomes OT) — 1,840 shares, hit r/fantasyfootball front', ageSec: 4 * 60 },
+  { icon: '🎯', text: 'New share via DM: Drew_24 → his 12-team league', ageSec: 11 * 60 },
+  { icon: '📤', text: 'Cooper Kupp card draft generated — queued for Sunday', ageSec: 47 * 60 },
+  { icon: '✅', text: 'Card share → trial signup conversion: 38% (this week)', ageSec: 3 * 3600 },
+]
+
+const tickerPool = [
+  { icon: '🔥', text: 'Share velocity spike — card crossed 500 shares in 90 min' },
+  { icon: '🎯', text: 'New share via Twitter — card link clicked' },
+  { icon: '📤', text: 'Sunday card delivered to 5,847 subscribers' },
+  { icon: '🎴', text: 'New card draft generated — Bones queued for review' },
+  { icon: '✅', text: 'Share → trial signup conversion logged' },
+  { icon: '👥', text: 'Power user shared card to league (3rd time this month)' },
+  { icon: '📊', text: 'Card-type performance refreshed — "Player X is back" still top pattern' },
+]
+
+const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
 }
 
 function num(n: number): string {
@@ -80,6 +155,21 @@ const sortedChannels = computed(() => [...channels].sort((a, b) => b.signups_att
 
 <template>
   <div class="space-y-4">
+    <GraceLiveTicker
+      ref="tickerRef"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Card share + signup events — real-time"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="11"
+      heading="Card pipeline"
+      subtitle="Bones drafted these from this week's share patterns + news cycle. Approve to schedule."
+      @approved="onApproved"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

@@ -20,6 +20,8 @@ import {
   type Platform,
   type ListeningClass,
 } from '@/lib/clients/ufd-redesign/social'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -192,10 +194,109 @@ const tabs: { key: View; label: string; badge?: number }[] = [
   { key: 'listening',   label: 'Reddit Listening' },
   { key: 'performance', label: 'Performance' },
 ]
+
+// ── Bones-drafted social queue ─────────────────────────────────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'social-mahomes-thread',
+    icon: '🐦',
+    badge: 'X thread · viral spike',
+    badgeClass: 'bg-danger/15 text-danger',
+    title: 'Mahomes OT thread — riding the 1,840-share wave',
+    recipient: 'Hot Hand Heroes card went viral · cross-post window closing',
+    preview: '"Mahomes\' OT card just got shared 1,840 times. Here\'s why fantasy users won\'t shut up about it: 🧵\n\n(1/6) RZ rate up 18% over last 4 weeks — he\'s back to elite\n\n(2/6) Chemistry with Worthy: 7 targets/game, 3.2 catches, $14.4 DK avg\n\n(3/6) Defenses incoming..." — Full thread ready, 6 tweets, ends with card link.',
+    approved_response: 'Posted to X. Tracking engagement window — first 90 min determines reach. If RT count >150 by then, I\'ll auto-cross-post to Threads + a Reddit comment in r/fantasyfootball.',
+    ticker_after_approval: 'Mahomes thread posted to X — tracking RTs',
+  },
+  {
+    id: 'social-reddit-startsit',
+    icon: '🗨️',
+    badge: 'Reddit comment',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'r/fantasyfootball start/sit thread — contrarian play',
+    recipient: 'Weekly thread · 2,400 upvotes, peak discussion right now',
+    preview: '"Most everyone in here is starting Saquon, fading Pierce. Look at this from the data side: Saquon faces a top-5 run D, Pierce faces the 31st-ranked. The chalk says wrong this week. (Made a card on this — link in bio if you want the breakdown.)" — Comment ready, includes the card share link.',
+    approved_response: 'Posted. Reddit auto-flags links the first 30 min, but the data argument is the body — link is at the end. I\'ll surface karma + click-through 2 hours from now.',
+    ticker_after_approval: 'Reddit comment posted — r/fantasyfootball start/sit thread',
+  },
+  {
+    id: 'social-instagram-reel',
+    icon: '📱',
+    badge: 'Instagram reel',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Instagram reel script — top viral card from last week',
+    recipient: 'Hot Hand Heroes was the breakout — adapting for vertical video',
+    preview: 'Script: "What\'s up fantasy fam, Josh here from UFD. Last week\'s top-shared card was Hot Hand Heroes — Mahomes\'s overtime breakout. Here\'s what the data shows..." (30-sec voiceover, paired with the card art animating in stages). Estimated post: Wed 8 PM ET (peak fantasy IG window).',
+    approved_response: 'Approved. I\'ll generate the AI voiceover from the script + cut the visuals using the card asset. Posted Wed 8 PM. First-touch on reels matters — I\'ll send you the engagement numbers Thursday AM.',
+    ticker_after_approval: 'Instagram reel queued — Wed 8 PM ET',
+  },
+  {
+    id: 'social-waiver-thread',
+    icon: '🐦',
+    badge: 'X thread · waivers',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Week 12 waiver wire — pulled from your share data',
+    recipient: 'Tuesday morning post · ties to the waiver card going out',
+    preview: '"Top 3 waiver pickups for Week 12 — based on which names YOUR users are clicking on this week: 🧵\n\n(1) Jaylen Wright — Achane injury, top-5 add\n\n(2) Romeo Doubs — emergent target after Watson trade\n\n(3) Cole Kmet — finally a usable TE streamer\n\nFull breakdown card 👇 link" — Thread + card cross-promo.',
+    approved_response: 'Approved + scheduled for Tuesday 6 AM ET (before waivers process). Tying social to the email card creates a 2× engagement loop on Tuesdays.',
+    ticker_after_approval: 'Week 12 waivers thread scheduled — Tuesday 6 AM',
+  },
+  {
+    id: 'social-listening-watson',
+    icon: '👂',
+    badge: 'Listening · reply',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'High-engagement post mentioned UFD — reply drafted',
+    recipient: '@FantasyFootballMod (78k followers) said "decent share-card site"',
+    preview: '"Appreciate the shoutout @FantasyFootballMod. Quick note — our card-share rate is 38% (industry: 6%), and we\'re solo-built. Building this for fantasy players who want share-able info, not just rankings. If you ever want a free annual to put us through the paces, DM me. — Josh"',
+    approved_response: 'Posted as a reply. Owner-replies on social mentions perform 4× normal engagement. The "free annual to test" offer is honest + low-pressure — usually gets a "thanks I will" or a public boost.',
+    ticker_after_approval: 'Reply posted to @FantasyFootballMod',
+  },
+]
+
+const tickerSeed = [
+  { icon: '🔥', text: 'Hot Hand Heroes card hit r/fantasyfootball front page — 412 upvotes', ageSec: 6 * 60 },
+  { icon: '🐦', text: 'X post engagement: 89 RTs, 1.2k likes on the OT thread', ageSec: 22 * 60 },
+  { icon: '👂', text: 'New mention detected — @FantasyFootballMod (78k followers)', ageSec: 41 * 60 },
+  { icon: '📈', text: 'Instagram reel from Wed: 28k views, 4.2k saves', ageSec: 6 * 3600 },
+]
+
+const tickerPool = [
+  { icon: '🔥', text: 'Card share velocity spike — Bones drafting cross-post content' },
+  { icon: '🐦', text: 'New mention on X — reply drafted' },
+  { icon: '👂', text: 'Reddit listening picked up a relevant thread' },
+  { icon: '📤', text: 'Scheduled post went live — tracking first-30-min engagement' },
+  { icon: '✅', text: 'Owner reply posted — high-engagement window' },
+  { icon: '📊', text: 'Social-attributed signup: from Instagram bio link' },
+  { icon: '🎯', text: 'Top-performing post this week: Mahomes OT thread' },
+]
+
+const socialTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    socialTicker.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
+    <GraceLiveTicker
+      ref="socialTicker"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Social signals — viral spikes, mentions, engagement events"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="14"
+      heading="Social pipeline"
+      subtitle="Bones drafted these from this week's viral data + listening signals. Approve to publish."
+      @approved="onApproved"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>

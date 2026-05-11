@@ -22,6 +22,8 @@ import {
   type PipelineStep,
   type PipelineUser,
 } from '@/lib/clients/ufd-redesign/email'
+import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -94,10 +96,109 @@ function statusMeta(s: SendRecord['status']): { label: string; color: string } {
 function templateNameById(id: string): string {
   return templates.find((t) => t.id === id)?.name ?? '—'
 }
+
+// ── Bones-drafted email queue ──────────────────────────────────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'email-sunday-card',
+    icon: '📧',
+    badge: 'Sunday card blast',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: '"Cooper Kupp is back" — Sunday card to 5,847 subscribers',
+    recipient: 'Sunday 8 AM ET · auto-schedule · open-rate target 41%',
+    preview: '"Subject: Cooper Kupp\'s RZ rate is back to 2021 levels — start him.\n\nBody: 24% RZ rate over last 3 weeks. His next three defenses rank 28th, 24th, 22nd against the WR. If you have him, start him. If you can buy low, do it now."\n\nPaired with the share-this-to-your-league card art.',
+    approved_response: 'Scheduled for Sunday 8 AM ET. Past Sunday cards average 41% open / 18% click / 6% share-to-someone. I\'ll surface the metrics 4 hours after send.',
+    ticker_after_approval: 'Sunday card scheduled — 5,847 recipients, 8 AM ET',
+  },
+  {
+    id: 'email-trial-day3',
+    icon: '⏰',
+    badge: 'Lifecycle sequence',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Trial day-3 nudge — drafted variant',
+    recipient: '47 users hitting day-3 of trial · most haven\'t shared a card yet',
+    preview: '"Subject: Quick — did you share a card yet?\n\nBody: Hey, Josh here. Most users who become paying subscribers shared at least one card in week one. If you haven\'t yet, try this Cooper Kupp card — it\'s the one users are sharing most this week. [card link]\n\nIf it doesn\'t click for you, hit reply and tell me what you want and we don\'t have."',
+    approved_response: 'Scheduled for daily 9 AM ET send to all day-3 trial users. Past variant of this hit 34% open, 11% reply. I\'ll surface the response thread for you to scan.',
+    ticker_after_approval: 'Trial day-3 nudge live for 47 users',
+  },
+  {
+    id: 'email-churn-batch',
+    icon: '🔁',
+    badge: 'Churn save · batch',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Churn save — 12 lapsed users, no login 14+ days',
+    recipient: 'All paid · variety of segments · personalized per user',
+    preview: '"Subject: [Name] — are we still useful?\n\nBody: Hey [name], Josh from UFD. I noticed you haven\'t logged in for a few weeks. No script here — just want to know if something\'s broken or if there\'s something you want that we don\'t have. Hit reply, I read every one. — Josh"',
+    approved_response: 'Sent personalized to each. Past version of this email pulls ~28% reply rate (vs ~3% for generic dunning) because it\'s framed as listening, not selling. I\'ll route every reply directly to you.',
+    ticker_after_approval: '12 personalized churn-save emails sent',
+  },
+  {
+    id: 'email-dunning-batch',
+    icon: '💳',
+    badge: 'Dunning · batch',
+    badgeClass: 'bg-danger/15 text-danger',
+    title: '8 failed payments — drafted recovery sequence',
+    recipient: '$312 MRR at risk · expired cards + insufficient funds',
+    preview: 'Attempt 1: "Your card didn\'t process — here\'s an Apple Pay link [link] (takes 10 seconds)" — sent today.\nAttempt 2 (in 3 days if no fix): "Want to pause instead of cancel? [pause link]"\nAttempt 3 (in 7 days): final notice.\n\nHistorical recovery: ~60% recover on attempt 1, ~25% on attempt 2.',
+    approved_response: 'Sequence live. Attempt 1 went out 30 sec ago. I\'ll surface each recovery the moment a payment succeeds and surface the at-risk MRR drop accordingly.',
+    ticker_after_approval: 'Dunning sequence live — $312 MRR in recovery',
+  },
+  {
+    id: 'email-power-thanks',
+    icon: '🏆',
+    badge: 'Power user thanks',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Top sharer thank-you — @amyjohnson (23 shares this week)',
+    recipient: 'Personal note from Josh, not a templated blast',
+    preview: '"Hey Amy — Josh here. Just saw you shared 23 cards this week, which is wild. I genuinely couldn\'t do this without users like you. Anything you want and we don\'t have? Hit reply. Also, you have a free 12-month coming your way as a thank-you. — Josh"',
+    approved_response: 'Sent. Power-user thank-yous from the founder hit ~70% reply rate and the responses are gold for product roadmap. I\'ll surface her reply if it lands.',
+    ticker_after_approval: 'Thank-you sent to @amyjohnson (top sharer)',
+  },
+]
+
+const tickerSeed = [
+  { icon: '📤', text: 'Tuesday waiver email delivered — 11,765 recipients, 28% open so far', ageSec: 8 * 60 },
+  { icon: '✅', text: 'Trial day-3 nudge → reply landed — "actually love this, just busy"', ageSec: 47 * 60 },
+  { icon: '💳', text: '3 failed-payment recoveries logged from this morning\'s batch', ageSec: 3 * 3600 },
+  { icon: '🏆', text: 'New power-user identified — @amyjohnson, 23 shares this week', ageSec: 6 * 3600 },
+]
+
+const tickerPool = [
+  { icon: '📤', text: 'Email blast delivered — first opens tracking now' },
+  { icon: '✅', text: 'Reply received from a trial user — routing to inbox' },
+  { icon: '💚', text: 'Trial → paid conversion logged from day-3 nudge' },
+  { icon: '🔁', text: 'Churn-save reply landed — user wants to keep going' },
+  { icon: '💳', text: 'Failed payment recovered via Apple Pay link' },
+  { icon: '🎯', text: 'New sequence drafted — Bones queued for review' },
+  { icon: '📊', text: 'Open rate ticked above benchmark — Sunday card outperforming' },
+]
+
+const emailTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+
+function onApproved(item: ApprovalQueueItem) {
+  if (item.ticker_after_approval) {
+    emailTicker.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
+    <GraceLiveTicker
+      ref="emailTicker"
+      :seed="tickerSeed"
+      :pool="tickerPool"
+      subtitle="Email engine — sends, opens, replies, recoveries"
+    />
+
+    <GraceApprovalQueue
+      :items="queueItems"
+      :initial-resolved="22"
+      heading="Email pipeline"
+      subtitle="Bones drafted these from this week's segments + lifecycle triggers. Approve to schedule."
+      @approved="onApproved"
+    />
+
     <!-- Header -->
     <div class="card flex flex-wrap items-center justify-between gap-3">
       <div>
