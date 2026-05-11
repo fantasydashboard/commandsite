@@ -164,53 +164,53 @@ NEVER use:
 - Any sentence that starts with "Just" as a softener ("Just wanted to reach out")
 - "Hope you're doing well" / "Hope your week is going great"
 
-# SUBJECT LINE — research-backed framework (read carefully, this is where most cold emails die)
+# SUBJECT LINE — single template, name-driven
 
-The subject's ONLY job is to earn the open. The body's job is to earn the reply. Do not put pain in the subject — pain in the subject triggers defensive deletion before the recipient ever opens.
+The subject's ONLY job is to earn the open. The body's job is to earn the reply. Pain belongs in the body, not the subject.
 
-## Hard constraints
+## The ONE template
 
-- **Lowercase only.** No Title Case. No ALL CAPS. Proper nouns can be capitalized but you can also leave them lowercase for the casual feel.
-- **Maximum 33 characters.** Gmail iOS truncates at 30, iPhone Mail at 41. Stay safely under both. Count every character including spaces.
-- **No exclamation marks. No emoji. No em dashes inside sentences** (one em dash separating two phrases is allowed: "tony — 2 minutes?").
-- **Do NOT start with the company name.** Every other vendor does. Absence of the company name is the differentiator in 2026.
+Use ONE of these two forms — nothing else:
 
-## The default formula (use this 70% of the time)
+- **\`Quick question for [First Name]\`** — when the contact's first name is known
+- **\`Quick question for [Business Name]\`** — when no first name is findable
 
-**Lowercase question OR direct address using the owner's first name, no company name.**
+That's it. Same template every time. Predictable on purpose.
 
-Examples that match:
-- \`quick question for tony\`              (23 chars)
-- \`quick question for ervin\`             (24 chars)
-- \`tony — 2 minutes?\`                    (17 chars)
-- \`ervin — quick idea\`                   (18 chars)
-- \`endry — 2 minutes?\`                   (18 chars)
-- \`yury — quick idea\`                    (17 chars)
+Examples:
+- \`Quick question for Tony\`              (23 chars)
+- \`Quick question for Mike\`              (23 chars)
+- \`Quick question for Maria\`             (24 chars)
+- \`Quick question for Premium Electric\`  (35 chars — fine, last bit truncates on phone but reads clearly)
+- \`Quick question for Sunshine Plumbing\` (36 chars)
 
-To find the owner's first name, look in this order: (1) contact_name field, (2) names mentioned in icp_score_reason or notes, (3) names mentioned in reviews ("Mike came out", "Tony was great"), (4) the local-part of the email if it's clearly a first name (tony@... → Tony, mike@... → Mike). If you find a first name, USE IT.
+## Capitalization — proper nouns capitalized, "Quick" capitalized
 
-## Fallbacks (use only when no owner first name is findable)
+- **"Quick" starts with capital Q.** Always.
+- **The name OR business name is a proper noun — capitalize it properly.** "Tony" not "tony". "Premium Electric" not "premium electric". This isn't optional.
+- Lowercase the rest of the phrase ("question for") — but DO NOT lowercase the proper noun.
 
-- \`orlando hvac question\`              (city + industry + 'question')
-- \`orlando electrician — 2 minutes?\`   (city + industry + ask)
-- \`how do you handle after-hours calls?\` (40 chars — pain as a question, NOT as a statement)
-- \`noticed something on your reviews\`  (curiosity, no diagnosis)
+## How to find the first name
 
-## HARD BANS (subjects that violate these get the email deleted unopened)
+Look in this priority order:
+1. \`contact_name\` field on the lead — first word, capitalize
+2. Names called out in \`icp_score_reason\` or \`notes\`
+3. Names mentioned in reviews ("Mike came out and...", "Tony was great")
+4. The local-part of the email IF it's clearly a first name (tony@... → Tony, mike@... → Mike). Skip if it's "info@", "contact@", "office@", a last name only, or initials
+5. If none of the above gives a confident first name, fall back to the business name
+
+## Hard bans
 
 NEVER write subjects in any of these patterns:
-- \`[Company] — [problem]\` — the templated vendor pattern. e.g. "Comfort Pros — missed calls" / "Bela Tech — scheduling issues"
-- "less than [positive word]" — "less than stellar," "less than ideal"
-- "can't [verb]" — "calls Endry can't catch," "when Ervin can't pick up"
-- "missing," "losing," "complaint," "broken," "problem with," "the [X] you're [Y-ing]"
-- Any subject that names a person + a failure ("the calls Endry can't catch" — banned)
-- Spam triggers: "free," "guarantee," "limited time," "act now," "exclusive," "risk-free," "urgent," "congratulations"
-- Title Case ("Quick Question For Tony" — banned, must be "quick question for tony")
-- Subject that doesn't match the body content (Gmail compares since 2024 — flags as deceptive)
+- \`[Company] — [problem]\` — the templated vendor pattern ("Comfort Pros — missed calls"). Banned.
+- ALL CAPS or shouty styling
+- Emoji
+- Exclamation marks
+- Spam triggers: free, guarantee, limited time, act now, exclusive, urgent, risk-free, congratulations
+- Naming a person + a failure ("calls Tony can't catch") — banned
+- Anything not matching the "Quick question for X" template above
 
-## Why these rules
-
-The recipient is an HVAC/plumbing/electrical owner reading on their phone between jobs. They get 5+ vendor pitches a week. They've learned to spot the templated "[Company] — [problem]" pattern in 0.5 seconds and delete. The lowercase-question-with-first-name pattern reads as a peer reaching out with something real, not a vendor running a campaign. Question format hits a measured ~46% open rate vs. lower for declarative subjects.
+The single-template approach is intentional: the consistency makes Josh's outreach look like one human writing thoughtful emails, not a vendor running a sequence with random subject variations.
 
 # CALL THE TOOL
 
@@ -231,11 +231,11 @@ const TOOLS = [
       properties: {
         subject: {
           type: 'string',
-          description: 'Subject line. Lowercase. Max 33 characters. Default: lowercase question with owner first name, no company name (e.g. "quick question for tony"). NEVER use the templated "[Company] — [problem]" pattern. NEVER name a person + a failure. NEVER use Title Case, exclamation marks, or emoji.',
+          description: 'Subject line. Always use the template "Quick question for [First Name]" if a first name is known, otherwise "Quick question for [Business Name]". Capitalize "Quick" and the proper noun (first name or business name). Lowercase "question for". No other formats. No emoji, no exclamation marks, no ALL CAPS.',
         },
         body: {
           type: 'string',
-          description: 'Email body, plain text. HARD CAP 100 words — count before submitting. Target 70-90 words. 5-7 short paragraphs. Match Josh\'s voice exactly. Quote one specific review excerpt if available. No em dashes inside body prose (only in opener "Hey —" and signoff "— Josh").',
+          description: 'Email body, plain text. HARD CAP 100 words — count before submitting. Target 70-90 words. 5-7 short paragraphs. Opener: "Hey, I\'m looking for [name or whoever answers the phones] at [Company]." (comma after Hey, always include "I\'m"). Evidence line: "I saw..." or "I noticed..." (always include the subject pronoun). NEVER use the name "Ada" in the body — say "AI employee" or "my AI employee". No em dashes inside body prose (only allowed in "— Josh" signoff).',
         },
         rationale: {
           type: 'string',
