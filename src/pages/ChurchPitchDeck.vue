@@ -54,15 +54,19 @@ const pricing = computed(() => {
     // Multi-congregation / large church (~800+ weekly attendance)
     return {
       tier: 'Founding partner · multi-congregation rate',
-      stdSetup: '$2,499',
-      stdMonthly: '$1,299',
+      stdSetup: '$2,199',
+      stdMonthly: '$999',
       setup: '$1,249',
-      monthly: '$649',
-      annualPrepay: '$6,490 (saves another $1,498)',
+      monthly: '$499',
+      // Anchor shown in the solutions table (slide 7), one tier above
+      // the actual founding price so the pricing reveal on slide 8 feels
+      // like a real deal, not just the floor.
+      solutionsTeaser: '$599',
+      annualPrepay: '$4,990 (saves another $998)',
       lockMonths: 12,
-      year1Cost: 1249 + 649 * 12,         // $9,037
-      year1CostStandard: 2499 + 1299 * 12, // $18,087
-      year1Savings: (2499 + 1299 * 12) - (1249 + 649 * 12), // $9,050
+      year1Cost: 1249 + 499 * 12,         // $7,237
+      year1CostStandard: 2199 + 999 * 12, // $14,187
+      year1Savings: (2199 + 999 * 12) - (1249 + 499 * 12), // $6,950
     }
   }
   if (isCompactChurch.value) {
@@ -73,6 +77,7 @@ const pricing = computed(() => {
       stdMonthly: '$299',
       setup: '$249',
       monthly: '$149',
+      solutionsTeaser: '$199',
       annualPrepay: '$1,490 (saves another $298)',
       lockMonths: 12,
       year1Cost: 249 + 149 * 12,         // $2,037
@@ -87,6 +92,7 @@ const pricing = computed(() => {
     stdMonthly: '$499',
     setup: '$499',
     monthly: '$299',
+    solutionsTeaser: '$399',
     annualPrepay: '$2,990 (saves another $498)',
     lockMonths: 12,
     year1Cost: 499 + 299 * 12,         // $4,087
@@ -413,7 +419,7 @@ const notes = computed<string[]>(() => [
               </tr>
               <tr class="bg-brand/10 border-l-4 border-brand">
                 <td class="px-4 py-3 font-bold text-brand">Grace (CommandSite)</td>
-                <td class="px-4 py-3 font-bold text-brand">From {{ pricing.monthly }}/mo<br /><span class="text-[10px] font-medium opacity-70">we'll get to the full breakdown next</span></td>
+                <td class="px-4 py-3 font-bold text-brand">From {{ pricing.solutionsTeaser }}/mo<br /><span class="text-[10px] font-medium opacity-70">we'll get to the full breakdown next</span></td>
                 <td class="px-4 py-3 text-ink">Visitor follow-up + drift detection + care triage + comms + volunteer coord</td>
                 <td class="px-4 py-3 text-ink-muted">New product · founder-built · I respond same-day</td>
               </tr>
