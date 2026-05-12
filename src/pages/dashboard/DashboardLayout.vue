@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import ClientWordmark from '@/components/ClientWordmark.vue'
 import AskAiFloatingButton from '@/components/AskAiFloatingButton.vue'
 import GraceToastContainer from '@/components/grace/GraceToastContainer.vue'
+import { personaForSlug } from '@/lib/personas/registry'
 import { modulesForClient } from '@/config/clients'
 import { themeForClient } from '@/config/clientThemes'
 import { visibleTabsFor, badgesForTab, type TabBadge } from '@/modules/registry'
@@ -74,6 +75,17 @@ const demoState = computed<string | null>(() => {
   return typeof v === 'string' && v.trim() ? v.trim() : null
 })
 const isDemoMode = computed(() => demoCompany.value !== null)
+
+// Demo banner persona + venue copy — adapts based on slug.
+// Church demos see Grace + ministry framing; service demos see Ada
+// + shop framing.
+const demoPersonaName = computed(() => personaForSlug(props.slug)?.name ?? 'Ada')
+const isChurchDemo = computed(() => /church|cornerstone/i.test(props.slug))
+const demoVenueLabel = computed(() => {
+  if (isChurchDemo.value) return 'church'
+  if (demoIndustry.value) return `${demoIndustry.value.toLowerCase()} shop`
+  return 'service business'
+})
 
 let appliedKeys: string[] = []
 function applyTheme() {
@@ -304,17 +316,16 @@ async function onLogout() {
           <div class="h-10 w-10 rounded-full bg-brand/15 grid place-items-center text-xl shrink-0">👋</div>
           <div class="flex-1 min-w-0">
             <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-1">
-              Custom Ada demo · for {{ demoCompany }}
+              Custom {{ demoPersonaName }} demo · for {{ demoCompany }}
             </div>
             <h2 class="text-lg font-bold text-ink mb-1">
-              This is what Ada would do for {{ demoCompany }}.
+              This is what {{ demoPersonaName }} would do for {{ demoCompany }}.
             </h2>
             <p class="text-sm text-ink-muted leading-relaxed">
               You're looking at a real CommandSite dashboard, set up for a sample
-              <template v-if="demoIndustry">{{ demoIndustry.toLowerCase() }} shop</template>
-              <template v-else>service business</template><template v-if="demoCity && demoState"> in {{ demoCity }}, {{ demoState }}</template>.
+              {{ demoVenueLabel }}<template v-if="demoCity && demoState"> in {{ demoCity }}, {{ demoState }}</template>.
               Numbers + screenshots are illustrative — but every feature here is something
-              Ada would handle for {{ demoCompany }} from day one. Click around. When we hop
+              {{ demoPersonaName }} would handle for {{ demoCompany }} from day one. Click around. When we hop
               on the call, I'll walk through what your version would catch in the first week.
             </p>
             <p class="text-xs text-ink-disabled mt-2 italic">

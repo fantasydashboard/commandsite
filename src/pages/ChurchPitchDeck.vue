@@ -59,7 +59,7 @@ const demoUrl = computed(() => {
   const params = new URLSearchParams({ demo_company: churchName.value })
   if (props.lead?.city) params.set('demo_city', props.lead.city)
   if (props.lead?.state) params.set('demo_state', props.lead.state)
-  return `/dashboard/cornerstone-community-church?${params.toString()}`
+  return `/dashboard/cornerstone-church?${params.toString()}`
 })
 
 // ── Math — ministry framing, NOT revenue-leak framing ─────────────────
