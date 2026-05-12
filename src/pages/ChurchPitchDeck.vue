@@ -64,16 +64,16 @@ const pricing = computed(() => {
       stdSetup: '$2,199',
       stdMonthly: '$999',
       setup: '$1,249',
-      monthly: '$499',
+      monthly: '$599',
       // Anchor shown in the solutions table (slide 7), one tier above
       // the actual founding price so the pricing reveal on slide 8 feels
       // like a real deal, not just the floor.
-      solutionsTeaser: '$599',
-      annualPrepay: '$4,990 (saves another $998)',
+      solutionsTeaser: '$699',
+      annualPrepay: '$5,990 (saves another $1,198)',
       lockMonths: 12,
-      year1Cost: 1249 + 499 * 12,         // $7,237
+      year1Cost: 1249 + 599 * 12,         // $8,437
       year1CostStandard: 2199 + 999 * 12, // $14,187
-      year1Savings: (2199 + 999 * 12) - (1249 + 499 * 12), // $6,950
+      year1Savings: (2199 + 999 * 12) - (1249 + 599 * 12), // $5,750
     }
   }
   if (isCompactChurch.value) {
