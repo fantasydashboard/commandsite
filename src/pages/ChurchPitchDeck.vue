@@ -227,8 +227,12 @@ const notes = computed<string[]>(() => [
         <ul v-if="topReviews.length > 0" class="space-y-4">
           <li v-for="(r, i) in topReviews" :key="i"
             class="rounded-lg border border-brand/20 bg-brand/5 px-5 py-4">
-            <p class="text-base text-ink leading-relaxed italic">"{{ r.text.slice(0, 240) }}{{ r.text.length > 240 ? '…' : '' }}"</p>
-            <p class="text-[11px] text-ink-muted mt-1">{{ r.rating ?? '?' }}★ · {{ r.relative_time ?? 'recent' }}</p>
+            <p class="text-base text-ink leading-relaxed italic">"{{ r.text.slice(0, 280) }}{{ r.text.length > 280 ? '…' : '' }}"</p>
+            <p v-if="r.rating !== null || r.relative_time" class="text-[11px] text-ink-muted mt-1">
+              <span v-if="r.rating !== null">{{ r.rating }}★</span>
+              <span v-if="r.rating !== null && r.relative_time"> · </span>
+              <span v-if="r.relative_time">{{ r.relative_time }}</span>
+            </p>
           </li>
         </ul>
         <ul v-else class="space-y-4 text-base text-ink leading-relaxed">
