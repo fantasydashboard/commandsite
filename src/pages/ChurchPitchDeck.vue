@@ -545,9 +545,9 @@ const notes = computed<string[]>(() => [
         >
           <div v-if="pricingRevealStep > 0" class="space-y-1.5 text-[13px] text-ink-muted">
             <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Annual prepay</strong> available: {{ pricing.annualPrepay }}</span></p>
-            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">30-day partnership trial</strong> — if Grace isn't earning her place in your week by month one, full refund</span></p>
+            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Cancel anytime</strong> — no annual contract, no commitment. If Grace isn't pulling her weight, you walk.</span></p>
             <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">We set everything up.</strong> You don't lift a finger past the kickoff call</span></p>
-            <p class="flex items-start gap-2"><span class="text-ink-muted">·</span><span class="italic">After {{ pricing.lockMonths }} months, renews at standard rate. We'll tell you 60 days out.</span></p>
+            <p class="flex items-start gap-2"><span class="text-ink-muted">·</span><span class="italic">Founding rate is locked for {{ pricing.lockMonths }} months while you're a partner. After that, renews at standard rate — we'll tell you 60 days out.</span></p>
           </div>
           <div v-else class="text-center mt-4">
             <span class="text-[11px] text-ink-disabled italic">Press → to see {{ churchName }}'s founding rate</span>
