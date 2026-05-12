@@ -31,6 +31,7 @@ interface LeadDetail {
   notes: string | null
   review_excerpts: { text: string; rating: number | null; relative_time: string | null }[] | null
   website_extract: string | null
+  tags: string[] | null
 }
 
 const lead = ref<LeadDetail | null>(null)
@@ -136,7 +137,7 @@ async function loadLead(slug: string | undefined) {
     // so fall back to id match — UUIDs work as slugs).
     const { data } = await supabase
       .from('cs_leads')
-      .select('company_name, contact_name, industry, city, state, icp_score, icp_score_reason, notes, review_excerpts, website_extract')
+      .select('company_name, contact_name, industry, city, state, icp_score, icp_score_reason, notes, review_excerpts, website_extract, tags')
       .eq('id', slug)
       .maybeSingle()
     if (data) lead.value = data as unknown as LeadDetail

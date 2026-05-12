@@ -20,6 +20,7 @@ interface LeadInput {
   city: string | null
   state: string | null
   review_excerpts: { text: string; rating: number | null; relative_time: string | null }[] | null
+  tags: string[] | null
 }
 
 const props = defineProps<{ lead: LeadInput | null }>()
@@ -40,19 +41,59 @@ const founderFirst = 'Josh'
 // Top reviews (if scraped from Google)
 const topReviews = computed(() => (props.lead?.review_excerpts ?? []).slice(0, 4))
 
-// ── Pricing — church founding rate (matches PitchDeckPage logic) ──
-const pricing = {
-  tier: 'Founding partner · ministry rate',
-  stdSetup: '$999',
-  stdMonthly: '$499',
-  setup: '$499',
-  monthly: '$299',
-  annualPrepay: '$2,990 (saves another $498)',
-  lockMonths: 12,
-  year1Cost: 499 + 299 * 12,         // $4,087
-  year1CostStandard: 999 + 499 * 12, // $6,987
-  year1Savings: (999 + 499 * 12) - (499 + 299 * 12), // $2,900
-}
+// ── Pricing — auto-pick tier based on lead tags ───────────────────
+// Tag the lead with 'tier-large' for multi-congregation / 800+ attendance
+// churches; otherwise Standard tier applies. Add 'tier-compact' for
+// under-150-attendance churches if needed.
+const tags = computed<string[]>(() => props.lead?.tags ?? [])
+const isLargeChurch = computed(() => tags.value.includes('tier-large') || tags.value.includes('tier-multi-congregation'))
+const isCompactChurch = computed(() => tags.value.includes('tier-compact'))
+
+const pricing = computed(() => {
+  if (isLargeChurch.value) {
+    // Multi-congregation / large church (~800+ weekly attendance)
+    return {
+      tier: 'Founding partner · multi-congregation rate',
+      stdSetup: '$2,499',
+      stdMonthly: '$1,299',
+      setup: '$1,249',
+      monthly: '$649',
+      annualPrepay: '$6,490 (saves another $1,498)',
+      lockMonths: 12,
+      year1Cost: 1249 + 649 * 12,         // $9,037
+      year1CostStandard: 2499 + 1299 * 12, // $18,087
+      year1Savings: (2499 + 1299 * 12) - (1249 + 649 * 12), // $9,050
+    }
+  }
+  if (isCompactChurch.value) {
+    // Under 150 weekly attendance
+    return {
+      tier: 'Founding partner · compact rate',
+      stdSetup: '$499',
+      stdMonthly: '$299',
+      setup: '$249',
+      monthly: '$149',
+      annualPrepay: '$1,490 (saves another $298)',
+      lockMonths: 12,
+      year1Cost: 249 + 149 * 12,         // $2,037
+      year1CostStandard: 499 + 299 * 12, // $4,087
+      year1Savings: (499 + 299 * 12) - (249 + 149 * 12), // $2,050
+    }
+  }
+  // Default — Standard church (150-400 weekly attendance)
+  return {
+    tier: 'Founding partner · ministry rate',
+    stdSetup: '$999',
+    stdMonthly: '$499',
+    setup: '$499',
+    monthly: '$299',
+    annualPrepay: '$2,990 (saves another $498)',
+    lockMonths: 12,
+    year1Cost: 499 + 299 * 12,         // $4,087
+    year1CostStandard: 999 + 499 * 12, // $6,987
+    year1Savings: (999 + 499 * 12) - (499 + 299 * 12), // $2,900
+  }
+})
 
 // ── Demo URL — Cornerstone template branded as their church ─────────
 const demoUrl = computed(() => {
@@ -124,7 +165,7 @@ const notes = computed<string[]>(() => [
   // 7 — solutions table
   `The "what else could you do?" slide. Hire an admin ($35-50K/year), hire a comms director ($45-60K), buy a stack of ChMS tools ($300-800/mo), do it yourself (your time). Then Grace at $299/mo. The point isn't "we're cheapest" — it's "we're the only one that does ALL of this AND respects your time."`,
   // 8 — pricing reveal
-  `Pricing is sensitive in church world. Frame it as partnership, not transaction. "${churchName.value} would be coming on as a founding partner — this is a brand-new product still finding its first churches, so you get the founding rate, locked for ${pricing.lockMonths} months. Worth being early." Don't apologize for the price — the math already justified it.`,
+  `Pricing is sensitive in church world. Frame it as partnership, not transaction. "${churchName.value} would be coming on as a founding partner — this is a brand-new product still finding its first churches, so you get the founding rate, locked for ${pricing.value.lockMonths} months. Worth being early." Don't apologize for the price — the math already justified it.`,
   // 9 — next steps
   `Don't pressure. Pastors hate sales pressure. "What's the right next step for ${churchName.value}? I can send a proposal this week, or send the deck + dashboard link and we can reconnect after you've talked it over with anyone who needs to be in the conversation." Either is real. Picking IS the close.`,
 ])
