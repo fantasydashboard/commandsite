@@ -63,10 +63,15 @@ const demoUrl = computed(() => {
 })
 
 // ── Math — ministry framing, NOT revenue-leak framing ─────────────────
+// Scaled for a ~1,000-attendance multi-congregation church (e.g. FPC).
+// Smaller churches will see lower absolute numbers but the same
+// proportional impact. The math IS conservative on purpose — better
+// to under-promise + over-deliver on slide 8.
+//
 // Church-honest research: ~65% of first-time visitors never return
 // without intentional follow-up. Meaningful follow-up converts ~25-35%
 // of those who would have dropped off.
-const visitorsPerMonth = 8
+const visitorsPerMonth = 25
 const noReturnPct = 65
 const followUpRescuePct = 25
 const visitorsRescuedPerYear = computed(() =>
@@ -74,7 +79,8 @@ const visitorsRescuedPerYear = computed(() =>
 )
 
 // Drift — members going quiet
-const totalHouseholds = 200
+// ~1,000 weekly attendance ÷ ~2.5 per household ≈ 400 households
+const totalHouseholds = 400
 const atRiskPct = 7
 const driftReactivationPct = 30
 const householdsRescuedFromDriftPerYear = computed(() =>
@@ -82,7 +88,7 @@ const householdsRescuedFromDriftPerYear = computed(() =>
 )
 
 // Pastor's time
-const pastorHoursPerWeek = 8
+const pastorHoursPerWeek = 10
 const pastorHoursPerYear = computed(() => pastorHoursPerWeek * 52)
 
 // ── Keyboard nav ──────────────────────────────────────────────────────
@@ -108,11 +114,11 @@ const notes = computed<string[]>(() => [
   // 2 — what I noticed
   `THIS slide makes or breaks trust. Pastors are skeptical of vendors who do generic outreach. Show that you actually researched THEIR church. Read review quotes verbatim if you have them. Mention something specific — sermon series, building campaign, recent baptism announcement. After each observation: "Does that line up with what you're feeling?"`,
   // 3 — Sunday-to-Sunday gap
-  `Math slide #1 — but DON'T frame as revenue. Frame as souls. "65% of first-time visitors never come back. Some of that's preference, sure. But a lot is just... no one followed up well." Make THEM do the math: "How many first-time visitors do you typically see in a month?" Then build their number live.`,
+  `Math slide #1 — DON'T frame as revenue. Frame as souls. "65% of first-time visitors never come back. Some of that's preference. But a lot is just... no one followed up well." Make THEM correct the math: "Does 25/month feel right across your three congregations?" If they say more (likely — 1k church often sees 30-40), recalculate live: "OK so it's even bigger than I have here."`,
   // 4 — drift
-  `Math slide #2. "Quiet drift" is the hidden ministry crisis — pastors KNOW they have families slipping away but don't have the time to systematically check. "Of every 100 households, 7 are at-risk at any given time. They look fine until they're gone. Grace watches that pattern and surfaces them while they're still rescuable."`,
+  `Math slide #2. "Quiet drift" is the hidden ministry crisis — at 400 households, even 7% at-risk is 28 families slipping. Most pastors can't track that systematically. "Grace watches the patterns (kids attendance, giving rhythm, serving) and surfaces a household the FIRST week something looks off. Not the third month."`,
   // 5 — your time
-  `THE most resonant slide for pastors. "Realistically, how many hours a week do you spend on stuff that isn't ministry work? Follow-ups, scheduling volunteers, drafting newsletters, drift checks?" They will say 8-15. Multiply: "That's 400-700 hours a year of YOUR time on admin. Time that should be spent on the people God put in front of you."`,
+  `THE most resonant slide for pastors. "Realistically, how many hours a week do you and Andrew spend on admin work — follow-ups, scheduling, comms drafts, drift checks?" They'll say 10-20 across the team. Multiply: "That's 500-1,000 hours a year of pastoral time spent on what should be operations. Time that should be on the people God put in front of you."`,
   // 6 — show her work (DEMO — moved up before pricing)
   `Click out to the dashboard URL: ${demoUrl.value}. Don't try to demo all of Grace's roles. Focus on the approval queue — show them ONE drafted pastoral check-in, click Approve, watch the animation. Narrate: "Right now Grace just sent that on your behalf. That's the loop you'd live in."`,
   // 7 — solutions table
@@ -250,7 +256,7 @@ const notes = computed<string[]>(() => [
         <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">Gap #1 · Visitors who never come back</div>
         <h2 class="text-4xl font-bold text-ink mb-8 tracking-tight">The Sunday-to-Sunday silence.</h2>
         <div class="rounded-xl bg-surface-raised border border-divider p-6 text-base text-ink leading-loose">
-          <div class="flex justify-between"><span>First-time visitors per month (typical):</span><span class="font-bold tabular-nums">{{ visitorsPerMonth }}</span></div>
+          <div class="flex justify-between"><span>First-time visitors per month (across 3 congregations):</span><span class="font-bold tabular-nums">{{ visitorsPerMonth }}</span></div>
           <div class="flex justify-between"><span>× 12 months = visitors per year:</span><span class="font-bold tabular-nums">{{ visitorsPerMonth * 12 }}</span></div>
           <div class="flex justify-between text-warn"><span>× {{ noReturnPct }}% who never return without follow-up:</span><span class="font-bold tabular-nums">{{ Math.round(visitorsPerMonth * 12 * (noReturnPct / 100)) }}</span></div>
           <div class="flex justify-between text-success"><span>× {{ followUpRescuePct }}% rescued by intentional follow-up:</span><span class="font-bold tabular-nums">{{ visitorsRescuedPerYear }}</span></div>
@@ -258,7 +264,7 @@ const notes = computed<string[]>(() => [
           <div class="flex justify-between text-lg"><span class="font-bold">Households kept in your church family per year:</span><span class="font-bold tabular-nums text-success">~{{ visitorsRescuedPerYear }}</span></div>
         </div>
         <p class="mt-6 text-base text-ink-muted italic leading-relaxed">
-          {{ pastorFirst }} — these aren't just numbers. Each one is a family that walked into your church looking for something. {{ visitorsRescuedPerYear }} families a year is a small group, a serving team, a Sunday school class. People who would have slipped through if no one followed up.
+          {{ pastorFirst }} — these aren't just numbers. Each one is a family that walked into your church looking for something. {{ visitorsRescuedPerYear }} families a year is multiple small groups, a whole new serving team, a Sunday school class twice over. With three congregations and ~1,000 attendance, the follow-up surface is bigger than any one person can carry — that's where Grace earns her keep.
         </p>
       </section>
 
@@ -267,7 +273,7 @@ const notes = computed<string[]>(() => [
         <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">Gap #2 · The drift you don't see</div>
         <h2 class="text-4xl font-bold text-ink mb-8 tracking-tight">Members going quiet — until they're gone.</h2>
         <div class="rounded-xl bg-surface-raised border border-divider p-6 text-base text-ink leading-loose">
-          <div class="flex justify-between"><span>Total households at {{ churchName }} (typical for your size):</span><span class="font-bold tabular-nums">~{{ totalHouseholds }}</span></div>
+          <div class="flex justify-between"><span>Total households at {{ churchName }} (~1,000 weekend attendance):</span><span class="font-bold tabular-nums">~{{ totalHouseholds }}</span></div>
           <div class="flex justify-between text-warn"><span>× {{ atRiskPct }}% at-risk at any given time (1+ drift signals):</span><span class="font-bold tabular-nums">{{ Math.round(totalHouseholds * (atRiskPct / 100)) }}</span></div>
           <div class="flex justify-between text-success"><span>× {{ driftReactivationPct }}% re-engaged when caught early:</span><span class="font-bold tabular-nums">{{ householdsRescuedFromDriftPerYear }}</span></div>
           <hr class="my-3 border-divider" />
