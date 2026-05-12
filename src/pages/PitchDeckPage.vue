@@ -15,6 +15,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabase'
+import ChurchPitchDeck from './ChurchPitchDeck.vue'
 
 const props = defineProps<{ slug?: string }>()
 const route = useRoute()
@@ -100,9 +101,9 @@ const demoUrl = computed(() => {
   return `/dashboard/${template}?${params.toString()}`
 })
 
-// ── Math placeholders (editable per call) ─────────────────────────────
-// Ballpark numbers for HVAC / service shops. Replace with real per-call
-// inputs once Josh has a quick form for it.
+// ── Math placeholders (HVAC / service-business numbers) ──────────────
+// Church math + voice live in ChurchPitchDeck.vue; this file handles
+// the service-business pitch only.
 const callsPerDay = 12
 const missedPct = 28
 const missedCallsPerYear = computed(() => Math.round(callsPerDay * 365 * (missedPct / 100)))
@@ -112,14 +113,13 @@ const missedRevenue = computed(() => Math.round(missedCallsPerYear.value * (clos
 
 const quotesPerMonth = 24
 const noFollowupPct = 40
-const followupCloseLift = 0.18  // 18 pp lift on close rate when followed up
+const followupCloseLift = 0.18
 const avgQuoteValue = 2200
 const quotesRevenue = computed(() =>
   Math.round(quotesPerMonth * 12 * (noFollowupPct / 100) * followupCloseLift * avgQuoteValue),
 )
 
 const totalCaught = computed(() => missedRevenue.value + quotesRevenue.value)
-// ROI uses the FOUNDING rate (what they're being offered), not standard
 const roi = computed(() => Math.round(totalCaught.value / pricing.value.year1Cost))
 
 function money(n: number): string {
@@ -196,7 +196,11 @@ const notes = computed<string[]>(() => [
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-canvas via-surface to-canvas relative overflow-hidden">
+  <!-- Lead is a church/ministry → render the dedicated church deck -->
+  <ChurchPitchDeck v-if="isChurch" :lead="lead" />
+
+  <!-- Otherwise render the service-business deck -->
+  <div v-else class="min-h-screen bg-gradient-to-br from-canvas via-surface to-canvas relative overflow-hidden">
     <!-- Top progress + nav -->
     <header class="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-6 py-3 bg-gradient-to-b from-surface/80 to-transparent">
       <div class="flex items-center gap-2 text-xs text-ink-muted">
