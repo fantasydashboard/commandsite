@@ -30,6 +30,13 @@ const slideIdx = ref(0)
 const SLIDE_COUNT = 10
 const showNotes = ref(false)
 
+// Slide 8 (pricing reveal) — two-step within-slide reveal.
+// Step 0: standard rate only, centered, no founding column.
+// Step 1: standard strikes through, founding rate slides in.
+const PRICING_SLIDE = 8
+const pricingRevealStep = ref(0)
+const PRICING_REVEAL_MAX = 1
+
 // ── Personalization tokens (with sensible fallbacks) ─────────────────
 const churchName = computed(() => props.lead?.company_name ?? '[Their Church]')
 const pastorFirst = computed(() => {
@@ -139,8 +146,30 @@ const pastorHoursPerWeek = 10
 const pastorHoursPerYear = computed(() => pastorHoursPerWeek * 52)
 
 // ── Keyboard nav ──────────────────────────────────────────────────────
-function next() { if (slideIdx.value < SLIDE_COUNT - 1) slideIdx.value++ }
-function prev() { if (slideIdx.value > 0) slideIdx.value-- }
+function next() {
+  // On the pricing reveal slide, advance the within-slide reveal step
+  // before moving on to the next slide.
+  if (slideIdx.value === PRICING_SLIDE && pricingRevealStep.value < PRICING_REVEAL_MAX) {
+    pricingRevealStep.value++
+    return
+  }
+  if (slideIdx.value < SLIDE_COUNT - 1) {
+    slideIdx.value++
+    // Reset pricing reveal when entering OR leaving the slide
+    if (slideIdx.value !== PRICING_SLIDE) pricingRevealStep.value = 0
+  }
+}
+function prev() {
+  // Step backward through the within-slide reveal before leaving the slide.
+  if (slideIdx.value === PRICING_SLIDE && pricingRevealStep.value > 0) {
+    pricingRevealStep.value--
+    return
+  }
+  if (slideIdx.value > 0) {
+    slideIdx.value--
+    if (slideIdx.value !== PRICING_SLIDE) pricingRevealStep.value = 0
+  }
+}
 function onKey(e: KeyboardEvent) {
   if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next() }
   else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev() }
@@ -170,8 +199,8 @@ const notes = computed<string[]>(() => [
   `Click out to the dashboard URL: ${demoUrl.value}. Don't try to demo all of Grace's roles. Focus on the approval queue — show them ONE drafted pastoral check-in, click Approve, watch the animation. Narrate: "Right now Grace just sent that on your behalf. That's the loop you'd live in."`,
   // 7 — solutions table
   `The "what else could you do?" slide. Hire an admin ($35-50K/year), hire a comms director ($45-60K), buy a stack of ChMS tools ($300-800/mo), do it yourself (your time). Then Grace at $299/mo. The point isn't "we're cheapest" — it's "we're the only one that does ALL of this AND respects your time."`,
-  // 8 — pricing reveal
-  `Pricing is sensitive in church world. Frame it as partnership, not transaction. "${churchName.value} would be coming on as a founding partner — this is a brand-new product still finding its first churches, so you get the founding rate, locked for ${pricing.value.lockMonths} months. Worth being early." Don't apologize for the price — the math already justified it.`,
+  // 8 — pricing reveal (TWO STEPS — important!)
+  `Two-step reveal. FIRST press of → shows ONLY the standard rate. Pause. Let them read it. Say: "Andrew, that's what most churches who come on after our founding window will pay." Let it land for 2-3 seconds. THEN press → again. Standard slashes through, founding rate slides in with the "Yours" badge. That's when you say: "But ${churchName.value} would be coming on as a founding partner. Half off, locked for ${pricing.value.lockMonths} months." The drama is doing work here — don't rush.`,
   // 9 — next steps
   `Don't pressure. Pastors hate sales pressure. "What's the right next step for ${churchName.value}? I can send a proposal this week, or send the deck + dashboard link and we can reconnect after you've talked it over with anyone who needs to be in the conversation." Either is real. Picking IS the close.`,
 ])
@@ -431,46 +460,99 @@ const notes = computed<string[]>(() => [
         </p>
       </section>
 
-      <!-- ── Slide 8: Pricing reveal ─────────────────────────────── -->
-      <section v-else-if="slideIdx === 8" class="max-w-3xl">
+      <!-- ── Slide 8: Pricing reveal (two-step) ────────────────────── -->
+      <section v-else-if="slideIdx === 8" class="max-w-3xl w-full">
         <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">{{ pricing.tier }}</div>
-        <h2 class="text-4xl font-bold text-ink mb-3 tracking-tight">An introductory rate, just for {{ churchName }}.</h2>
-        <p class="text-sm text-ink-muted mb-8 leading-relaxed">
-          {{ churchName }} would be coming on as a founding partner while Grace is still new to the world. That earns you the founding rate — half off, locked for {{ pricing.lockMonths }} months. Worth being early.
+        <h2 class="text-4xl font-bold text-ink mb-3 tracking-tight">
+          <template v-if="pricingRevealStep === 0">The standard rate.</template>
+          <template v-else>An introductory rate, just for {{ churchName }}.</template>
+        </h2>
+        <p class="text-sm text-ink-muted mb-8 leading-relaxed transition-opacity duration-500">
+          <template v-if="pricingRevealStep === 0">
+            This is what {{ churchName }} would pay at our standard rate — what new churches who come on after our founding window will see.
+          </template>
+          <template v-else>
+            {{ churchName }} would be coming on as a founding partner while Grace is still new to the world. That earns you the founding rate — half off, locked for {{ pricing.lockMonths }} months. Worth being early.
+          </template>
         </p>
 
         <div class="rounded-2xl bg-gradient-to-br from-brand/5 via-surface-raised to-success/5 border-2 border-brand/40 overflow-hidden mb-6 shadow-xl">
           <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-divider">
-            <!-- Standard (slashed) -->
-            <div class="px-6 py-5 opacity-60">
+            <!-- Standard rate — fades + strikes through on reveal -->
+            <div
+              class="px-6 py-5 transition-all duration-700 ease-out"
+              :class="pricingRevealStep > 0 ? 'opacity-60' : 'opacity-100'"
+            >
               <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-3">Standard rate</div>
-              <div class="line-through text-ink text-2xl font-bold tabular-nums leading-tight">{{ pricing.stdSetup }}</div>
+              <div
+                class="text-ink text-2xl font-bold tabular-nums leading-tight strike-anim"
+                :class="{ 'strike-active': pricingRevealStep > 0 }"
+              >{{ pricing.stdSetup }}</div>
               <div class="text-[11px] text-ink-disabled mb-3">setup, one-time</div>
-              <div class="line-through text-ink text-2xl font-bold tabular-nums leading-tight">{{ pricing.stdMonthly }}/mo</div>
+              <div
+                class="text-ink text-2xl font-bold tabular-nums leading-tight strike-anim"
+                :class="{ 'strike-active': pricingRevealStep > 0 }"
+              >{{ pricing.stdMonthly }}/mo</div>
               <div class="text-[11px] text-ink-disabled">monthly</div>
             </div>
-            <!-- Founding rate (active) -->
-            <div class="px-6 py-5 bg-brand/10 relative">
-              <div class="absolute top-3 right-3 rounded-full bg-success text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">Yours</div>
-              <div class="text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Founding rate</div>
-              <div class="text-brand text-3xl font-bold tabular-nums leading-tight">{{ pricing.setup }}</div>
-              <div class="text-[11px] text-ink-muted mb-3">setup, one-time</div>
-              <div class="text-brand text-3xl font-bold tabular-nums leading-tight">{{ pricing.monthly }}/mo</div>
-              <div class="text-[11px] text-ink-muted">monthly · locked {{ pricing.lockMonths }} months</div>
+            <!-- Founding rate — slides in on reveal -->
+            <Transition
+              enter-active-class="transition-all duration-700 ease-out"
+              enter-from-class="opacity-0 translate-x-12"
+              enter-to-class="opacity-100 translate-x-0"
+            >
+              <div
+                v-if="pricingRevealStep > 0"
+                class="px-6 py-5 bg-brand/10 relative"
+              >
+                <div class="absolute top-3 right-3 rounded-full bg-success text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 yours-bounce">Yours</div>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Founding rate</div>
+                <div class="text-brand text-3xl font-bold tabular-nums leading-tight">{{ pricing.setup }}</div>
+                <div class="text-[11px] text-ink-muted mb-3">setup, one-time</div>
+                <div class="text-brand text-3xl font-bold tabular-nums leading-tight">{{ pricing.monthly }}/mo</div>
+                <div class="text-[11px] text-ink-muted">monthly · locked {{ pricing.lockMonths }} months</div>
+              </div>
+              <!-- Placeholder while standard is the only thing visible -->
+              <div v-else class="px-6 py-5 flex items-center justify-center text-center">
+                <div>
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-ink-disabled mb-1">Next →</div>
+                  <div class="text-xs text-ink-muted italic max-w-[180px]">But there's something else I want to show you first.</div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+          <!-- Savings strip — only shows after reveal -->
+          <Transition
+            enter-active-class="transition-all duration-500 ease-out delay-300"
+            enter-from-class="opacity-0 -translate-y-2"
+            enter-to-class="opacity-100 translate-y-0"
+          >
+            <div
+              v-if="pricingRevealStep > 0"
+              class="bg-success/10 px-6 py-3 flex items-center justify-between border-t border-divider"
+            >
+              <span class="text-success font-semibold text-sm">Year-one savings:</span>
+              <span class="text-success text-xl font-bold tabular-nums">${{ pricing.year1Savings.toLocaleString() }}</span>
             </div>
-          </div>
-          <div class="bg-success/10 px-6 py-3 flex items-center justify-between border-t border-divider">
-            <span class="text-success font-semibold text-sm">Year-one savings:</span>
-            <span class="text-success text-xl font-bold tabular-nums">${{ pricing.year1Savings.toLocaleString() }}</span>
-          </div>
+          </Transition>
         </div>
 
-        <div class="space-y-1.5 text-[13px] text-ink-muted">
-          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Annual prepay</strong> available: {{ pricing.annualPrepay }}</span></p>
-          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">30-day partnership trial</strong> — if Grace isn't earning her place in your week by month one, full refund</span></p>
-          <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">We set everything up.</strong> You don't lift a finger past the kickoff call</span></p>
-          <p class="flex items-start gap-2"><span class="text-ink-muted">·</span><span class="italic">After {{ pricing.lockMonths }} months, renews at standard rate. We'll tell you 60 days out.</span></p>
-        </div>
+        <!-- Detail bullets — only after reveal -->
+        <Transition
+          enter-active-class="transition-all duration-500 ease-out delay-500"
+          enter-from-class="opacity-0 translate-y-2"
+          enter-to-class="opacity-100 translate-y-0"
+        >
+          <div v-if="pricingRevealStep > 0" class="space-y-1.5 text-[13px] text-ink-muted">
+            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Annual prepay</strong> available: {{ pricing.annualPrepay }}</span></p>
+            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">30-day partnership trial</strong> — if Grace isn't earning her place in your week by month one, full refund</span></p>
+            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">We set everything up.</strong> You don't lift a finger past the kickoff call</span></p>
+            <p class="flex items-start gap-2"><span class="text-ink-muted">·</span><span class="italic">After {{ pricing.lockMonths }} months, renews at standard rate. We'll tell you 60 days out.</span></p>
+          </div>
+          <div v-else class="text-center mt-4">
+            <span class="text-[11px] text-ink-disabled italic">Press → to see {{ churchName }}'s founding rate</span>
+          </div>
+        </Transition>
       </section>
 
       <!-- ── Slide 9: Next steps ─────────────────────────────────── -->
@@ -507,5 +589,35 @@ section {
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Animated strike-through — line draws across the price */
+.strike-anim {
+  position: relative;
+  display: inline-block;
+}
+.strike-anim::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0;
+  height: 2.5px;
+  background-color: currentColor;
+  transition: width 600ms cubic-bezier(0.65, 0, 0.35, 1);
+  transform: translateY(-50%);
+}
+.strike-anim.strike-active::after {
+  width: 100%;
+}
+
+/* "Yours" badge bounces in */
+.yours-bounce {
+  animation: yours-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms both;
+}
+@keyframes yours-pop {
+  0%   { transform: scale(0.3) rotate(-12deg); opacity: 0; }
+  60%  { transform: scale(1.1) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 </style>
