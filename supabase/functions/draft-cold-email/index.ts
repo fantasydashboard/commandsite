@@ -434,6 +434,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         draft_cold_email_signal: result.personalization_signal,
         draft_cold_email_at: new Date().toISOString(),
         draft_cold_email_model: MODEL,
+        // Drop the draft into the approval queue (mig 0039). Both
+        // page-driven and cron-driven callers share this behavior.
+        draft_state: 'ready_for_review',
         tags,
       })
       .eq('id', lead.id)

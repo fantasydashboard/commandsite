@@ -15,7 +15,7 @@
  *   4. Manual reply — paste form to log a reply you got in Gmail
  *   5. Coming next — placeholder for sequences / Smartlead automation
  */
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { Client, CsLead, CsReply } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
@@ -31,6 +31,7 @@ import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repli
 import { useDiscovery, type DiscoveryDeal } from '@/lib/clients/commandsite/discoveryApi'
 import { useDeals } from '@/lib/clients/commandsite/dealsApi'
 import { useAutoOutreach } from '@/lib/clients/commandsite/useAutoOutreach'
+import { useOutreachRealtime } from '@/lib/clients/commandsite/useOutreachRealtime'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import { useToasts } from '@/components/grace/useToasts'
@@ -244,37 +245,50 @@ const tickerSeed = computed(() => {
   const now = Date.now()
 
   // Recent sends
-  for (const s of sends.value.slice(0, 4)) {
+  for (const s of sends.value.slice(0, 3)) {
     const lead = leads.value.find((l) => l.id === s.lead_id)
-    const co = lead?.company_name ?? 'lead'
+    const co = lead?.contact_name || lead?.company_name || 'lead'
     const ageSec = Math.floor((now - new Date(s.sent_at).getTime()) / 1000)
-    events.push({ icon: '📤', text: `Sent to ${co}: "${(s.subject ?? '').slice(0, 40)}"`, ageSec })
+    const verb = s.source === 'auto_approve' ? 'Auto-sent' : 'Sent'
+    events.push({ icon: '📤', text: `${verb} to ${co}`, ageSec })
   }
   // Recent replies
-  for (const r of liveReplies.replies.value.slice(0, 4)) {
+  for (const r of liveReplies.replies.value.slice(0, 3)) {
     const lead = leads.value.find((l) => l.id === r.lead_id)
-    const co = lead?.company_name ?? 'lead'
+    const co = lead?.contact_name || lead?.company_name || 'lead'
     const ageSec = Math.floor((now - new Date(r.received_at).getTime()) / 1000)
     const tone = r.classification === 'positive' ? '✅' : r.classification === 'objection' ? '🤔' : '💬'
     events.push({ icon: tone, text: `Reply from ${co} — ${r.classification ?? 'pending'}`, ageSec })
   }
-
   if (events.length === 0) {
-    return [{ icon: '⚙️', text: 'Outreach engine ready — drafts in Ready to send, replies in Inbox', ageSec: 0 }]
+    return [{ icon: '🤖', text: 'Auto-draft cron running every 5 min — events will land here as they happen', ageSec: 0 }]
   }
-  return events.sort((a, b) => a.ageSec - b.ageSec).slice(0, 5)
+  return events.sort((a, b) => a.ageSec - b.ageSec).slice(0, 6)
 })
 
-const tickerPool = [
-  { icon: '📤', text: 'Send logged — cs_outreach_sends row inserted, status → contacted' },
-  { icon: '📥', text: 'Reply received — Ada classifying' },
-  { icon: '✅', text: 'Reply classified positive — drafted response queued' },
-  { icon: '🤖', text: 'Followup cron fired — Touch 2 drafted for eligible leads' },
-  { icon: '📅', text: 'Calendly webhook fired — new cs_deal row' },
-  { icon: '🧠', text: 'Pre-call brief generated — Sage drafted' },
-  { icon: '📨', text: 'Post-call follow-up draft saved' },
-  { icon: '🚫', text: 'OOF / unsubscribe auto-handled — no manual touch needed' },
-]
+// Empty pool — the ticker is purely real-event now. Drift comes from
+// the live polling in useOutreachRealtime, not a hardcoded cycle.
+const tickerPool: { icon: string; text: string }[] = []
+
+// Real-time event feeder. Seeds cursors from the most recent rows we
+// already have so the first poll only catches truly-new arrivals.
+const realtime = useOutreachRealtime(() => outreachTicker.value)
+
+onMounted(() => {
+  // Seed once the initial loads settle. We use the most-recent
+  // timestamp from each stream — anything newer than these on the next
+  // poll counts as a real new event worth narrating.
+  const lastSendAt = sends.value[0]?.sent_at ?? null
+  const lastReplyAt = liveReplies.replies.value[0]?.received_at ?? null
+  const lastDraftAt = leads.value
+    .filter((l) => l.draft_cold_email_at)
+    .map((l) => l.draft_cold_email_at!)
+    .sort()
+    .pop() ?? null
+  // Deals cursor stays at "now" (set on composable mount) — first poll
+  // picks up only deals booked after page open. Good enough for now.
+  realtime.seedCursors({ lastSendAt, lastReplyAt, lastDraftAt })
+})
 
 // ── Per-row actions (Ready view) ─────────────────────────────────────
 
@@ -774,7 +788,7 @@ function leadForReply(r: CsReply): CsLead | null {
       ref="outreachTicker"
       :seed="tickerSeed"
       :pool="tickerPool"
-      subtitle="Outreach activity — sends, replies, classifications, cron fires"
+      subtitle="Live — sends, replies, drafts, bookings (polls every 20s)"
     />
 
     <!-- ── Approval Queue (hero) ────────────────────────────────────── -->
