@@ -6,6 +6,7 @@
  * expansion + retention work at a glance.
  */
 import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { Client } from '@/types/database'
 import {
   companies,
@@ -18,8 +19,53 @@ import {
   type Plan,
 } from '@/lib/clients/commandsite/companies'
 import CommandSiteAdaActivityStrip from '@/components/CommandSiteAdaActivityStrip.vue'
+import CommandSiteOnboardingWizard from '@/components/CommandSiteOnboardingWizard.vue'
+import { useCustomers } from '@/lib/clients/commandsite/customersApi'
+import { useDeals } from '@/lib/clients/commandsite/dealsApi'
+import { useToasts } from '@/components/grace/useToasts'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// ── Real customers (cs_customers) ─────────────────────────────────────
+const customersApi = useCustomers()
+const dealsApi = useDeals()
+const toasts = useToasts()
+
+const wizardOpen = ref(false)
+const wizardSourceDeal = ref<{ id: string; company_name: string; contact_name?: string; contact_email?: string; industry?: string; city?: string; state?: string } | null>(null)
+
+// Closed-won deals not yet promoted to customers
+const closedWonDeals = computed(() => {
+  const customerDealIds = new Set(customersApi.customers.value.map((c) => c.deal_id).filter(Boolean))
+  return dealsApi.deals.value.filter((d) => d.stage === 'closed_won' && !customerDealIds.has(d.id))
+})
+
+function openWizardBlank() {
+  wizardSourceDeal.value = null
+  wizardOpen.value = true
+}
+// deno-lint-ignore no-explicit-any
+function openWizardFromDeal(deal: any) {
+  wizardSourceDeal.value = deal
+  wizardOpen.value = true
+}
+
+async function onWizardSave(payload: Record<string, unknown>) {
+  // deno-lint-ignore no-explicit-any
+  const result = await customersApi.createCustomer(payload as any)
+  if (result.ok) {
+    wizardOpen.value = false
+    wizardSourceDeal.value = null
+    toasts.push(`✓ ${payload.org_name} onboarded — opening their dashboard`, 'success')
+    // If the customer was promoted from a deal, flip the deal to closed_won
+    if (payload.deal_id) {
+      try { await dealsApi.updateStage(payload.deal_id as string, 'closed_won') } catch { /* ignore */ }
+    }
+    await customersApi.load()
+  } else {
+    toasts.push(result.error ?? 'Failed to onboard customer', 'warn')
+  }
+}
 
 const stats = computed(() => customerStats())
 
@@ -125,8 +171,82 @@ function healthTrendColor(t: Company['health_trend']): string {
       <button
         type="button"
         class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
-      >+ New customer</button>
+        @click="openWizardBlank"
+      >+ Onboard customer</button>
     </div>
+
+    <!-- ── REAL CUSTOMERS (cs_customers) — appears once Josh has signed any -->
+    <section
+      v-if="customersApi.customers.value.length > 0 || closedWonDeals.length > 0"
+      class="rounded-card border-2 border-brand/30 bg-gradient-to-br from-brand/5 to-surface overflow-hidden"
+    >
+      <header class="px-5 py-4 border-b border-brand/20 bg-brand/10">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-0.5">Live customers</div>
+        <h3 class="text-base font-bold text-ink">Paying CommandSite customers</h3>
+      </header>
+
+      <!-- Closed-won deals waiting to be onboarded -->
+      <div v-if="closedWonDeals.length > 0" class="px-5 py-4 border-b border-divider bg-warn/5">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-warn mb-2">
+          {{ closedWonDeals.length }} closed-won {{ closedWonDeals.length === 1 ? 'deal' : 'deals' }} waiting to be onboarded
+        </div>
+        <ul class="space-y-2">
+          <li
+            v-for="d in closedWonDeals"
+            :key="d.id"
+            class="flex items-center justify-between gap-3 rounded-md bg-surface-raised border border-divider px-3 py-2"
+          >
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-ink">{{ d.company_name }}</div>
+              <div class="text-[11px] text-ink-muted">{{ d.contact_name }} · {{ d.industry || 'industry not set' }}</div>
+            </div>
+            <button
+              type="button"
+              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
+              @click="openWizardFromDeal(d)"
+            >Start onboarding →</button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Active + onboarding customers -->
+      <ul v-if="customersApi.customers.value.length > 0" class="divide-y divide-divider">
+        <li
+          v-for="c in customersApi.customers.value"
+          :key="c.id"
+          class="px-5 py-3 flex items-center justify-between gap-3"
+        >
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-semibold text-ink">{{ c.org_name }}</span>
+              <span
+                class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                :class="c.status === 'active' ? 'bg-success/15 text-success' : c.status === 'onboarding' ? 'bg-warn/15 text-warn' : 'bg-ink-muted/15 text-ink-muted'"
+              >{{ c.status }}</span>
+              <span class="rounded-full bg-brand/10 text-brand text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">
+                {{ c.persona_type === 'grace' ? 'Grace' : 'Ada' }}
+              </span>
+              <span v-if="c.founding_partner" class="rounded-full bg-accent/15 text-accent text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">
+                Founding
+              </span>
+            </div>
+            <div class="text-[11px] text-ink-muted mt-0.5">
+              <code class="font-mono text-brand">/dashboard/{{ c.slug }}</code>
+              · {{ c.tier }} tier · ${{ Math.round(c.monthly_rate_cents / 100).toLocaleString() }}/mo
+              <template v-if="c.contacts && c.contacts.length > 0">
+                · {{ c.contacts[0].name }}{{ c.contacts.length > 1 ? ` (+${c.contacts.length - 1})` : '' }}
+              </template>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <RouterLink
+              :to="`/dashboard/${c.slug}`"
+              class="rounded-md border border-divider text-ink bg-surface-raised px-2.5 py-1 text-[11px] font-semibold hover:border-brand"
+            >Open dashboard →</RouterLink>
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <!-- KPI strip -->
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -305,5 +425,13 @@ function healthTrendColor(t: Company['health_trend']): string {
       </span>
       <span class="opacity-70 ml-2">Composite of usage frequency · payment status · open tickets · NPS</span>
     </div>
+
+    <!-- Onboarding wizard -->
+    <CommandSiteOnboardingWizard
+      :open="wizardOpen"
+      :source-deal="wizardSourceDeal as never"
+      @close="wizardOpen = false; wizardSourceDeal = null"
+      @save="onWizardSave"
+    />
   </div>
 </template>
