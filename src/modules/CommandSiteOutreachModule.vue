@@ -25,6 +25,7 @@ import CommandSiteLeadEditDrawer from '@/components/CommandSiteLeadEditDrawer.vu
 import CommandSiteDealEditDrawer from '@/components/CommandSiteDealEditDrawer.vue'
 import CommandSiteOutreachApprovalQueue from '@/components/CommandSiteOutreachApprovalQueue.vue'
 import CommandSiteOutreachEditDraftModal from '@/components/CommandSiteOutreachEditDraftModal.vue'
+import CommandSiteLeadAddModal from '@/components/CommandSiteLeadAddModal.vue'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useOutreachSends } from '@/lib/clients/commandsite/outreachSendsApi'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
@@ -39,7 +40,7 @@ import { useAssistantChat } from '@/components/grace/useGraceChat'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const { leads, load: reloadLeads, updateLead, deleteLead } = useLeads()
+const { leads, load: reloadLeads, updateLead, deleteLead, importLeads } = useLeads()
 const { sends, sentToday, sentLastNDays, markSent } = useOutreachSends()
 const liveReplies = useReplies()
 const dealsApi = useDeals()
@@ -273,6 +274,51 @@ const outreachChat = useAssistantChat()
 const auto = useAutoOutreach({
   onEvent: (icon, text) => outreachTicker.value?.pushEvent({ icon, text }),
 })
+
+// ── Manual add-lead modal ─────────────────────────────────────────────
+const addLeadOpen = ref(false)
+const addLeadModalRef = ref<InstanceType<typeof CommandSiteLeadAddModal> | null>(null)
+
+async function onAddLead(payload: {
+  company_name: string
+  contact_name: string
+  contact_email: string
+  contact_title: string | null
+  contact_phone: string | null
+  industry: string | null
+  city: string | null
+  state: string | null
+  icp_score: number | null
+  notes: string | null
+}) {
+  const row = {
+    source: 'manual_entry' as const,
+    company_name: payload.company_name,
+    contact_name: payload.contact_name,
+    contact_email: payload.contact_email,
+    contact_title: payload.contact_title ?? '',
+    contact_phone: payload.contact_phone ?? '',
+    industry: payload.industry ?? '',
+    city: payload.city ?? '',
+    state: payload.state ?? '',
+    icp_score: payload.icp_score,
+    icp_score_reason: payload.icp_score !== null ? 'Manually set on add' : null,
+    notes: payload.notes,
+    status: 'new' as const,
+    send_count: 0,
+  }
+  const result = await importLeads([row as never])
+  // Reset modal saving state regardless of outcome
+  addLeadModalRef.value?.resetSaving()
+  if (result.inserted > 0) {
+    addLeadOpen.value = false
+    flash(`✓ Added ${payload.company_name} — auto-draft will pick it up within 5 min`)
+    await reloadLeads()
+    await auto.load()
+  } else {
+    errorMsg.value = 'Failed to add lead (DB returned no row)'
+  }
+}
 
 const editingDraftLead = ref<CsLead | null>(null)
 function openDraftEditor(lead: CsLead) {
@@ -910,6 +956,13 @@ function leadForReply(r: CsReply): CsLead | null {
           Send your drafts, log replies, watch the funnel.
         </p>
       </div>
+      <button
+        type="button"
+        class="rounded-md bg-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90 transition-all hover:scale-105 inline-flex items-center gap-1.5"
+        @click="addLeadOpen = true"
+      >
+        <span class="text-base leading-none">+</span> Add lead
+      </button>
     </div>
 
     <!-- ── Real KPI strip ──────────────────────────────────────────── -->
@@ -1812,6 +1865,14 @@ function leadForReply(r: CsReply): CsLead | null {
       @close="closeDraftEditor"
       @save="onDraftSave"
       @save-and-approve="onDraftSaveAndApprove"
+    />
+
+    <!-- ── Manual add-lead modal ─────────────────────────────────── -->
+    <CommandSiteLeadAddModal
+      ref="addLeadModalRef"
+      :open="addLeadOpen"
+      @close="addLeadOpen = false"
+      @save="onAddLead"
     />
 
     <!-- ── VIEW: Coming next ──────────────────────────────────────── -->
