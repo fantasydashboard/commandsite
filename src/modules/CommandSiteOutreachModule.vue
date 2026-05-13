@@ -23,11 +23,14 @@ import CommandSiteDemoLinkModal from '@/components/CommandSiteDemoLinkModal.vue'
 import CommandSiteLogManualDemoModal from '@/components/CommandSiteLogManualDemoModal.vue'
 import CommandSiteLeadEditDrawer from '@/components/CommandSiteLeadEditDrawer.vue'
 import CommandSiteDealEditDrawer from '@/components/CommandSiteDealEditDrawer.vue'
+import CommandSiteOutreachApprovalQueue from '@/components/CommandSiteOutreachApprovalQueue.vue'
+import CommandSiteOutreachEditDraftModal from '@/components/CommandSiteOutreachEditDraftModal.vue'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useOutreachSends } from '@/lib/clients/commandsite/outreachSendsApi'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
 import { useDiscovery, type DiscoveryDeal } from '@/lib/clients/commandsite/discoveryApi'
 import { useDeals } from '@/lib/clients/commandsite/dealsApi'
+import { useAutoOutreach } from '@/lib/clients/commandsite/useAutoOutreach'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import { useToasts } from '@/components/grace/useToasts'
@@ -169,6 +172,72 @@ const kpis = computed(() => {
 const outreachTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
 const outreachToasts = useToasts()
 const outreachChat = useAssistantChat()
+
+// ── Auto-outreach chain (score → draft → approval queue → send) ───────
+// onEvent forwards chain narration onto the visible ticker.
+const auto = useAutoOutreach({
+  onEvent: (icon, text) => outreachTicker.value?.pushEvent({ icon, text }),
+})
+
+const editingDraftLead = ref<CsLead | null>(null)
+function openDraftEditor(lead: CsLead) {
+  editingDraftLead.value = lead
+}
+function closeDraftEditor() {
+  editingDraftLead.value = null
+}
+async function onDraftSave(payload: { id: string; subject: string; body: string }) {
+  const r = await auto.saveEdit(payload.id, payload.subject, payload.body)
+  if (r.ok) {
+    outreachToasts.push('✓ Draft saved — still in queue', 'success')
+    closeDraftEditor()
+  } else {
+    errorMsg.value = r.error ?? 'Failed to save draft'
+  }
+}
+async function onDraftSaveAndApprove(payload: { id: string; subject: string; body: string }) {
+  const saveRes = await auto.saveEdit(payload.id, payload.subject, payload.body)
+  if (!saveRes.ok) {
+    errorMsg.value = saveRes.error ?? 'Failed to save draft'
+    return
+  }
+  // Find the fresh lead from the composable's state so we pass the
+  // updated subject/body to approve()
+  const fresh = auto.leads.value.find((l) => l.id === payload.id)
+  if (!fresh) return
+  const approveRes = await auto.approve(fresh)
+  if (approveRes.ok) {
+    outreachToasts.push(`✓ Sent to ${fresh.contact_name || fresh.company_name}`, 'success')
+    closeDraftEditor()
+  } else {
+    errorMsg.value = approveRes.error ?? 'Failed to send'
+  }
+}
+async function onApprove(lead: CsLead) {
+  const r = await auto.approve(lead)
+  if (r.ok) {
+    outreachToasts.push(`✓ Sent to ${lead.contact_name || lead.company_name}`, 'success')
+  } else {
+    errorMsg.value = r.error ?? 'Failed to send'
+  }
+}
+async function onSkip(lead: CsLead) {
+  const r = await auto.skip(lead)
+  if (r.ok) outreachToasts.push('Skipped — draft archived as rejected', 'info')
+  else errorMsg.value = r.error ?? 'Failed to skip'
+}
+async function onApproveAll() {
+  const { sent, failed } = await auto.approveAll()
+  if (sent > 0) outreachToasts.push(`✓ Sent ${sent} ${sent === 1 ? 'email' : 'emails'}`, 'success')
+  if (failed > 0) outreachToasts.push(`${failed} failed — check Inbox`, 'warn')
+}
+async function onAutoApproveToggle(value: boolean) {
+  await auto.setAutoApprove(value)
+  outreachToasts.push(
+    value ? 'Auto-approve ON — drafts will send without you' : 'Auto-approve OFF — back to manual',
+    'info',
+  )
+}
 
 const tickerSeed = computed(() => {
   const events: { icon: string; text: string; ageSec: number }[] = []
@@ -706,6 +775,21 @@ function leadForReply(r: CsReply): CsLead | null {
       :seed="tickerSeed"
       :pool="tickerPool"
       subtitle="Outreach activity — sends, replies, classifications, cron fires"
+    />
+
+    <!-- ── Approval Queue (hero) ────────────────────────────────────── -->
+    <CommandSiteOutreachApprovalQueue
+      :items="auto.queueItems.value"
+      :sent-today="auto.sentTodayCount.value"
+      :drafted-today="auto.draftedTodayCount.value"
+      :auto-approve="auto.autoApprove.value"
+      :min-score="auto.minScore.value"
+      :last-approved-id="auto.lastApprovedId.value"
+      @approve="onApprove"
+      @edit="openDraftEditor"
+      @skip="onSkip"
+      @approve-all="onApproveAll"
+      @update:auto-approve="onAutoApproveToggle"
     />
 
     <!-- ── Header ───────────────────────────────────────────────────── -->
@@ -1488,6 +1572,15 @@ function leadForReply(r: CsReply): CsLead | null {
       @close="closeDealEditor"
       @save="onDealSave"
       @delete="onDealDelete"
+    />
+
+    <!-- ── Edit-draft modal (approval queue inline edit) ─────────── -->
+    <CommandSiteOutreachEditDraftModal
+      :open="editingDraftLead !== null"
+      :lead="editingDraftLead"
+      @close="closeDraftEditor"
+      @save="onDraftSave"
+      @save-and-approve="onDraftSaveAndApprove"
     />
 
     <!-- ── VIEW: Coming next ──────────────────────────────────────── -->

@@ -311,6 +311,8 @@ export type CsSettings = {
   reply_classifier_auto_threshold: number
   pipeline_promote_threshold: number
   social_engager_icp_threshold: number
+  outreach_auto_approve: boolean
+  outreach_auto_draft_min_score: number
   created_at: string
   updated_at: string
 }
@@ -379,6 +381,8 @@ export type CsLead = {
   contacted_at: string | null
   last_contacted_at: string | null
   send_count: number
+  // Approval-queue lifecycle (mig 0039) — null until first drafted
+  draft_state: 'drafting' | 'ready_for_review' | 'approved' | 'sent' | 'rejected' | null
   created_at: string
   updated_at: string
 }
@@ -389,7 +393,7 @@ export type CsOutreachSend = {
   subject: string | null
   body: string | null
   channel: 'email' | 'linkedin' | 'sms' | 'phone'
-  source: 'manual_gmail' | 'manual_other' | 'smartlead' | 'smartlead_reply' | 'apollo' | 'instantly' | 'other'
+  source: 'manual_gmail' | 'manual_other' | 'smartlead' | 'smartlead_reply' | 'apollo' | 'instantly' | 'auto_approve' | 'other'
   sent_via_email_address: string | null
   external_message_id: string | null
   sequence_step_number: number | null

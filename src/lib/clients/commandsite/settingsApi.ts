@@ -36,6 +36,8 @@ const DEFAULTS: CsSettings = {
   reply_classifier_auto_threshold: 0.90,
   pipeline_promote_threshold: 0.90,
   social_engager_icp_threshold: 80,
+  outreach_auto_approve: false,
+  outreach_auto_draft_min_score: 65,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }
