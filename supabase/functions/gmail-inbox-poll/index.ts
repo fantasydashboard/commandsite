@@ -116,15 +116,6 @@ function parseFromHeader(from: string | null): { name: string | null; email: str
   return { name: null, email: from.trim().toLowerCase() }
 }
 
-/** Pull the angle-bracketed message id out of an In-Reply-To or
- *  References header value. References can have multiple — we return
- *  all of them for matching. */
-function extractMessageIds(headerValue: string | null): string[] {
-  if (!headerValue) return []
-  const matches = headerValue.match(/<[^>]+>/g) ?? []
-  return matches.map((m) => m.slice(1, -1).trim()).filter(Boolean)
-}
-
 async function refreshAccessToken(refreshToken: string): Promise<string> {
   if (!CLIENT_ID || !CLIENT_SECRET) {
     throw new Error('GOOGLE_OAUTH_CLIENT_ID / SECRET not configured')
@@ -192,19 +183,18 @@ Deno.serve(async (req: Request) => {
     return json({ processed: 0, replies_inserted: 0, bounces_recorded: 0, message: 'inbox empty for window' })
   }
 
-  // ── For matching: load all external_message_id values we've sent
-  // (Gmail's send response uses internal IDs; matching is via the
-  // Message-ID header which Gmail also auto-fills on outgoing mail.
-  // The internal id Gmail returns IS the same as what appears in
-  // In-Reply-To headers from recipients, so this match works.)
+  // ── For matching: load thread IDs we've sent. external_message_id
+  // stores the Gmail threadId (set by gmail-send → useAutoOutreach).
+  // Inbound replies share threadId with the original send because
+  // Gmail auto-threads them server-side. No header parsing required.
   const { data: sendsData } = await admin
     .from('cs_outreach_sends')
     .select('id, lead_id, external_message_id')
     .not('external_message_id', 'is', null)
     .limit(2000)
-  const sentByMessageId = new Map<string, { send_id: string; lead_id: string }>()
+  const sentByThreadId = new Map<string, { send_id: string; lead_id: string }>()
   for (const s of (sendsData ?? []) as Array<{ id: string; lead_id: string; external_message_id: string }>) {
-    sentByMessageId.set(s.external_message_id, { send_id: s.id, lead_id: s.lead_id })
+    sentByThreadId.set(s.external_message_id, { send_id: s.id, lead_id: s.lead_id })
   }
 
   // ── Also need lead lookup by email for bounce matching
@@ -236,9 +226,6 @@ Deno.serve(async (req: Request) => {
     const headers = msg.payload?.headers
     const from = parseFromHeader(header(headers, 'From'))
     const subject = header(headers, 'Subject') ?? ''
-    const inReplyTo = extractMessageIds(header(headers, 'In-Reply-To'))
-    const references = extractMessageIds(header(headers, 'References'))
-    const matchIds = [...inReplyTo, ...references]
     const receivedAt = new Date(Number(msg.internalDate || Date.now())).toISOString()
     const body = extractBody(msg)
 
@@ -277,12 +264,9 @@ Deno.serve(async (req: Request) => {
       continue
     }
 
-    // ── REPLY: must match one of our sent message IDs
-    let matched: { send_id: string; lead_id: string } | null = null
-    for (const id of matchIds) {
-      const hit = sentByMessageId.get(id)
-      if (hit) { matched = hit; break }
-    }
+    // ── REPLY: match by threadId (Gmail auto-threads replies into
+    // the original outbound's thread, so threadId stays the same).
+    const matched = sentByThreadId.get(msg.threadId) ?? null
     if (!matched) continue
 
     // Insert (unique index dedupes — silently no-op on repeat polls)

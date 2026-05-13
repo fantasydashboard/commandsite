@@ -251,11 +251,17 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
       if (fnErr) {
         return { ok: false, error: `Gmail send failed: ${fnErr.message}` }
       }
-      const result = sendResp as { ok?: boolean; message_id?: string; error?: string } | null
+      const result = sendResp as { ok?: boolean; message_id?: string; thread_id?: string; error?: string } | null
       if (!result?.ok) {
         return { ok: false, error: result?.error ?? 'Gmail send returned no ok' }
       }
-      externalMessageId = result.message_id ?? null
+      // Store the THREAD ID, not the message id. Reply matching in
+      // gmail-inbox-poll keys off threadId because Gmail auto-threads
+      // replies into the original send's thread. Gmail's internal
+      // message id (result.message_id) is different from the RFC 822
+      // Message-ID header that appears in reply In-Reply-To, so we'd
+      // never match if we stored it.
+      externalMessageId = result.thread_id ?? result.message_id ?? null
       source = opts.silent ? 'auto_approve' : 'manual_gmail'
     } else if (!opts.silent) {
       // Path 2: legacy compose-tab fallback
