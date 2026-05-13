@@ -798,6 +798,8 @@ function leadForReply(r: CsReply): CsLead | null {
       :drafted-today="auto.draftedTodayCount.value"
       :auto-approve="auto.autoApprove.value"
       :min-score="auto.minScore.value"
+      :gmail-connected="auto.gmailConnected.value"
+      :gmail-email="auto.gmailEmail.value"
       :last-approved-id="auto.lastApprovedId.value"
       @approve="onApprove"
       @edit="openDraftEditor"

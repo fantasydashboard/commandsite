@@ -18,6 +18,10 @@ const props = defineProps<{
   draftedToday: number
   autoApprove: boolean
   minScore: number
+  /** Gmail OAuth status — drives the send-mode badge + warns when
+   *  auto-approve is on without a connection. */
+  gmailConnected: boolean
+  gmailEmail?: string | null
   /** Lead id most recently approved — used for a brief highlight pulse. */
   lastApprovedId?: string | null
   /** Disable buttons while an action is in flight. */
@@ -117,7 +121,21 @@ function snippet(body: string | null): string {
           </div>
           <h2 class="text-lg font-bold text-ink leading-tight">{{ queueLabel }}</h2>
           <p class="text-xs text-ink-muted mt-0.5">
-            Threshold: score ≥ {{ minScore }} · Approve sends it via Gmail
+            Threshold: score ≥ {{ minScore }} ·
+            <template v-if="gmailConnected">
+              sending as <strong class="text-success">{{ gmailEmail }}</strong>
+            </template>
+            <template v-else>
+              <span class="text-warn font-semibold">Gmail not connected</span>
+              — Approve opens a compose tab
+            </template>
+          </p>
+          <p
+            v-if="autoApprove && !gmailConnected"
+            class="text-[11px] text-danger mt-1.5 font-semibold"
+          >
+            ⚠️ Auto-approve is on but Gmail isn't connected. Drafts will log as sent without actually delivering.
+            Connect Gmail in the Settings tab.
           </p>
         </div>
       </div>

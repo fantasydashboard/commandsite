@@ -4,7 +4,8 @@
  * Sections: Team, Plans, Sending Domains, Suppression, Integrations,
  * API Keys + Webhooks, ICP definition.
  */
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { supabase } from '@/lib/supabase'
 import type { Client } from '@/types/database'
 import {
   teamMembers,
@@ -57,6 +58,73 @@ const newDisqualifier = ref('')
 const newDoSay = ref('')
 const newDontSay = ref('')
 const newSignaturePhrase = ref('')
+
+// ── Gmail OAuth ───────────────────────────────────────────────────────
+const gmailConnecting = ref(false)
+const gmailError = ref<string | null>(null)
+const gmailConnected = computed(() => !!live.value.gmail_refresh_token)
+const gmailEmail = computed(() => live.value.gmail_account_email ?? '')
+const gmailConnectedAt = computed(() => live.value.gmail_connected_at ?? null)
+
+let gmailPollHandle: ReturnType<typeof setInterval> | null = null
+
+async function connectGmail() {
+  gmailConnecting.value = true
+  gmailError.value = null
+  try {
+    const { data, error } = await supabase.functions.invoke('gmail-oauth-start')
+    if (error) throw new Error(error.message)
+    const url = (data as { auth_url?: string })?.auth_url
+    if (!url) throw new Error('No auth_url returned')
+    // Open Google consent in a new tab so this page stays put.
+    window.open(url, '_blank', 'noopener')
+    // Poll cs_settings every 3s while waiting for the callback to write
+    // the refresh token. Stops as soon as we see it.
+    if (gmailPollHandle) clearInterval(gmailPollHandle)
+    gmailPollHandle = setInterval(async () => {
+      await liveSettings.load()
+      if (live.value.gmail_refresh_token) {
+        if (gmailPollHandle) clearInterval(gmailPollHandle)
+        gmailPollHandle = null
+        gmailConnecting.value = false
+      }
+    }, 3000)
+  } catch (err) {
+    gmailError.value = err instanceof Error ? err.message : 'Failed to start OAuth'
+    gmailConnecting.value = false
+  }
+}
+
+async function disconnectGmail() {
+  if (!confirm('Disconnect Gmail? Auto-approve will fall back to logging only — emails won\'t deliver until reconnected.')) return
+  await patchLive({
+    gmail_refresh_token: null,
+    gmail_account_email: null,
+    gmail_connected_at: null,
+  })
+  if (gmailPollHandle) {
+    clearInterval(gmailPollHandle)
+    gmailPollHandle = null
+  }
+  gmailConnecting.value = false
+}
+
+onMounted(() => { void liveSettings.load() })
+onBeforeUnmount(() => {
+  if (gmailPollHandle) clearInterval(gmailPollHandle)
+})
+
+function fmtRelative(iso: string | null): string {
+  if (!iso) return ''
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60_000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  return `${d}d ago`
+}
 
 // Webhook URL copy state
 const copiedWebhook = ref<string | null>(null)
@@ -256,6 +324,64 @@ const intsByCategory = computed(() => {
             @change="(e) => patchLive({ email_signature: (e.target as HTMLTextAreaElement).value })"
           ></textarea>
         </div>
+      </div>
+    </section>
+
+    <!-- Gmail integration (live) -->
+    <section class="card">
+      <div class="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="eyebrow">Gmail integration</span>
+          <span class="text-xs text-ink-muted">— powers direct send from the Approval Queue</span>
+        </div>
+        <span
+          v-if="gmailConnected"
+          class="rounded-full bg-success/15 text-success border border-success/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+        >Connected</span>
+        <span
+          v-else
+          class="rounded-full bg-warn/15 text-warn border border-warn/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+        >Not connected</span>
+      </div>
+
+      <!-- Connected state -->
+      <div v-if="gmailConnected" class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div class="text-sm text-ink">
+            Sending as
+            <strong class="font-semibold">{{ gmailEmail || 'unknown' }}</strong>
+          </div>
+          <p class="text-xs text-ink-muted mt-0.5">
+            Approve sends directly through Gmail's API — no compose tab.
+            <span v-if="gmailConnectedAt">Connected {{ fmtRelative(gmailConnectedAt) }}.</span>
+          </p>
+        </div>
+        <button
+          type="button"
+          class="rounded-md border border-danger/40 text-danger bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-danger/10"
+          @click="disconnectGmail"
+        >Disconnect</button>
+      </div>
+
+      <!-- Disconnected state -->
+      <div v-else class="space-y-3">
+        <p class="text-sm text-ink-muted">
+          Connect your Gmail account to send approved drafts in one click.
+          Without this, Approve opens a Gmail compose tab you have to manually hit Send in.
+          Auto-approve mode requires this connection to actually deliver.
+        </p>
+        <button
+          type="button"
+          class="rounded-md bg-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
+          :disabled="gmailConnecting"
+          @click="connectGmail"
+        >
+          {{ gmailConnecting ? 'Waiting for Google authorization…' : 'Connect Gmail' }}
+        </button>
+        <p v-if="gmailConnecting" class="text-xs text-ink-muted">
+          Approve in the Google tab that opened. This page will auto-refresh when done.
+        </p>
+        <p v-if="gmailError" class="text-xs text-danger">{{ gmailError }}</p>
       </div>
     </section>
 

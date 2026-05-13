@@ -38,6 +38,9 @@ const DEFAULTS: CsSettings = {
   social_engager_icp_threshold: 80,
   outreach_auto_approve: false,
   outreach_auto_draft_min_score: 65,
+  gmail_refresh_token: null,
+  gmail_account_email: null,
+  gmail_connected_at: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }

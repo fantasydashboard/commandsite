@@ -218,18 +218,54 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
   }
 
   // ── Actions on a queue item ────────────────────────────────────────
-  /** Approve a draft — open Gmail compose, log the send, mark sent.
-   *  `silent` mode skips opening the Gmail tab (used by auto-approve
-   *  when we trust the system to mark sent without composing). */
+  /** Approve a draft.
+   *
+   *  Three paths, picked at runtime:
+   *    1. Gmail connected (refresh token present) → call gmail-send
+   *       edge function. Delivers via API, no tab opened, returns
+   *       Google's message id. Used by both manual approve clicks
+   *       and auto-approve mode.
+   *    2. Gmail NOT connected, manual approve → open Gmail compose
+   *       in a new tab (legacy behavior). Josh hits Send there.
+   *    3. Gmail NOT connected, auto-approve (`silent: true`) → log
+   *       the send but skip the compose tab. The toast/ticker still
+   *       narrates so the chain feels live; in practice Josh should
+   *       connect Gmail before flipping auto-approve on.
+   *
+   *  All three paths write a cs_outreach_sends row, which trips the
+   *  trigger that flips cs_leads.status and bumps send_count. */
   async function approve(lead: CsLead, opts: { silent?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
     if (!lead.contact_email) return { ok: false, error: 'No contact email' }
     const subject = lead.draft_cold_email_subject ?? ''
     const body = lead.draft_cold_email_body ?? ''
+    const gmailConnected = !!settings.value.gmail_refresh_token
 
-    // Open Gmail compose in a new tab — Josh hits Send there.
-    if (!opts.silent) {
+    let source: CsOutreachSendInsert['source'] = 'manual_gmail'
+    let externalMessageId: string | null = null
+
+    if (gmailConnected) {
+      // Path 1: API direct send
+      const { data: sendResp, error: fnErr } = await supabase.functions.invoke('gmail-send', {
+        body: { to: lead.contact_email, subject, body, lead_id: lead.id },
+      })
+      if (fnErr) {
+        return { ok: false, error: `Gmail send failed: ${fnErr.message}` }
+      }
+      const result = sendResp as { ok?: boolean; message_id?: string; error?: string } | null
+      if (!result?.ok) {
+        return { ok: false, error: result?.error ?? 'Gmail send returned no ok' }
+      }
+      externalMessageId = result.message_id ?? null
+      source = opts.silent ? 'auto_approve' : 'manual_gmail'
+    } else if (!opts.silent) {
+      // Path 2: legacy compose-tab fallback
       const url = gmailComposeUrl(lead.contact_email, subject, body)
       window.open(url, '_blank', 'noopener')
+      source = 'manual_gmail'
+    } else {
+      // Path 3: auto-approve with no Gmail connection — log only.
+      // (UI surface should already be nudging Josh to connect.)
+      source = 'auto_approve'
     }
 
     // Log the send (trigger will bump cs_leads aggregates + flip status)
@@ -239,9 +275,10 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
       subject,
       body,
       channel: 'email',
-      source: opts.silent ? 'auto_approve' : 'manual_gmail',
+      source,
       sent_at: new Date().toISOString(),
       sent_by: userData.user?.id ?? null,
+      external_message_id: externalMessageId,
     }
     const { error: sendErr } = await supabase
       .from('cs_outreach_sends')
@@ -358,6 +395,8 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
     // Settings passthrough
     autoApprove: computed(() => !!settings.value.outreach_auto_approve),
     minScore: computed(() => settings.value.outreach_auto_draft_min_score ?? 65),
+    gmailConnected: computed(() => !!settings.value.gmail_refresh_token),
+    gmailEmail: computed(() => settings.value.gmail_account_email ?? null),
     setAutoApprove,
 
     // Actions

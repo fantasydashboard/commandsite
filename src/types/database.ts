@@ -313,6 +313,12 @@ export type CsSettings = {
   social_engager_icp_threshold: number
   outreach_auto_approve: boolean
   outreach_auto_draft_min_score: number
+  // Gmail OAuth — populated after the Connect Gmail flow (mig 0041).
+  // When all three are set, the gmail-send function can mint access
+  // tokens and POST to Gmail's API on the account's behalf.
+  gmail_refresh_token: string | null
+  gmail_account_email: string | null
+  gmail_connected_at: string | null
   created_at: string
   updated_at: string
 }
