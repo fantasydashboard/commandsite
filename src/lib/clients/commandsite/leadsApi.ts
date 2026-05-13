@@ -417,11 +417,56 @@ export function useLeads() {
     return dealId
   }
 
+  /** General field update — patch any subset of editable lead fields.
+   *  Used by the lead edit drawer. Empty strings get normalized to null
+   *  so blank inputs don't overwrite real data with literal "". */
+  async function updateLead(
+    id: string,
+    fields: Partial<{
+      company_name: string
+      contact_name: string | null
+      contact_email: string | null
+      contact_title: string | null
+      industry: string | null
+      city: string | null
+      state: string | null
+      team_size: number | null
+      notes: string | null
+      tags: string[]
+      // deno-lint-ignore no-explicit-any
+      review_excerpts: { text: string; rating: number | null; relative_time: string | null }[]
+    }>,
+  ): Promise<{ ok: boolean; error?: string }> {
+    if (usingFixture.value) return { ok: false, error: 'Cannot edit fixture leads' }
+    // Normalize empty strings to null (only for string fields).
+    const payload: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(fields)) {
+      if (typeof v === 'string' && v.trim() === '') payload[k] = null
+      else payload[k] = v
+    }
+    const { error: e } = await supabase
+      .from('cs_leads').update(payload as never).eq('id', id)
+    if (e) return { ok: false, error: e.message }
+    await load()
+    return { ok: true }
+  }
+
+  /** Hard-delete a lead. Cascade rules on cs_outreach_sends will null
+   *  out the lead_id on related rows; cs_deals.lead_id is set null. */
+  async function deleteLead(id: string): Promise<{ ok: boolean; error?: string }> {
+    if (usingFixture.value) return { ok: false, error: 'Cannot delete fixture leads' }
+    const { error: e } = await supabase.from('cs_leads').delete().eq('id', id)
+    if (e) return { ok: false, error: e.message }
+    await load()
+    return { ok: true }
+  }
+
   onMounted(load)
 
   return {
     leads, loading, error, usingFixture,
     load, importLeads, updateStatus, archive, disqualify, requeue, promoteToDeal,
     updateDraftEmail, approveDraft, discardDraft,
+    updateLead, deleteLead,
   }
 }

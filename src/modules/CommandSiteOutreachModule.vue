@@ -20,10 +20,14 @@ import type { Client, CsLead, CsReply } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
 import CommandSiteDemoLinkModal from '@/components/CommandSiteDemoLinkModal.vue'
+import CommandSiteLogManualDemoModal from '@/components/CommandSiteLogManualDemoModal.vue'
+import CommandSiteLeadEditDrawer from '@/components/CommandSiteLeadEditDrawer.vue'
+import CommandSiteDealEditDrawer from '@/components/CommandSiteDealEditDrawer.vue'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useOutreachSends } from '@/lib/clients/commandsite/outreachSendsApi'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
 import { useDiscovery, type DiscoveryDeal } from '@/lib/clients/commandsite/discoveryApi'
+import { useDeals } from '@/lib/clients/commandsite/dealsApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import { useToasts } from '@/components/grace/useToasts'
@@ -31,9 +35,71 @@ import { useAssistantChat } from '@/components/grace/useGraceChat'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const { leads, load: reloadLeads } = useLeads()
+const { leads, load: reloadLeads, updateLead, deleteLead } = useLeads()
 const { sends, sentToday, sentLastNDays, markSent } = useOutreachSends()
 const liveReplies = useReplies()
+const dealsApi = useDeals()
+
+// ── Edit drawers + manual demo modal state ────────────────────────────
+const editingLead = ref<CsLead | null>(null)
+const editingDeal = ref<DiscoveryDeal | null>(null)
+const logManualDemoOpen = ref(false)
+
+function openLeadEditor(lead: CsLead) {
+  editingLead.value = lead
+}
+function closeLeadEditor() {
+  editingLead.value = null
+}
+async function onLeadSave(input: { id: string; fields: Record<string, unknown> }) {
+  const result = await updateLead(input.id, input.fields)
+  if (result.ok) {
+    closeLeadEditor()
+    await reloadLeads()
+  } else {
+    errorMsg.value = result.error ?? 'Failed to save lead'
+  }
+}
+async function onLeadDelete(id: string) {
+  const result = await deleteLead(id)
+  if (result.ok) {
+    closeLeadEditor()
+    await reloadLeads()
+  } else {
+    errorMsg.value = result.error ?? 'Failed to delete lead'
+  }
+}
+
+function openDealEditor(deal: DiscoveryDeal) {
+  // Cast — DiscoveryDeal has the same shape we need for editing
+  editingDeal.value = deal
+}
+function closeDealEditor() {
+  editingDeal.value = null
+}
+async function onDealSave(input: { id: string; fields: Record<string, unknown> }) {
+  const result = await dealsApi.updateDeal(input.id, input.fields as never)
+  if (result.ok) {
+    closeDealEditor()
+    await Promise.all([discovery.load(), dealsApi.load()])
+  } else {
+    errorMsg.value = result.error ?? 'Failed to save deal'
+  }
+}
+async function onDealDelete(id: string) {
+  try {
+    await dealsApi.deleteDeal(id)
+    closeDealEditor()
+    await Promise.all([discovery.load(), dealsApi.load()])
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
+async function onManualDemoSaved() {
+  logManualDemoOpen.value = false
+  await Promise.all([discovery.load(), dealsApi.load(), reloadLeads()])
+}
 
 // ── View state ────────────────────────────────────────────────────────
 type View = 'pipeline' | 'ready' | 'sent' | 'inbox' | 'manual_reply' | 'demos' | 'coming_next'
@@ -853,6 +919,11 @@ function leadForReply(r: CsReply): CsLead | null {
                       :disabled="sendingLeadId === lead.id"
                       @click="copyAndMark(lead)"
                     >Or copy + mark sent</button>
+                    <button
+                      type="button"
+                      class="text-[10px] text-ink-muted hover:text-ink"
+                      @click="openLeadEditor(lead)"
+                    >✎ Edit lead</button>
                   </div>
                 </td>
               </tr>
@@ -911,13 +982,20 @@ function leadForReply(r: CsReply): CsLead | null {
                     class="inline-flex items-center rounded-full bg-brand/10 text-brand px-2 py-0.5 text-[10px] font-semibold"
                   >Sent</span>
                 </td>
-                <td class="px-3 py-2 text-right">
-                  <button
-                    v-if="lead.status !== 'replied'"
-                    type="button"
-                    class="text-xs text-brand font-medium hover:underline"
-                    @click="view = 'manual_reply'; pickLeadForManual(lead.id)"
-                  >Log a reply</button>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <div class="inline-flex items-center gap-2">
+                    <button
+                      v-if="lead.status !== 'replied'"
+                      type="button"
+                      class="text-xs text-brand font-medium hover:underline"
+                      @click="view = 'manual_reply'; pickLeadForManual(lead.id)"
+                    >Log a reply</button>
+                    <button
+                      type="button"
+                      class="text-[11px] text-ink-muted hover:text-ink"
+                      @click="openLeadEditor(lead)"
+                    >✎ Edit</button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -1176,6 +1254,21 @@ function leadForReply(r: CsReply): CsLead | null {
 
     <!-- ── VIEW: Demos (discovery calls) ───────────────────────────── -->
     <section v-if="view === 'demos'" class="space-y-4">
+      <!-- Header with "Log a manual demo" button -->
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="text-xs text-ink-muted">
+          Auto-populated from Calendly bookings. Click any row to edit, or log a manual demo for calls scheduled outside Calendly.
+        </div>
+        <button
+          type="button"
+          class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
+          @click="logManualDemoOpen = true"
+        >
+          <span>+</span>
+          <span>Log a manual demo</span>
+        </button>
+      </div>
+
       <p v-if="briefError" class="text-sm text-danger">{{ briefError }}</p>
       <p v-if="followupError" class="text-sm text-danger">{{ followupError }}</p>
 
@@ -1218,6 +1311,11 @@ function leadForReply(r: CsReply): CsLead | null {
                 </div>
               </div>
               <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="rounded-md border border-divider text-ink-muted bg-surface-raised px-2.5 py-1.5 text-xs font-medium hover:border-brand hover:text-ink"
+                  @click="openDealEditor(deal)"
+                >✎ Edit</button>
                 <a
                   v-if="deal.discovery_demo_url"
                   :href="deal.discovery_demo_url"
@@ -1278,11 +1376,18 @@ function leadForReply(r: CsReply): CsLead | null {
                   · {{ fmtScheduled(deal.scheduled_at) }}
                 </div>
               </div>
-              <button
-                type="button"
-                class="text-xs text-brand font-medium hover:underline"
-                @click="togglePostCallForm(deal.id)"
-              >{{ postCallForms[deal.id]?.expanded ? 'Hide' : 'Log notes + draft follow-up' }}</button>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="rounded-md border border-divider text-ink-muted bg-surface-raised px-2.5 py-1 text-xs font-medium hover:border-brand hover:text-ink"
+                  @click="openDealEditor(deal)"
+                >✎ Edit</button>
+                <button
+                  type="button"
+                  class="text-xs text-brand font-medium hover:underline"
+                  @click="togglePostCallForm(deal.id)"
+                >{{ postCallForms[deal.id]?.expanded ? 'Hide' : 'Log notes + draft follow-up' }}</button>
+              </div>
             </header>
 
             <!-- Inline post-call form -->
@@ -1357,6 +1462,32 @@ function leadForReply(r: CsReply): CsLead | null {
       :open="demoLinkOpen"
       :lead="demoLinkLead"
       @close="demoLinkOpen = false"
+    />
+
+    <!-- ── Log a manual demo modal ───────────────────────────────── -->
+    <CommandSiteLogManualDemoModal
+      :open="logManualDemoOpen"
+      :leads="leads"
+      @close="logManualDemoOpen = false"
+      @saved="onManualDemoSaved"
+    />
+
+    <!-- ── Lead edit drawer ──────────────────────────────────────── -->
+    <CommandSiteLeadEditDrawer
+      :open="editingLead !== null"
+      :lead="editingLead"
+      @close="closeLeadEditor"
+      @save="onLeadSave"
+      @delete="onLeadDelete"
+    />
+
+    <!-- ── Deal edit drawer ──────────────────────────────────────── -->
+    <CommandSiteDealEditDrawer
+      :open="editingDeal !== null"
+      :deal="editingDeal as never"
+      @close="closeDealEditor"
+      @save="onDealSave"
+      @delete="onDealDelete"
     />
 
     <!-- ── VIEW: Coming next ──────────────────────────────────────── -->

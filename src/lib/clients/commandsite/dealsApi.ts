@@ -174,6 +174,43 @@ export function useDeals() {
     await load()
   }
 
+  /** Patch any subset of editable deal fields. Used by the deal edit
+   *  drawer + the "log a manual demo" modal. Empty strings normalize
+   *  to null so blank inputs don't overwrite real data. */
+  async function updateDeal(
+    dealId: string,
+    fields: Partial<{
+      company_name: string
+      contact_name: string | null
+      contact_email: string | null
+      industry: string | null
+      city: string | null
+      state: string | null
+      stage: CsDealStage
+      next_action: string | null
+      next_action_due_at: string | null
+      scheduled_at: string | null
+      scheduled_call_duration_min: number | null
+      notes: string | null
+      estimated_arr_cents: number
+      // deno-lint-ignore no-explicit-any
+      post_call_notes: Record<string, any> | null
+    }>,
+  ): Promise<{ ok: boolean; error?: string }> {
+    if (usingFixture.value) return { ok: false, error: 'Cannot edit fixture deals' }
+    const payload: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(fields)) {
+      if (typeof v === 'string' && v.trim() === '') payload[k] = null
+      else payload[k] = v
+    }
+    payload.last_touch_at = new Date().toISOString()
+    const { error: e } = await supabase
+      .from('cs_deals').update(payload as never).eq('id', dealId)
+    if (e) return { ok: false, error: e.message }
+    await load()
+    return { ok: true }
+  }
+
   onMounted(load)
 
   return {
@@ -184,6 +221,7 @@ export function useDeals() {
     load,
     createDeal,
     updateStage,
+    updateDeal,
     deleteDeal,
   }
 }
