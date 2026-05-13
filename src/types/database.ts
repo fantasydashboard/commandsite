@@ -389,6 +389,9 @@ export type CsLead = {
   send_count: number
   // Approval-queue lifecycle (mig 0039) — null until first drafted
   draft_state: 'drafting' | 'ready_for_review' | 'approved' | 'sent' | 'rejected' | null
+  // Bounce tracking (mig 0042) — null until inbox poll catches a mailer-daemon hit
+  bounced_at: string | null
+  bounce_reason: string | null
   created_at: string
   updated_at: string
 }

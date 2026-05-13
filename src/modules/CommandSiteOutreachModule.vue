@@ -169,6 +169,100 @@ const kpis = computed(() => {
   }
 })
 
+// ── Tracking analytics (signal-based, decision-grade) ────────────────
+//
+// These are the numbers worth steering by. Each is grounded in a hard
+// event (a reply landed, a bounce was caught, a demo was booked) — not
+// soft signals like opens which are unreliable in 2026.
+
+interface TrackingAnalytics {
+  total_sent: number              // distinct sends in the period
+  total_replies: number           // any reply
+  positive_replies: number        // positive + interested
+  bounces: number                 // mailer-daemon catches
+  demos_booked: number            // cs_deals.lead_id matches
+  reply_rate: number              // 0..1
+  positive_rate: number           // 0..1, positive ÷ sent
+  bounce_rate: number             // 0..1
+  demo_rate: number               // 0..1
+  median_hours_to_reply: number | null
+}
+
+function safeRate(numer: number, denom: number): number {
+  if (denom === 0) return 0
+  return numer / denom
+}
+
+function analyticsForWindow(days: number): TrackingAnalytics {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+  const windowSends = sends.value.filter((s) => new Date(s.sent_at).getTime() >= cutoff)
+  const totalSent = windowSends.length
+  const sentLeadIds = new Set(windowSends.map((s) => s.lead_id))
+
+  // Replies linked to leads we sent to in this window
+  const windowReplies = liveReplies.replies.value.filter(
+    (r) => r.lead_id && sentLeadIds.has(r.lead_id),
+  )
+  const totalReplies = windowReplies.length
+  const positive = windowReplies.filter(
+    (r) => r.classification === 'positive' || r.classification === 'interested',
+  ).length
+
+  // Bounces — leads in our send window where bounced_at landed after the send
+  const bounces = leads.value.filter((l) => {
+    if (!l.bounced_at || !sentLeadIds.has(l.id)) return false
+    return new Date(l.bounced_at).getTime() >= cutoff
+  }).length
+
+  // Demos booked from these leads (cs_deals.lead_id matching)
+  const dealLeadIds = new Set(
+    dealsApi.deals.value.map((d) => (d as { lead_id?: string }).lead_id).filter(Boolean) as string[],
+  )
+  const demos = [...sentLeadIds].filter((id) => dealLeadIds.has(id)).length
+
+  // Median hours to reply — for replies in window, take time delta from
+  // the lead's last_contacted_at to received_at.
+  const deltas: number[] = []
+  for (const r of windowReplies) {
+    const lead = leads.value.find((l) => l.id === r.lead_id)
+    if (!lead?.last_contacted_at) continue
+    const dt = new Date(r.received_at).getTime() - new Date(lead.last_contacted_at).getTime()
+    if (dt > 0) deltas.push(dt / (1000 * 60 * 60))
+  }
+  deltas.sort((a, b) => a - b)
+  const median = deltas.length > 0
+    ? deltas[Math.floor(deltas.length / 2)]
+    : null
+
+  return {
+    total_sent: totalSent,
+    total_replies: totalReplies,
+    positive_replies: positive,
+    bounces,
+    demos_booked: demos,
+    reply_rate: safeRate(totalReplies, totalSent),
+    positive_rate: safeRate(positive, totalSent),
+    bounce_rate: safeRate(bounces, totalSent),
+    demo_rate: safeRate(demos, totalSent),
+    median_hours_to_reply: median,
+  }
+}
+
+const analytics7d = computed(() => analyticsForWindow(7))
+const analytics30d = computed(() => analyticsForWindow(30))
+const analyticsAll = computed(() => analyticsForWindow(365))
+
+function fmtPct(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`
+}
+
+function fmtHours(h: number | null): string {
+  if (h === null) return '—'
+  if (h < 1) return `${Math.round(h * 60)}m`
+  if (h < 24) return `${h.toFixed(1)}h`
+  return `${(h / 24).toFixed(1)}d`
+}
+
 // ── Live ticker + chat hooks (grace primitives) ──────────────────────
 const outreachTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
 const outreachToasts = useToasts()
@@ -845,6 +939,127 @@ function leadForReply(r: CsReply): CsLead | null {
         <div class="text-xl font-semibold tabular-nums text-success">{{ kpis.positive_replies }}</div>
       </div>
     </div>
+
+    <!-- ── Tracking analytics ──────────────────────────────────────── -->
+    <section class="card p-4">
+      <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
+            Tracking · decision metrics
+          </div>
+          <h3 class="text-sm font-semibold text-ink mt-0.5">
+            What's working, what's wasted
+          </h3>
+        </div>
+        <p class="text-[11px] text-ink-muted">
+          Reply / bounce data flows in from gmail-inbox-poll every 10 minutes.
+          Opens are intentionally not tracked — Apple Mail Privacy Protection
+          makes them noise.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- Last 7 days -->
+        <div class="rounded-md border border-divider bg-surface-raised p-3">
+          <div class="kpi-label mb-2">Last 7 days</div>
+          <dl class="space-y-1.5 text-sm">
+            <div class="flex justify-between"><dt class="text-ink-muted">Sent</dt>
+              <dd class="font-semibold tabular-nums">{{ analytics7d.total_sent }}</dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Reply rate</dt>
+              <dd class="font-semibold tabular-nums" :class="analytics7d.reply_rate >= 0.05 ? 'text-success' : 'text-ink'">
+                {{ fmtPct(analytics7d.reply_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analytics7d.total_replies }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Positive rate</dt>
+              <dd class="font-semibold tabular-nums text-success">
+                {{ fmtPct(analytics7d.positive_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analytics7d.positive_replies }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Bounce rate</dt>
+              <dd class="font-semibold tabular-nums" :class="analytics7d.bounce_rate >= 0.03 ? 'text-danger' : 'text-ink-muted'">
+                {{ fmtPct(analytics7d.bounce_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analytics7d.bounces }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Demos booked</dt>
+              <dd class="font-semibold tabular-nums text-brand">
+                {{ analytics7d.demos_booked }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ fmtPct(analytics7d.demo_rate) }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Median time-to-reply</dt>
+              <dd class="font-semibold tabular-nums">{{ fmtHours(analytics7d.median_hours_to_reply) }}</dd></div>
+          </dl>
+        </div>
+
+        <!-- Last 30 days -->
+        <div class="rounded-md border border-divider bg-surface-raised p-3">
+          <div class="kpi-label mb-2">Last 30 days</div>
+          <dl class="space-y-1.5 text-sm">
+            <div class="flex justify-between"><dt class="text-ink-muted">Sent</dt>
+              <dd class="font-semibold tabular-nums">{{ analytics30d.total_sent }}</dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Reply rate</dt>
+              <dd class="font-semibold tabular-nums" :class="analytics30d.reply_rate >= 0.05 ? 'text-success' : 'text-ink'">
+                {{ fmtPct(analytics30d.reply_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analytics30d.total_replies }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Positive rate</dt>
+              <dd class="font-semibold tabular-nums text-success">
+                {{ fmtPct(analytics30d.positive_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analytics30d.positive_replies }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Bounce rate</dt>
+              <dd class="font-semibold tabular-nums" :class="analytics30d.bounce_rate >= 0.03 ? 'text-danger' : 'text-ink-muted'">
+                {{ fmtPct(analytics30d.bounce_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analytics30d.bounces }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Demos booked</dt>
+              <dd class="font-semibold tabular-nums text-brand">
+                {{ analytics30d.demos_booked }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ fmtPct(analytics30d.demo_rate) }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Median time-to-reply</dt>
+              <dd class="font-semibold tabular-nums">{{ fmtHours(analytics30d.median_hours_to_reply) }}</dd></div>
+          </dl>
+        </div>
+
+        <!-- All time -->
+        <div class="rounded-md border border-divider bg-surface-raised p-3">
+          <div class="kpi-label mb-2">All time</div>
+          <dl class="space-y-1.5 text-sm">
+            <div class="flex justify-between"><dt class="text-ink-muted">Sent</dt>
+              <dd class="font-semibold tabular-nums">{{ analyticsAll.total_sent }}</dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Reply rate</dt>
+              <dd class="font-semibold tabular-nums">
+                {{ fmtPct(analyticsAll.reply_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analyticsAll.total_replies }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Positive rate</dt>
+              <dd class="font-semibold tabular-nums text-success">
+                {{ fmtPct(analyticsAll.positive_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analyticsAll.positive_replies }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Bounce rate</dt>
+              <dd class="font-semibold tabular-nums">
+                {{ fmtPct(analyticsAll.bounce_rate) }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ analyticsAll.bounces }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Demos booked</dt>
+              <dd class="font-semibold tabular-nums text-brand">
+                {{ analyticsAll.demos_booked }}
+                <span class="text-[10px] text-ink-muted font-normal">({{ fmtPct(analyticsAll.demo_rate) }})</span>
+              </dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Median time-to-reply</dt>
+              <dd class="font-semibold tabular-nums">{{ fmtHours(analyticsAll.median_hours_to_reply) }}</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Interpretation guidance -->
+      <p class="text-[11px] text-ink-muted italic mt-3 leading-relaxed">
+        Benchmarks for cold outreach to SMB owners: 5%+ reply rate is healthy, 10%+ is strong.
+        Bounce rate above 3% means deliverability is at risk (review your domain warmup).
+        Demos-booked rate is the only number that matters for revenue — everything else is leading indicator.
+      </p>
+    </section>
 
     <!-- ── Status messages ─────────────────────────────────────────── -->
     <div v-if="flashMsg" class="rounded-md bg-success/10 text-success px-3 py-2 text-sm">{{ flashMsg }}</div>

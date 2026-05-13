@@ -64,10 +64,10 @@ const POLL_INTERVAL_MS = 20_000
 function tonefForClassification(c: string | null): string {
   switch (c) {
     case 'positive':   return '✅'
+    case 'interested': return '👀'
     case 'objection':  return '🤔'
     case 'oof':        return '🌴'
     case 'unsubscribe':return '🚫'
-    case 'wrong_person':return '↪️'
     case 'negative':   return '👎'
     default:           return '💬'
   }
