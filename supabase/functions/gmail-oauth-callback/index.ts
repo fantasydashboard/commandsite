@@ -28,9 +28,12 @@ const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/gmail-oauth-callback`
 
 function htmlPage(body: string, isError = false): Response {
   const color = isError ? '#dc2626' : '#16a34a'
+  // ASCII-only — some upstreams strip charset hints and we don't want
+  // mojibake on the title bar. Plain dot replaces the middle dot.
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
-<title>Gmail · CommandSite</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>Gmail | CommandSite</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     display: flex; align-items: center; justify-content: center; min-height: 100vh;
@@ -46,10 +49,14 @@ function htmlPage(body: string, isError = false): Response {
 <body><div class="card">${body}
 <button onclick="window.close()">Close tab</button>
 </div></body></html>`
-  return new Response(html, {
-    status: isError ? 400 : 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
-  })
+  // Build headers with a Headers() instance — some Supabase edge
+  // gateways have been observed dropping plain-object Content-Type
+  // hints. Add X-Content-Type-Options to lock it in.
+  const headers = new Headers()
+  headers.set('Content-Type', 'text/html; charset=UTF-8')
+  headers.set('X-Content-Type-Options', 'nosniff')
+  headers.set('Cache-Control', 'no-store')
+  return new Response(html, { status: isError ? 400 : 200, headers })
 }
 
 Deno.serve(async (req: Request) => {
@@ -129,15 +136,18 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  // ── 2. Get the account email via Gmail /profile
-  const profileRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+  // ── 2. Get the account email via the OAuth2 userinfo endpoint.
+  // gmail.send scope alone doesn't grant access to /gmail/v1/users/me/profile
+  // — we need userinfo.email scope (requested in gmail-oauth-start)
+  // and this OIDC userinfo endpoint, which returns { email, ... }.
+  const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   })
 
   let email = 'unknown'
   if (profileRes.ok) {
-    const profile = (await profileRes.json()) as { emailAddress?: string }
-    email = profile.emailAddress ?? 'unknown'
+    const profile = (await profileRes.json()) as { email?: string }
+    email = profile.email ?? 'unknown'
   }
 
   // ── 3. Persist to cs_settings (singleton row)

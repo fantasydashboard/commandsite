@@ -33,7 +33,13 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const CLIENT_ID = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID')
 
 const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/gmail-oauth-callback`
-const SCOPE = 'https://www.googleapis.com/auth/gmail.send'
+// gmail.send lets us send. userinfo.email lets us read which Google
+// account just connected (gmail.send alone doesn't grant access to
+// the /profile endpoint). Space-separated per OAuth spec.
+const SCOPE = [
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/userinfo.email',
+].join(' ')
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
