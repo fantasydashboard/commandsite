@@ -229,12 +229,23 @@ Deno.serve(async (req: Request) => {
     const receivedAt = new Date(Number(msg.internalDate || Date.now())).toISOString()
     const body = extractBody(msg)
 
-    // ── BOUNCE: from mailer-daemon
-    if (
-      from.email.includes('mailer-daemon') ||
-      from.email.endsWith('@googlemail.com') && /undeliverable|delivery (status|failure)/i.test(subject)
-    ) {
-      // Find which lead this bounce is about — scan body for one of our contact emails
+    // ── BOUNCE detection. Catch the common bounce-sender + subject
+    // patterns across mail providers (Gmail mailer-daemon, Office 365
+    // postmaster, generic Mail Delivery System / Returned mail).
+    //
+    // Sender patterns: mailer-daemon@, postmaster@, mail-daemon@, MAILER-DAEMON
+    // Subject patterns: "Undeliverable", "Delivery Status Notification",
+    //   "Delivery Failure", "Returned mail", "Mail delivery failed",
+    //   "Message not delivered", "Delivery has failed"
+    const fromLocal = from.email.split('@')[0].toLowerCase()
+    const isPostmasterSender = /^(mailer-daemon|postmaster|mail-daemon|mailer_daemon|noreply|no-reply)$/.test(fromLocal)
+      || from.email.toLowerCase().includes('mailer-daemon')
+    const isBounceSubject = /undeliverable|delivery (status|failure|has failed)|mail delivery|returned mail|message not delivered|failure notice/i.test(subject)
+    const isBounce = isPostmasterSender || isBounceSubject
+
+    if (isBounce) {
+      // Find which lead this bounce is about — scan body for one of our contact emails.
+      // Most NDRs (Office 365 included) include the original recipient address in body.
       let bouncedLeadId: string | null = null
       let bouncedEmail = ''
       const bodyLower = body.toLowerCase()
@@ -245,22 +256,40 @@ Deno.serve(async (req: Request) => {
           break
         }
       }
+
+      // Office 365's "Undeliverable: <original subject>" pattern — if body
+      // scan didn't find a lead, try matching by send subject in cs_outreach_sends.
+      if (!bouncedLeadId && subject.toLowerCase().startsWith('undeliverable:')) {
+        const originalSubject = subject.replace(/^undeliverable:\s*/i, '').trim()
+        const { data: matchedSend } = await admin
+          .from('cs_outreach_sends')
+          .select('lead_id')
+          .eq('subject', originalSubject)
+          .order('sent_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        const lead_id = (matchedSend as { lead_id?: string } | null)?.lead_id
+        if (lead_id) bouncedLeadId = lead_id
+      }
+
       if (bouncedLeadId) {
-        // Pull a short reason from the bounce snippet
-        const reasonMatch = body.match(/(?:reason|status|error)[:\s][^.\n]{5,120}/i)
+        const reasonMatch = body.match(/(?:reason|status|error|because)[:\s][^.\n]{5,160}/i)
         const reason = reasonMatch?.[0].replace(/\s+/g, ' ').slice(0, 200) ?? 'Delivery failed'
         const { error: updErr } = await admin
           .from('cs_leads')
           .update({
             bounced_at: receivedAt,
             bounce_reason: reason,
-            status: 'disqualified',  // Don't keep sending
+            status: 'disqualified',
           })
           .eq('id', bouncedLeadId)
-          .is('bounced_at', null)  // guard against overwrite
-        if (updErr) errors.push(`bounce ${bouncedEmail}: ${updErr.message}`)
+          .is('bounced_at', null)
+        if (updErr) errors.push(`bounce ${bouncedEmail || bouncedLeadId}: ${updErr.message}`)
         else bouncesRecorded++
       }
+      // Don't insert as cs_replies. Don't call draft-reply. Bounces aren't
+      // human replies — they're delivery failures and belong only on
+      // cs_leads.bounced_at + status='disqualified'.
       continue
     }
 

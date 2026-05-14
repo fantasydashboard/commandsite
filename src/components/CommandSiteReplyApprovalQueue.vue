@@ -35,6 +35,7 @@ const emit = defineEmits<{
   (e: 'edit', reply: CsReply): void
   (e: 'skip', reply: CsReply): void
   (e: 'retryDraft', reply: CsReply): void
+  (e: 'markAsBounce', reply: CsReply): void
 }>()
 
 const processingId = ref<string | null>(null)
@@ -65,6 +66,17 @@ async function act(reply: CsReply, action: 'approve' | 'edit' | 'skip') {
 
 function classificationMeta(c: CsReplyClassification | null) {
   return CLASSIFICATION_META[c ?? 'unclassified']
+}
+
+/** Heuristic: does this look like a bounce that slipped through the
+ *  inbox-poll bounce filter? Used to render a "Looks like a bounce"
+ *  hint on the card so Josh can mark it without staring at the body. */
+function looksLikeBounce(reply: CsReply): boolean {
+  const fromLocal = reply.from_email.split('@')[0].toLowerCase()
+  if (/^(mailer-daemon|postmaster|mail-daemon|noreply|no-reply)$/.test(fromLocal)) return true
+  if (reply.from_email.toLowerCase().includes('mailer-daemon')) return true
+  if (reply.subject && /undeliverable|delivery (status|failure|has failed)|mail delivery|returned mail|message not delivered|failure notice/i.test(reply.subject)) return true
+  return false
 }
 
 function snippet(text: string | null, max = 220): string {
@@ -185,6 +197,23 @@ watch(
               · {{ ageStr(item.reply.received_at) }}
             </div>
           </div>
+        </div>
+
+        <!-- Bounce hint banner — when the from/subject pattern-matches a delivery failure -->
+        <div
+          v-if="looksLikeBounce(item.reply)"
+          class="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger mb-3 flex items-center justify-between gap-2"
+        >
+          <div>
+            <strong class="font-semibold">Looks like a bounce</strong> — sender pattern
+            ({{ item.reply.from_email }}) or subject suggests a delivery failure, not a real reply.
+          </div>
+          <button
+            type="button"
+            class="rounded-md bg-danger text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 whitespace-nowrap"
+            :disabled="processingId === item.reply.id || busy"
+            @click="emit('markAsBounce', item.reply)"
+          >Mark as bounce</button>
         </div>
 
         <!-- Their reply -->

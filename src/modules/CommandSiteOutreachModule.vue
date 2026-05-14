@@ -459,6 +459,19 @@ async function onReplyRetryDraft(reply: CsReply) {
     outreachToasts.push(`Sage retry failed: ${result.error ?? 'unknown'}`, 'warn')
   }
 }
+async function onReplyMarkAsBounce(reply: CsReply) {
+  const result = await replyApproval.markAsBounce(reply)
+  if (result.ok) {
+    outreachToasts.push(`✓ Marked as bounce — lead disqualified, won't email again`, 'success')
+    outreachTicker.value?.pushEvent({
+      icon: '⚠️',
+      text: `Bounce: ${reply.from_email} flagged dead`,
+    })
+    await reloadLeads()
+  } else {
+    errorMsg.value = result.error ?? 'Failed to mark as bounce'
+  }
+}
 
 const tickerSeed = computed(() => {
   const events: { icon: string; text: string; ageSec: number }[] = []
@@ -999,6 +1012,7 @@ function leadForReply(r: CsReply): CsLead | null {
       @edit="openReplyEditor"
       @skip="onReplySkip"
       @retry-draft="onReplyRetryDraft"
+      @mark-as-bounce="onReplyMarkAsBounce"
     />
 
     <!-- ── Cold Email Approval Queue ──────────────────────────────── -->

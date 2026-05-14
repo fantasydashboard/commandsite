@@ -151,6 +151,34 @@ export function useReplyApproval() {
     return { ok: true }
   }
 
+  /** Mark a reply as a bounce — the "reply" is actually a delivery
+   *  failure notification that the inbox poll's heuristics missed.
+   *  Disqualifies the lead, sets bounced_at + bounce_reason, deletes
+   *  the cs_replies row entirely (it's not a real reply). */
+  async function markAsBounce(reply: CsReply): Promise<{ ok: boolean; error?: string }> {
+    if (!reply.lead_id) return { ok: false, error: 'Reply has no lead_id — can\'t mark its lead as bounced' }
+    const now = new Date().toISOString()
+    const reason = reply.subject?.startsWith('Re:')
+      ? `Manually flagged from reply: ${reply.subject}`
+      : `Manually flagged: ${reply.subject ?? reply.from_email}`
+    const { error: leadErr } = await supabase
+      .from('cs_leads')
+      .update({
+        bounced_at: now,
+        bounce_reason: reason.slice(0, 200),
+        status: 'disqualified',
+      } as never)
+      .eq('id', reply.lead_id)
+    if (leadErr) return { ok: false, error: `Lead update: ${leadErr.message}` }
+    const { error: delErr } = await supabase
+      .from('cs_replies')
+      .delete()
+      .eq('id', reply.id)
+    if (delErr) return { ok: false, error: `Reply delete: ${delErr.message}` }
+    await load()
+    return { ok: true }
+  }
+
   /** Skip a reply — mark it reviewed without sending. Useful when
    *  Josh wants to respond personally outside the queue or when no
    *  response is needed. */
@@ -217,5 +245,6 @@ export function useReplyApproval() {
     skip,
     saveEdit,
     retryDraft,
+    markAsBounce,
   }
 }
