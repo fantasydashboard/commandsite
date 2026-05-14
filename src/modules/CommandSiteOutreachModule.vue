@@ -402,6 +402,60 @@ async function onAutoApproveToggle(value: boolean) {
   )
 }
 
+// Manual cron triggers — for when the Vercel/pg_cron schedules
+// aren't firing or for ad-hoc testing. Each calls its respective
+// edge function with the user's admin JWT so no service-role
+// secret is exposed to the client.
+const cronRunning = ref<'followup' | 'autodraft' | 'inbox' | null>(null)
+
+async function onRunFollowupCron() {
+  if (cronRunning.value) return
+  cronRunning.value = 'followup'
+  const r = await auto.runFollowupCron()
+  cronRunning.value = null
+  if (r.ok) {
+    const c = r.counts ?? { drafted: 0, touch2: 0, touch3: 0, failed: 0 }
+    if (c.drafted > 0) {
+      outreachToasts.push(`✓ Followup cron drafted ${c.touch2} Touch 2 + ${c.touch3} Touch 3`, 'success')
+    } else {
+      outreachToasts.push('Followup cron ran — no eligible leads in the window right now', 'info')
+    }
+    await reloadLeads()
+  } else {
+    errorMsg.value = r.error ?? 'Followup cron failed'
+    outreachToasts.push(`Followup cron failed: ${r.error ?? 'unknown'}`, 'warn')
+  }
+}
+
+async function onRunAutoDraft() {
+  if (cronRunning.value) return
+  cronRunning.value = 'autodraft'
+  await auto.runDraftStep()
+  cronRunning.value = null
+  await reloadLeads()
+  outreachToasts.push('Auto-draft cron triggered — drafts will appear shortly', 'info')
+}
+
+async function onRunInboxPoll() {
+  if (cronRunning.value) return
+  cronRunning.value = 'inbox'
+  try {
+    const { data, error: fnErr } = await supabase.functions.invoke('gmail-inbox-poll', { body: {} })
+    if (fnErr) throw new Error(fnErr.message)
+    const result = data as { replies_inserted?: number; bounces_recorded?: number; error?: string } | null
+    if (result?.error) throw new Error(result.error)
+    const ri = result?.replies_inserted ?? 0
+    const bo = result?.bounces_recorded ?? 0
+    outreachToasts.push(`✓ Inbox poll: ${ri} ${ri === 1 ? 'reply' : 'replies'} + ${bo} ${bo === 1 ? 'bounce' : 'bounces'}`, 'success')
+    await replyApproval.load()
+    await reloadLeads()
+  } catch (err) {
+    outreachToasts.push(`Inbox poll failed: ${err instanceof Error ? err.message : 'unknown'}`, 'warn')
+  } finally {
+    cronRunning.value = null
+  }
+}
+
 // ── Reply Approval Queue (inbound replies + Sage drafts) ──────────────
 const replyApproval = useReplyApproval()
 const editingReply = ref<CsReply | null>(null)
@@ -1262,6 +1316,38 @@ function leadForReply(r: CsReply): CsLead | null {
     <!-- ── Status messages ─────────────────────────────────────────── -->
     <div v-if="flashMsg" class="rounded-md bg-success/10 text-success px-3 py-2 text-sm">{{ flashMsg }}</div>
     <div v-if="errorMsg" class="rounded-md bg-danger/10 text-danger px-3 py-2 text-sm">{{ errorMsg }}</div>
+
+    <!-- ── Manual cron triggers (for when scheduled runs are sluggish) ── -->
+    <div class="flex items-center gap-2 text-[11px] text-ink-muted flex-wrap">
+      <span class="text-[10px] font-semibold uppercase tracking-wider">Force a run:</span>
+      <button
+        type="button"
+        class="rounded-md border border-divider bg-surface-raised px-2.5 py-1 hover:bg-canvas/30 disabled:opacity-50"
+        :disabled="cronRunning !== null"
+        title="Find leads in the Touch 2 / Touch 3 windows and draft followups now"
+        @click="onRunFollowupCron"
+      >
+        {{ cronRunning === 'followup' ? 'Running followup…' : '🔄 Followup cron (Touch 2 / 3)' }}
+      </button>
+      <button
+        type="button"
+        class="rounded-md border border-divider bg-surface-raised px-2.5 py-1 hover:bg-canvas/30 disabled:opacity-50"
+        :disabled="cronRunning !== null"
+        title="Find scored leads with no draft and run draft-cold-email"
+        @click="onRunAutoDraft"
+      >
+        {{ cronRunning === 'autodraft' ? 'Running auto-draft…' : '🔄 Auto-draft (Touch 1)' }}
+      </button>
+      <button
+        type="button"
+        class="rounded-md border border-divider bg-surface-raised px-2.5 py-1 hover:bg-canvas/30 disabled:opacity-50"
+        :disabled="cronRunning !== null"
+        title="Poll Gmail inbox now for new replies + bounces"
+        @click="onRunInboxPoll"
+      >
+        {{ cronRunning === 'inbox' ? 'Polling inbox…' : '🔄 Inbox poll (replies + bounces)' }}
+      </button>
+    </div>
 
     <!-- ── View tabs ───────────────────────────────────────────────── -->
     <div class="card p-2">

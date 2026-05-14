@@ -357,6 +357,30 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
     return { sent, failed }
   }
 
+  /** Manually trigger draft-followup-emails (Touch 2/3 cron).
+   *  Useful when Vercel cron isn't firing reliably or for ad-hoc
+   *  testing. Uses the current admin session's JWT so no service
+   *  role key needs to be exposed to the client. */
+  async function runFollowupCron(): Promise<{ ok: boolean; counts?: { drafted: number; failed: number; touch2: number; touch3: number }; error?: string }> {
+    pushTicker('🔄', 'Running followup cron…')
+    const { data, error: fnErr } = await supabase.functions.invoke('draft-followup-emails', {
+      body: {},
+    })
+    if (fnErr) {
+      pushTicker('⚠️', `Followup cron failed: ${fnErr.message}`)
+      return { ok: false, error: fnErr.message }
+    }
+    const result = data as { counts?: { drafted: number; failed: number; touch2: number; touch3: number }; error?: string } | null
+    if (result?.error) {
+      pushTicker('⚠️', `Followup cron error: ${result.error}`)
+      return { ok: false, error: result.error }
+    }
+    const counts = result?.counts ?? { drafted: 0, failed: 0, touch2: 0, touch3: 0 }
+    pushTicker('✍️', `Followup cron: ${counts.touch2} Touch 2 · ${counts.touch3} Touch 3 drafted`)
+    await load()
+    return { ok: true, counts }
+  }
+
   /** Flip the auto-approve master switch. Stored in cs_settings so it
    *  persists across reloads. */
   async function setAutoApprove(value: boolean) {
@@ -408,6 +432,7 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
     // Actions
     load,
     runDraftStep,
+    runFollowupCron,
     approve,
     approveAll,
     skip,
