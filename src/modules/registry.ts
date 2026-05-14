@@ -527,10 +527,10 @@ export const moduleRegistry: ModuleDefinition[] = [
   {
     key: 'ufd-redesign-users',
     label: 'UFD Users',
-    description: 'Per-user list with health, lifecycle stage, sharing activity, and viral attribution.',
+    description: 'Per-user list — real cohort data + Bones-drafted founder outreach per row.',
     component: UfdRedesignUsersModule,
     fullWidth: true,
-    tab: 'customers',
+    tab: 'users',
     badge: () => {
       const atRisk = ufdRedesignUsers.filter((u) => u.lifecycle_stage === 'at_risk').length
       const expiring = ufdRedesignUsers.filter((u) => u.lifecycle_stage === 'trial_expiring').length
