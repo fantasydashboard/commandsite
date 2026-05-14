@@ -8,15 +8,21 @@
  * viral spike, churn-save email, dunning rescue, season-event
  * campaign) + tight command bridge with the pulse + role chips.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Client } from '@/types/database'
-import { todayPulse, todayStats } from '@/lib/clients/ufd-redesign/today'
+import { todayStats } from '@/lib/clients/ufd-redesign/today'
+import { useUfdTodayData } from '@/lib/clients/ufd-redesign/useUfdTodayData'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const pulse = computed(() => todayPulse())
+// Live pulse + ticker seed pulled from ufd-stats (UFD's real Supabase).
+// Approval queue items stay fixture-driven for now — those are
+// Bones-drafted growth actions; the auto-draft loop that would
+// generate them from live data is a separate build (Phase 3).
+const live = useUfdTodayData()
+const pulse = live.pulse
 const stats = computed(() => todayStats())
 
 const greeting = computed(() => {
@@ -118,15 +124,66 @@ function onApproved(item: ApprovalQueueItem) {
     tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
   }
 }
+
+// ── Count-up animations on the pulse tiles ────────────────────────
+// Same pattern as CommandSite's Approval Queue tiles — when a number
+// changes the displayed value eases in over ~450ms with ease-out-quart
+// for the "lands soft" feel.
+const displayedTrials = ref(pulse.value.trials_today)
+const displayedConversions = ref(pulse.value.conversions_today)
+const displayedMrrCents = ref(pulse.value.mrr_change_cents)
+
+function animateCount(target: number, current: { value: number }) {
+  const start = current.value
+  const delta = target - start
+  if (delta === 0) return
+  const duration = 450
+  const startTs = performance.now()
+  function tick(now: number) {
+    const t = Math.min(1, (now - startTs) / duration)
+    const eased = 1 - Math.pow(1 - t, 4)
+    current.value = Math.round(start + delta * eased)
+    if (t < 1) requestAnimationFrame(tick)
+    else current.value = target
+  }
+  requestAnimationFrame(tick)
+}
+
+watch(() => pulse.value.trials_today, (n) => animateCount(n, displayedTrials))
+watch(() => pulse.value.conversions_today, (n) => animateCount(n, displayedConversions))
+watch(() => pulse.value.mrr_change_cents, (n) => animateCount(n, displayedMrrCents))
+
+// When real ticker seed events arrive, push them onto the ticker.
+// The ticker component reads its `seed` prop at mount, so seed
+// updates after first paint need to be pushed manually.
+watch(
+  () => live.tickerSeed.value,
+  (newEvents, oldEvents) => {
+    const oldKeys = new Set((oldEvents ?? []).map((e) => e.text))
+    for (const ev of newEvents) {
+      if (!oldKeys.has(ev.text)) {
+        tickerRef.value?.pushEvent({ icon: ev.icon, text: ev.text })
+      }
+    }
+  },
+)
+
+function fmtAge(iso: string | null): string {
+  if (!iso) return 'never'
+  const diff = Date.now() - new Date(iso).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 60) return `${s}s ago`
+  return `${Math.floor(s / 60)}m ago`
+}
 </script>
 
 <template>
   <div class="space-y-4 pb-32 relative">
     <GraceLiveTicker
       ref="tickerRef"
-      :seed="tickerSeed"
+      :seed="live.tickerSeed.value.length > 0 ? live.tickerSeed.value : tickerSeed"
       :pool="tickerPool"
-      subtitle="UFD activity stream — signups, shares, MRR, churn signals"
+      :subtitle="`UFD activity stream — ${live.loading.value ? 'loading…' : 'live (polls every 60s, last refresh ' + fmtAge(live.lastFetchAt.value) + ')'}`"
     />
 
     <GraceApprovalQueue
@@ -142,31 +199,56 @@ function onApproved(item: ApprovalQueueItem) {
       <header class="px-4 py-3 border-b border-divider bg-canvas/50 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">UFD pulse</span>
-          <span class="text-xs text-ink-muted">— at a glance</span>
+          <span class="text-xs text-ink-muted">— today, real from ufd-stats</span>
         </div>
-        <span class="text-[11px] text-ink-disabled">Live · 24h rolling</span>
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+          :class="live.error.value
+            ? 'bg-danger/15 text-danger'
+            : live.loading.value
+              ? 'bg-warn/15 text-warn'
+              : 'bg-success/15 text-success'"
+        >
+          <span class="h-1.5 w-1.5 rounded-full"
+            :class="live.error.value
+              ? 'bg-danger'
+              : live.loading.value
+                ? 'bg-warn animate-pulse'
+                : 'bg-success'"></span>
+          {{ live.error.value
+            ? 'Data error'
+            : live.loading.value
+              ? 'Refreshing…'
+              : `Live · refreshed ${fmtAge(live.lastFetchAt.value)}` }}
+        </span>
       </header>
 
       <div class="grid grid-cols-2 sm:grid-cols-5 divide-x divide-divider/60">
         <div class="px-4 py-3">
           <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">New trials</div>
-          <div class="text-xl font-bold tabular-nums text-ink mt-0.5">{{ pulse.trials_today }}</div>
+          <div class="text-xl font-bold tabular-nums text-ink mt-0.5">{{ displayedTrials }}</div>
         </div>
         <div class="px-4 py-3">
           <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Paid conv</div>
-          <div class="text-xl font-bold tabular-nums text-success mt-0.5">{{ pulse.conversions_today }}</div>
+          <div class="text-xl font-bold tabular-nums text-success mt-0.5">{{ displayedConversions }}</div>
         </div>
         <div class="px-4 py-3">
           <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">MRR change</div>
-          <div class="text-xl font-bold tabular-nums mt-0.5" :class="pulse.mrr_change_cents >= 0 ? 'text-success' : 'text-danger'">{{ money(pulse.mrr_change_cents) }}</div>
+          <div class="text-xl font-bold tabular-nums mt-0.5" :class="displayedMrrCents >= 0 ? 'text-success' : 'text-danger'">{{ money(displayedMrrCents) }}</div>
         </div>
         <div class="px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Viral refs</div>
-          <div class="text-xl font-bold tabular-nums text-brand mt-0.5">{{ pulse.viral_referrals_24h }}</div>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+            Viral refs
+            <span v-if="pulse.viral_referrals_24h === null" class="ml-1 text-[9px] text-ink-disabled normal-case" title="UFD doesn't track referral attribution yet">·</span>
+          </div>
+          <div class="text-xl font-bold tabular-nums text-brand mt-0.5">{{ pulse.viral_referrals_24h ?? '—' }}</div>
         </div>
         <div class="px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Churns</div>
-          <div class="text-xl font-bold tabular-nums mt-0.5" :class="pulse.churns_today > 0 ? 'text-warn' : 'text-ink'">{{ pulse.churns_today }}</div>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+            Churns
+            <span v-if="pulse.churns_today === null" class="ml-1 text-[9px] text-ink-disabled normal-case" title="ufd-stats doesn't expose churn yet">·</span>
+          </div>
+          <div class="text-xl font-bold tabular-nums mt-0.5" :class="(pulse.churns_today ?? 0) > 0 ? 'text-warn' : 'text-ink'">{{ pulse.churns_today ?? '—' }}</div>
         </div>
       </div>
 
