@@ -67,6 +67,28 @@ async function onWizardSave(payload: Record<string, unknown>) {
   }
 }
 
+// ── Welcome email send / resend ───────────────────────────────────────
+const welcomeSending = ref<string | null>(null)
+async function onSendWelcome(customerId: string, force: boolean) {
+  if (welcomeSending.value) return
+  welcomeSending.value = customerId
+  const result = await customersApi.sendWelcome(customerId, { force })
+  welcomeSending.value = null
+  if (result.ok) toasts.push(force ? '✓ Welcome resent' : '✓ Welcome sent', 'success')
+  else toasts.push(`Welcome send failed: ${result.error ?? 'unknown'}`, 'warn')
+}
+
+function fmtRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60_000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  return `${d}d ago`
+}
+
 const stats = computed(() => customerStats())
 
 type SortKey = 'name' | 'mrr' | 'health' | 'last_login' | 'signed_at'
@@ -237,8 +259,33 @@ function healthTrendColor(t: Company['health_trend']): string {
                 · {{ c.contacts[0].name }}{{ c.contacts.length > 1 ? ` (+${c.contacts.length - 1})` : '' }}
               </template>
             </div>
+            <div v-if="c.welcome_sent_at || c.welcome_send_error" class="text-[10px] mt-1 inline-flex items-center gap-1.5">
+              <span v-if="c.welcome_sent_at" class="text-success">
+                ✓ Welcome sent {{ fmtRelative(c.welcome_sent_at) }}
+              </span>
+              <span v-else-if="c.welcome_send_error" class="text-danger">
+                ⚠ Welcome send failed: {{ c.welcome_send_error.slice(0, 80) }}
+              </span>
+            </div>
           </div>
           <div class="flex items-center gap-2">
+            <button
+              v-if="!c.welcome_sent_at"
+              type="button"
+              class="rounded-md border border-brand/40 text-brand bg-surface-raised px-2.5 py-1 text-[11px] font-semibold hover:bg-brand/10 disabled:opacity-50"
+              :disabled="welcomeSending === c.id"
+              :title="c.welcome_send_error ? 'Retry the welcome send (last error shown above)' : 'Send the welcome email now'"
+              @click="onSendWelcome(c.id, false)"
+            >
+              {{ welcomeSending === c.id ? 'Sending…' : (c.welcome_send_error ? 'Retry welcome' : 'Send welcome') }}
+            </button>
+            <button
+              v-else
+              type="button"
+              class="rounded-md text-[11px] text-ink-muted hover:text-ink underline"
+              :disabled="welcomeSending === c.id"
+              @click="onSendWelcome(c.id, true)"
+            >Resend</button>
             <RouterLink
               :to="`/dashboard/${c.slug}`"
               class="rounded-md border border-divider text-ink bg-surface-raised px-2.5 py-1 text-[11px] font-semibold hover:border-brand"

@@ -61,6 +61,11 @@ export interface Customer {
 
   onboarding_step: number
   onboarding_completed_at: string | null
+  // Welcome email tracking (mig 0045) — written by customer-welcome-send
+  welcome_sent_at: string | null
+  welcome_email_subject: string | null
+  welcome_email_body: string | null
+  welcome_send_error: string | null
   notes: string | null
 
   created_at: string
@@ -136,8 +141,12 @@ export function useCustomers() {
     return { ok: true }
   }
 
-  /** Mark onboarding complete and flip status to 'active'. */
-  async function activateCustomer(id: string): Promise<{ ok: boolean; error?: string }> {
+  /** Mark onboarding complete and flip status to 'active'.
+   *  Also fires the customer-welcome-send edge function so the new
+   *  customer gets a persona-aware first-touch email automatically.
+   *  Welcome failures don't block activation — they're recorded on
+   *  cs_customers.welcome_send_error so Josh can retry from the UI. */
+  async function activateCustomer(id: string): Promise<{ ok: boolean; error?: string; welcome_warning?: string }> {
     const { error: e } = await supabase
       .from('cs_customers')
       .update({
@@ -146,6 +155,36 @@ export function useCustomers() {
       } as never)
       .eq('id', id)
     if (e) return { ok: false, error: e.message }
+
+    // Fire the welcome — fail soft so a transient send error doesn't
+    // make the activation look broken.
+    let welcomeWarning: string | undefined
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('customer-welcome-send', {
+        body: { customer_id: id },
+      })
+      if (fnErr) welcomeWarning = `Welcome send failed: ${fnErr.message}`
+      else {
+        const result = data as { ok?: boolean; error?: string } | null
+        if (!result?.ok) welcomeWarning = result?.error ?? 'Welcome send returned no ok'
+      }
+    } catch (err) {
+      welcomeWarning = err instanceof Error ? err.message : 'Welcome send threw'
+    }
+
+    await load()
+    return { ok: true, welcome_warning: welcomeWarning }
+  }
+
+  /** Re-send (or first-send) the welcome email for an existing customer.
+   *  Used when activation auto-send failed, or to manually re-trigger. */
+  async function sendWelcome(id: string, opts: { force?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
+    const { data, error: fnErr } = await supabase.functions.invoke('customer-welcome-send', {
+      body: { customer_id: id, force: opts.force ?? false },
+    })
+    if (fnErr) return { ok: false, error: fnErr.message }
+    const result = data as { ok?: boolean; error?: string } | null
+    if (!result?.ok) return { ok: false, error: result?.error ?? 'Welcome send returned no ok' }
     await load()
     return { ok: true }
   }
@@ -166,5 +205,6 @@ export function useCustomers() {
     updateCustomer,
     deleteCustomer,
     activateCustomer,
+    sendWelcome,
   }
 }
