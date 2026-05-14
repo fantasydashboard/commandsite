@@ -110,8 +110,14 @@ async function onManualDemoSaved() {
 }
 
 // ── View state ────────────────────────────────────────────────────────
-type View = 'pipeline' | 'ready' | 'sent' | 'inbox' | 'manual_reply' | 'demos' | 'coming_next'
-const view = ref<View>('pipeline')
+// Pipeline is no longer a tab — it's always visible above the stats
+// section as the operational state surface. The tabs handle detail
+// drill-downs (Ready to send, Sent, Inbox, Demos, etc.)
+type View = 'ready' | 'sent' | 'inbox' | 'manual_reply' | 'demos' | 'coming_next'
+const view = ref<View>('ready')
+
+// Inline kanban collapse toggle — persisted only for this session
+const kanbanCollapsed = ref(false)
 
 // Discovery / Demos
 const discovery = useDiscovery()
@@ -821,12 +827,6 @@ const stageBuckets = computed<Record<string, CsLead[]>>(() => {
   return out
 })
 
-function fmtLastAction(l: CsLead): string {
-  if (l.status === 'replied') return 'replied'
-  if (l.last_contacted_at) return `sent ${fmtAge(l.last_contacted_at)}`
-  return 'no activity'
-}
-
 function jumpToLeadInManualReply(leadId: string) {
   view.value = 'manual_reply'
   pickLeadForManual(leadId)
@@ -1028,35 +1028,68 @@ function leadForReply(r: CsReply): CsLead | null {
       </button>
     </div>
 
-    <!-- ── Real KPI strip ──────────────────────────────────────────── -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-      <div class="card p-3">
-        <div class="kpi-label">Drafts ready</div>
-        <div class="text-xl font-semibold tabular-nums text-brand">{{ kpis.drafts_ready }}</div>
+    <!-- ── Pipeline kanban (always-visible, compact) ───────────────── -->
+    <section class="card p-3">
+      <header class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2">
+          <span class="eyebrow">Pipeline</span>
+          <span class="text-xs text-ink-muted">— state of every lead, top of mind</span>
+        </div>
+        <button
+          type="button"
+          class="text-[11px] text-ink-muted hover:text-ink inline-flex items-center gap-1"
+          @click="kanbanCollapsed = !kanbanCollapsed"
+        >
+          {{ kanbanCollapsed ? '▸ Show' : '▾ Hide' }}
+        </button>
+      </header>
+      <div v-if="!kanbanCollapsed" class="overflow-x-auto pb-1">
+        <div class="inline-flex items-start gap-2 min-w-full">
+          <div
+            v-for="stage in PIPELINE_STAGES"
+            :key="stage.key"
+            class="rounded-md border bg-surface flex-shrink-0 w-56"
+            :class="stage.toneClass"
+          >
+            <header class="px-2.5 py-1.5 border-b border-divider bg-surface-elevated rounded-t-md">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-semibold text-ink truncate">{{ stage.label }}</span>
+                <span class="text-[10px] font-bold tabular-nums text-ink-muted">{{ stageBuckets[stage.key].length }}</span>
+              </div>
+            </header>
+            <div class="p-1.5 space-y-1 max-h-[280px] overflow-y-auto">
+              <div
+                v-if="stageBuckets[stage.key].length === 0"
+                class="text-[10px] text-ink-disabled italic text-center py-3"
+              >Empty</div>
+              <button
+                v-for="lead in stageBuckets[stage.key].slice(0, 6)"
+                :key="lead.id"
+                type="button"
+                class="w-full text-left rounded-sm border border-divider bg-surface-raised p-1.5 hover:border-brand/40 transition-colors"
+                @click="jumpToLeadInManualReply(lead.id)"
+              >
+                <div class="flex items-center justify-between gap-1.5">
+                  <span class="text-[11px] font-semibold text-ink truncate flex-1 min-w-0">{{ lead.company_name }}</span>
+                  <span
+                    class="rounded-full px-1.5 text-[9px] font-bold tabular-nums shrink-0"
+                    :class="(lead.icp_score ?? 0) >= 80 ? 'bg-success/15 text-success' : (lead.icp_score ?? 0) >= 60 ? 'bg-warn/15 text-warn' : 'bg-ink-muted/15 text-ink-muted'"
+                  >{{ lead.icp_score ?? '—' }}</span>
+                </div>
+              </button>
+              <div
+                v-if="stageBuckets[stage.key].length > 6"
+                class="text-[10px] text-ink-muted text-center pt-1"
+              >
+                + {{ stageBuckets[stage.key].length - 6 }} more
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card p-3">
-        <div class="kpi-label">Sent today</div>
-        <div class="text-xl font-semibold tabular-nums">{{ kpis.sent_today }}</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">Sent (7d)</div>
-        <div class="text-xl font-semibold tabular-nums">{{ kpis.sent_7d }}</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">Awaiting reply</div>
-        <div class="text-xl font-semibold tabular-nums text-warn">{{ kpis.awaiting_reply }}</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">Replied</div>
-        <div class="text-xl font-semibold tabular-nums text-success">{{ kpis.replied }}</div>
-      </div>
-      <div class="card p-3">
-        <div class="kpi-label">Positive replies</div>
-        <div class="text-xl font-semibold tabular-nums text-success">{{ kpis.positive_replies }}</div>
-      </div>
-    </div>
+    </section>
 
-    <!-- ── Tracking analytics ──────────────────────────────────────── -->
+    <!-- ── Tracking analytics + operational KPIs ───────────────────── -->
     <section class="card p-4">
       <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <div>
@@ -1072,6 +1105,26 @@ function leadForReply(r: CsReply): CsLead | null {
           Opens are intentionally not tracked — Apple Mail Privacy Protection
           makes them noise.
         </p>
+      </div>
+
+      <!-- Operational mini-strip (today / queue snapshot) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 pb-3 border-b border-divider">
+        <div class="text-center sm:text-left">
+          <div class="kpi-label">Drafts ready</div>
+          <div class="text-lg font-bold tabular-nums text-brand">{{ kpis.drafts_ready }}</div>
+        </div>
+        <div class="text-center sm:text-left">
+          <div class="kpi-label">Sent today</div>
+          <div class="text-lg font-bold tabular-nums">{{ kpis.sent_today }}</div>
+        </div>
+        <div class="text-center sm:text-left">
+          <div class="kpi-label">Awaiting reply</div>
+          <div class="text-lg font-bold tabular-nums text-warn">{{ kpis.awaiting_reply }}</div>
+        </div>
+        <div class="text-center sm:text-left">
+          <div class="kpi-label">Replied (all-time)</div>
+          <div class="text-lg font-bold tabular-nums text-success">{{ kpis.replied }}</div>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1187,12 +1240,6 @@ function leadForReply(r: CsReply): CsLead | null {
         <button
           type="button"
           class="rounded-md px-3 py-1.5 text-sm font-semibold transition-colors"
-          :class="view === 'pipeline' ? 'bg-brand text-white' : 'text-ink hover:bg-canvas/50'"
-          @click="view = 'pipeline'"
-        >Pipeline</button>
-        <button
-          type="button"
-          class="rounded-md px-3 py-1.5 text-sm font-semibold transition-colors"
           :class="view === 'ready' ? 'bg-brand text-white' : 'text-ink hover:bg-canvas/50'"
           @click="view = 'ready'"
         >Ready to send <span class="opacity-70">({{ kpis.drafts_ready }})</span></button>
@@ -1231,61 +1278,6 @@ function leadForReply(r: CsReply): CsLead | null {
       </div>
     </div>
 
-    <!-- ── VIEW: Pipeline (kanban) ─────────────────────────────────── -->
-    <section v-if="view === 'pipeline'">
-      <div class="overflow-x-auto pb-2">
-        <div class="inline-flex items-start gap-3 min-w-full">
-          <div
-            v-for="stage in PIPELINE_STAGES"
-            :key="stage.key"
-            class="rounded-card border bg-surface flex-shrink-0 w-72"
-            :class="stage.toneClass"
-          >
-            <header class="px-3 py-2 border-b border-divider bg-surface-elevated rounded-t-card">
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-xs font-semibold text-ink">{{ stage.label }}</span>
-                <span class="text-[10px] font-bold tabular-nums text-ink-muted">{{ stageBuckets[stage.key].length }}</span>
-              </div>
-            </header>
-            <div class="p-2 space-y-2 max-h-[600px] overflow-y-auto">
-              <div
-                v-if="stageBuckets[stage.key].length === 0"
-                class="text-[11px] text-ink-disabled italic text-center py-4"
-              >Nothing here</div>
-              <div
-                v-for="lead in stageBuckets[stage.key]"
-                :key="lead.id"
-                class="rounded-md border border-divider bg-surface-raised p-2 hover:border-brand/40 transition-colors group"
-              >
-                <button
-                  type="button"
-                  class="w-full text-left"
-                  @click="jumpToLeadInManualReply(lead.id)"
-                >
-                  <div class="flex items-start justify-between gap-1.5 mb-1">
-                    <span class="text-[12px] font-semibold text-ink truncate flex-1 min-w-0">{{ lead.company_name }}</span>
-                    <span
-                      class="rounded-full px-1.5 py-0 text-[9px] font-bold tabular-nums shrink-0"
-                      :class="(lead.icp_score ?? 0) >= 80 ? 'bg-success/15 text-success' : (lead.icp_score ?? 0) >= 60 ? 'bg-warn/15 text-warn' : 'bg-ink-muted/15 text-ink-muted'"
-                    >{{ lead.icp_score ?? '—' }}</span>
-                  </div>
-                  <div class="text-[10px] text-ink-muted truncate">{{ lead.contact_email }}</div>
-                  <div class="text-[10px] text-ink-disabled mt-0.5">{{ fmtLastAction(lead) }}</div>
-                </button>
-                <button
-                  type="button"
-                  class="w-full mt-1.5 rounded-md text-[10px] font-medium text-brand bg-brand/5 hover:bg-brand/10 px-2 py-1 inline-flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  @click.stop="openDemoLink(lead)"
-                >📊 Custom demo link</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="text-[11px] text-ink-disabled italic text-center mt-2">
-        Click any card → jump to the manual-reply form pre-loaded with that lead.
-      </p>
-    </section>
 
     <!-- ── VIEW: Ready to send ─────────────────────────────────────── -->
     <section v-if="view === 'ready'">
