@@ -14,14 +14,13 @@ import { useSettings } from '@/lib/clients/commandsite/settingsApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModal.vue'
 import CommandSiteResearchLeadsModal from '@/components/CommandSiteResearchLeadsModal.vue'
-import CommandSiteColdEmailDraftsModal from '@/components/CommandSiteColdEmailDraftsModal.vue'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
 import AssistantMark from '@/components/AssistantMark.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const { leads, loading, error, usingFixture, load, importLeads, archive, disqualify, requeue, promoteToDeal, updateDraftEmail, approveDraft, discardDraft } = useLeads()
+const { leads, loading, error, usingFixture, load, importLeads, archive, disqualify, requeue, promoteToDeal } = useLeads()
 const settingsApi = useSettings()
 const settings = settingsApi.settings
 
@@ -82,117 +81,14 @@ const kpis = computed(() => {
 // Modal state
 const importOpen = ref(false)
 const researchOpen = ref(false)
-const draftsOpen = ref(false)
 const submitMsg = ref<string | null>(null)
 
-// ── Cold email drafting (Phase 3): Ada writes a personalized cold
-// email per lead using their reviews/website/notes/icp_score_reason.
-const DRAFT_CHUNK_SIZE = 5
-const drafting = ref(false)
-const draftMsg = ref<string | null>(null)
-const draftProgress = ref({ completed: 0, total: 0 })
+// Drafting + approving moved to the Outreach Approval Queue. The
+// outreach-auto-draft cron picks up new leads (score ≥ 65, contact
+// email present, no existing draft) every 5 minutes and lands drafts
+// in the Approval Queue. The Leads page is now sourcing + management
+// only — no more in-page draft/approve UI.
 
-// Draftable = has an email + no existing draft. We deliberately do NOT
-// gate on `email_verified` here — that tag only exists on leads that
-// went through the newer NeverBounce-enabled enrichment flow. The
-// older 23 leads have `email_enriched` instead. Verification is a
-// separate concern from "is this a candidate for drafting" — if an
-// email turns out to be undeliverable later, the draft is wasted but
-// the wasted spend is ~$0.05.
-const draftableCount = computed(() => {
-  return leads.value.filter(
-    (l) => !!l.contact_email && !l.draft_cold_email_body,
-  ).length
-})
-
-const draftedCount = computed(() => {
-  return leads.value.filter((l) => !!l.draft_cold_email_body).length
-})
-
-async function runDraftEmails() {
-  if (drafting.value) return
-  if (usingFixture.value) {
-    draftMsg.value = 'Demo mode — connect to a real cs_leads table to draft emails.'
-    setTimeout(() => { draftMsg.value = null }, 5000)
-    return
-  }
-  const eligible = leads.value
-    .filter((l) => !!l.contact_email && !l.draft_cold_email_body)
-    .map((l) => l.id)
-  if (eligible.length === 0) {
-    draftMsg.value = 'No leads need drafting (need an email + no existing draft).'
-    setTimeout(() => { draftMsg.value = null }, 5000)
-    return
-  }
-
-  drafting.value = true
-  draftMsg.value = null
-  draftProgress.value = { completed: 0, total: eligible.length }
-  const totals = { drafted: 0, failed: 0 }
-
-  try {
-    const session = (await supabase.auth.getSession()).data.session
-    if (!session) {
-      draftMsg.value = 'Not signed in. Refresh and try again.'
-      return
-    }
-
-    for (let i = 0; i < eligible.length; i += DRAFT_CHUNK_SIZE) {
-      const chunk = eligible.slice(i, i + DRAFT_CHUNK_SIZE)
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/draft-cold-email`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'authorization': `Bearer ${session.access_token}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ lead_ids: chunk }),
-      })
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '')
-        draftMsg.value = `Chunk ${Math.floor(i / DRAFT_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
-        break
-      }
-      const data = await res.json()
-      const counts = data?.counts ?? { drafted: 0, failed: 0 }
-      totals.drafted += counts.drafted ?? 0
-      totals.failed += counts.failed ?? 0
-      draftProgress.value = {
-        completed: Math.min(i + chunk.length, eligible.length),
-        total: eligible.length,
-      }
-    }
-
-    await load()
-    draftMsg.value = `Ada drafted ${totals.drafted} cold ${totals.drafted === 1 ? 'email' : 'emails'}${totals.failed > 0 ? ` · ${totals.failed} failed` : ''}. Review them now to approve & copy.`
-    setTimeout(() => { draftMsg.value = null }, 12_000)
-
-    // Auto-open the drafts modal so the user lands on the review screen
-    if (totals.drafted > 0) draftsOpen.value = true
-  } catch (err) {
-    draftMsg.value = err instanceof Error ? err.message : String(err)
-  } finally {
-    drafting.value = false
-  }
-}
-
-async function onDraftUpdate({ leadId, subject, body }: { leadId: string; subject: string; body: string }) {
-  await updateDraftEmail(leadId, subject, body)
-}
-async function onDraftApprove(leadId: string) { await approveDraft(leadId) }
-async function onDraftDiscard(leadId: string) { await discardDraft(leadId) }
-
-/** Bulk-clear every drafted lead so the user can re-draft cleanly
- *  after a prompt iteration. Sequential to keep the UI consistent
- *  per-row as state updates. */
-async function onDraftDiscardAll() {
-  const drafted = leads.value.filter((l) => !!l.draft_cold_email_body).map((l) => l.id)
-  for (const id of drafted) {
-    await discardDraft(id)
-  }
-  draftMsg.value = `Cleared ${drafted.length} ${drafted.length === 1 ? 'draft' : 'drafts'}. Click "Draft cold emails" to re-run.`
-  setTimeout(() => { draftMsg.value = null }, 8000)
-}
 
 // ── Save & enrich pipeline state.
 //
@@ -487,6 +383,22 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
           Pre-pipeline prospects — imported from Apollo, LinkedIn, Reddit, or pasted manually. Auto-scored against your ICP.
         </p>
       </div>
+
+      <!-- Workflow handoff: where do drafts/sending happen? -->
+      <div class="hidden md:flex items-center gap-2 rounded-md border border-brand/20 bg-brand/5 px-3 py-2 text-[11px] text-ink">
+        <span class="text-base leading-none">→</span>
+        <div>
+          <div class="font-semibold text-brand">Drafts auto-land in Outreach</div>
+          <div class="text-ink-muted">
+            Any new scored lead with an email gets a Touch 1 draft within ~5 minutes (auto-draft cron).
+            Review &amp; approve in the Outreach Approval Queue.
+          </div>
+        </div>
+        <RouterLink
+          :to="{ name: 'dashboard.tab', params: { slug: 'commandsite', tab: 'outreach' } }"
+          class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 whitespace-nowrap"
+        >Open Outreach →</RouterLink>
+      </div>
       <div class="flex items-center gap-2">
         <span
           v-if="usingFixture"
@@ -517,32 +429,6 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
           <span v-else>🔎 Find emails ({{ enrichableCount }})</span>
         </button>
         <button
-          v-if="!usingFixture && draftableCount > 0"
-          type="button"
-          class="rounded-md bg-surface-raised border border-brand text-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand/5 disabled:opacity-50 inline-flex items-center gap-1.5"
-          :disabled="drafting"
-          :title="`Have Ada draft a personalized cold email per lead using their reviews + signals`"
-          @click="runDraftEmails"
-        >
-          <span v-if="drafting" class="inline-flex items-center gap-1">
-            <AssistantMark class="h-3.5 w-3.5 text-brand" />
-            Ada is drafting…
-          </span>
-          <span v-else class="inline-flex items-center gap-1">
-            <AssistantMark class="h-3.5 w-3.5 text-brand" />
-            Draft cold emails ({{ draftableCount }})
-          </span>
-        </button>
-        <button
-          v-if="!usingFixture && draftedCount > 0"
-          type="button"
-          class="rounded-md bg-brand/10 border border-brand/40 text-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand/15 inline-flex items-center gap-1.5"
-          :title="`Review, edit, approve, and copy drafts to send`"
-          @click="draftsOpen = true"
-        >
-          ✉️ Review drafts ({{ draftedCount }})
-        </button>
-        <button
           type="button"
           class="rounded-md bg-surface-raised border border-brand text-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand/5"
           @click="researchOpen = true"
@@ -564,24 +450,6 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
     </div>
     <div v-if="pipelineMsg" class="rounded-md bg-brand/10 text-brand px-3 py-2 text-sm">
       {{ pipelineMsg }}
-    </div>
-    <div v-if="draftMsg" class="rounded-md bg-brand/10 text-brand px-3 py-2 text-sm">
-      {{ draftMsg }}
-    </div>
-    <div
-      v-if="drafting"
-      class="card p-4 border-brand/20 bg-brand/[0.02] space-y-3"
-    >
-      <div class="flex items-center gap-2">
-        <AssistantMark class="h-5 w-5 text-brand" />
-        <span class="text-xs font-semibold text-ink">Ada is on it</span>
-      </div>
-      <LoadingBar
-        :message="draftProgress.total > 0
-          ? `Ada is drafting cold emails · ${draftProgress.completed} of ${draftProgress.total}`
-          : 'Ada is starting…'"
-        :hint="`Reading each lead's reviews, signals, and website to write a specific opener. ~5 seconds per lead.`"
-      />
     </div>
     <div
       v-if="isPipelineWorking"
@@ -797,15 +665,5 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
       @imported="handleImported"
     />
 
-    <!-- Cold email drafts review modal -->
-    <CommandSiteColdEmailDraftsModal
-      :open="draftsOpen"
-      :leads="leads"
-      @close="draftsOpen = false"
-      @update="onDraftUpdate"
-      @approve="onDraftApprove"
-      @discard="onDraftDiscard"
-      @discard-all="onDraftDiscardAll"
-    />
   </div>
 </template>
