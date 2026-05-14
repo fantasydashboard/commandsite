@@ -92,7 +92,7 @@ export const personas: Record<string, Persona> = {
   },
 
   // ── Ultimate Fantasy Dashboard — Bones (the growth co-pilot) ─────────
-  'ufd-redesign': {
+  'ultimate-fantasy-dashboard': {
     name: 'Bones',
     subtitle: 'your fantasy growth co-pilot',
     greeting: "Hey Josh — Bones here. Ask me anything about UFD's audience, drafts, or what's about to pop.",

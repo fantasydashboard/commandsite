@@ -163,7 +163,6 @@ const DEMO_CLIENT_NAMES: Record<string, string> = {
   'cornerstone-church': 'Cornerstone Community Church',
   'commandsite': 'CommandSite',
   'commandsite-demo': 'CommandSite (demo snapshot)',
-  'ufd-redesign': 'Ultimate Fantasy Dashboard',
   'ultimate-fantasy-dashboard': 'Ultimate Fantasy Dashboard',
   'josh-personal': 'Josh Personal',
 }

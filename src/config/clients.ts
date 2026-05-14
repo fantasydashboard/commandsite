@@ -68,9 +68,12 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'cornerstone-giving' },
     { key: 'cornerstone-settings' },
   ],
-  'ufd-redesign': [
-    // Ultimate Fantasy Dashboard — fresh design exploration following the
-    // Apex/CommandSite pattern. Full mock buildout across 6 phases.
+  'ultimate-fantasy-dashboard': [
+    // Ultimate Fantasy Dashboard — Bones operates here. Was two parallel
+    // slugs (this one + 'ufd-redesign') showing the same product with
+    // different layouts; consolidated 2026-05-14 so admin only sees one
+    // UFD dashboard. Redesign modules win because they're the newer
+    // pattern matching Ada/Grace surfaces.
     { key: 'ufd-redesign-today' },
     { key: 'ufd-redesign-funnel' },
     { key: 'ufd-redesign-revenue' },
@@ -79,18 +82,6 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'ufd-redesign-social' },
     { key: 'ufd-redesign-users' },
     { key: 'ufd-redesign-settings' },
-  ],
-  'ultimate-fantasy-dashboard': [
-    { key: 'ufd-metrics' },
-    { key: 'ufd-revenue' },
-    { key: 'ufd-funnel' },
-    { key: 'ufd-shares' },
-    { key: 'ufd-email' },
-    { key: 'ufd-email-pipeline' },
-    { key: 'ai-social' },
-    { key: 'social-planner' },
-    { key: 'social-distribution' },
-    { key: 'social-listening' },
   ],
   'josh-personal': [
     // Josh Personal — private personal dashboard, sage-themed.

@@ -87,7 +87,7 @@ const JoshPersonalTheme: ClientTheme = {
 
 export const clientThemes: Record<string, ClientTheme> = {
   'apex-heating-and-air': ApexTheme,
-  'ufd-redesign': UfdRedesignTheme,
+  'ultimate-fantasy-dashboard': UfdRedesignTheme,
   'cornerstone-church': CornerstoneTheme,
   'josh-personal': JoshPersonalTheme,
 }
