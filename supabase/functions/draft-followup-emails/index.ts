@@ -107,20 +107,66 @@ EXAMPLE — Church lead (Cornerstone Community Church, contact Pastor Jeff):
 >
 > — Josh
 
-# TOUCH 3 (breakup, sent ~7 days after the first cold email)
+# TOUCH 3 (honest stop + video drop + specific future triggers, sent ~7 days after the first cold email)
 
-Goal: respect their time, give them an easy out, leave the door open. The "permission to close the loop" framing has the highest reply rate of any followup pattern.
+Goal: complete the cadence arc with pure release + a parting value drop + concrete future hooks. NO ASK. The breakup pattern outperforms every other follow-up shape because it removes social pressure; adding a generosity signal (the video) on top makes it memorable; pairing with industry-specific future triggers earns memory of you for when those moments hit.
 
 Hard constraints:
-- 30-50 words.
-- Frame this as the LAST email. ("Last time I'll reach out", "I'll stop after this", "closing the loop").
-- Offer a one-word reply path: "yes / no / not now / wrong person".
-- Leave the door open at the end ("if anything changes...").
+- 40-65 words.
+- Frame as the LAST email. ("I'll stop after this one", "Last note from me", "No reply needed").
+- DO NOT ask anything. No "hit reply with X", no "let me know", no "want me to follow up". The release has to be unconditional.
+- Three structural elements:
+  (a) The release ("I'll stop after this one. No reply needed.")
+  (b) The video drop — IF a product_demo_link is provided in context, include it with framing like "Made this 90-second walkthrough for shops your size, sending it in case it's useful even if we never talk: <link>". If NO product_demo_link, SKIP this paragraph entirely (do not write a placeholder).
+  (c) Two specific industry-aware future triggers — concrete moments when the recipient would think of you. Use the same industry pain knowledge from Touch 2's pain menu. Pair: one operational + one growth-related.
+- Sign off with "— Josh"
 
-Example shape:
-> Hey, I'm closing the loop on this one.
+Touch 3 future-trigger menu (pick 2 per lead based on industry):
+
+SERVICE-BUSINESS triggers:
+- HVAC: "your call volume spikes this summer and after-hours starts eating you alive" / "you hire a new tech and need help training them on the phones"
+- Plumbing: "an emergency call gets dropped and a customer goes elsewhere" / "you start adding weekend coverage and need someone to handle scheduling"
+- Roofing: "a storm hits and quote volume triples" / "you bring on a new estimator and want them following up religiously"
+- Electrical (residential): "permit-driven jobs start piling up and follow-ups slip" / "you take on commercial work and call volume jumps"
+- Landscaping: "spring kicks in and quote requests bury you" / "you scale to 3+ crews and need someone tracking schedules"
+- Cleaning: "you lose a client and want to reactivate dormants" / "you scale to 3+ crews and need front-desk coverage"
+- Pool service: "summer hits and missed calls compound" / "you start commercial accounts and lead volume jumps"
+- Pest control: "spring termite season starts and call volume doubles" / "you onboard a new tech and need them ramped on customer calls"
+
+CHURCH triggers:
+- "Christmas brings in fifty new visitors and you can't follow up with them all"
+- "Easter brings in twice the normal Sunday and visitor cards stack up"
+- "you go through a staff transition and lose your follow-up rhythm"
+- "a member care emergency lands on a Sunday afternoon and your team's at lunch"
+- "you launch a new ministry and need volunteer coordination overnight"
+
+Subject: New, lowercase, max 33 chars. Examples (pick what fits):
+- "last note from josh"
+- "stopping here, [first_name]"
+- "last note from pastor [name]" (church only)
+
+Example shape (HVAC, with video link):
+> Hey Tony, I'll stop after this one. No reply needed.
 >
-> Totally fine if this isn't a fit right now — just hit reply with "not now" or "wrong person" and I'll stop. If your call volume keeps growing and you ever want to see what my AI employee would catch for [Company], you know where to find me.
+> Made this 90-second walkthrough for shops your size, sending it in case it's useful even if we never talk: https://loom.com/s/abc123
+>
+> Door's open if your call volume spikes this summer and after-hours starts eating you alive, or you hire a new tech and need help training them on the phones.
+>
+> — Josh
+
+Example shape (Roofing, no video link in context — skip the middle paragraph):
+> Hey Mike, I'll stop after this one. No reply needed.
+>
+> Door's open if a storm hits and quote volume triples, or you bring on a new estimator and want them following up religiously.
+>
+> — Josh
+
+Example shape (Church, with video link):
+> Hey Pastor, I'll stop after this one. No reply needed.
+>
+> Made this 90-second walkthrough for ministries your size, sending it in case it's useful even if we never talk: https://loom.com/s/abc123
+>
+> Door's open if Christmas brings in fifty new visitors and you can't follow up with them all, or you go through a staff transition.
 >
 > — Josh
 
@@ -162,7 +208,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         subject: { type: 'string', description: 'Touch 2: "Re: <original subject>". Touch 3: new lowercase subject ≤33 chars.' },
-        body: { type: 'string', description: 'Touch 2: 35-55 words, honest takeaway + 2 specific pains. Touch 3: 30-50 words, breakup pattern. Match Josh\'s voice. No em dashes inside prose.' },
+        body: { type: 'string', description: 'Touch 2: 35-55 words, honest takeaway + 2 specific pains. Touch 3: 40-65 words, honest stop + (optional) video drop + 2 industry-aware future triggers. Match Josh\'s voice. No em dashes inside prose. NO ASKS in Touch 3.' },
         touch_number: { type: 'integer', enum: [2, 3] },
         rationale: { type: 'string', description: 'One sentence: why this specific framing.' },
       },
@@ -189,7 +235,7 @@ interface LeadCandidate {
   last_send_body: string | null
 }
 
-function buildUserMessage(lead: LeadCandidate, touchNumber: 2 | 3): string {
+function buildUserMessage(lead: LeadCandidate, touchNumber: 2 | 3, productDemoLink: string | null): string {
   const lines: string[] = []
   lines.push(`# THIS IS TOUCH ${touchNumber}`)
   lines.push('')
@@ -205,6 +251,17 @@ function buildUserMessage(lead: LeadCandidate, touchNumber: 2 | 3): string {
   if (lead.last_send_subject) lines.push(`Subject: ${lead.last_send_subject}`)
   if (lead.last_send_body) lines.push(`Body:\n${lead.last_send_body}`)
   lines.push('')
+  // Touch 3 only: pass the product demo link if Josh has one configured
+  if (touchNumber === 3) {
+    if (productDemoLink) {
+      lines.push(`# VIDEO LINK FOR TOUCH 3 — INCLUDE THIS IN THE EMAIL`)
+      lines.push(`product_demo_link: ${productDemoLink}`)
+    } else {
+      lines.push(`# VIDEO LINK FOR TOUCH 3 — NOT CONFIGURED`)
+      lines.push(`Skip the video drop paragraph entirely. Use the no-video Touch 3 shape (release + future triggers, no middle paragraph).`)
+    }
+    lines.push('')
+  }
   lines.push(`Now draft Touch ${touchNumber}. Call save_followup_draft.`)
   return lines.join('\n')
 }
@@ -286,6 +343,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const explicitIds = Array.isArray(body.lead_ids)
     ? body.lead_ids.filter((id) => typeof id === 'string' && id.length > 0)
     : []
+
+  // ── Load product_demo_link once (used by Touch 3 video drop)
+  // If null, Touch 3 falls back to the no-video shape.
+  const { data: settingsRow } = await admin
+    .from('cs_settings')
+    .select('product_demo_link')
+    .eq('id', 1)
+    .maybeSingle()
+  const productDemoLink = (settingsRow as { product_demo_link?: string | null } | null)?.product_demo_link ?? null
 
   // ── 1. Auto-archive: send_count >= 3 AND last_contacted >= 14 days ago AND status = contacted
   const archiveCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
@@ -388,7 +454,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       last_send_body: ls?.body ?? null,
     }
 
-    const userMessage = buildUserMessage(lead, touchNumber)
+    const userMessage = buildUserMessage(lead, touchNumber, productDemoLink)
     const result = await callAnthropic(userMessage, anthropicKey!)
     if ('error' in result) {
       counts.failed++
