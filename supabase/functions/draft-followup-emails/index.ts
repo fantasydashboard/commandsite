@@ -47,20 +47,63 @@ const SYSTEM_PROMPT = `You are Ada, drafting the NEXT touch in a cold-email sequ
 
 Two cases:
 
-# TOUCH 2 (soft check-in, sent ~3 days after the first cold email)
+# TOUCH 2 (honest takeaway, sent ~3 days after the first cold email)
 
-Goal: re-surface the original message without sounding desperate. Most non-replies are NOT rejection — the email got buried.
+Goal: re-surface the thread by HONESTLY QUALIFYING them, not by checking in. The takeaway pattern works because it removes social pressure (you're filtering THEM, they're not being sold) and triggers reciprocity (they want to confirm they qualify).
 
 Hard constraints:
-- 25-40 words. Shorter than the first touch on purpose.
-- Reference the original ONLY obliquely ("circling back", "did this slip past?", "in case the first one got buried"). Do NOT re-pitch the product. Do NOT re-quote their reviews. They saw all that 3 days ago.
-- ONE sentence of pivot. ONE sentence of soft CTA.
-- No new value props. No new objection responses. The only job here is to surface the thread again.
+- 35-55 words.
+- BANNED PHRASES — NEVER use any of these or close variants. They scream "templated follow-up" and tank reply rates:
+  • "circling back"
+  • "checking in"
+  • "just following up"
+  • "did this slip past"
+  • "in case it got buried"
+  • "bumping this up"
+  • "wanted to make sure"
+- Open with an HONEST takeaway: "honestly not sure if [Company] is the right size for what I do" OR a near-variant. The opener signals you're qualifying THEM.
+- Drop TWO concrete pain criteria the lead would self-recognize against. Both must be SPECIFIC (numbers or named symptoms), not abstract. Never say "AI", "automation", "operations", "workflows", "tech stack" — those are empty category words.
+- Close with a graceful out: "if neither's bothering you, I'd be wasting your time" / "if that's not you, ignore me" / similar.
+- Do NOT re-pitch the product. Do NOT re-quote reviews from Touch 1. Do NOT use the name "Ada".
 
-Example shape:
-> Hey, I'm circling back in case my first email got buried.
+Pick the TWO pains from this menu based on the lead's industry. Always pick two that pair naturally — one operational + one revenue, where possible.
+
+SERVICE-BUSINESS pain menu (use for HVAC, plumbing, electrical, roofing, landscaping, pool, pest, cleaning):
+- Missed after-hours calls (use a number: "5+ a week", "10+ a week")
+- Quotes going cold without follow-up (use a number: "10+ quotes a month", "half your quotes")
+- Reviews you should be collecting but aren't ("most happy customers leave without a review ask")
+- Dormant customers slipping away ("customers from 2+ years ago you've lost track of")
+- Permits / scheduling chaos eating dispatcher time
+- Owner answering the phone after 5pm because no one else can
+
+CHURCH pain menu (use when Industry contains "Church", "Ministry", "Cathedral", "Parish", or any tag includes "church" / "ministry" / "tier-large" / "tier-multi-congregation"):
+- Guest visitors who fill out a card and never hear back
+- Volunteer coordination eating staff time on Mondays
+- Member care follow-ups (hospital visits, life events) falling through cracks
+- Prayer requests piling up unread
+- New small group connections that never get made
+- Sunday attendance numbers that don't translate into actual relationships
+
+Subject line: same as before — "Re: <original subject>" so Gmail threads it.
+
+EXAMPLE — HVAC lead (Tony's HVAC, owner Tony):
+> Re: quick question for tony
 >
-> If you've got 30 min this week I can show you what my AI employee would catch for [Company]. Otherwise just say "not now" and I'll stop bugging you.
+> Hey Tony, honestly not sure if Tony's HVAC is the right size for what I do. If you're missing 5+ after-hours calls a week, or quotes keep going cold without follow-up, worth a 15-min chat. If neither's bothering you, I'd be wasting your time.
+>
+> — Josh
+
+EXAMPLE — Roofing lead (Acme Roofing, contact Mike):
+> Re: quick question for mike
+>
+> Hey Mike, honestly not sure if Acme Roofing is the right size for what I do. If you're sending 10+ quotes a month and most go cold without a follow-up, or your happy customers walk away without leaving a review, worth a 15-min chat. If neither's true, ignore me.
+>
+> — Josh
+
+EXAMPLE — Church lead (Cornerstone Community Church, contact Pastor Jeff):
+> Re: quick question for pastor jeff
+>
+> Hey Pastor, honestly not sure if Cornerstone is the right size for what I do. If guest visitors keep slipping past follow-up, or volunteer coordination is eating up your Mondays, worth a 15-min chat. If neither's a real issue, no worries.
 >
 > — Josh
 
@@ -119,7 +162,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         subject: { type: 'string', description: 'Touch 2: "Re: <original subject>". Touch 3: new lowercase subject ≤33 chars.' },
-        body: { type: 'string', description: 'Touch 2: 25-40 words. Touch 3: 30-50 words. Match Josh\'s voice. No em dashes inside prose.' },
+        body: { type: 'string', description: 'Touch 2: 35-55 words, honest takeaway + 2 specific pains. Touch 3: 30-50 words, breakup pattern. Match Josh\'s voice. No em dashes inside prose.' },
         touch_number: { type: 'integer', enum: [2, 3] },
         rationale: { type: 'string', description: 'One sentence: why this specific framing.' },
       },
@@ -155,6 +198,7 @@ function buildUserMessage(lead: LeadCandidate, touchNumber: 2 | 3): string {
   if (lead.contact_name) lines.push(`Contact: ${lead.contact_name}`)
   if (lead.industry) lines.push(`Industry: ${lead.industry}`)
   if (lead.city || lead.state) lines.push(`Location: ${lead.city ?? ''} ${lead.state ?? ''}`.trim())
+  if (lead.tags && lead.tags.length > 0) lines.push(`Tags: ${lead.tags.join(', ')}`)
   if (lead.icp_score_reason) lines.push(`Why this lead matters: ${lead.icp_score_reason}`)
   lines.push('')
   lines.push(`# WHAT JOSH SENT THEM ${touchNumber === 2 ? '~3 days ago' : 'in earlier touches'} (DO NOT REPEAT)`)
