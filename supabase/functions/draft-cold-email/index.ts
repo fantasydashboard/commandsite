@@ -101,32 +101,66 @@ This is Josh's polished cold email template:
 
 > Hey, I'm looking for whoever answers the phones at Premium Electric.
 >
-> I saw a review on your Google listing from Sarah K. last month that said she tried calling three times with no answer back. I think I have a way to help with exactly that.
+> I saw a review on your Google listing from Sarah K. last month — she tried calling three times with no answer back. That's exactly what I built this for.
 >
-> I build AI employees for shops your size. Mine catches every after-hours call, books the booking into your calendar, and texts the caller a confirmation. Costs a fraction of what an office manager would.
+> I build AI employees for shops your size. Mine catches every after-hours call, books it into your calendar, and texts the caller a confirmation. Costs a fraction of what an office manager would.
 >
 > Worth a 15-min call this week? I can pull up a sample dashboard and show you what my AI employee would catch for Premium Electric specifically.
 >
 > — Josh
+>
+> P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
 
 Voice characteristics to match:
 - Conversational opener ("Hey, I'm looking for..." — lowercase casual, comma not em-dash) — never "Dear" or "To Whom It May Concern"
 - Always include the subject pronoun ("I saw", "I noticed", "I think") — don't drop it ("Saw a review", "Noticed something" — these feel curt + clipped, not human)
 - References ONE specific piece of evidence (a real review excerpt with a name + detail, or a specific website claim)
-- Pain → product → cost anchor → CTA structure
+- Pain → product → cost anchor → CTA → PS structure
 - Run-on sentences with "and" / "but" connectors are fine — that's how Josh talks
 - "Shops your size" / "for [Company] specifically"
 - Casual sign-off: "— Josh" (em dash here is permitted because it's a sig pattern, not in body prose)
 - NEVER use buzzwords like: leverage, synergy, transformative, groundbreaking, cutting-edge, robust, scalable, seamless
 - NEVER name "Ada" in the body — they don't know who that is yet. Say "AI employee" or "my AI employee" until they're on the discovery call
 
-# COLD EMAIL STRUCTURE (FOLLOW THIS — 5-7 short paragraphs, HARD CAP 100 WORDS)
+# OPENER — INDUSTRY-AWARE "looking for…" PHRASING
 
-1. **Opener** (1 line): "Hey, I'm looking for [name if known, otherwise 'whoever answers the phones'] at [Company]." (comma after Hey, not em-dash. Always include "I'm".)
+The opener is "Hey, I'm looking for [whoever ___] at [Company]." The blank changes by industry because the operator who'd care about call/quote/review automation is a different role in different verticals.
+
+Pick the phrasing that matches the lead's actual operations:
+- HVAC, plumbing, residential electrical, pest control, pool service → "whoever answers the phones"
+- Roofing, landscaping (project work) → "whoever handles new estimate requests"
+- Commercial electrical, large-scale roofing → "whoever handles new project inquiries"
+- Cleaning, recurring landscaping, lawn care → "whoever schedules new clients"
+- Garage door, plumbing emergency → "whoever picks up after-hours"
+- Churches / ministries → "whoever follows up with new visitors"
+
+If the contact name IS known, you can swap to "looking for [Name]" instead of the role-based phrase. Either is fine — name is slightly stronger if it feels natural.
+
+# PIVOT — DON'T HEDGE
+
+The line that connects evidence to product. NEVER use "I think I have a way to help" or "I might be able to" or anything hedged. Use a confident, specific pivot:
+
+- "That's exactly what I built this for."
+- "Solving exactly that is what I do."
+- "That's the problem my AI employee was built to fix."
+
+Pick one that fits the rhythm. Skip the pivot ENTIRELY if going straight from evidence to product reads better — sometimes the cleanest version has no pivot sentence at all.
+
+# PS LINE — REQUIRED
+
+After "— Josh", always add a PS that gives a lower-friction reply path. Use this exact phrasing:
+
+> P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
+
+The PS is consistent across leads. Don't try to vary it. Reason: PS reads at ~70% rate (eye-tracking research) — it's the highest-leverage line in the whole email. The "video" reply path lifts response rate by giving a no-call alternative.
+
+# COLD EMAIL STRUCTURE (FOLLOW THIS — 6-8 short paragraphs including PS)
+
+1. **Opener** (1 line): "Hey, I'm looking for [industry-aware 'whoever ___' OR known first name] at [Company]." (comma after Hey, not em-dash. Always include "I'm".)
 
 2. **Evidence** (1-2 lines): Start with "I saw..." or "I noticed..." — include the pronoun. Quote ONE specific thing from the lead's reviews, website, or notes. If reviews include pain (missed calls, no callback, ghost quote), USE THAT REVIEW VERBATIM (paraphrased only if necessary for length). If no documented pain, point to a specific positive review that proves the OWNER is the operator (e.g. "I saw 5 reviews mentioning Mike personally, so clearly you're the one running the show — which is exactly who I built this for.").
 
-3. **Pivot** (1 line): "I think I have a way to help with exactly that." (or close variant)
+3. **Pivot** (1 line, optional): Confident, specific. "That's exactly what I built this for." Skip if evidence flows naturally into product.
 
 4. **Product** (1-2 lines): ONE concrete behavior of the AI employee — NOT a feature list. Pick the behavior that maps to THIS lead's pain. Example behaviors:
    - "Mine catches every after-hours call, books it into your calendar, and texts the caller a confirmation."
@@ -139,9 +173,15 @@ Voice characteristics to match:
 
 7. **Sign-off** (1 line): "— Josh"
 
+8. **PS** (1 line, REQUIRED): 'P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.'
+
 # WORD COUNT — HARD CAP
 
-The body MUST be under 100 words. Target 70-90 words. Count your words before submitting. If you're over, cut the evidence to one sentence or trim the product description. Cold emails over 100 words get scrolled past on phone, where small business owners read.
+The MAIN BODY (lines 1-7, opener through sign-off) MUST be under 90 words. Target 70-85 words.
+The PS is fixed phrasing (~22 words) and is NOT counted against the body cap.
+Total email including PS should be ~95-110 words.
+
+Count your body words before submitting. If you're over 90, cut the evidence to one sentence or trim the product description. Cold emails with bodies over 100 words get scrolled past on phone, where small business owners read.
 
 # HARD BANS (these are the AI tells that get this email deleted on sight)
 
@@ -164,53 +204,105 @@ NEVER use:
 - Any sentence that starts with "Just" as a softener ("Just wanted to reach out")
 - "Hope you're doing well" / "Hope your week is going great"
 
-# SUBJECT LINE — single template, name-driven
+# SUBJECT LINE — lowercase, casual, signal-aware
 
 The subject's ONLY job is to earn the open. The body's job is to earn the reply. Pain belongs in the body, not the subject.
 
-## The ONE template
+The "Quick question for X" template (used historically) is now widely templated by every cold-email tool. We've moved to lowercase casual subjects that look like they were typed by a human, not a sequencing tool. Lowercase signals "personal note"; Title Case signals "automated".
 
-Use ONE of these two forms — nothing else:
+## Pick the FIRST pattern that applies (priority order — top to bottom)
 
-- **\`Quick question for [First Name]\`** — when the contact's first name is known
-- **\`Quick question for [Business Name]\`** — when no first name is findable
+### Pattern 1 — Review reference (USE WHEN AVAILABLE)
 
-That's it. Same template every time. Predictable on purpose.
+If the lead has a quotable review with a recognizable reviewer name, use:
+
+\`saw [reviewer first name] [last initial].'s review\`
 
 Examples:
-- \`Quick question for Tony\`              (23 chars)
-- \`Quick question for Mike\`              (23 chars)
-- \`Quick question for Maria\`             (24 chars)
-- \`Quick question for Premium Electric\`  (35 chars — fine, last bit truncates on phone but reads clearly)
-- \`Quick question for Sunshine Plumbing\` (36 chars)
+- \`saw sarah k.'s review\`        (21 chars)
+- \`saw patricia j.'s review\`     (24 chars)
+- \`saw mike p.'s review\`         (20 chars)
 
-## Capitalization — proper nouns capitalized, "Quick" capitalized
+If the reviewer is full-name in the source ("Sarah Kim"), abbreviate to \`sarah k.\` for the subject. ALL LOWERCASE including the reviewer name.
 
-- **"Quick" starts with capital Q.** Always.
-- **The name OR business name is a proper noun — capitalize it properly.** "Tony" not "tony". "Premium Electric" not "premium electric". This isn't optional.
-- Lowercase the rest of the phrase ("question for") — but DO NOT lowercase the proper noun.
+This is the highest-converting pattern because it's instantly relevant — proves the email is about THEM, not a template.
 
-## How to find the first name
+### Pattern 2 — Pastor (CHURCH leads only)
+
+If the industry includes "Church", "Ministry", "Cathedral", or "Parish" — and a pastor first name is known:
+
+\`pastor [firstname],\`
+
+Examples:
+- \`pastor jeff,\`     (12 chars)
+- \`pastor andrew,\`   (14 chars)
+
+If pastor name is unknown:
+
+\`pastor,\`            (7 chars)
+
+### Pattern 3 — First name (default for service businesses without a quotable review)
+
+If a confident first name is known but no quotable review:
+
+\`[firstname],\`       (lowercase + trailing comma)
+
+Examples:
+- \`tony,\`         (5 chars)
+- \`mike,\`         (5 chars)
+- \`maria,\`        (6 chars)
+
+The trailing comma is required — it implies a sentence is coming, which earns the open. \`tony\` alone reads weird; \`tony,\` reads like a personal note.
+
+### Pattern 4 — Business name fallback
+
+If no first name AND no quotable review (e.g., generic email like info@):
+
+\`[business name],\`   (lowercase + trailing comma)
+
+Examples:
+- \`premium electric,\`     (17 chars)
+- \`sunshine plumbing,\`    (18 chars)
+- \`tony's hvac,\`          (12 chars)
+
+## How to find the reviewer name (Pattern 1 lookup)
+
+Look in the lead data for review excerpts. Common locations:
+- \`review_excerpts\` field
+- \`icp_score_reason\` ("a review from Sarah K. mentioned…")
+- \`notes\` field
+- The Touch 1 evidence line you're about to write — if you're quoting a named reviewer, that's the same name to use in the subject
+
+If the reviewer is just initials ("S.K.") or a single name like "Patricia", abbreviate or use the first name only. Skip Pattern 1 if no clear named reviewer exists.
+
+## How to find the first name (Patterns 2, 3 lookup)
 
 Look in this priority order:
-1. \`contact_name\` field on the lead — first word, capitalize
+1. \`contact_name\` field on the lead — first word, lowercase for the subject
 2. Names called out in \`icp_score_reason\` or \`notes\`
-3. Names mentioned in reviews ("Mike came out and...", "Tony was great")
-4. The local-part of the email IF it's clearly a first name (tony@... → Tony, mike@... → Mike). Skip if it's "info@", "contact@", "office@", a last name only, or initials
-5. If none of the above gives a confident first name, fall back to the business name
+3. The local-part of the email IF it's clearly a first name (tony@... → tony, mike@... → mike). Skip if it's "info@", "contact@", "office@", a last name only, or initials
+4. If none of the above, fall back to Pattern 4 (business name)
+
+## Capitalization
+
+ALL LOWERCASE for the subject — including names. \`tony,\` not \`Tony,\`. \`saw sarah k.'s review\` not \`Saw Sarah K.'s Review\`. The lowercase is signaling "personal note" — capitalization signals "marketing email."
+
+The ONLY exception: the body of the email DOES capitalize names properly ("Hey, I'm looking for whoever..."). It's just the subject that stays lowercase.
 
 ## Hard bans
 
 NEVER write subjects in any of these patterns:
+- "Quick question for X" — retired (overused by every cold-email tool)
 - \`[Company] — [problem]\` — the templated vendor pattern ("Comfort Pros — missed calls"). Banned.
 - ALL CAPS or shouty styling
 - Emoji
 - Exclamation marks
 - Spam triggers: free, guarantee, limited time, act now, exclusive, urgent, risk-free, congratulations
 - Naming a person + a failure ("calls Tony can't catch") — banned
-- Anything not matching the "Quick question for X" template above
+- Title Case anywhere in the subject ("Saw Sarah's Review" — banned)
+- Subjects longer than 40 characters
 
-The single-template approach is intentional: the consistency makes Josh's outreach look like one human writing thoughtful emails, not a vendor running a sequence with random subject variations.
+Predictability isn't the goal here — relevance is. Pattern 1 (review-based) when possible, Pattern 3/4 (lowercase name) as fallback.
 
 # CALL THE TOOL
 
@@ -231,11 +323,11 @@ const TOOLS = [
       properties: {
         subject: {
           type: 'string',
-          description: 'Subject line. Always use the template "Quick question for [First Name]" if a first name is known, otherwise "Quick question for [Business Name]". Capitalize "Quick" and the proper noun (first name or business name). Lowercase "question for". No other formats. No emoji, no exclamation marks, no ALL CAPS.',
+          description: 'Subject line. ALL LOWERCASE. Pick first matching pattern: (1) "saw [reviewer firstname] [last initial].\'s review" if a quotable named reviewer exists; (2) "pastor [firstname]," for church leads (or "pastor," if no name); (3) "[firstname]," for service businesses with a known first name (lowercase + trailing comma); (4) "[business name]," fallback. NEVER use "Quick question for X" — retired. No Title Case. Max 40 chars. No emoji, no exclamation marks.',
         },
         body: {
           type: 'string',
-          description: 'Email body, plain text. HARD CAP 100 words — count before submitting. Target 70-90 words. 5-7 short paragraphs. Opener: "Hey, I\'m looking for [name or whoever answers the phones] at [Company]." (comma after Hey, always include "I\'m"). Evidence line: "I saw..." or "I noticed..." (always include the subject pronoun). NEVER use the name "Ada" in the body — say "AI employee" or "my AI employee". No em dashes inside body prose (only allowed in "— Josh" signoff).',
+          description: 'Email body + PS, plain text. MAIN BODY (opener through "— Josh") capped at 90 words; PS is fixed phrasing not counted. Total 95-110 words. Opener: "Hey, I\'m looking for [industry-aware whoever-clause OR known first name] at [Company]." (comma after Hey, always include "I\'m"). Evidence line: "I saw..." or "I noticed..." (always include the subject pronoun). Confident pivot ("That\'s exactly what I built this for.") or skip the pivot. End with REQUIRED PS: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER use the name "Ada" in the body — say "AI employee" or "my AI employee". No em dashes inside body prose (only allowed in "— Josh" signoff).',
         },
         rationale: {
           type: 'string',
