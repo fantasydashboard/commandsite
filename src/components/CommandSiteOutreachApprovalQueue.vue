@@ -100,6 +100,39 @@ function bandLabel(color: QueueItem['scoreColor']): string {
   }
 }
 
+/** Which touch this draft represents — derived from send_count.
+ *  send_count = 0 → next send is Touch 1 (initial cold)
+ *  send_count = 1 → next send is Touch 2 (followup)
+ *  send_count = 2 → next send is Touch 3 (breakup) */
+interface TouchBadge {
+  label: string
+  longLabel: string
+  toneClass: string
+}
+
+function touchBadge(lead: { send_count?: number }): TouchBadge {
+  const sc = lead.send_count ?? 0
+  if (sc === 0) {
+    return {
+      label: 'T1',
+      longLabel: 'Touch 1 · cold open',
+      toneClass: 'bg-brand/15 text-brand border-brand/30',
+    }
+  }
+  if (sc === 1) {
+    return {
+      label: 'T2',
+      longLabel: 'Touch 2 · takeaway',
+      toneClass: 'bg-warn/15 text-warn border-warn/40',
+    }
+  }
+  return {
+    label: 'T3',
+    longLabel: 'Touch 3 · breakup',
+    toneClass: 'bg-danger/15 text-danger border-danger/40',
+  }
+}
+
 function snippet(body: string | null): string {
   if (!body) return ''
   const trimmed = body.replace(/\s+/g, ' ').trim()
@@ -244,6 +277,11 @@ function snippet(body: string | null): string {
             <h3 class="text-sm font-semibold text-ink truncate">
               {{ lead.company_name }}
             </h3>
+            <span
+              class="rounded-full border px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider"
+              :class="touchBadge(lead).toneClass"
+              :title="touchBadge(lead).longLabel"
+            >{{ touchBadge(lead).longLabel }}</span>
             <span class="text-[11px] text-ink-muted">
               · {{ lead.contact_name || 'no contact name' }}
               <template v-if="lead.contact_email"> · {{ lead.contact_email }}</template>

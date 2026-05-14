@@ -917,6 +917,99 @@ const stageBuckets = computed<Record<string, CsLead[]>>(() => {
   return out
 })
 
+// ── Per-lead "next touch" info — what's the next email going out,
+// how far through the waiting window are we. Used by the kanban
+// cards to render the touch badge + progress bar.
+//
+// Touch 2 fires 3 days after Touch 1 sent.
+// Touch 3 fires 7 days after Touch 2 sent.
+// After Touch 3, leads sit awaiting reply; auto-archived at day 14.
+
+interface NextTouchInfo {
+  next: 'T2' | 'T3' | 'done' | null  // which touch comes next, null if N/A
+  progressPct: number  // 0-100: how far through the waiting window
+  label: string  // "T2 in 2d" / "T2 ready" / "Awaiting reply"
+  toneClass: string  // pill colors for the badge
+}
+
+function fmtDuration(ms: number): string {
+  if (ms < 0) return 'now'
+  const hours = Math.floor(ms / (60 * 60 * 1000))
+  if (hours < 1) return '< 1h'
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  const remHours = hours % 24
+  if (remHours === 0) return `${days}d`
+  return `${days}d ${remHours}h`
+}
+
+function nextTouchInfo(lead: CsLead): NextTouchInfo {
+  const sendCount = lead.send_count ?? 0
+  const lastContacted = lead.last_contacted_at ? new Date(lead.last_contacted_at).getTime() : 0
+
+  // Replied / disqualified / archived → terminal state
+  if (lead.status === 'replied') {
+    return { next: 'done', progressPct: 100, label: 'Replied', toneClass: 'bg-success/15 text-success' }
+  }
+  if (lead.status === 'disqualified' || lead.status === 'archived') {
+    return { next: 'done', progressPct: 100, label: lead.status, toneClass: 'bg-ink-muted/15 text-ink-muted' }
+  }
+
+  // No touches sent yet → not in waiting state
+  if (sendCount === 0 || !lastContacted) {
+    return { next: null, progressPct: 0, label: '', toneClass: '' }
+  }
+
+  const now = Date.now()
+  const day = 24 * 60 * 60 * 1000
+
+  // Touch 1 sent → waiting for Touch 2 (day 3 window)
+  if (sendCount === 1) {
+    const target = lastContacted + 3 * day
+    const elapsed = now - lastContacted
+    const pct = Math.min(100, Math.max(0, (elapsed / (3 * day)) * 100))
+    if (elapsed >= 3 * day) {
+      return { next: 'T2', progressPct: 100, label: 'T2 ready', toneClass: 'bg-accent/15 text-accent' }
+    }
+    return {
+      next: 'T2',
+      progressPct: pct,
+      label: `T2 in ${fmtDuration(target - now)}`,
+      toneClass: 'bg-brand/10 text-brand',
+    }
+  }
+
+  // Touch 2 sent → waiting for Touch 3 (day 7 window from Touch 2's send)
+  if (sendCount === 2) {
+    const target = lastContacted + 7 * day
+    const elapsed = now - lastContacted
+    const pct = Math.min(100, Math.max(0, (elapsed / (7 * day)) * 100))
+    if (elapsed >= 7 * day) {
+      return { next: 'T3', progressPct: 100, label: 'T3 ready', toneClass: 'bg-accent/15 text-accent' }
+    }
+    return {
+      next: 'T3',
+      progressPct: pct,
+      label: `T3 in ${fmtDuration(target - now)}`,
+      toneClass: 'bg-brand/10 text-brand',
+    }
+  }
+
+  // Touch 3+ sent → no more touches, awaiting reply, auto-archive at day 14
+  const target = lastContacted + 14 * day
+  const elapsed = now - lastContacted
+  const pct = Math.min(100, Math.max(0, (elapsed / (14 * day)) * 100))
+  if (elapsed >= 14 * day) {
+    return { next: 'done', progressPct: 100, label: 'archiving', toneClass: 'bg-ink-muted/15 text-ink-muted' }
+  }
+  return {
+    next: 'done',
+    progressPct: pct,
+    label: `Awaiting · ${fmtDuration(target - now)} to archive`,
+    toneClass: 'bg-ink-muted/10 text-ink-muted',
+  }
+}
+
 
 // ── Demos view handlers ─────────────────────────────────────────────
 
@@ -1154,7 +1247,7 @@ function leadForReply(r: CsReply): CsLead | null {
                 v-for="lead in stageBuckets[stage.key]"
                 :key="lead.id"
                 type="button"
-                class="w-full text-left rounded-sm border border-divider bg-surface-raised p-1.5 hover:border-brand/40 hover:bg-brand/5 transition-colors"
+                class="w-full text-left rounded-sm border border-divider bg-surface-raised p-1.5 hover:border-brand/40 hover:bg-brand/5 transition-colors space-y-1"
                 title="Click to open lead details"
                 @click="openLeadEditor(lead)"
               >
@@ -1165,6 +1258,27 @@ function leadForReply(r: CsReply): CsLead | null {
                     :class="(lead.icp_score ?? 0) >= 80 ? 'bg-success/15 text-success' : (lead.icp_score ?? 0) >= 60 ? 'bg-warn/15 text-warn' : 'bg-ink-muted/15 text-ink-muted'"
                   >{{ lead.icp_score ?? '—' }}</span>
                 </div>
+                <!-- Next-touch badge + progress bar — only when there's a meaningful next state -->
+                <template v-if="nextTouchInfo(lead).next">
+                  <div class="flex items-center justify-between gap-1">
+                    <span
+                      class="rounded-sm px-1 text-[9px] font-semibold uppercase tracking-wide"
+                      :class="nextTouchInfo(lead).toneClass"
+                    >{{ nextTouchInfo(lead).label }}</span>
+                  </div>
+                  <div
+                    v-if="nextTouchInfo(lead).next !== 'done' || nextTouchInfo(lead).label.startsWith('Awaiting')"
+                    class="h-1 rounded-full bg-ink-muted/15 overflow-hidden"
+                  >
+                    <div
+                      class="h-full rounded-full transition-all duration-500"
+                      :class="nextTouchInfo(lead).progressPct >= 100
+                        ? 'bg-accent'
+                        : (nextTouchInfo(lead).progressPct >= 75 ? 'bg-brand' : 'bg-brand/60')"
+                      :style="{ width: `${nextTouchInfo(lead).progressPct}%` }"
+                    ></div>
+                  </div>
+                </template>
               </button>
             </div>
           </div>
