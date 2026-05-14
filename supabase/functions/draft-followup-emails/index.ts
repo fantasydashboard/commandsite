@@ -327,9 +327,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const expectedCron = Deno.env.get('FOLLOWUP_CRON_SECRET') ?? ''
   const isCron = expectedCron.length > 0 && cronSecret === expectedCron
 
-  if (!isCron) {
-    const authHeader = req.headers.get('Authorization') ?? ''
-    const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  // Three accepted auth paths:
+  //   1. X-Cron-Secret header matches FOLLOWUP_CRON_SECRET (Vercel cron)
+  //   2. Authorization: Bearer <service_role_key> (admin-triggered manual run,
+  //      e.g., from supabase.functions.invoke in the dashboard, or curl)
+  //   3. Authorization: Bearer <user admin JWT> (admin user from the app)
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const isServiceRole = jwt === serviceRoleKey
+
+  if (!isCron && !isServiceRole) {
     if (!jwt) return json({ error: 'Missing authorization' }, 401)
     const { data: userData, error: userErr } = await admin.auth.getUser(jwt)
     if (userErr || !userData.user) return json({ error: 'Invalid session' }, 401)
@@ -467,7 +474,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (touchNumber === 2) counts.touch2++
     else counts.touch3++
 
-    // Persist — overwrite draft fields, tag with the touch number
+    // Persist — overwrite draft fields, tag with the touch number,
+    // flip draft_state back to 'ready_for_review' so the Approval
+    // Queue picks the new touch up (after Touch 1 was approved
+    // draft_state is 'sent' — without this flip, Touch 2/3 drafts
+    // would land in the DB but never surface in the queue).
     const tagToAdd = `followup_drafted_touch_${touchNumber}`
     const existingTags = (c.tags ?? []) as string[]
     const tags = [...new Set([...existingTags, tagToAdd, 'cold_email_drafted'])]
@@ -478,6 +489,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       draft_cold_email_signal: `Touch ${touchNumber} followup`,
       draft_cold_email_at: new Date().toISOString(),
       draft_cold_email_model: MODEL,
+      draft_state: 'ready_for_review',
       tags,
     }
     const { error: updErr } = await admin
