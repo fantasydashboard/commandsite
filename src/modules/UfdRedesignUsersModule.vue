@@ -21,10 +21,10 @@ import {
   COHORT_META,
   trialDaysLeft,
   daysSinceSignup,
-  gmailComposeUrlForUser,
   type Cohort,
   type UfdUserRow,
 } from '@/lib/clients/ufd-redesign/useUfdUsersData'
+import UfdOutreachDraftModal from '@/components/UfdOutreachDraftModal.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -60,30 +60,15 @@ function fmtRelative(iso: string | null | undefined): string {
   return `${Math.floor(s / 3600)}h ago`
 }
 
-/** Subject + body for the founder-touch outreach email per cohort. */
-function outreachDraftFor(user: UfdUserRow): { subject: string; body: string } {
-  const firstName = (user.full_name ?? '').split(' ')[0] || 'there'
-  if (live.cohort.value === 'free_trial') {
-    const daysLeft = trialDaysLeft(user)
-    const subject = `Quick check-in, ${firstName.toLowerCase()}`
-    const body = `Hey ${firstName},\n\nI'm Josh, I built Ultimate Fantasy Dashboard. I noticed you signed up for the trial${daysLeft !== null && daysLeft >= 0 ? ` and you've got ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left` : ''}.\n\nQuick question — what's your league size, and is there anything specific you wanted UFD to do that you haven't figured out yet? I read every reply and I'm happy to help you get set up if anything's been confusing.\n\nThanks for trying it out.\n\n— Josh`
-    return { subject, body }
-  }
-  if (live.cohort.value === 'expired' || live.cohort.value === 'at_risk') {
-    const subject = `Coming back for the NFL Draft?`
-    const body = `Hey ${firstName},\n\nJosh from UFD here. I noticed your trial wrapped up a while back. NFL Draft's coming up — usually the moment fantasy folks get back into prep mode.\n\nIf you want a fresh start, I can spin your account back up with a fresh 14 days. Just hit reply with "yes" and I'll handle it.\n\nNo pressure if it's not for you.\n\n— Josh`
-    return { subject, body }
-  }
-  // Paying tiers — light NPS check-in
-  const subject = `Quick check-in, ${firstName.toLowerCase()}`
-  const body = `Hey ${firstName},\n\nJosh from UFD. Just checking in — anything I should know about your experience? What's working, what's not? Reply with anything.\n\n— Josh`
-  return { subject, body }
+// Bones-drafted outreach modal state. Click "Email" on a user row →
+// modal opens, draft-ufd-outreach generates a personalized founder-
+// touch email, user reviews/edits, clicks "Open in Gmail" to send.
+const draftingUser = ref<UfdUserRow | null>(null)
+function startDraft(user: UfdUserRow) {
+  draftingUser.value = user
 }
-
-function openGmailFor(user: UfdUserRow) {
-  const draft = outreachDraftFor(user)
-  const url = gmailComposeUrlForUser(user, draft)
-  window.open(url, '_blank', 'noopener')
+function closeDraft() {
+  draftingUser.value = null
 }
 
 type SortKey = 'name' | 'mrr' | 'health' | 'shares' | 'last_login' | 'signed_up'
@@ -269,14 +254,22 @@ const topSharers = computed(() =>
           <div class="flex items-center gap-1.5 flex-shrink-0">
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90"
-              :title="`Open Gmail compose pre-filled for ${u.full_name || u.email}`"
-              @click="openGmailFor(u)"
-            >✉️ Email</button>
+              class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 inline-flex items-center gap-1"
+              :title="`Have Bones draft a personalized outreach to ${u.full_name || u.email}`"
+              @click="startDraft(u)"
+            >✍️ Bones draft</button>
           </div>
         </li>
       </ul>
     </section>
+
+    <!-- Bones outreach draft modal -->
+    <UfdOutreachDraftModal
+      :open="draftingUser !== null"
+      :user="draftingUser"
+      :cohort="live.cohort.value"
+      @close="closeDraft"
+    />
 
     <!-- Divider between live data and design-reference fixtures -->
     <div class="text-[10px] uppercase tracking-[0.18em] text-ink-disabled mt-4 px-1">
