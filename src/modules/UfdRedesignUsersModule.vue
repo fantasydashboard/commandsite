@@ -16,10 +16,75 @@ import {
   type LifecycleStage,
   type Plan,
 } from '@/lib/clients/ufd-redesign/users'
+import {
+  useUfdUsersData,
+  COHORT_META,
+  trialDaysLeft,
+  daysSinceSignup,
+  gmailComposeUrlForUser,
+  type Cohort,
+  type UfdUserRow,
+} from '@/lib/clients/ufd-redesign/useUfdUsersData'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 const stats = computed(() => userStats())
+
+// ── Real cohort data via ufd-users edge function ─────────────────────
+// Replaces the fixture-only flow at the top of the module. The
+// fixture KPI strip + top-sharers leaderboard + filter table below
+// stays for now as design reference — to be cut once every real
+// surface lives here.
+const live = useUfdUsersData('free_trial')
+
+const cohortTabs: Cohort[] = [
+  'free_trial',
+  'at_risk',
+  'expired',
+  'individual_monthly',
+  'individual_annual',
+  'league_passes',
+]
+
+function fmtDate(iso: string | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function fmtRelative(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const diff = Date.now() - new Date(iso).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 60) return `${s}s ago`
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`
+  return `${Math.floor(s / 3600)}h ago`
+}
+
+/** Subject + body for the founder-touch outreach email per cohort. */
+function outreachDraftFor(user: UfdUserRow): { subject: string; body: string } {
+  const firstName = (user.full_name ?? '').split(' ')[0] || 'there'
+  if (live.cohort.value === 'free_trial') {
+    const daysLeft = trialDaysLeft(user)
+    const subject = `Quick check-in, ${firstName.toLowerCase()}`
+    const body = `Hey ${firstName},\n\nI'm Josh, I built Ultimate Fantasy Dashboard. I noticed you signed up for the trial${daysLeft !== null && daysLeft >= 0 ? ` and you've got ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left` : ''}.\n\nQuick question — what's your league size, and is there anything specific you wanted UFD to do that you haven't figured out yet? I read every reply and I'm happy to help you get set up if anything's been confusing.\n\nThanks for trying it out.\n\n— Josh`
+    return { subject, body }
+  }
+  if (live.cohort.value === 'expired' || live.cohort.value === 'at_risk') {
+    const subject = `Coming back for the NFL Draft?`
+    const body = `Hey ${firstName},\n\nJosh from UFD here. I noticed your trial wrapped up a while back. NFL Draft's coming up — usually the moment fantasy folks get back into prep mode.\n\nIf you want a fresh start, I can spin your account back up with a fresh 14 days. Just hit reply with "yes" and I'll handle it.\n\nNo pressure if it's not for you.\n\n— Josh`
+    return { subject, body }
+  }
+  // Paying tiers — light NPS check-in
+  const subject = `Quick check-in, ${firstName.toLowerCase()}`
+  const body = `Hey ${firstName},\n\nJosh from UFD. Just checking in — anything I should know about your experience? What's working, what's not? Reply with anything.\n\n— Josh`
+  return { subject, body }
+}
+
+function openGmailFor(user: UfdUserRow) {
+  const draft = outreachDraftFor(user)
+  const url = gmailComposeUrlForUser(user, draft)
+  window.open(url, '_blank', 'noopener')
+}
 
 type SortKey = 'name' | 'mrr' | 'health' | 'shares' | 'last_login' | 'signed_up'
 const sortBy = ref<SortKey>('mrr')
@@ -116,13 +181,106 @@ const topSharers = computed(() =>
       <div>
         <h2 class="text-lg font-semibold text-ink">Users</h2>
         <p class="text-sm text-ink-muted">
-          Every user — paying, trialing, churned — with health, lifecycle stage, share activity, and viral attribution.
+          Real user cohorts from UFD's Supabase. The richer fixture views below are design reference until full wiring lands.
         </p>
       </div>
-      <button
-        type="button"
-        class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
-      >Export CSV</button>
+      <span
+        class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+        :class="live.error.value
+          ? 'bg-danger/15 text-danger'
+          : live.loading.value
+            ? 'bg-warn/15 text-warn'
+            : 'bg-success/15 text-success'"
+      >
+        <span class="h-1.5 w-1.5 rounded-full"
+          :class="live.error.value ? 'bg-danger' : live.loading.value ? 'bg-warn animate-pulse' : 'bg-success'"></span>
+        {{ live.error.value
+          ? 'Data error'
+          : live.loading.value
+            ? 'Loading…'
+            : `Live · ${live.rows.value.length} ${live.rows.value.length === 1 ? 'user' : 'users'} · refreshed ${fmtRelative(live.lastFetchAt.value)}` }}
+      </span>
+    </div>
+
+    <!-- ── Real cohort data ──────────────────────────────────────── -->
+    <section class="card p-0 overflow-hidden">
+      <!-- Cohort tabs -->
+      <div class="flex items-center gap-1 p-2 border-b border-divider/60 bg-surface-elevated flex-wrap">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-ink-muted mr-2">Cohort:</span>
+        <button
+          v-for="c in cohortTabs"
+          :key="c"
+          type="button"
+          class="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors"
+          :class="live.cohort.value === c ? 'bg-brand text-white' : 'text-ink hover:bg-canvas/50'"
+          @click="live.setCohort(c)"
+        >{{ COHORT_META[c].label }}</button>
+      </div>
+
+      <!-- Subtitle for selected cohort -->
+      <div class="px-3 py-2 border-b border-divider/60 bg-canvas/30">
+        <p class="text-[11px] text-ink-muted">
+          <strong class="text-ink" :class="COHORT_META[live.cohort.value].color">{{ COHORT_META[live.cohort.value].label }}</strong>
+          — {{ COHORT_META[live.cohort.value].description }}
+        </p>
+      </div>
+
+      <!-- User rows -->
+      <div v-if="live.loading.value" class="p-6 text-center text-sm text-ink-muted">Loading…</div>
+      <div v-else-if="live.error.value" class="p-6 text-center text-sm text-danger">
+        Failed to load: {{ live.error.value }}
+      </div>
+      <div v-else-if="live.rows.value.length === 0" class="p-6 text-center text-sm text-ink-disabled italic">
+        No users in this cohort right now.
+      </div>
+      <ul v-else class="divide-y divide-divider">
+        <li
+          v-for="(u, idx) in live.rows.value"
+          :key="u.id ?? u.email + idx"
+          class="px-3 py-2.5 flex items-center justify-between gap-3 hover:bg-canvas/30"
+        >
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-semibold text-ink">{{ u.full_name || '(no name)' }}</span>
+              <span class="text-[11px] text-ink-muted font-mono">{{ u.email }}</span>
+              <!-- Trial countdown badge — most actionable cohort -->
+              <span
+                v-if="live.cohort.value === 'free_trial' && trialDaysLeft(u) !== null"
+                class="rounded-full px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider"
+                :class="(trialDaysLeft(u) ?? 99) <= 1
+                  ? 'bg-danger/15 text-danger'
+                  : (trialDaysLeft(u) ?? 99) <= 3
+                    ? 'bg-warn/15 text-warn'
+                    : 'bg-success/15 text-success'"
+              >
+                {{ (trialDaysLeft(u) ?? 0) < 0
+                  ? `expired ${Math.abs(trialDaysLeft(u) ?? 0)}d ago`
+                  : trialDaysLeft(u) === 0
+                    ? 'expires today'
+                    : `${trialDaysLeft(u)}d left` }}
+              </span>
+            </div>
+            <div class="text-[11px] text-ink-disabled mt-0.5">
+              <template v-if="u.signup_date">signed up {{ fmtDate(u.signup_date) }} · {{ daysSinceSignup(u) }}d ago</template>
+              <template v-if="u.last_opened"> · last opened email {{ fmtDate(u.last_opened) }}</template>
+              <template v-if="u.open_rate !== undefined && u.open_rate !== null"> · {{ Math.round((u.open_rate ?? 0) * 100) }}% open rate</template>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              type="button"
+              class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90"
+              :title="`Open Gmail compose pre-filled for ${u.full_name || u.email}`"
+              @click="openGmailFor(u)"
+            >✉️ Email</button>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Divider between live data and design-reference fixtures -->
+    <div class="text-[10px] uppercase tracking-[0.18em] text-ink-disabled mt-4 px-1">
+      ───── Design reference (fixtures) ─────
     </div>
 
     <!-- KPI strip -->
