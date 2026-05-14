@@ -168,6 +168,29 @@ export function useReplyApproval() {
     return { ok: true }
   }
 
+  /** Re-trigger draft-reply for a reply whose drafted_response is null
+   *  (Sage failed first time around). Calls the same edge function
+   *  the inbox poll uses, with the existing reply_id so it UPDATES
+   *  the row in place. */
+  async function retryDraft(reply: CsReply): Promise<{ ok: boolean; error?: string }> {
+    if (!reply.lead_id) return { ok: false, error: 'Reply has no lead_id — Sage needs lead context to draft' }
+    const { data, error: fnErr } = await supabase.functions.invoke('draft-reply', {
+      body: {
+        reply_id: reply.id,
+        lead_id: reply.lead_id,
+        from_email: reply.from_email,
+        from_name: reply.from_name ?? undefined,
+        subject: reply.subject ?? undefined,
+        body: reply.body,
+      },
+    })
+    if (fnErr) return { ok: false, error: fnErr.message }
+    const result = data as { drafted_response?: string; error?: string } | null
+    if (result?.error) return { ok: false, error: result.error }
+    await load()
+    return { ok: true }
+  }
+
   /** Save an edited draft without sending. Used by the edit modal's
    *  "Save edits, don't send yet" option. */
   async function saveEdit(reply: CsReply, body: string): Promise<{ ok: boolean; error?: string }> {
@@ -193,5 +216,6 @@ export function useReplyApproval() {
     approve,
     skip,
     saveEdit,
+    retryDraft,
   }
 }

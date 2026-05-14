@@ -449,6 +449,16 @@ async function onReplySkip(reply: CsReply) {
     errorMsg.value = result.error ?? 'Failed to skip'
   }
 }
+async function onReplyRetryDraft(reply: CsReply) {
+  outreachTicker.value?.pushEvent({ icon: '✍️', text: `Asking Sage to redraft for ${reply.from_name || reply.from_email}…` })
+  const result = await replyApproval.retryDraft(reply)
+  if (result.ok) {
+    outreachToasts.push('✓ Sage drafted a response', 'success')
+  } else {
+    errorMsg.value = result.error ?? 'Retry failed'
+    outreachToasts.push(`Sage retry failed: ${result.error ?? 'unknown'}`, 'warn')
+  }
+}
 
 const tickerSeed = computed(() => {
   const events: { icon: string; text: string; ageSec: number }[] = []
@@ -827,10 +837,6 @@ const stageBuckets = computed<Record<string, CsLead[]>>(() => {
   return out
 })
 
-function jumpToLeadInManualReply(leadId: string) {
-  view.value = 'manual_reply'
-  pickLeadForManual(leadId)
-}
 
 // ── Demos view handlers ─────────────────────────────────────────────
 
@@ -992,6 +998,7 @@ function leadForReply(r: CsReply): CsLead | null {
       @approve="onReplyApprove"
       @edit="openReplyEditor"
       @skip="onReplySkip"
+      @retry-draft="onReplyRetryDraft"
     />
 
     <!-- ── Cold Email Approval Queue ──────────────────────────────── -->
@@ -1057,17 +1064,18 @@ function leadForReply(r: CsReply): CsLead | null {
                 <span class="text-[10px] font-bold tabular-nums text-ink-muted">{{ stageBuckets[stage.key].length }}</span>
               </div>
             </header>
-            <div class="p-1.5 space-y-1 max-h-[280px] overflow-y-auto">
+            <div class="p-1.5 space-y-1 max-h-[320px] overflow-y-auto">
               <div
                 v-if="stageBuckets[stage.key].length === 0"
                 class="text-[10px] text-ink-disabled italic text-center py-3"
               >Empty</div>
               <button
-                v-for="lead in stageBuckets[stage.key].slice(0, 6)"
+                v-for="lead in stageBuckets[stage.key]"
                 :key="lead.id"
                 type="button"
-                class="w-full text-left rounded-sm border border-divider bg-surface-raised p-1.5 hover:border-brand/40 transition-colors"
-                @click="jumpToLeadInManualReply(lead.id)"
+                class="w-full text-left rounded-sm border border-divider bg-surface-raised p-1.5 hover:border-brand/40 hover:bg-brand/5 transition-colors"
+                title="Click to open lead details"
+                @click="openLeadEditor(lead)"
               >
                 <div class="flex items-center justify-between gap-1.5">
                   <span class="text-[11px] font-semibold text-ink truncate flex-1 min-w-0">{{ lead.company_name }}</span>
@@ -1077,12 +1085,6 @@ function leadForReply(r: CsReply): CsLead | null {
                   >{{ lead.icp_score ?? '—' }}</span>
                 </div>
               </button>
-              <div
-                v-if="stageBuckets[stage.key].length > 6"
-                class="text-[10px] text-ink-muted text-center pt-1"
-              >
-                + {{ stageBuckets[stage.key].length - 6 }} more
-              </div>
             </div>
           </div>
         </div>

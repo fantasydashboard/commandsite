@@ -34,9 +34,18 @@ const emit = defineEmits<{
   (e: 'approve', reply: CsReply): void
   (e: 'edit', reply: CsReply): void
   (e: 'skip', reply: CsReply): void
+  (e: 'retryDraft', reply: CsReply): void
 }>()
 
 const processingId = ref<string | null>(null)
+const retryingId = ref<string | null>(null)
+
+async function retryDraft(reply: CsReply) {
+  if (retryingId.value) return
+  retryingId.value = reply.id
+  emit('retryDraft', reply)
+  setTimeout(() => { retryingId.value = null }, 1500)
+}
 
 const queueLabel = computed(() => {
   const n = props.items.length
@@ -197,9 +206,19 @@ watch(
         </div>
         <div
           v-else
-          class="rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-[12px] text-warn italic"
+          class="rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-[12px] text-warn italic flex items-center justify-between gap-2"
         >
-          Sage is still drafting a response… refresh in ~30 seconds.
+          <span>
+            Sage hasn't drafted a response yet — tap retry, or use Write manually.
+          </span>
+          <button
+            type="button"
+            class="rounded-md bg-warn text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 disabled:opacity-50 not-italic"
+            :disabled="retryingId === item.reply.id || busy"
+            @click="retryDraft(item.reply)"
+          >
+            {{ retryingId === item.reply.id ? 'Asking Sage…' : 'Retry draft' }}
+          </button>
         </div>
 
         <!-- Actions -->
@@ -208,6 +227,7 @@ watch(
             type="button"
             class="rounded-md bg-success text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
             :disabled="!item.reply.drafted_response || processingId === item.reply.id || busy"
+            :title="!item.reply.drafted_response ? 'Waiting on Sage to draft a response. Use Write manually if you need to send now.' : ''"
             @click="act(item.reply, 'approve')"
           >
             {{ processingId === item.reply.id ? '✓' : 'Approve & send' }}
@@ -215,9 +235,9 @@ watch(
           <button
             type="button"
             class="rounded-md border border-accent/40 text-accent bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-accent/10 disabled:opacity-50"
-            :disabled="!item.reply.drafted_response || processingId === item.reply.id || busy"
+            :disabled="processingId === item.reply.id || busy"
             @click="act(item.reply, 'edit')"
-          >Edit & send</button>
+          >{{ item.reply.drafted_response ? 'Edit & send' : 'Write manually' }}</button>
           <button
             type="button"
             class="rounded-md text-[11px] text-ink-muted hover:text-ink py-1.5 px-2 ml-auto"
