@@ -119,6 +119,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'giving', label: 'Giving' },
   { key: 'support', label: 'Support' },
   { key: 'customers', label: 'Customers' },
+  { key: 'users', label: 'Users' },
   { key: 'schedule', label: 'Schedule' },
   { key: 'calls', label: 'Calls' },
   { key: 'quotes', label: 'Quotes' },
