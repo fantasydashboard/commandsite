@@ -48,6 +48,14 @@ interface SendBody {
   subject?: string
   body?: string
   lead_id?: string
+  /** When set, Gmail places this message in the existing thread. Used
+   *  by the Reply Approval Queue so responses land in-thread with the
+   *  recipient's original reply. */
+  thread_id?: string
+  /** Optional: the RFC 822 Message-ID of the message we're replying
+   *  to. Adds In-Reply-To + References headers for non-Gmail clients
+   *  that thread by header rather than threadId. */
+  in_reply_to_message_id?: string
 }
 
 /** Base64url encoding per Gmail's API spec (no padding, URL-safe alphabet). */
@@ -60,8 +68,10 @@ function base64UrlEncode(s: string): string {
 }
 
 /** Build a minimal RFC 822 message. Subject is encoded so emoji + unicode
- *  in the subject line survive transit. Body is plain text. */
-function buildRfc822(from: string, to: string, subject: string, body: string): string {
+ *  in the subject line survive transit. Body is plain text. If
+ *  inReplyTo is provided, adds In-Reply-To + References headers so
+ *  non-Gmail clients thread the reply. */
+function buildRfc822(from: string, to: string, subject: string, body: string, inReplyTo?: string): string {
   const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`
   const headers = [
     `From: ${from}`,
@@ -71,6 +81,12 @@ function buildRfc822(from: string, to: string, subject: string, body: string): s
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: 7bit',
   ]
+  if (inReplyTo) {
+    // Normalize to angle-bracketed form
+    const formatted = inReplyTo.startsWith('<') ? inReplyTo : `<${inReplyTo}>`
+    headers.push(`In-Reply-To: ${formatted}`)
+    headers.push(`References: ${formatted}`)
+  }
   return headers.join('\r\n') + '\r\n\r\n' + body
 }
 
@@ -158,14 +174,22 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: `OAuth refresh failed: ${msg}` }, 500)
   }
 
-  const raw = base64UrlEncode(buildRfc822(fromEmail ?? 'me', body.to, body.subject, body.body))
+  const raw = base64UrlEncode(buildRfc822(
+    fromEmail ?? 'me',
+    body.to,
+    body.subject,
+    body.body,
+    body.in_reply_to_message_id,
+  ))
+  const sendPayload: { raw: string; threadId?: string } = { raw }
+  if (body.thread_id) sendPayload.threadId = body.thread_id
   const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ raw }),
+    body: JSON.stringify(sendPayload),
   })
 
   if (!sendRes.ok) {

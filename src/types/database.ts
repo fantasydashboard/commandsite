@@ -468,6 +468,11 @@ export type CsReply = {
   draft_approved: boolean
   draft_approved_at: string | null
   draft_sent_at: string | null
+  // Gmail-source tracking (mig 0042) — set when the reply came in via
+  // gmail-inbox-poll. Used for threading the outbound response back
+  // into the same conversation.
+  gmail_message_id: string | null
+  gmail_thread_id: string | null
   created_at: string
   updated_at: string
 }

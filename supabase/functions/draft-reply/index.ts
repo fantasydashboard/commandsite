@@ -118,15 +118,16 @@ interface DraftReplyRequest {
   from_name?: string
   subject?: string
   body: string
+  /** If provided, UPDATE this existing cs_replies row instead of
+   *  inserting a new one. Used by gmail-inbox-poll which inserts the
+   *  bare reply first then asks draft-reply to fill classification +
+   *  drafted_response. */
+  reply_id?: string
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
-
-  const authHeader = req.headers.get('Authorization') ?? ''
-  const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (!jwt) return json({ error: 'Missing authorization' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -135,10 +136,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!anthropicKey) return json({ error: 'Server misconfigured (anthropic key)' }, 500)
 
   const admin = createClient(supabaseUrl, serviceRoleKey)
-  const { data: userData, error: userErr } = await admin.auth.getUser(jwt)
-  if (userErr || !userData.user) return json({ error: 'Invalid session' }, 401)
-  const { data: caller } = await admin.from('users').select('role').eq('id', userData.user.id).maybeSingle()
-  if (!caller || (caller as { role: string }).role !== 'admin') return json({ error: 'Admin only' }, 403)
+
+  // Auth: admin JWT OR service role (so gmail-inbox-poll can call this
+  // without a user JWT)
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const isServiceRole = jwt === serviceRoleKey
+  if (!isServiceRole) {
+    if (!jwt) return json({ error: 'Missing authorization' }, 401)
+    const { data: userData, error: userErr } = await admin.auth.getUser(jwt)
+    if (userErr || !userData.user) return json({ error: 'Invalid session' }, 401)
+    const { data: caller } = await admin.from('users').select('role').eq('id', userData.user.id).maybeSingle()
+    if (!caller || (caller as { role: string }).role !== 'admin') return json({ error: 'Admin only' }, 403)
+  }
 
   let body: DraftReplyRequest
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON body' }, 400) }
@@ -295,12 +305,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
       : null,
     auto_handled_at: autoHandled ? new Date().toISOString() : null,
     needs_review: !autoHandled,
-    raw_payload: { source: 'manual_paste', suggested_action: ada.suggested_action, reasoning: ada.reasoning },
+    raw_payload: { source: body.reply_id ? 'inbox_poll' : 'manual_paste', suggested_action: ada.suggested_action, reasoning: ada.reasoning },
   }
 
-  const { data: inserted, error: insErr } = await admin
-    .from('cs_replies').insert(replyPayload as never).select('id').single()
-  if (insErr) return json({ error: `DB write: ${insErr.message}` }, 500)
+  let replyId: string
+  if (body.reply_id) {
+    // UPDATE path: gmail-inbox-poll already inserted the bare row; we
+    // just fill in classification + drafted_response.
+    const { error: updErr } = await admin
+      .from('cs_replies')
+      .update({
+        classification: ada.classification,
+        classification_confidence: ada.classification_confidence,
+        classification_reason: ada.classification_reason,
+        classification_model: MODEL,
+        classified_at: new Date().toISOString(),
+        drafted_response: ada.drafted_response,
+        drafted_at: new Date().toISOString(),
+        auto_handled: autoHandled,
+        auto_handled_action: autoHandled
+          ? (ada.classification === 'oof' ? 'OOF — set reminder for return date'
+            : ada.classification === 'unsubscribe' ? 'Added to suppression list'
+            : 'Marked negative + archived')
+          : null,
+        auto_handled_at: autoHandled ? new Date().toISOString() : null,
+        needs_review: !autoHandled,
+      } as never)
+      .eq('id', body.reply_id)
+    if (updErr) return json({ error: `DB update: ${updErr.message}` }, 500)
+    replyId = body.reply_id
+  } else {
+    // INSERT path: manual paste flow (no prior row)
+    const { data: inserted, error: insErr } = await admin
+      .from('cs_replies').insert(replyPayload as never).select('id').single()
+    if (insErr) return json({ error: `DB write: ${insErr.message}` }, 500)
+    replyId = (inserted as { id: string }).id
+  }
 
   // Lead status updates
   const newStatus =
@@ -316,7 +356,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   return json({
-    reply_id: (inserted as { id: string }).id,
+    reply_id: replyId,
     classification: ada.classification,
     classification_confidence: ada.classification_confidence,
     classification_reason: ada.classification_reason,

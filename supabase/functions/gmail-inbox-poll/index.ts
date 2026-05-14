@@ -270,7 +270,7 @@ Deno.serve(async (req: Request) => {
     if (!matched) continue
 
     // Insert (unique index dedupes — silently no-op on repeat polls)
-    const { error: insErr } = await admin
+    const { data: insertedReply, error: insErr } = await admin
       .from('cs_replies')
       .insert({
         lead_id: matched.lead_id,
@@ -283,6 +283,8 @@ Deno.serve(async (req: Request) => {
         gmail_thread_id: msg.threadId,
         needs_review: true,
       })
+      .select('id')
+      .single()
     if (insErr) {
       // Skip dedup conflicts silently — that's the index doing its job
       if (!insErr.message.includes('duplicate key')) {
@@ -298,25 +300,35 @@ Deno.serve(async (req: Request) => {
       .update({ status: 'replied' })
       .eq('id', matched.lead_id)
       .neq('status', 'replied')  // idempotent
-  }
 
-  // Fire-and-forget: classify newly-inserted replies. classify-manual-reply
-  // picks up needs_review rows; we just nudge it to run.
-  if (repliesInserted > 0) {
+    // Ask draft-reply to fill in classification + drafted_response.
+    // Fire-and-forget per reply so a slow LLM call doesn't block the
+    // poll. The next page load surfaces the draft as soon as it's done.
+    const replyId = (insertedReply as { id: string }).id
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/classify-manual-reply`, {
+      await fetch(`${SUPABASE_URL}/functions/v1/draft-reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           apikey: SERVICE_ROLE_KEY,
         },
-        body: JSON.stringify({ classify_unreviewed: true }),
+        body: JSON.stringify({
+          reply_id: replyId,
+          lead_id: matched.lead_id,
+          from_email: from.email,
+          from_name: from.name,
+          subject,
+          body,
+        }),
       })
-    } catch (_) {
-      // Non-fatal; replies still surface, just unclassified for one cycle
+    } catch (err) {
+      errors.push(`draft-reply for ${msg.id}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
+
+  // Each new reply already triggered draft-reply inline above (which
+  // populates classification + drafted_response). No batch step needed.
 
   return json({
     processed: messageStubs.length,

@@ -26,6 +26,8 @@ import CommandSiteDealEditDrawer from '@/components/CommandSiteDealEditDrawer.vu
 import CommandSiteOutreachApprovalQueue from '@/components/CommandSiteOutreachApprovalQueue.vue'
 import CommandSiteOutreachEditDraftModal from '@/components/CommandSiteOutreachEditDraftModal.vue'
 import CommandSiteLeadAddModal from '@/components/CommandSiteLeadAddModal.vue'
+import CommandSiteReplyApprovalQueue from '@/components/CommandSiteReplyApprovalQueue.vue'
+import CommandSiteReplyEditModal from '@/components/CommandSiteReplyEditModal.vue'
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useOutreachSends } from '@/lib/clients/commandsite/outreachSendsApi'
 import { useReplies, CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
@@ -33,6 +35,7 @@ import { useDiscovery, type DiscoveryDeal } from '@/lib/clients/commandsite/disc
 import { useDeals } from '@/lib/clients/commandsite/dealsApi'
 import { useAutoOutreach } from '@/lib/clients/commandsite/useAutoOutreach'
 import { useOutreachRealtime } from '@/lib/clients/commandsite/useOutreachRealtime'
+import { useReplyApproval } from '@/lib/clients/commandsite/useReplyApproval'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import { useToasts } from '@/components/grace/useToasts'
@@ -378,6 +381,67 @@ async function onAutoApproveToggle(value: boolean) {
     value ? 'Auto-approve ON — drafts will send without you' : 'Auto-approve OFF — back to manual',
     'info',
   )
+}
+
+// ── Reply Approval Queue (inbound replies + Sage drafts) ──────────────
+const replyApproval = useReplyApproval()
+const editingReply = ref<CsReply | null>(null)
+
+function openReplyEditor(reply: CsReply) {
+  editingReply.value = reply
+}
+function closeReplyEditor() {
+  editingReply.value = null
+}
+async function onReplyApprove(reply: CsReply) {
+  const result = await replyApproval.approve(reply)
+  if (result.ok) {
+    outreachToasts.push(`✓ Reply sent to ${reply.from_name || reply.from_email}`, 'success')
+    outreachTicker.value?.pushEvent({
+      icon: '📨',
+      text: `Sent response to ${reply.from_name || reply.from_email}`,
+    })
+  } else {
+    errorMsg.value = result.error ?? 'Failed to send reply'
+  }
+}
+async function onReplySave(payload: { reply: CsReply; body: string }) {
+  const result = await replyApproval.saveEdit(payload.reply, payload.body)
+  if (result.ok) {
+    outreachToasts.push('✓ Edits saved — still in queue', 'success')
+    closeReplyEditor()
+  } else {
+    errorMsg.value = result.error ?? 'Failed to save edits'
+  }
+}
+async function onReplySaveAndSend(payload: { reply: CsReply; body: string }) {
+  const saveResult = await replyApproval.saveEdit(payload.reply, payload.body)
+  if (!saveResult.ok) {
+    errorMsg.value = saveResult.error ?? 'Failed to save edits'
+    return
+  }
+  // Pull the fresh reply (with the edited body) and approve
+  const fresh = replyApproval.replies.value.find((r) => r.id === payload.reply.id)
+  if (!fresh) return
+  const sendResult = await replyApproval.approve(fresh, { body: payload.body })
+  if (sendResult.ok) {
+    outreachToasts.push(`✓ Reply sent to ${fresh.from_name || fresh.from_email}`, 'success')
+    outreachTicker.value?.pushEvent({
+      icon: '📨',
+      text: `Sent response to ${fresh.from_name || fresh.from_email}`,
+    })
+    closeReplyEditor()
+  } else {
+    errorMsg.value = sendResult.error ?? 'Failed to send reply'
+  }
+}
+async function onReplySkip(reply: CsReply) {
+  const result = await replyApproval.skip(reply)
+  if (result.ok) {
+    outreachToasts.push('Skipped — marked reviewed, no email sent', 'info')
+  } else {
+    errorMsg.value = result.error ?? 'Failed to skip'
+  }
 }
 
 const tickerSeed = computed(() => {
@@ -920,7 +984,17 @@ function leadForReply(r: CsReply): CsLead | null {
       subtitle="Live — sends, replies, drafts, bookings (polls every 20s)"
     />
 
-    <!-- ── Approval Queue (hero) ────────────────────────────────────── -->
+    <!-- ── Reply Approval Queue (HIGHEST priority — real humans replied) ── -->
+    <CommandSiteReplyApprovalQueue
+      :items="replyApproval.queueItems.value"
+      :busy="replyApproval.busy.value"
+      :last-sent-id="replyApproval.lastSentId.value"
+      @approve="onReplyApprove"
+      @edit="openReplyEditor"
+      @skip="onReplySkip"
+    />
+
+    <!-- ── Cold Email Approval Queue ──────────────────────────────── -->
     <CommandSiteOutreachApprovalQueue
       :items="auto.queueItems.value"
       :sent-today="auto.sentTodayCount.value"
@@ -1871,6 +1945,15 @@ function leadForReply(r: CsReply): CsLead | null {
       :open="addLeadOpen"
       @close="addLeadOpen = false"
       @save="onAddLead"
+    />
+
+    <!-- ── Reply edit modal (Reply Approval Queue inline edit) ──── -->
+    <CommandSiteReplyEditModal
+      :open="editingReply !== null"
+      :reply="editingReply"
+      @close="closeReplyEditor"
+      @save="onReplySave"
+      @save-and-send="onReplySaveAndSend"
     />
 
     <!-- ── VIEW: Coming next ──────────────────────────────────────── -->
