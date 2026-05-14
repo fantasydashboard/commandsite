@@ -298,6 +298,20 @@ Deno.serve(async (req: Request) => {
     const matched = sentByThreadId.get(msg.threadId) ?? null
     if (!matched) continue
 
+    // Safety: if the matched lead is ALREADY flagged as bounced
+    // (either auto-detected this run or manually marked previously),
+    // skip the insert entirely. This catches the case where the
+    // bounce email lingers in inbox after Josh marked it, and
+    // subsequent polls would otherwise re-insert a fresh reply row.
+    const { data: leadStateRow } = await admin
+      .from('cs_leads')
+      .select('bounced_at')
+      .eq('id', matched.lead_id)
+      .maybeSingle()
+    if ((leadStateRow as { bounced_at?: string | null } | null)?.bounced_at) {
+      continue
+    }
+
     // Insert (unique index dedupes — silently no-op on repeat polls)
     const { data: insertedReply, error: insErr } = await admin
       .from('cs_replies')

@@ -153,8 +153,15 @@ export function useReplyApproval() {
 
   /** Mark a reply as a bounce — the "reply" is actually a delivery
    *  failure notification that the inbox poll's heuristics missed.
-   *  Disqualifies the lead, sets bounced_at + bounce_reason, deletes
-   *  the cs_replies row entirely (it's not a real reply). */
+   *  Disqualifies the lead, sets bounced_at + bounce_reason.
+   *
+   *  IMPORTANT: we UPDATE the cs_replies row to auto_handled=true
+   *  rather than deleting it. The row's gmail_message_id is what the
+   *  unique index uses to dedup against future inbox poll runs — if
+   *  we delete it, the same bounce email gets re-inserted as a fresh
+   *  reply on the next 10-min poll. Keeping the row + flagging it as
+   *  handled gives us both: filtered out of the queue AND immune to
+   *  re-insertion. */
   async function markAsBounce(reply: CsReply): Promise<{ ok: boolean; error?: string }> {
     if (!reply.lead_id) return { ok: false, error: 'Reply has no lead_id — can\'t mark its lead as bounced' }
     const now = new Date().toISOString()
@@ -170,11 +177,17 @@ export function useReplyApproval() {
       } as never)
       .eq('id', reply.lead_id)
     if (leadErr) return { ok: false, error: `Lead update: ${leadErr.message}` }
-    const { error: delErr } = await supabase
+    const { error: updErr } = await supabase
       .from('cs_replies')
-      .delete()
+      .update({
+        auto_handled: true,
+        auto_handled_action: 'Manually flagged as bounce — lead disqualified',
+        auto_handled_at: now,
+        needs_review: false,
+        reviewed_at: now,
+      } as never)
       .eq('id', reply.id)
-    if (delErr) return { ok: false, error: `Reply delete: ${delErr.message}` }
+    if (updErr) return { ok: false, error: `Reply update: ${updErr.message}` }
     await load()
     return { ok: true }
   }
