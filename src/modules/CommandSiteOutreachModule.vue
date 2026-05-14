@@ -457,17 +457,6 @@ async function copyEmailToClipboard(lead: CsLead): Promise<boolean> {
   }
 }
 
-function gmailComposeUrl(lead: CsLead): string {
-  const params = new URLSearchParams({
-    view: 'cm',
-    fs: '1',
-    to: lead.contact_email ?? '',
-    su: lead.draft_cold_email_subject ?? '',
-    body: lead.draft_cold_email_body ?? '',
-  })
-  return `https://mail.google.com/mail/?${params.toString()}`
-}
-
 async function copyAndMark(lead: CsLead) {
   if (sendingLeadId.value) return
   errorMsg.value = null
@@ -492,26 +481,26 @@ async function copyAndMark(lead: CsLead) {
 async function openComposeAndMark(lead: CsLead) {
   if (sendingLeadId.value) return
   errorMsg.value = null
-  // Open Gmail compose in a new tab
-  window.open(gmailComposeUrl(lead), '_blank', 'noopener')
-
   sendingLeadId.value = lead.id
-  const result = await markSent({
-    leadId: lead.id,
-    subject: lead.draft_cold_email_subject ?? '',
-    body: lead.draft_cold_email_body ?? '',
-    source: 'manual_gmail',
-  })
+
+  // Route through useAutoOutreach.approve so this button shares the
+  // same Gmail-API-when-connected path the Approval Queue uses. That
+  // means every send (regardless of which UI surface fired it) lands
+  // a threadId in cs_outreach_sends.external_message_id, so the
+  // inbox poller can match replies back. Old behavior was a footgun:
+  // sends from this row were untrackable while sends from the
+  // Approval Queue were tracked.
+  const result = await auto.approve(lead)
   sendingLeadId.value = null
   if (!result.ok) {
-    errorMsg.value = result.error ?? 'Failed to mark sent'
+    errorMsg.value = result.error ?? 'Failed to send'
     return
   }
   await reloadLeads()
-  flash(`✓ Gmail opened + marked sent (${lead.company_name})`)
+  const verb = auto.gmailConnected.value ? 'Sent via Gmail API' : 'Gmail opened + marked'
+  flash(`✓ ${verb} (${lead.company_name})`)
 
-  // Live ticker + chat acknowledgment from Ada
-  outreachTicker.value?.pushEvent({ icon: '📤', text: `Sent to ${lead.company_name} — marked + logged` })
+  outreachTicker.value?.pushEvent({ icon: '📤', text: `Sent to ${lead.company_name}` })
   outreachToasts.push(`✓ Done — sent to ${lead.company_name}`, 'success')
   outreachChat.addAiMessage(
     `Sent to ${lead.company_name}. Logged in cs_outreach_sends, status flipped to 'contacted'. If they don't reply in 3 days, the followup cron will draft Touch 2 automatically — surfaces here in your Ready queue.`,
@@ -1278,8 +1267,17 @@ function leadForReply(r: CsReply): CsLead | null {
                       class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50"
                       :disabled="sendingLeadId === lead.id"
                       @click="openComposeAndMark(lead)"
+                      :title="auto.gmailConnected.value
+                        ? 'Sends through Gmail API — trackable for replies'
+                        : 'Opens Gmail compose tab — connect Gmail in Settings to enable trackable direct send'"
                     >
-                      {{ sendingLeadId === lead.id ? 'Marking…' : 'Open Gmail + mark sent' }}
+                      {{
+                        sendingLeadId === lead.id
+                          ? 'Sending…'
+                          : auto.gmailConnected.value
+                            ? 'Send via Gmail'
+                            : 'Open Gmail + mark sent'
+                      }}
                     </button>
                     <button
                       type="button"
