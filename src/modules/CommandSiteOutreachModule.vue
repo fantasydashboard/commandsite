@@ -359,6 +359,9 @@ async function onDraftSaveAndApprove(payload: { id: string; subject: string; bod
   if (approveRes.ok) {
     outreachToasts.push(`✓ Sent to ${fresh.contact_name || fresh.company_name}`, 'success')
     closeDraftEditor()
+    // Also reload useLeads() so the inline Pipeline kanban reflects
+    // the new 'contacted' status without a hard refresh.
+    await reloadLeads()
   } else {
     errorMsg.value = approveRes.error ?? 'Failed to send'
   }
@@ -367,19 +370,29 @@ async function onApprove(lead: CsLead) {
   const r = await auto.approve(lead)
   if (r.ok) {
     outreachToasts.push(`✓ Sent to ${lead.contact_name || lead.company_name}`, 'success')
+    // useAutoOutreach owns its own leads ref; the kanban reads from
+    // useLeads' leads ref. Reload that one too so the card moves from
+    // New → Touch 1 sent immediately, no hard refresh required.
+    await reloadLeads()
   } else {
     errorMsg.value = r.error ?? 'Failed to send'
   }
 }
 async function onSkip(lead: CsLead) {
   const r = await auto.skip(lead)
-  if (r.ok) outreachToasts.push('Skipped — draft archived as rejected', 'info')
-  else errorMsg.value = r.error ?? 'Failed to skip'
+  if (r.ok) {
+    outreachToasts.push('Skipped — draft archived as rejected', 'info')
+    await reloadLeads()
+  } else {
+    errorMsg.value = r.error ?? 'Failed to skip'
+  }
 }
 async function onApproveAll() {
   const { sent, failed } = await auto.approveAll()
   if (sent > 0) outreachToasts.push(`✓ Sent ${sent} ${sent === 1 ? 'email' : 'emails'}`, 'success')
   if (failed > 0) outreachToasts.push(`${failed} failed — check Inbox`, 'warn')
+  // Kanban refresh after any sends
+  if (sent > 0) await reloadLeads()
 }
 async function onAutoApproveToggle(value: boolean) {
   await auto.setAutoApprove(value)
