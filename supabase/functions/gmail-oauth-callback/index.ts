@@ -72,6 +72,25 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url)
   const code = url.searchParams.get('code')
   const errorParam = url.searchParams.get('error')
+  const stateParam = url.searchParams.get('state') ?? ''
+
+  // Decode tenant from state (base64url-encoded JSON). Falls back to
+  // 'commandsite' if state is missing/malformed (backwards compat).
+  let tenant = 'commandsite'
+  let displayLabel = 'CommandSite'
+  if (stateParam) {
+    try {
+      const padded = stateParam.replace(/-/g, '+').replace(/_/g, '/')
+        + '==='.slice(0, (4 - stateParam.length % 4) % 4)
+      const decoded = JSON.parse(atob(padded)) as { tenant?: string; display_label?: string }
+      if (decoded.tenant && /^[a-z0-9][a-z0-9_-]*$/.test(decoded.tenant)) {
+        tenant = decoded.tenant
+      }
+      if (decoded.display_label) displayLabel = decoded.display_label
+    } catch {
+      // Malformed state — proceed with default tenant
+    }
+  }
 
   if (errorParam) {
     return htmlPage(
@@ -150,16 +169,34 @@ Deno.serve(async (req: Request) => {
     email = profile.email ?? 'unknown'
   }
 
-  // ── 3. Persist to cs_settings (singleton row)
+  // ── 3. Persist tokens. For backwards compat, tenant='commandsite'
+  // continues to write to cs_settings.gmail_*; all other tenants
+  // write to email_accounts (multi-tenant credential store).
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
-  const { error: dbErr } = await admin
-    .from('cs_settings')
-    .update({
-      gmail_refresh_token: tokens.refresh_token,
-      gmail_account_email: email,
-      gmail_connected_at: new Date().toISOString(),
-    })
-    .eq('id', 1)
+  let dbErr: { message: string } | null = null
+
+  if (tenant === 'commandsite') {
+    const { error } = await admin
+      .from('cs_settings')
+      .update({
+        gmail_refresh_token: tokens.refresh_token,
+        gmail_account_email: email,
+        gmail_connected_at: new Date().toISOString(),
+      })
+      .eq('id', 1)
+    dbErr = error
+  } else {
+    const { error } = await admin
+      .from('email_accounts')
+      .upsert({
+        tenant_key: tenant,
+        display_label: displayLabel,
+        account_email: email,
+        refresh_token: tokens.refresh_token,
+        connected_at: new Date().toISOString(),
+      }, { onConflict: 'tenant_key' })
+    dbErr = error
+  }
 
   if (dbErr) {
     return htmlPage(
@@ -171,9 +208,9 @@ Deno.serve(async (req: Request) => {
 
   // ── 4. Success page
   return htmlPage(
-    `<div class="icon">✅</div><h1>Gmail connected</h1>
-     <p>Future sends will go through <strong>${escapeHtml(email)}</strong>.</p>
-     <p>You can close this tab and head back to the Outreach page.</p>`,
+    `<div class="icon">✅</div><h1>${escapeHtml(displayLabel)} connected</h1>
+     <p>Future sends from this tenant will go through <strong>${escapeHtml(email)}</strong>.</p>
+     <p>You can close this tab and head back to the dashboard.</p>`,
   )
 })
 

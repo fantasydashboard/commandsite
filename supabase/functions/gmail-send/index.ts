@@ -56,6 +56,11 @@ interface SendBody {
    *  to. Adds In-Reply-To + References headers for non-Gmail clients
    *  that thread by header rather than threadId. */
   in_reply_to_message_id?: string
+  /** Multi-tenant routing. Defaults to 'commandsite' (cs_settings).
+   *  Other tenants ('ufd', 'cust-<uuid>') resolve to the
+   *  email_accounts table. Determines which Gmail account the message
+   *  sends from. */
+  tenant?: string
 }
 
 /** Base64url encoding per Gmail's API spec (no padding, URL-safe alphabet). */
@@ -147,21 +152,38 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ── Pull refresh token + connected email from cs_settings
+  // ── Pull refresh token + email for the requested tenant
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
-  const { data: settings, error: setErr } = await admin
-    .from('cs_settings')
-    .select('gmail_refresh_token, gmail_account_email')
-    .eq('id', 1)
-    .maybeSingle()
+  const tenant = body.tenant ?? 'commandsite'
+  let refreshToken: string | undefined
+  let fromEmail: string | undefined
 
-  if (setErr) return json({ ok: false, error: `Settings read failed: ${setErr.message}` }, 500)
-  const refreshToken = (settings as { gmail_refresh_token?: string } | null)?.gmail_refresh_token
-  const fromEmail = (settings as { gmail_account_email?: string } | null)?.gmail_account_email
+  if (tenant === 'commandsite') {
+    // Backwards-compat: read from cs_settings.gmail_*
+    const { data: settings, error: setErr } = await admin
+      .from('cs_settings')
+      .select('gmail_refresh_token, gmail_account_email')
+      .eq('id', 1)
+      .maybeSingle()
+    if (setErr) return json({ ok: false, error: `Settings read failed: ${setErr.message}` }, 500)
+    refreshToken = (settings as { gmail_refresh_token?: string } | null)?.gmail_refresh_token ?? undefined
+    fromEmail = (settings as { gmail_account_email?: string } | null)?.gmail_account_email ?? undefined
+  } else {
+    // Multi-tenant: read from email_accounts
+    const { data: account, error: acctErr } = await admin
+      .from('email_accounts')
+      .select('refresh_token, account_email')
+      .eq('tenant_key', tenant)
+      .maybeSingle()
+    if (acctErr) return json({ ok: false, error: `email_accounts read failed: ${acctErr.message}` }, 500)
+    refreshToken = (account as { refresh_token?: string } | null)?.refresh_token ?? undefined
+    fromEmail = (account as { account_email?: string } | null)?.account_email ?? undefined
+  }
+
   if (!refreshToken) {
     return json({
       ok: false,
-      error: 'Gmail not connected. Visit Settings → Connect Gmail.',
+      error: `Gmail not connected for tenant '${tenant}'. Visit Settings to connect.`,
     }, 400)
   }
 

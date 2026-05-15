@@ -479,6 +479,53 @@ export type CsReply = {
 
 export type CsReplyUpdate = Partial<Omit<CsReply, 'id' | 'created_at' | 'updated_at' | 'raw_payload'>>
 
+// ── UFD replies — parallel to CsReply but for the support@ufd inbox.
+// Classification shape is UFD-specific (feedback/question/support/cancel/praise
+// vs. cold-email's positive/objection/etc).
+export type UfdReplyClassification =
+  | 'feedback'
+  | 'question'
+  | 'support'
+  | 'cancel'
+  | 'praise'
+  | 'oof'
+  | 'unsubscribe'
+  | 'unclassified'
+
+export type UfdReply = {
+  id: string
+  user_email: string
+  user_name: string | null
+  reply_to_step: string | null
+  reply_to_message_id: string | null
+  from_email: string
+  from_name: string | null
+  subject: string | null
+  body: string
+  received_at: string
+  gmail_message_id: string | null
+  gmail_thread_id: string | null
+  classification: UfdReplyClassification | null
+  classification_confidence: number | null
+  classification_reason: string | null
+  classification_model: string | null
+  classified_at: string | null
+  drafted_response: string | null
+  drafted_at: string | null
+  draft_approved: boolean
+  draft_approved_at: string | null
+  draft_sent_at: string | null
+  auto_handled: boolean
+  auto_handled_action: string | null
+  auto_handled_at: string | null
+  needs_review: boolean
+  reviewed_by: string | null
+  reviewed_at: string | null
+  raw_payload: unknown
+  created_at: string
+  updated_at: string
+}
+
 // ---------------------------------------------------------------------------
 
 export type Database = {

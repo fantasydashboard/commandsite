@@ -9,11 +9,15 @@
  * campaign) + tight command bridge with the pulse + role chips.
  */
 import { ref, computed, watch } from 'vue'
-import type { Client } from '@/types/database'
+import type { Client, UfdReply } from '@/types/database'
 import { todayStats } from '@/lib/clients/ufd-redesign/today'
 import { useUfdTodayData } from '@/lib/clients/ufd-redesign/useUfdTodayData'
+import { useUfdReplyApproval } from '@/lib/clients/ufd-redesign/useUfdReplyApproval'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import UfdReplyApprovalQueue from '@/components/UfdReplyApprovalQueue.vue'
+import UfdReplyEditModal from '@/components/UfdReplyEditModal.vue'
+import { useToasts } from '@/components/grace/useToasts'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -175,6 +179,40 @@ function fmtAge(iso: string | null): string {
   if (s < 60) return `${s}s ago`
   return `${Math.floor(s / 60)}m ago`
 }
+
+// ── UFD reply queue (support@ufd inbox) ────────────────────────────
+const ufdReplies = useUfdReplyApproval()
+const ufdToasts = useToasts()
+const editingReply = ref<UfdReply | null>(null)
+function openReplyEditor(r: UfdReply) { editingReply.value = r }
+function closeReplyEditor() { editingReply.value = null }
+async function onReplyApprove(r: UfdReply) {
+  const result = await ufdReplies.approve(r)
+  if (result.ok) ufdToasts.push(`✓ Reply sent to ${r.from_name || r.from_email}`, 'success')
+  else ufdToasts.push(`Send failed: ${result.error}`, 'warn')
+}
+async function onReplySave(p: { reply: UfdReply; body: string }) {
+  const result = await ufdReplies.saveEdit(p.reply, p.body)
+  if (result.ok) { ufdToasts.push('✓ Edits saved', 'success'); closeReplyEditor() }
+  else ufdToasts.push(`Save failed: ${result.error}`, 'warn')
+}
+async function onReplySaveAndSend(p: { reply: UfdReply; body: string }) {
+  await ufdReplies.saveEdit(p.reply, p.body)
+  const fresh = ufdReplies.replies.value.find((x) => x.id === p.reply.id)
+  if (!fresh) return
+  const result = await ufdReplies.approve(fresh, { body: p.body })
+  if (result.ok) { ufdToasts.push(`✓ Sent to ${fresh.from_name || fresh.from_email}`, 'success'); closeReplyEditor() }
+  else ufdToasts.push(`Send failed: ${result.error}`, 'warn')
+}
+async function onReplySkip(r: UfdReply) {
+  const result = await ufdReplies.skip(r)
+  if (result.ok) ufdToasts.push('Skipped — no email sent', 'info')
+}
+async function onReplyRetryDraft(r: UfdReply) {
+  const result = await ufdReplies.retryDraft(r)
+  if (result.ok) ufdToasts.push('✓ Bones re-drafted', 'success')
+  else ufdToasts.push(`Retry failed: ${result.error}`, 'warn')
+}
 </script>
 
 <template>
@@ -186,12 +224,31 @@ function fmtAge(iso: string | null): string {
       :subtitle="`UFD activity stream — ${live.loading.value ? 'loading…' : 'live (polls every 60s, last refresh ' + fmtAge(live.lastFetchAt.value) + ')'}`"
     />
 
+    <!-- UFD support reply queue — real humans replying to lifecycle emails -->
+    <UfdReplyApprovalQueue
+      :items="ufdReplies.queueItems.value"
+      :busy="ufdReplies.busy.value"
+      :last-sent-id="ufdReplies.lastSentId.value"
+      @approve="onReplyApprove"
+      @edit="openReplyEditor"
+      @skip="onReplySkip"
+      @retry-draft="onReplyRetryDraft"
+    />
+
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="6"
       heading="Waiting for your eyes"
       :subtitle="`${greeting}. Bones drafted these from this week's signals. Approve to ship.`"
       @approved="onApproved"
+    />
+
+    <UfdReplyEditModal
+      :open="editingReply !== null"
+      :reply="editingReply"
+      @close="closeReplyEditor"
+      @save="onReplySave"
+      @save-and-send="onReplySaveAndSend"
     />
 
     <!-- Command bridge: pulse + KPIs ────────────────────────────── -->

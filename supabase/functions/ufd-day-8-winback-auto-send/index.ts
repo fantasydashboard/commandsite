@@ -156,7 +156,7 @@ Deno.serve(async (req: Request) => {
           Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           apikey: SERVICE_ROLE_KEY,
         },
-        body: JSON.stringify({ to: user.email, subject, body }),
+        body: JSON.stringify({ to: user.email, subject, body, tenant: 'ufd' }),
       })
       const result = await sendRes.json() as { ok?: boolean; message_id?: string; error?: string }
       if (!sendRes.ok || !result.ok) sendErr = `gmail-send: ${result.error ?? sendRes.statusText}`

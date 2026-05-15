@@ -72,6 +72,20 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Optional tenant — multi-account support. Defaults to 'commandsite'
+  // (Josh's outreach inbox). Other tenants today: 'ufd' for support@
+  // ultimatefantasydashboard.com. Future: 'cust-<uuid>' per customer.
+  let body: { tenant?: string; display_label?: string } = {}
+  try { body = await req.json() } catch { /* GET or no body, fine */ }
+  const tenant = body.tenant ?? 'commandsite'
+  const displayLabel = body.display_label ?? tenant
+
+  // Pack tenant into the OAuth state so the callback knows where to
+  // route the resulting refresh token. Base64url-encoded JSON.
+  const stateObj = { tenant, display_label: displayLabel }
+  const stateJson = JSON.stringify(stateObj)
+  const state = btoa(stateJson).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -82,11 +96,13 @@ Deno.serve(async (req: Request) => {
     // Without it, Google may omit refresh_token on second-time auth.
     prompt: 'consent',
     include_granted_scopes: 'true',
+    state,
   })
 
   return json({
     auth_url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
     redirect_uri: REDIRECT_URI,
     scope: SCOPE,
+    tenant,
   })
 })
