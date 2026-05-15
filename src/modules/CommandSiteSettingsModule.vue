@@ -109,67 +109,15 @@ async function disconnectGmail() {
   gmailConnecting.value = false
 }
 
-// ── UFD support email (separate tenant) ────────────────────────────
-// Reads from email_accounts table where tenant_key='ufd'. When
-// connected, UFD lifecycle emails send from support@
-// ultimatefantasydashboard.com and replies route to ufd_replies.
-interface EmailAccountRow {
-  tenant_key: string
-  account_email: string
-  connected_at: string
-}
-const ufdAccount = ref<EmailAccountRow | null>(null)
-const ufdConnecting = ref(false)
-const ufdError = ref<string | null>(null)
-let ufdPollHandle: ReturnType<typeof setInterval> | null = null
+// UFD support email connection moved to UfdRedesignSettingsModule —
+// UFD is treated as a client of CommandSite, so its email integration
+// lives on its own Settings tab (just like Apex / Cornerstone would).
+// CommandSite Settings only manages CommandSite's own Gmail
+// (josh@commandsite.io for cold outreach).
 
-async function loadUfdAccount() {
-  const { data } = await supabase
-    .from('email_accounts')
-    .select('tenant_key, account_email, connected_at')
-    .eq('tenant_key', 'ufd')
-    .maybeSingle()
-  ufdAccount.value = (data as EmailAccountRow | null) ?? null
-}
-
-async function connectUfdGmail() {
-  ufdConnecting.value = true
-  ufdError.value = null
-  try {
-    const { data, error } = await supabase.functions.invoke('gmail-oauth-start', {
-      body: { tenant: 'ufd', display_label: 'UFD support inbox' },
-    })
-    if (error) throw new Error(error.message)
-    const url = (data as { auth_url?: string })?.auth_url
-    if (!url) throw new Error('No auth_url returned')
-    window.open(url, '_blank', 'noopener')
-    if (ufdPollHandle) clearInterval(ufdPollHandle)
-    ufdPollHandle = setInterval(async () => {
-      await loadUfdAccount()
-      if (ufdAccount.value) {
-        if (ufdPollHandle) clearInterval(ufdPollHandle)
-        ufdPollHandle = null
-        ufdConnecting.value = false
-      }
-    }, 3000)
-  } catch (err) {
-    ufdError.value = err instanceof Error ? err.message : 'Failed to start OAuth'
-    ufdConnecting.value = false
-  }
-}
-
-async function disconnectUfdGmail() {
-  if (!confirm('Disconnect support@ultimatefantasydashboard.com? UFD lifecycle emails will fall back to sending from josh@commandsite.io.')) return
-  await supabase.from('email_accounts').delete().eq('tenant_key', 'ufd')
-  await loadUfdAccount()
-  if (ufdPollHandle) { clearInterval(ufdPollHandle); ufdPollHandle = null }
-  ufdConnecting.value = false
-}
-
-onMounted(() => { void liveSettings.load(); void loadUfdAccount() })
+onMounted(() => { void liveSettings.load() })
 onBeforeUnmount(() => {
   if (gmailPollHandle) clearInterval(gmailPollHandle)
-  if (ufdPollHandle) clearInterval(ufdPollHandle)
 })
 
 function fmtRelative(iso: string | null): string {
@@ -440,60 +388,6 @@ const intsByCategory = computed(() => {
           Approve in the Google tab that opened. This page will auto-refresh when done.
         </p>
         <p v-if="gmailError" class="text-xs text-danger">{{ gmailError }}</p>
-      </div>
-    </section>
-
-    <!-- UFD support email integration (separate tenant) -->
-    <section class="card">
-      <div class="mb-3 flex items-center justify-between gap-3 flex-wrap">
-        <div class="flex items-center gap-2">
-          <span class="eyebrow">UFD support email</span>
-          <span class="text-xs text-ink-muted">— powers UFD lifecycle sends + reply queue</span>
-        </div>
-        <span
-          v-if="ufdAccount"
-          class="rounded-full bg-success/15 text-success border border-success/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-        >Connected</span>
-        <span
-          v-else
-          class="rounded-full bg-warn/15 text-warn border border-warn/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-        >Not connected</span>
-      </div>
-
-      <div v-if="ufdAccount" class="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <div class="text-sm text-ink">
-            Sending as <strong class="font-semibold">{{ ufdAccount.account_email }}</strong>
-          </div>
-          <p class="text-xs text-ink-muted mt-0.5">
-            UFD welcome + Day 3 + Day 6 + Day 8 emails send from this account. Replies route into the UFD Reply Queue on UFD Today.
-            <span v-if="ufdAccount.connected_at">Connected {{ fmtRelative(ufdAccount.connected_at) }}.</span>
-          </p>
-        </div>
-        <button
-          type="button"
-          class="rounded-md border border-danger/40 text-danger bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-danger/10"
-          @click="disconnectUfdGmail"
-        >Disconnect</button>
-      </div>
-
-      <div v-else class="space-y-3">
-        <p class="text-sm text-ink-muted">
-          Connect <strong>support@ultimatefantasydashboard.com</strong> so UFD lifecycle emails send from a UFD-branded address (not your personal CommandSite Gmail).
-          Until connected, UFD emails fall back to your CommandSite Gmail.
-        </p>
-        <button
-          type="button"
-          class="rounded-md bg-accent text-white px-4 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
-          :disabled="ufdConnecting"
-          @click="connectUfdGmail"
-        >
-          {{ ufdConnecting ? 'Waiting for Google authorization…' : 'Connect support@ultimatefantasydashboard.com' }}
-        </button>
-        <p v-if="ufdConnecting" class="text-xs text-ink-muted">
-          Approve in the Google tab that opened (sign in as support@ultimatefantasydashboard.com).
-        </p>
-        <p v-if="ufdError" class="text-xs text-danger">{{ ufdError }}</p>
       </div>
     </section>
 
