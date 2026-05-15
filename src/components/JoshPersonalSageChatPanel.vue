@@ -10,7 +10,7 @@
  * Conversation lives in-session (no persistence v1). Refresh = fresh
  * conversation. Future: save threads to a personal_chat_threads table.
  */
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue'
 import AssistantMark from '@/components/AssistantMark.vue'
 import { useSage, type ChatMessage } from '@/lib/clients/josh-personal/sageApi'
 
@@ -22,7 +22,22 @@ const emit = defineEmits<{
   (e: 'data-changed', payload: { tools: string[] }): void
 }>()
 
-const { messages, sending, error, sendMessage, clear } = useSage()
+const { messages, sending, error, sendMessage, abort, clear } = useSage()
+
+// Live elapsed-seconds counter for the "Sage is thinking…" indicator.
+// A turn that uses fetch_url can take 30+s; without a counter, slow
+// looks identical to broken.
+const elapsedSec = ref(0)
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
+watch(sending, (active) => {
+  if (active) {
+    elapsedSec.value = 0
+    elapsedTimer = setInterval(() => { elapsedSec.value += 1 }, 1000)
+  } else {
+    if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null }
+  }
+})
+onBeforeUnmount(() => { if (elapsedTimer) clearInterval(elapsedTimer) })
 
 const input = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
@@ -195,7 +210,9 @@ const isEmpty = computed(() => messages.value.length === 0)
         <div v-if="sending" class="flex items-start gap-2">
           <AssistantMark class="h-5 w-5 text-brand mt-0.5 shrink-0 animate-pulse" />
           <div class="flex-1">
-            <div class="text-xs text-ink-muted italic">Sage is thinking…</div>
+            <div class="text-xs text-ink-muted italic">
+              Sage is thinking… <span class="tabular-nums">{{ elapsedSec }}s</span>
+            </div>
             <div class="mt-1.5 flex items-center gap-1">
               <span class="h-1.5 w-1.5 rounded-full bg-brand animate-bounce" style="animation-delay: 0ms" />
               <span class="h-1.5 w-1.5 rounded-full bg-brand animate-bounce" style="animation-delay: 150ms" />
@@ -218,13 +235,18 @@ const isEmpty = computed(() => messages.value.length === 0)
             @keydown="onKeydown"
           />
           <button
+            v-if="!sending"
             type="button"
             class="rounded-md bg-brand text-white px-3 py-2 text-xs font-semibold hover:opacity-90 disabled:opacity-50 shrink-0"
-            :disabled="sending || !input.trim()"
+            :disabled="!input.trim()"
             @click="onSend"
-          >
-            {{ sending ? '…' : 'Send' }}
-          </button>
+          >Send</button>
+          <button
+            v-else
+            type="button"
+            class="rounded-md border border-divider bg-surface text-ink px-3 py-2 text-xs font-semibold hover:bg-surface-elevated shrink-0"
+            @click="abort"
+          >Stop</button>
         </div>
         <p class="text-[10px] text-ink-disabled mt-1.5">
           Sage may take a few seconds when fetching URLs or running multiple tools.

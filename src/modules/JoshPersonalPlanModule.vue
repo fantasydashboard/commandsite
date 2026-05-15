@@ -7,9 +7,10 @@
  * shaped the plan, the 7-day grid (with meals/workouts toggles),
  * Sage's swap rationale, and the auto-generated shopping list.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
+import JoshPersonalPlanNextPopover from '@/components/JoshPersonalPlanNextPopover.vue'
 import {
   NEXT_WEEK_LABEL,
   weeklyPlan as mockWeeklyPlan,
@@ -20,13 +21,80 @@ import {
   shoppingEstimateUsd as mockShoppingEstimateUsd,
   activeConcerns,
 } from '@/lib/clients/josh-personal/health'
-import { useWeeklyPlan } from '@/lib/clients/josh-personal/weeklyPlanApi'
+import {
+  useWeeklyPlan,
+  type WeeklyPlan,
+  type MealFeedbackRow,
+  type MealSlot,
+} from '@/lib/clients/josh-personal/weeklyPlanApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 // Live plan from DB; falls through to mock when no plan generated yet
-const { plan: realPlan, generating, isApproved, regenerate: regeneratePlan, revise: revisePlan, approve: approvePlan } = useWeeklyPlan()
+const {
+  plan: realPlan,
+  generating,
+  isApproved,
+  revise: revisePlan,
+  approve: approvePlan,
+  generateWithOptions,
+  quickReact,
+  submitReview,
+  markReviewed,
+  fetchPriorUnreviewed,
+  fetchPlanFeedback,
+} = useWeeklyPlan()
 const usingReal = computed(() => realPlan.value !== null)
+
+// ── Plan-next popover state ─────────────────────────────────────────
+const popoverOpen = ref(false)
+const priorUnreviewed = ref<WeeklyPlan | null>(null)
+const priorFeedback = ref<MealFeedbackRow[]>([])
+
+async function openPlanNext() {
+  // Refresh prior unreviewed + its feedback before opening
+  const prior = await fetchPriorUnreviewed()
+  priorUnreviewed.value = prior
+  priorFeedback.value = prior ? await fetchPlanFeedback(prior.id) : []
+  popoverOpen.value = true
+}
+
+async function onSubmitReview(payload: Parameters<typeof submitReview>[0]): Promise<{ ok: boolean }> {
+  return submitReview(payload)
+}
+async function onMarkReviewed(planId: string): Promise<{ ok: boolean }> {
+  return markReviewed(planId)
+}
+async function onGenerate(payload: Parameters<typeof generateWithOptions>[0]): Promise<{ ok: boolean; error?: string }> {
+  return generateWithOptions(payload)
+}
+
+// ── Inline 👎/👍 reactions on meal cards ───────────────────────────
+// Track which (day_idx, slot) pairs were just-reacted so we can show a
+// transient confirmation. The actual reaction lives in the DB.
+const justReacted = ref<Map<string, 'loved' | 'never_again'>>(new Map())
+function reactKey(dayIdx: number, slot: MealSlot) { return `${dayIdx}-${slot}` }
+async function reactToMeal(dayIdx: number, slot: MealSlot, mealName: string, reaction: 'loved' | 'never_again') {
+  if (!realPlan.value) return
+  const r = await quickReact({
+    plan_id: realPlan.value.id,
+    day_idx: dayIdx,
+    meal_slot: slot,
+    meal_name: mealName,
+    reaction,
+  })
+  if (r.ok) {
+    const key = reactKey(dayIdx, slot)
+    const next = new Map(justReacted.value)
+    next.set(key, reaction)
+    justReacted.value = next
+  }
+}
+
+onMounted(async () => {
+  // Eagerly fetch prior-unreviewed so we can badge "review last week" on the page
+  priorUnreviewed.value = await fetchPriorUnreviewed()
+})
 
 const weeklyPlan = computed(() => realPlan.value?.days ?? mockWeeklyPlan)
 const weekStrategy = computed(() => realPlan.value?.strategy ?? mockWeekStrategy)
@@ -37,21 +105,13 @@ const shoppingEstimateUsd = computed(() => realPlan.value?.totals?.shopping_esti
 const weekLabel = computed(() => {
   if (!realPlan.value) return NEXT_WEEK_LABEL
   const start = new Date(realPlan.value.week_starting + 'T00:00:00')
-  const end = new Date(start)
-  end.setDate(end.getDate() + 6)
+  const endIso = realPlan.value.end_date ?? realPlan.value.week_starting
+  const end = new Date(endIso + 'T00:00:00')
   const fmt = (d: Date) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   return `${fmt(start)} - ${fmt(end)}`
 })
 
 const actionError = ref<string | null>(null)
-async function onRegenerate() {
-  actionError.value = null
-  const r = await regeneratePlan()
-  if (!r.ok) {
-    actionError.value = r.error ?? 'Failed to regenerate'
-    setTimeout(() => { actionError.value = null }, 8000)
-  }
-}
 async function onApprove() {
   actionError.value = null
   const r = await approvePlan()
@@ -154,11 +214,12 @@ function toggleItem(name: string) {
               type="button"
               class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50 inline-flex items-center gap-1.5"
               :disabled="generating"
-              @click="onRegenerate"
+              @click="openPlanNext"
             >
               <AssistantMark class="h-3.5 w-3.5 text-brand" />
               <span v-if="generating">Sage is drafting…</span>
-              <span v-else>{{ usingReal ? 'Regenerate' : 'Generate first plan' }}</span>
+              <span v-else-if="priorUnreviewed">Review &amp; plan next</span>
+              <span v-else>{{ usingReal ? 'Plan next' : 'Generate first plan' }}</span>
             </button>
             <button
               v-if="usingReal && !isApproved"
@@ -376,7 +437,25 @@ function toggleItem(name: string) {
                     <div class="text-[10px] font-semibold uppercase tracking-wider text-brand mb-2">Meal detail</div>
                     <div class="grid sm:grid-cols-2 gap-3">
                       <div v-for="(meal, slot) in d.meals" :key="slot">
-                        <div class="text-[10px] uppercase tracking-wider text-ink-muted mb-0.5">{{ slot }}</div>
+                        <div class="flex items-center justify-between gap-2">
+                          <div class="text-[10px] uppercase tracking-wider text-ink-muted mb-0.5">{{ slot }}</div>
+                          <div v-if="usingReal && realPlan" class="flex items-center gap-1">
+                            <button
+                              type="button"
+                              class="text-[11px] leading-none rounded-md border border-divider px-1.5 py-1 hover:border-brand"
+                              :class="justReacted.get(reactKey(weeklyPlan.indexOf(d), slot as MealSlot)) === 'loved' ? 'bg-success/15 border-success text-success' : 'text-ink-muted hover:text-success'"
+                              :title="'Mark loved'"
+                              @click.stop="reactToMeal(weeklyPlan.indexOf(d), slot as MealSlot, meal.name, 'loved')"
+                            >👍</button>
+                            <button
+                              type="button"
+                              class="text-[11px] leading-none rounded-md border border-divider px-1.5 py-1 hover:border-brand"
+                              :class="justReacted.get(reactKey(weeklyPlan.indexOf(d), slot as MealSlot)) === 'never_again' ? 'bg-danger/15 border-danger text-danger' : 'text-ink-muted hover:text-danger'"
+                              :title="'Mark never again'"
+                              @click.stop="reactToMeal(weeklyPlan.indexOf(d), slot as MealSlot, meal.name, 'never_again')"
+                            >👎</button>
+                          </div>
+                        </div>
                         <div class="text-ink font-semibold">{{ meal.name }}</div>
                         <div class="text-ink-muted text-[12px] leading-snug">{{ meal.detail }}</div>
                         <div class="text-[10px] text-ink-disabled mt-0.5">{{ meal.cal }} cal · {{ meal.protein }}g protein</div>
@@ -455,5 +534,18 @@ function toggleItem(name: string) {
         </div>
       </div>
     </section>
+
+    <!-- ── Plan-next popover ───────────────────────────────────────── -->
+    <JoshPersonalPlanNextPopover
+      :open="popoverOpen"
+      :current-plan="realPlan"
+      :prior-unreviewed="priorUnreviewed"
+      :prior-feedback="priorFeedback"
+      :generating="generating"
+      @close="popoverOpen = false"
+      @submit-review="onSubmitReview"
+      @mark-reviewed="onMarkReviewed"
+      @generate="onGenerate"
+    />
   </div>
 </template>

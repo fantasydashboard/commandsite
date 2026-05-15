@@ -52,15 +52,15 @@ Your job: a complete, executable 7-day plan that respects his real biology + rea
 
 1. **strategy** (1-2 paragraphs, ~80-150 words) — Why this plan looks the way it does. Reference specific data: deficit target, sat fat tightening from current LDL, protein bumps if he's been under-hitting, volume changes based on HRV trend, etc. Voice: direct + cited, not corporate.
 
-2. **days** — Array of 7 day objects, Mon → Sun. Each day:
-   - day: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun"
+2. **days** — Array of day objects covering the planning window (could be 3, 7, 14 — match the LENGTH given in the user message). Each day:
+   - day: short label like "Mon", "Tue", "Wed" — derived from the date
    - date: ISO date "YYYY-MM-DD"
    - workout: short name like "Push", "Pull", "Legs", "Full body", "Cardio", or null for rest day
    - workout_detail: one-line summary of the session if not rest
    - workout_exercises: array of {name, sets (e.g. "4 × 6"), load (e.g. "185 lbs"), notes (optional, like "Add 5 lbs vs last session")}
-   - meals: { breakfast, lunch, dinner, snacks } each with {name, cal, protein, detail (1-line ingredient list)}
-   - totalCal: integer (sum of meal calories)
-   - totalProtein: integer (sum of meal protein)
+   - meals: an object whose keys are the slots from INCLUDED_SLOTS in the user message (a subset of breakfast/lunch/dinner/snacks). Each meal: {name, cal, protein, detail (1-line ingredient list), servings (integer ≥ 1, defaults to that slot's value in SERVINGS BY SLOT)}. Macros stay PER ONE SERVING (Josh's portion) regardless of servings.
+   - totalCal: integer (sum of meal calories for Josh's portion — i.e. one of each slot, NOT multiplied by servings)
+   - totalProtein: integer (same — Josh's portion only)
 
 3. **shopping_list** — Aggregated grocery items. Array of {name, qty (e.g. "24 oz", "2 lbs", "1 dozen"), category (one of: "Proteins" | "Carbs & Grains" | "Produce" | "Pantry" | "Dairy" | "Other")}. See SHOPPING LIST AGGREGATION rules below — read those before writing this section.
 
@@ -111,8 +111,10 @@ The shopping list is the #1 spot Sage gets wrong. Follow this procedure exactly.
 - If an ingredient does NOT appear in any day's meal detail, it does NOT go on the shopping list. No exceptions.
 - "Common pantry items he probably has" is NOT a reason to add an item. Only list what the meals require.
 
-**Step 5 — quantity is FOR ONE PERSON unless told otherwise.**
-- This plan is for Josh, not a family. 4 oz raw chicken = ONE serving for ONE meal for ONE person.
+**Step 5 — multiply each meal's ingredient quantities by its servings.**
+- The user message tells you SERVINGS BY SLOT for this plan (breakfast/lunch/dinner/snacks each independently). Example: dinner=4 means each dinner feeds 4 — so 4 oz raw chicken per portion × 4 portions = 16 oz of raw chicken for that dinner.
+- Macro fields (cal, protein) on each meal stay as ONE serving (Josh's portion). Only the shopping-list ingredient quantities scale by servings.
+- If a meal's "servings" differs from the slot default for that meal (e.g. a date-night dinner for 2 when default is 4), use that meal's explicit value.
 
 **Step 6 — annotation field.** When you write the qty string, include a parenthetical that shows WHERE the quantity came from. This is a debugging aid for you AND a check for Josh.
 - Good: "1.25 lbs (Mon lunch 10 oz + Fri dinner 10 oz)"
@@ -127,6 +129,16 @@ If the annotation math doesn't add up to the qty, the qty is wrong. Recompute.
 - Variety enough that it doesn't feel like prison food. ~4-5 distinct dinners per week.
 - Lean on cuisines from cuisines_loved. Default to Mediterranean if list is empty.
 - Snacks are usually high-protein (Greek yogurt, cottage cheese, whey + nuts) since they're easiest way to hit protein target.
+
+# LEARNED PREFERENCES (read this every time, treat as constraints)
+
+The user message includes a LEARNED PREFERENCES section listing ingredients with verdicts ('never_again', 'caution', 'loved') drawn from Josh's feedback on prior plans. Treat them like food avoidances + signals:
+
+- **never_again**: hard constraint, no exceptions. Do not include this ingredient in any meal.
+- **caution**: avoid where reasonable. If you do include it, flag it in swaps with the reason from the prefs row.
+- **loved**: free to repeat. Lean into these when picking proteins, sides, or flavors. Doesn't mean you must use them, just that variety pressure is lower for these.
+
+These prefs OVERRIDE the "variety" guidance above when they conflict. Repetition Josh actually wants is better than novelty he'll reject.
 
 # WORKOUT DESIGN PRINCIPLES (research-backed, 20-30 min sessions)
 
@@ -210,9 +222,15 @@ interface WorkoutLogEntry {
   actual_exercises: WorkoutLogExercise[]
 }
 
+type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
+
 interface PlanContext {
-  week_starting: string
+  start_date: string
+  end_date: string
+  length_days: number
   date_label: string
+  servings_by_slot: Record<MealSlot, number>
+  included_slots: MealSlot[]
   profile: Record<string, unknown> | null
   targets: Record<string, unknown> | null
   bloodwork_latest: { drawn_at: string; markers: Record<string, number> } | null
@@ -226,13 +244,42 @@ interface PlanContext {
   }
   goals: { label: string; status: string; detail: string }[]
   recent_workout_log: WorkoutLogEntry[]
+  ingredient_prefs: { ingredient: string; verdict: 'loved' | 'never_again' | 'caution'; reasons: string[] }[]
 }
 
 function buildUserMessage(ctx: PlanContext): string {
   const lines: string[] = []
-  lines.push(`# WEEK STARTING`)
-  lines.push(`Week of ${ctx.date_label} (Mon ${ctx.week_starting})`)
+  lines.push(`# PLAN WINDOW`)
+  lines.push(`${ctx.length_days} days starting ${ctx.start_date} through ${ctx.end_date} (${ctx.date_label}).`)
   lines.push('')
+
+  lines.push(`# INCLUDED SLOTS`)
+  lines.push(`Only plan meals for these slots — skip any slot not listed: ${ctx.included_slots.join(', ')}`)
+  lines.push('')
+
+  lines.push(`# SERVINGS BY SLOT`)
+  lines.push(`How many portions to make at each slot. Macros stay per ONE serving; shopping list scales by servings.`)
+  for (const slot of ctx.included_slots) {
+    lines.push(`- ${slot}: ${ctx.servings_by_slot[slot] ?? 1}`)
+  }
+  lines.push('')
+
+  if (ctx.ingredient_prefs.length > 0) {
+    lines.push(`# LEARNED PREFERENCES (from Josh's prior feedback)`)
+    const never = ctx.ingredient_prefs.filter((p) => p.verdict === 'never_again')
+    const caution = ctx.ingredient_prefs.filter((p) => p.verdict === 'caution')
+    const loved = ctx.ingredient_prefs.filter((p) => p.verdict === 'loved')
+    if (never.length > 0) {
+      lines.push(`- NEVER USE (hard constraint): ${never.map((p) => p.ingredient).join(', ')}`)
+    }
+    if (caution.length > 0) {
+      lines.push(`- CAUTION (avoid where reasonable; flag in swaps if used): ${caution.map((p) => `${p.ingredient}${p.reasons.length > 0 ? ` (${p.reasons[0]})` : ''}`).join(', ')}`)
+    }
+    if (loved.length > 0) {
+      lines.push(`- LOVED (repeat freely): ${loved.map((p) => p.ingredient).join(', ')}`)
+    }
+    lines.push('')
+  }
 
   if (ctx.profile) {
     const p = ctx.profile as Record<string, unknown>
@@ -336,12 +383,12 @@ const TOOLS = [
         strategy: { type: 'string', description: 'Why this plan looks the way it does. ~80-150 words. Reference his actual numbers.' },
         days: {
           type: 'array',
-          minItems: 7,
-          maxItems: 7,
+          minItems: 1,
+          maxItems: 30,
           items: {
             type: 'object',
             properties: {
-              day: { type: 'string', enum: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+              day: { type: 'string', description: 'Short label like "Mon", "Tue" derived from the date' },
               date: { type: 'string', description: 'ISO date YYYY-MM-DD' },
               workout: { type: ['string', 'null'], description: 'Short name like "Push", or null for rest day' },
               workout_detail: { type: ['string', 'null'] },
@@ -360,13 +407,13 @@ const TOOLS = [
               },
               meals: {
                 type: 'object',
+                description: 'Only include keys for slots listed in INCLUDED SLOTS in the user message. Macros are per-ONE-serving.',
                 properties: {
-                  breakfast: { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' } }, required: ['name', 'cal', 'protein', 'detail'] },
-                  lunch:     { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' } }, required: ['name', 'cal', 'protein', 'detail'] },
-                  dinner:    { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' } }, required: ['name', 'cal', 'protein', 'detail'] },
-                  snacks:    { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' } }, required: ['name', 'cal', 'protein', 'detail'] },
+                  breakfast: { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' }, servings: { type: 'number' } }, required: ['name', 'cal', 'protein', 'detail'] },
+                  lunch:     { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' }, servings: { type: 'number' } }, required: ['name', 'cal', 'protein', 'detail'] },
+                  dinner:    { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' }, servings: { type: 'number' } }, required: ['name', 'cal', 'protein', 'detail'] },
+                  snacks:    { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, protein: { type: 'number' }, detail: { type: 'string' }, servings: { type: 'number' } }, required: ['name', 'cal', 'protein', 'detail'] },
                 },
-                required: ['breakfast', 'lunch', 'dinner', 'snacks'],
               },
               totalCal: { type: 'number' },
               totalProtein: { type: 'number' },
@@ -425,9 +472,24 @@ function nextMondayIso(): string {
   return d.toISOString().slice(0, 10)
 }
 
+function addDaysIso(isoDate: string, days: number): string {
+  const d = new Date(isoDate + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+interface PlanRequest {
+  start_date: string
+  length_days: number
+  servings_by_slot: Record<MealSlot, number>
+  included_slots: MealSlot[]
+}
+
 // deno-lint-ignore no-explicit-any
-async function assemblePlanContext(admin: any, userId: string, weekStartingIso: string): Promise<PlanContext> {
-  const dateLabel = new Date(weekStartingIso + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+async function assemblePlanContext(admin: any, userId: string, req: PlanRequest): Promise<PlanContext> {
+  const startDate = req.start_date
+  const endDate = addDaysIso(startDate, req.length_days - 1)
+  const dateLabel = new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
   const { data: profile } = await admin
     .from('personal_profile').select('*').eq('user_id', userId).maybeSingle()
@@ -531,9 +593,22 @@ async function assemblePlanContext(admin: any, userId: string, weekStartingIso: 
     .limit(14)
   const workoutLog: WorkoutLogEntry[] = (workoutLogRows ?? []) as unknown as WorkoutLogEntry[]
 
+  // Learned ingredient preferences (from prior plan feedback)
+  const { data: prefsRows } = await admin
+    .from('personal_ingredient_prefs')
+    .select('ingredient, verdict, reasons')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(100)
+  const ingredientPrefs = ((prefsRows ?? []) as { ingredient: string; verdict: 'loved' | 'never_again' | 'caution'; reasons: string[] }[])
+
   return {
-    week_starting: weekStartingIso,
+    start_date: startDate,
+    end_date: endDate,
+    length_days: req.length_days,
     date_label: dateLabel,
+    servings_by_slot: req.servings_by_slot,
+    included_slots: req.included_slots,
     profile,
     targets,
     bloodwork_latest: bloodwork as PlanContext['bloodwork_latest'],
@@ -547,6 +622,7 @@ async function assemblePlanContext(admin: any, userId: string, weekStartingIso: 
     },
     goals,
     recent_workout_log: workoutLog,
+    ingredient_prefs: ingredientPrefs,
   }
 }
 
@@ -591,16 +667,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (userIds.length === 0) return json({ generated: trigger, plans: [], message: 'No admin users with profiles' })
 
   // Body
-  let body: { week_starting?: string; revision_request?: string }
+  let body: {
+    start_date?: string
+    week_starting?: string  // legacy alias
+    length_days?: number
+    servings_by_slot?: Partial<Record<MealSlot, number>>
+    included_slots?: MealSlot[]
+    revision_request?: string
+  }
   try { body = await req.json() } catch { body = {} }
-  const weekStarting = body.week_starting ?? nextMondayIso()
+  const startDate = body.start_date ?? body.week_starting ?? nextMondayIso()
+  const lengthDays = Math.max(1, Math.min(30, Number(body.length_days ?? 7)))
+  const ALL_SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snacks']
+  const includedSlots: MealSlot[] = Array.isArray(body.included_slots) && body.included_slots.length > 0
+    ? (body.included_slots.filter((s) => ALL_SLOTS.includes(s)) as MealSlot[])
+    : ALL_SLOTS
+  const servingsByDefault = { breakfast: 1, lunch: 1, dinner: 1, snacks: 1 } as Record<MealSlot, number>
+  const servingsByPayload = body.servings_by_slot ?? {}
+  const servingsBySlot: Record<MealSlot, number> = {
+    breakfast: Math.max(1, Math.min(20, Number(servingsByPayload.breakfast ?? servingsByDefault.breakfast))),
+    lunch:     Math.max(1, Math.min(20, Number(servingsByPayload.lunch     ?? servingsByDefault.lunch))),
+    dinner:    Math.max(1, Math.min(20, Number(servingsByPayload.dinner    ?? servingsByDefault.dinner))),
+    snacks:    Math.max(1, Math.min(20, Number(servingsByPayload.snacks    ?? servingsByDefault.snacks))),
+  }
+  const planRequest: PlanRequest = {
+    start_date: startDate,
+    length_days: lengthDays,
+    servings_by_slot: servingsBySlot,
+    included_slots: includedSlots,
+  }
   const revisionRequest = (body.revision_request ?? '').trim() || null
 
-  const plans: { user_id: string; week_starting: string; status: 'ok' | 'error'; error?: string }[] = []
+  const plans: { user_id: string; start_date: string; status: 'ok' | 'error'; error?: string }[] = []
 
   for (const userId of userIds) {
     try {
-      const ctx = await assemblePlanContext(admin, userId, weekStarting)
+      const ctx = await assemblePlanContext(admin, userId, planRequest)
       let userMessage = buildUserMessage(ctx)
 
       // Revision mode: load the existing plan and inject it + Josh's request
@@ -609,10 +711,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
           .from('personal_weekly_plans')
           .select('strategy, days, shopping_list, swaps, totals')
           .eq('user_id', userId)
-          .eq('week_starting', weekStarting)
+          .eq('week_starting', startDate)
           .maybeSingle()
         if (!existing) {
-          plans.push({ user_id: userId, week_starting: weekStarting, status: 'error', error: 'No existing plan to revise — generate one first' })
+          plans.push({ user_id: userId, start_date: startDate, status: 'error', error: 'No existing plan to revise — generate one first' })
           continue
         }
         const e = existing as Record<string, unknown>
@@ -645,7 +747,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       if (!res.ok) {
         const text = await res.text().catch(() => '')
-        plans.push({ user_id: userId, week_starting: weekStarting, status: 'error', error: `Anthropic ${res.status}: ${text.slice(0, 250)}` })
+        plans.push({ user_id: userId, start_date: startDate, status: 'error', error: `Anthropic ${res.status}: ${text.slice(0, 250)}` })
         continue
       }
 
@@ -653,13 +755,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const data = await res.json() as { content?: Array<{ type: string; name?: string; input?: any }> }
       const toolUse = data.content?.find((c) => c.type === 'tool_use' && c.name === 'save_weekly_plan')
       if (!toolUse?.input) {
-        plans.push({ user_id: userId, week_starting: weekStarting, status: 'error', error: 'Sage did not call save_weekly_plan' })
+        plans.push({ user_id: userId, start_date: startDate, status: 'error', error: 'Sage did not call save_weekly_plan' })
         continue
       }
 
       const planRow = {
         user_id: userId,
-        week_starting: weekStarting,
+        week_starting: startDate,  // legacy column — keeps old reads working
+        end_date: ctx.end_date,
+        servings_by_slot: ctx.servings_by_slot,
+        included_slots: ctx.included_slots,
         strategy: toolUse.input.strategy,
         days: toolUse.input.days,
         shopping_list: toolUse.input.shopping_list ?? [],
@@ -677,14 +782,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .upsert(planRow as never, { onConflict: 'user_id,week_starting' })
 
       if (upsertErr) {
-        plans.push({ user_id: userId, week_starting: weekStarting, status: 'error', error: `DB write: ${upsertErr.message}` })
+        plans.push({ user_id: userId, start_date: startDate, status: 'error', error: `DB write: ${upsertErr.message}` })
       } else {
-        plans.push({ user_id: userId, week_starting: weekStarting, status: 'ok' })
+        plans.push({ user_id: userId, start_date: startDate, status: 'ok' })
       }
     } catch (err) {
-      plans.push({ user_id: userId, week_starting: weekStarting, status: 'error', error: err instanceof Error ? err.message : String(err) })
+      plans.push({ user_id: userId, start_date: startDate, status: 'error', error: err instanceof Error ? err.message : String(err) })
     }
   }
 
-  return json({ generated: trigger, week_starting: weekStarting, plans })
+  return json({ generated: trigger, start_date: startDate, length_days: lengthDays, plans })
 })

@@ -12,53 +12,207 @@
  * session — for now, what's here is the foundation that the brief
  * will plug into.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { Client } from '@/types/database'
+import { supabase } from '@/lib/supabase'
 import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalOnboardingModal from '@/components/JoshPersonalOnboardingModal.vue'
 import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
 import JoshPersonalMealPhotoModal from '@/components/JoshPersonalMealPhotoModal.vue'
 import JoshPersonalWorkoutPanel from '@/components/JoshPersonalWorkoutPanel.vue'
 import JoshPersonalWeightTrendCard from '@/components/JoshPersonalWeightTrendCard.vue'
+import JoshPersonalNowCard from '@/components/JoshPersonalNowCard.vue'
+import JoshPersonalQuickLogPopover from '@/components/JoshPersonalQuickLogPopover.vue'
+import JoshPersonalDailyRings from '@/components/JoshPersonalDailyRings.vue'
+import JoshPersonalHydrationCard from '@/components/JoshPersonalHydrationCard.vue'
+import JoshPersonalDaySchedule from '@/components/JoshPersonalDaySchedule.vue'
+import JoshPersonalExperimentsCard from '@/components/JoshPersonalExperimentsCard.vue'
 import {
   TODAY_LABEL,
   STEPS_DAILY_TARGET,
-  sageActivity,
   activeConcerns,
   todayPlan,
-  trendArrow,
 } from '@/lib/clients/josh-personal/health'
 import { useHealthData } from '@/lib/clients/josh-personal/healthData'
 import { useProfile } from '@/lib/clients/josh-personal/profileApi'
 import { useMorningBrief } from '@/lib/clients/josh-personal/morningBriefApi'
 import { useWeeklyPlan } from '@/lib/clients/josh-personal/weeklyPlanApi'
 import { useMealLog } from '@/lib/clients/josh-personal/mealLogApi'
+import { useNowState, type NowAction } from '@/lib/clients/josh-personal/nowStateApi'
+import { useExperiments } from '@/lib/clients/josh-personal/experimentsApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-const { snapshot, dailyWeight } = useHealthData()
+const { snapshot, dailyWeight, trends } = useHealthData()
 const { profile, hasProfile, targets, loading: profileLoading } = useProfile()
 const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: regenerateBrief } = useMorningBrief()
 const { todaySlice: realTodaySlice } = useWeeklyPlan()
 const { todayMeals, todayTotals, recentDays, totalLogged, load: reloadMealLog, deleteMeal } = useMealLog()
+const { state: nowState, loading: nowLoading, refreshing: nowRefreshing, refresh: refreshNow, refreshedAgo: nowRefreshedAgo, isStale: nowIsStale } = useNowState()
+const { active: activeExperiments, recentlyCompleted: completedExperiments, daysRemaining: experimentDaysRemaining, progressPct: experimentProgressPct } = useExperiments()
 
-function fmtMealTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+// ── Today's water + sleep helpers (read directly from personal_metrics) ──
+// useHealthData gives us snapshot.sleep + dailyHrvAvg trends, but not
+// today's water sum. Pull it here so the rings + hydration card stay
+// live as Sage / quick-log writes new rows.
+const todayWaterOz = ref<number>(0)
+async function loadTodayWater() {
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) return
+  const start = new Date(); start.setHours(0, 0, 0, 0)
+  const { data } = await supabase
+    .from('personal_metrics')
+    .select('value')
+    .eq('metric_type', 'water_intake')
+    .gte('recorded_at', start.toISOString())
+  todayWaterOz.value = ((data ?? []) as { value: number | string }[])
+    .reduce((s, r) => s + Number(r.value), 0)
 }
-function mealSlotLabel(slot: string | null): string {
-  if (!slot) return 'meal'
-  return slot.charAt(0).toUpperCase() + slot.slice(1)
+onMounted(loadTodayWater)
+async function reloadAfterMetricWrite() {
+  await loadTodayWater()
 }
-function pct(part: number, whole: number): number {
-  if (!whole) return 0
-  return Math.min(100, Math.round((part / whole) * 100))
-}
+
 async function onDeleteMeal(id: string) {
   if (!window.confirm('Delete this meal entry?')) return
   await deleteMeal(id)
 }
 const showRecent = ref(false)
+
+// ── Today's steps from snapshot (string like "8,247" → number) ──
+const todayStepsNumeric = computed<number>(() => {
+  const raw = String(snapshot.value.steps.value).replace(/,/g, '')
+  const n = parseInt(raw, 10)
+  return isNaN(n) ? 0 : n
+})
+
+// ── Last-night sleep hours (number) ──
+const lastNightSleep = computed<number | null>(() => {
+  const v = snapshot.value.sleep.value
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') {
+    const n = parseFloat(v)
+    return isNaN(n) ? null : n
+  }
+  return null
+})
+
+// ── Target lookups with safe fallbacks ──
+type TargetsShape = {
+  daily_cal_target: number
+  protein_g: number
+  water_oz?: number
+}
+const safeTargets = computed<TargetsShape>(() => {
+  const t = targets.value as TargetsShape | null
+  return {
+    daily_cal_target: t?.daily_cal_target ?? 2200,
+    protein_g: t?.protein_g ?? 180,
+    water_oz: t?.water_oz ?? 96,
+  }
+})
+const sleepTargetHours = computed<number>(() => {
+  const v = (profile.value as { sleep_target_hours?: number } | null)?.sleep_target_hours
+  return typeof v === 'number' && v > 0 ? v : 7.5
+})
+
+// ── Micro-insights derived from the 56-day trend window ──
+const microInsights = computed<string[]>(() => {
+  const out: string[] = []
+  const t = trends.value
+  if (!t) return out
+
+  // HRV last 7 vs prior 7
+  const hrv = t.hrv?.values ?? []
+  if (hrv.length >= 14) {
+    const recent7 = hrv.slice(-7)
+    const prior7 = hrv.slice(-14, -7)
+    const avg = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length
+    const recentAvg = avg(recent7)
+    const priorAvg = avg(prior7)
+    if (priorAvg > 0) {
+      const pctDiff = ((recentAvg - priorAvg) / priorAvg) * 100
+      if (Math.abs(pctDiff) >= 5) {
+        const dir = pctDiff > 0 ? 'up' : 'down'
+        out.push(`HRV ${dir} ${Math.abs(pctDiff).toFixed(0)}% week-over-week (${Math.round(recentAvg)}ms vs ${Math.round(priorAvg)}ms).`)
+      }
+    }
+  }
+
+  // Steps last 7 vs prior 7
+  const steps = t.steps?.values ?? []
+  if (steps.length >= 14) {
+    const recent7 = steps.slice(-7)
+    const prior7 = steps.slice(-14, -7)
+    const avg = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length
+    const recentAvg = avg(recent7)
+    const priorAvg = avg(prior7)
+    if (priorAvg > 0) {
+      const pctDiff = ((recentAvg - priorAvg) / priorAvg) * 100
+      if (Math.abs(pctDiff) >= 10) {
+        const dir = pctDiff > 0 ? 'up' : 'down'
+        out.push(`Steps ${dir} ${Math.abs(pctDiff).toFixed(0)}% this week (avg ${Math.round(recentAvg).toLocaleString()}/day).`)
+      }
+    }
+  }
+
+  // Sleep 7-day avg vs target
+  const sleep = t.sleep?.values ?? []
+  if (sleep.length >= 7) {
+    const avg7 = sleep.slice(-7).reduce((s, v) => s + v, 0) / 7
+    const tgt = sleepTargetHours.value
+    if (avg7 < tgt - 0.4) {
+      out.push(`Averaging ${avg7.toFixed(1)}h sleep — ${(tgt - avg7).toFixed(1)}h under target.`)
+    } else if (avg7 > tgt + 0.3) {
+      out.push(`Averaging ${avg7.toFixed(1)}h sleep — on or above target.`)
+    }
+  }
+  return out.slice(0, 3)
+})
+
+// ── Quick-log popover ──
+const quickLogOpen = ref(false)
+function openQuickLog() { quickLogOpen.value = true }
+async function onQuickLogged(kind: 'weight' | 'water' | 'mood' | 'bp') {
+  await reloadAfterMetricWrite()
+  // No-op for kinds we don't currently re-derive from. Future: scroll to relevant card.
+  void kind
+}
+
+// ── Now-card actions ──
+function onNowAction(action: NowAction) {
+  if (action.kind === 'log_water') {
+    const oz = Number((action.payload as { oz?: number } | undefined)?.oz ?? 16)
+    // Use the silent water-log path then refresh totals
+    import('@/lib/clients/josh-personal/nowStateApi').then(async (m) => {
+      await m.logWaterOz(oz)
+      await reloadAfterMetricWrite()
+    })
+  } else if (action.kind === 'log_weight' || action.kind === 'log_mood') {
+    openQuickLog()
+  } else if (action.kind === 'open_chat') {
+    chatOpen.value = true
+  } else if (action.kind === 'open_plan') {
+    // Plan is a sibling tab — best-effort navigate via query string used elsewhere.
+    window.location.hash = ''  // no-op; routing handled by tab UI in DashboardLayout
+  }
+}
+
+// ── Planned-meals shape for the merged day-schedule (normalize from
+//      "snacks" plan-key vs the underlying mock) ──
+type PlanSlot = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
+const plannedTodayMeals = computed<Partial<Record<PlanSlot, { name: string; cal: number; protein: number; detail: string; servings?: number }>> | null>(() => {
+  const t = realTodaySlice.value ?? todayPlan()
+  if (!t || !t.meals) return null
+  const m = t.meals as Record<string, { name: string; cal: number; protein: number; detail: string; servings?: number }>
+  return {
+    breakfast: m.breakfast,
+    lunch: m.lunch,
+    dinner: m.dinner,
+    snacks: m.snacks,
+  }
+})
 
 // ── Weight-goal progress (for the "bigger goals" strip) ───────────────
 //
@@ -219,12 +373,6 @@ const todayPlannedExercises = computed<PlannedWorkoutExercise[]>(() => {
   }))
 })
 
-const stepsProgress = computed(() => {
-  const raw = String(snapshot.value.steps.value).replace(/,/g, '')
-  const n = parseInt(raw, 10) || 0
-  return Math.min(1, n / STEPS_DAILY_TARGET)
-})
-
 // Ask Sage chat — real agent loop with tools
 const chatOpen = ref(false)
 
@@ -234,39 +382,35 @@ const mealPhotoOpen = ref(false)
 
 <template>
   <div class="space-y-5">
-    <!-- ── Sage activity strip ──────────────────────────────────────── -->
-    <section class="card overflow-hidden p-0 border border-brand/30">
-      <div class="flex items-start gap-3 bg-brand/5 px-5 py-3 border-b border-brand/20">
-        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15 text-brand flex-shrink-0">
-          <AssistantMark class="h-5 w-5" />
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap mb-0.5">
-            <span class="text-sm font-semibold text-ink">Sage's role on this page</span>
-            <span class="rounded-full bg-brand/15 text-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
-              <span>🌿</span>
-              <span>Health Coach</span>
-            </span>
+    <!-- ── Now card (time-aware hero from Sage) ───────────────────── -->
+    <JoshPersonalNowCard
+      v-if="hasProfile"
+      :state="nowState"
+      :loading="nowLoading"
+      :refreshing="nowRefreshing"
+      :refreshed-ago="nowRefreshedAgo"
+      :is-stale="nowIsStale"
+      @refresh="refreshNow"
+      @action="onNowAction"
+    />
+
+    <!-- ── Active concerns strip ─────────────────────────────────── -->
+    <section v-if="activeConcerns.length > 0" class="card p-3 border-warn/30">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="text-base shrink-0">⚠️</span>
+          <div class="min-w-0">
+            <div class="text-xs font-semibold text-ink">
+              {{ activeConcerns.length }} active concern{{ activeConcerns.length === 1 ? '' : 's' }} from your last blood draw
+            </div>
+            <div class="text-[11px] text-ink-muted truncate">
+              {{ activeConcerns.map(c => `${c.label} (${c.value})`).join(' · ') }}
+            </div>
           </div>
-          <p class="text-xs text-ink-muted leading-relaxed">
-            Your daily AI coach. She reads your Apple Watch, blood work, and profile to tell you what to focus on today.
-          </p>
         </div>
-      </div>
-      <div class="px-5 py-3 bg-surface-raised">
-        <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-2">
-          Sage's recent activity here
-        </div>
-        <ul class="space-y-1.5">
-          <li v-for="(a, i) in sageActivity" :key="i" class="flex items-start gap-2 text-xs">
-            <span class="text-base shrink-0 leading-none mt-0.5">{{ a.icon }}</span>
-            <span class="flex-1 min-w-0">
-              <span class="font-semibold text-ink">{{ a.label }}</span>
-              <span class="text-ink-muted">  {{ a.detail }}</span>
-            </span>
-            <span class="text-[10px] text-ink-disabled shrink-0">{{ a.ago }}</span>
-          </li>
-        </ul>
+        <RouterLink v-slot="{ navigate }" :to="{ query: { tab: 'bloodwork' } }" custom>
+          <button type="button" class="text-xs font-medium text-brand hover:underline shrink-0" @click="navigate">View bloodwork →</button>
+        </RouterLink>
       </div>
     </section>
 
@@ -297,107 +441,32 @@ const mealPhotoOpen = ref(false)
       </div>
     </section>
 
-    <!-- ── Profile-driven targets (when profile exists) ─────────────── -->
-    <section v-if="hasProfile && targets" class="card p-0 overflow-hidden">
-      <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
-        <div>
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
-            Your targets · calculated from your profile
-          </div>
-          <div class="font-semibold text-ink mt-0.5">
+    <!-- ── Targets summary (one-line, links to onboarding) ──────────── -->
+    <section v-if="hasProfile && targets" class="card p-3">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="min-w-0">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Targets · calculated from your profile</div>
+          <div class="text-sm font-semibold text-ink mt-0.5 tabular-nums">
             {{ targets.daily_cal_target.toLocaleString() }} kcal · {{ targets.protein_g }}g protein · ≤ {{ targets.sat_fat_g_ceiling }}g sat fat
-          </div>
-        </div>
-        <button
-          type="button"
-          class="text-xs text-brand font-medium hover:underline"
-          @click="onboardingOpen = true"
-        >Edit profile</button>
-      </header>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-divider">
-        <!-- Calories -->
-        <div class="bg-surface px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Calories</div>
-          <div class="text-xl font-bold text-ink tabular-nums">
-            <span :class="todayTotals.cal > 0 ? 'text-brand' : 'text-ink'">{{ Math.round(todayTotals.cal).toLocaleString() }}</span>
-            <span class="text-sm font-normal text-ink-muted">/ {{ targets.daily_cal_target.toLocaleString() }}</span>
-          </div>
-          <div class="mt-1.5 h-1 w-full bg-brand/15 rounded-full overflow-hidden">
-            <div class="h-full bg-brand rounded-full transition-all" :style="{ width: `${pct(todayTotals.cal, targets.daily_cal_target)}%` }" />
-          </div>
-          <div class="text-[10px] text-ink-muted mt-1">
-            {{ Math.max(0, Math.round(targets.daily_cal_target - todayTotals.cal)).toLocaleString() }} cal left
-            <span class="text-ink-disabled ml-1">·
+            <span class="text-ink-muted text-xs font-normal ml-1">·
               {{ targets.deficit_or_surplus_kcal !== 0
                 ? `${targets.deficit_or_surplus_kcal > 0 ? '+' : ''}${targets.deficit_or_surplus_kcal} vs TDEE`
                 : 'maintenance' }}
             </span>
           </div>
-        </div>
-
-        <!-- Protein -->
-        <div class="bg-surface px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Protein</div>
-          <div class="text-xl font-bold text-ink tabular-nums">
-            <span :class="todayTotals.protein_g > 0 ? 'text-success' : 'text-ink'">{{ Math.round(todayTotals.protein_g) }}</span>
-            <span class="text-sm font-normal text-ink-muted">/ {{ targets.protein_g }}g</span>
-          </div>
-          <div class="mt-1.5 h-1 w-full bg-success/15 rounded-full overflow-hidden">
-            <div class="h-full bg-success rounded-full transition-all" :style="{ width: `${pct(todayTotals.protein_g, targets.protein_g)}%` }" />
-          </div>
-          <div class="text-[10px] text-ink-muted mt-1">
-            {{ Math.max(0, Math.round(targets.protein_g - todayTotals.protein_g)) }}g left
-            <span class="text-ink-disabled ml-1">· {{ targets.protein_per_lb }}g/lb</span>
+          <div
+            v-if="targets.computed_from.bloodwork_adjustments.length > 0"
+            class="text-[11px] text-warn mt-1"
+          >
+            <strong class="font-semibold">Sage's blood-work guardrails:</strong>
+            {{ targets.computed_from.bloodwork_adjustments.join(' · ') }}
           </div>
         </div>
-
-        <!-- Fat -->
-        <div class="bg-surface px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Fat</div>
-          <div class="text-xl font-bold text-ink tabular-nums">
-            <span :class="todayTotals.fat_g > 0 ? 'text-brand' : 'text-ink'">{{ Math.round(todayTotals.fat_g) }}</span>
-            <span class="text-sm font-normal text-ink-muted">/ {{ targets.fat_g_target }}g</span>
-          </div>
-          <div class="mt-1.5 h-1 w-full bg-brand/15 rounded-full overflow-hidden">
-            <div class="h-full bg-brand rounded-full transition-all" :style="{ width: `${pct(todayTotals.fat_g, targets.fat_g_target)}%` }" />
-          </div>
-          <div class="text-[10px] text-ink-muted mt-1">
-            {{ Math.max(0, Math.round(targets.fat_g_target - todayTotals.fat_g)) }}g left
-            <span class="text-ink-disabled ml-1">· carbs {{ targets.carbs_g }}g</span>
-          </div>
-        </div>
-
-        <!-- Sat fat ceiling -->
-        <div class="bg-surface px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-warn">Sat fat ceiling</div>
-          <div class="text-xl font-bold tabular-nums">
-            <span :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'text-danger' : 'text-warn'">{{ todayTotals.sat_fat_g.toFixed(1) }}</span>
-            <span class="text-sm font-normal text-ink-muted">/ ≤{{ targets.sat_fat_g_ceiling }}g</span>
-          </div>
-          <div class="mt-1.5 h-1 w-full bg-warn/15 rounded-full overflow-hidden">
-            <div
-              class="h-full rounded-full transition-all"
-              :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'bg-danger' : 'bg-warn'"
-              :style="{ width: `${pct(todayTotals.sat_fat_g, targets.sat_fat_g_ceiling)}%` }"
-            />
-          </div>
-          <div class="text-[10px] mt-1" :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'text-danger font-semibold' : 'text-ink-muted'">
-            <template v-if="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling">
-              {{ (todayTotals.sat_fat_g - targets.sat_fat_g_ceiling).toFixed(1) }}g over
-            </template>
-            <template v-else>
-              {{ Math.max(0, (targets.sat_fat_g_ceiling - todayTotals.sat_fat_g)).toFixed(1) }}g headroom
-            </template>
-            <span class="text-ink-disabled ml-1">· {{ targets.computed_from.has_bloodwork_concerns ? 'bloodwork-tightened' : 'general' }}</span>
-          </div>
-        </div>
-      </div>
-      <div
-        v-if="targets.computed_from.bloodwork_adjustments.length > 0"
-        class="px-4 py-2 bg-warn/5 border-t border-warn/10 text-[11px] text-warn"
-      >
-        <strong class="font-semibold">Sage's blood-work guardrails:</strong>
-        {{ targets.computed_from.bloodwork_adjustments.join(' · ') }}
+        <button
+          type="button"
+          class="text-xs text-brand font-medium hover:underline shrink-0"
+          @click="onboardingOpen = true"
+        >Edit profile</button>
       </div>
     </section>
 
@@ -525,105 +594,83 @@ const mealPhotoOpen = ref(false)
 
     <p v-if="briefRegenError" class="text-sm text-danger">{{ briefRegenError }}</p>
 
-    <!-- ── Today header + snapshot ──────────────────────────────────── -->
-    <div>
-      <div class="flex items-end justify-between gap-3 mb-3 flex-wrap">
-        <div>
-          <h2 class="text-xl font-semibold text-ink">Today · {{ TODAY_LABEL }}</h2>
-          <p class="text-xs text-ink-muted mt-0.5">Apple Watch + Apple Health, synced this morning.</p>
-        </div>
-        <button class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90">
-          + Quick log
-        </button>
+    <!-- ── Experiments (active + recently completed) ───────────────── -->
+    <JoshPersonalExperimentsCard
+      v-if="hasProfile"
+      :active="activeExperiments"
+      :recently-completed="completedExperiments"
+      :days-remaining="experimentDaysRemaining"
+      :progress-pct="experimentProgressPct"
+    />
+
+    <!-- ── Today header + Quick log button ────────────────────────── -->
+    <div class="flex items-end justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="text-xl font-semibold text-ink">Today · {{ TODAY_LABEL }}</h2>
+        <p class="text-xs text-ink-muted mt-0.5">Apple Watch + Apple Health, synced this morning.</p>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div class="card p-3">
-          <div class="kpi-label">Sleep</div>
-          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.sleep.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.sleep.unit }}</span></div>
-          <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.sleep.trend) }} {{ snapshot.sleep.delta }}</div>
+      <div class="flex items-center gap-2">
+        <div class="card p-2 px-3 flex items-center gap-2">
+          <span class="text-[10px] uppercase tracking-wider text-ink-muted">Streak</span>
+          <span class="text-sm font-bold tabular-nums text-ink">{{ snapshot.streak.value }}<span class="text-[10px] font-normal text-ink-muted ml-0.5">{{ snapshot.streak.unit }}</span></span>
         </div>
-        <div class="card p-3">
-          <div class="kpi-label">Steps · 10k goal</div>
-          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.steps.value }}</div>
-          <div class="mt-1.5 h-1 w-full bg-brand/15 rounded-full overflow-hidden">
-            <div class="h-full rounded-full bg-brand transition-all" :style="{ width: `${stepsProgress * 100}%` }" />
-          </div>
-          <div class="text-[11px] text-ink-muted mt-1">{{ Math.round(stepsProgress * 100) }}% to 10k</div>
-        </div>
-        <div class="card p-3">
-          <div class="kpi-label">Weight</div>
-          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.weight.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.weight.unit }}</span></div>
-          <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.weight.trend) }} {{ snapshot.weight.delta }}</div>
-        </div>
-        <div class="card p-3">
-          <div class="kpi-label">HRV (morning)</div>
-          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.hrv.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.hrv.unit }}</span></div>
-          <div class="text-[11px] text-success mt-0.5">{{ trendArrow(snapshot.hrv.trend) }} {{ snapshot.hrv.delta }}</div>
-        </div>
-        <div class="card p-3">
-          <div class="kpi-label">Streak</div>
-          <div class="text-2xl font-bold tabular-nums text-ink">{{ snapshot.streak.value }}<span class="text-sm font-normal text-ink-muted ml-0.5">{{ snapshot.streak.unit }}</span></div>
-          <div class="text-[11px] text-ink-muted mt-0.5">{{ snapshot.streak.delta }}</div>
-        </div>
+        <button
+          type="button"
+          class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90"
+          @click="openQuickLog"
+        >+ Quick log</button>
       </div>
     </div>
 
-    <!-- ── Today's plan slice (workout + meals from current week) ──── -->
-    <div v-if="today" class="grid gap-4 lg:grid-cols-2">
-      <JoshPersonalWorkoutPanel
-        :workout="today.workout ?? null"
-        :exercises="todayPlannedExercises"
-      />
+    <!-- ── Goal-aware daily rings + micro-insights ──────────────── -->
+    <JoshPersonalDailyRings
+      :calories-value="todayTotals.cal"
+      :calories-target="safeTargets.daily_cal_target"
+      :protein-value="todayTotals.protein_g"
+      :protein-target="safeTargets.protein_g"
+      :steps-value="todayStepsNumeric"
+      :steps-target="STEPS_DAILY_TARGET"
+      :water-value="todayWaterOz"
+      :water-target="safeTargets.water_oz ?? 96"
+      :sleep-value="lastNightSleep"
+      :sleep-target="sleepTargetHours"
+      :micro-insights="microInsights"
+    />
 
-      <section class="card p-0 overflow-hidden">
-        <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
-          <div>
-            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Today's meals</div>
-            <div class="font-semibold text-ink mt-0.5">
-              {{ today.totalCal.toLocaleString() }} cal · {{ today.totalProtein }}g protein
-            </div>
-            <div class="text-[11px] text-ink-muted mt-0.5">From this week's plan · view all on Plan tab</div>
-          </div>
-        </header>
-        <ul class="divide-y divide-divider">
-          <li v-for="(meal, slot) in today.meals" :key="slot" class="px-4 py-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="font-semibold text-ink text-sm capitalize">{{ slot }}</span>
-              <span class="text-[11px] text-ink-muted tabular-nums">{{ meal.cal }} cal · {{ meal.protein }}g p</span>
-            </div>
-            <div class="text-sm text-ink mt-0.5">{{ meal.name }}</div>
-            <p class="text-xs text-ink-muted mt-0.5 leading-snug">{{ meal.detail }}</p>
-          </li>
-        </ul>
-      </section>
-    </div>
+    <!-- ── Hydration tap-log ──────────────────────────────────────── -->
+    <JoshPersonalHydrationCard
+      :today-oz="todayWaterOz"
+      :target-oz="safeTargets.water_oz ?? 96"
+      @logged="reloadAfterMetricWrite"
+    />
 
-    <!-- ── Today's logged meals (real food log) ────────────────────── -->
-    <section class="card p-0 overflow-hidden">
-      <header class="flex items-start justify-between gap-3 px-4 py-3 border-b border-divider bg-surface-elevated">
-        <div>
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Today's food log</div>
-          <div class="font-semibold text-ink mt-0.5">
-            {{ todayTotals.cal.toLocaleString() }} cal logged · {{ todayTotals.protein_g.toFixed(0) }}g protein
-            <span v-if="todayTotals.sat_fat_g > 0" class="text-ink-muted text-xs font-normal ml-2">· {{ todayTotals.sat_fat_g.toFixed(1) }}g sat fat</span>
-          </div>
-          <div class="text-[11px] text-ink-muted mt-0.5">
-            <template v-if="todayMeals.length > 0">
-              {{ todayMeals.length }} {{ todayMeals.length === 1 ? 'meal' : 'meals' }} logged · log via Ask Sage chat
-            </template>
-            <template v-else>
-              Nothing logged yet today. Tell Sage what you ate.
-            </template>
-          </div>
+    <!-- ── Today: plan vs actual (merged) ─────────────────────────── -->
+    <JoshPersonalDaySchedule
+      :planned-meals="plannedTodayMeals"
+      :logged-meals="todayMeals"
+      :show-plan-fallback-hint="true"
+      @delete-meal="onDeleteMeal"
+    />
+
+    <!-- ── Today's workout ────────────────────────────────────────── -->
+    <JoshPersonalWorkoutPanel
+      v-if="today"
+      :workout="today.workout ?? null"
+      :exercises="todayPlannedExercises"
+    />
+
+    <!-- ── Snap meal + recent days expander ───────────────────────── -->
+    <section class="card p-3">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="text-[11px] text-ink-muted">
+          Log meals via Ask Sage chat or snap a photo →
         </div>
         <div class="flex items-center gap-2">
           <button
             type="button"
             class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1"
             @click="mealPhotoOpen = true"
-          >
-            📷 Snap meal
-          </button>
+          >📷 Snap meal</button>
           <button
             v-if="totalLogged > todayMeals.length"
             type="button"
@@ -631,87 +678,10 @@ const mealPhotoOpen = ref(false)
             @click="showRecent = !showRecent"
           >{{ showRecent ? 'Hide' : 'Show' }} past 14d</button>
         </div>
-      </header>
-
-      <!-- Empty state -->
-      <div v-if="todayMeals.length === 0" class="px-4 py-6 text-center">
-        <p class="text-xs text-ink-muted leading-relaxed">
-          Open Ask Sage and tell her what you ate.<br/>
-          <span class="text-ink-disabled">Try: <code class="font-mono">"Log: 3 eggs, oats with berries, black coffee"</code></span>
-        </p>
       </div>
-
-      <!-- Today's meals -->
-      <ul v-else class="divide-y divide-divider">
-        <li v-for="m in todayMeals" :key="m.id" class="px-4 py-3 group">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2 flex-wrap mb-0.5">
-                <span class="font-semibold text-ink text-sm">{{ mealSlotLabel(m.meal_slot) }}</span>
-                <span class="text-[10px] text-ink-disabled">· {{ fmtMealTime(m.logged_at) }}</span>
-                <span class="text-[10px] text-ink-disabled">· {{ m.source === 'chat' ? 'via Sage' : m.source }}</span>
-              </div>
-              <div class="text-sm text-ink leading-snug">{{ m.description }}</div>
-              <div class="flex items-center gap-3 mt-1 text-[11px] text-ink-muted tabular-nums">
-                <span v-if="m.estimated_cal != null">{{ m.estimated_cal }} cal</span>
-                <span v-if="m.estimated_protein_g != null">{{ m.estimated_protein_g }}g p</span>
-                <span v-if="m.estimated_fat_g != null">{{ m.estimated_fat_g }}g f</span>
-                <span v-if="m.estimated_sat_fat_g != null" class="text-warn">{{ m.estimated_sat_fat_g }}g sat</span>
-                <span v-if="m.estimated_carbs_g != null">{{ m.estimated_carbs_g }}g c</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="text-[11px] text-danger opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              @click="onDeleteMeal(m.id)"
-            >Delete</button>
-          </div>
-        </li>
-      </ul>
-
-      <!-- Targets-progress bars -->
-      <div v-if="targets && todayMeals.length > 0" class="px-4 py-3 bg-canvas border-t border-divider space-y-2">
-        <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Today vs. targets</div>
-        <div>
-          <div class="flex items-baseline justify-between text-[11px] mb-0.5">
-            <span class="text-ink-muted">Calories</span>
-            <span class="text-ink tabular-nums">{{ todayTotals.cal.toLocaleString() }} / {{ targets.daily_cal_target.toLocaleString() }}</span>
-          </div>
-          <div class="h-1 w-full bg-brand/15 rounded-full overflow-hidden">
-            <div class="h-full bg-brand rounded-full transition-all" :style="{ width: `${pct(todayTotals.cal, targets.daily_cal_target)}%` }" />
-          </div>
-        </div>
-        <div>
-          <div class="flex items-baseline justify-between text-[11px] mb-0.5">
-            <span class="text-ink-muted">Protein</span>
-            <span class="text-ink tabular-nums">{{ todayTotals.protein_g.toFixed(0) }}g / {{ targets.protein_g }}g</span>
-          </div>
-          <div class="h-1 w-full bg-success/15 rounded-full overflow-hidden">
-            <div class="h-full bg-success rounded-full transition-all" :style="{ width: `${pct(todayTotals.protein_g, targets.protein_g)}%` }" />
-          </div>
-        </div>
-        <div v-if="targets.sat_fat_g_ceiling">
-          <div class="flex items-baseline justify-between text-[11px] mb-0.5">
-            <span class="text-ink-muted">Sat fat (ceiling)</span>
-            <span
-              class="tabular-nums"
-              :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'text-danger font-semibold' : 'text-ink'"
-            >{{ todayTotals.sat_fat_g.toFixed(1) }}g / ≤{{ targets.sat_fat_g_ceiling }}g</span>
-          </div>
-          <div class="h-1 w-full bg-warn/15 rounded-full overflow-hidden">
-            <div
-              class="h-full rounded-full transition-all"
-              :class="todayTotals.sat_fat_g > targets.sat_fat_g_ceiling ? 'bg-danger' : 'bg-warn'"
-              :style="{ width: `${pct(todayTotals.sat_fat_g, targets.sat_fat_g_ceiling)}%` }"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Recent days history (collapsed) -->
-      <div v-if="showRecent && recentDays.length > 0" class="border-t border-divider divide-y divide-divider">
-        <div v-for="day in recentDays" :key="day.day" class="px-4 py-3">
-          <div class="flex items-baseline justify-between mb-2">
+      <div v-if="showRecent && recentDays.length > 0" class="border-t border-divider mt-3 pt-3 divide-y divide-divider">
+        <div v-for="day in recentDays" :key="day.day" class="py-3 first:pt-0">
+          <div class="flex items-baseline justify-between mb-1.5">
             <div class="text-xs font-semibold text-ink">{{ day.dayLabel }}</div>
             <div class="text-[11px] text-ink-muted tabular-nums">
               {{ day.totals.cal.toLocaleString() }} cal · {{ day.totals.protein.toFixed(0) }}g p · {{ day.items.length }} {{ day.items.length === 1 ? 'meal' : 'meals' }}
@@ -719,37 +689,13 @@ const mealPhotoOpen = ref(false)
           </div>
           <ul class="space-y-1">
             <li v-for="m in day.items" :key="m.id" class="text-[11px] text-ink-muted leading-snug">
-              <span class="text-ink-disabled mr-1">{{ fmtMealTime(m.logged_at) }}</span>
-              <span class="text-ink">{{ mealSlotLabel(m.meal_slot) }}:</span>
+              <span class="text-ink-disabled mr-1">{{ new Date(m.logged_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) }}</span>
+              <span class="text-ink capitalize">{{ m.meal_slot ?? 'meal' }}:</span>
               {{ m.description }}
               <span v-if="m.estimated_cal" class="text-ink-disabled tabular-nums ml-1">({{ m.estimated_cal }} cal)</span>
             </li>
           </ul>
         </div>
-      </div>
-    </section>
-
-    <!-- ── Active concerns reminder ────────────────────────────────── -->
-    <section v-if="activeConcerns.length > 0" class="card p-3 border-warn/30">
-      <div class="flex items-center justify-between gap-3 flex-wrap">
-        <div class="flex items-center gap-3">
-          <span class="text-base">⚠️</span>
-          <div>
-            <div class="text-xs font-semibold text-ink">
-              {{ activeConcerns.length }} active concern{{ activeConcerns.length === 1 ? '' : 's' }} from your last blood draw
-            </div>
-            <div class="text-[11px] text-ink-muted">
-              {{ activeConcerns.map(c => c.label).join(' · ') }}
-            </div>
-          </div>
-        </div>
-        <RouterLink
-          v-slot="{ navigate }"
-          :to="{ query: { tab: 'bloodwork' } }"
-          custom
-        >
-          <button type="button" class="text-xs font-medium text-brand hover:underline" @click="navigate">View bloodwork →</button>
-        </RouterLink>
       </div>
     </section>
 
@@ -781,6 +727,13 @@ const mealPhotoOpen = ref(false)
       :current-weight-lbs="currentWeightLbs"
       @close="onboardingOpen = false"
       @saved="onboardingOpen = false"
+    />
+
+    <!-- ── Quick log popover ───────────────────────────────────────── -->
+    <JoshPersonalQuickLogPopover
+      :open="quickLogOpen"
+      @close="quickLogOpen = false"
+      @logged="onQuickLogged"
     />
   </div>
 </template>

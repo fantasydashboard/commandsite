@@ -48,6 +48,12 @@
 // Body:    Health Auto Export JSON (above)
 // Returns: { metrics_inserted, workouts_inserted, errors }
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, HEALTH_AUTO_EXPORT_SECRET
+//
+// MUST DEPLOY WITH --no-verify-jwt. The HAE iOS app can only send a custom
+// header (X-Webhook-Secret), not an Authorization: Bearer JWT. Without the
+// flag, Supabase's gateway rejects every request with
+// `UNAUTHORIZED_NO_AUTH_HEADER` before this function runs.
+//   supabase functions deploy health-auto-export-webhook --no-verify-jwt
 
 // deno-lint-ignore no-explicit-any
 declare const Deno: any

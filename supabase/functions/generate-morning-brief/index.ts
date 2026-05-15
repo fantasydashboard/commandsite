@@ -79,6 +79,12 @@ Your job: anchor him for the day with what the data is actually saying. Not gene
 - Weight trend — compare current to 7d ago and 30d ago
 - Sleep debt — sum of (target - actual) over last 7 days
 
+# CONTINUITY — use yesterday's actuals and active experiments
+
+If the user message has a YESTERDAY ACTUALS section, treat it as the bridge from yesterday to today. Lead todays_focus with one sentence that picks up the thread: "You hit protein but missed water — let's fix the water first today." If yesterday went well, say so concretely ("under sat fat all day, +5 lbs on bench") rather than skipping it. This is what makes the brief feel like a real coach instead of a static template.
+
+If the user message has an ACTIVE EXPERIMENTS section, those are mid-flight. Mention any "READY FOR VERDICT" experiment in todays_focus — call out by title and offer to review it. Mention experiments still in progress in goal_check or patterns_noticed when they're the most relevant signal. Never restart an experiment without reading verdict status; respect the ones already in motion.
+
 # GUARDRAILS
 
 - Don't invent data. If a number isn't in the context, don't reference it.
@@ -119,6 +125,31 @@ interface BriefContext {
     total_protein: number | null
   } | null
   goals: { label: string; status: string; detail: string }[]
+  // Yesterday's rollup from personal_daily_adherence (continuity).
+  yesterday_adherence: {
+    date: string
+    meals_logged: number
+    cal: number
+    protein_g: number
+    sat_fat_g: number
+    water_oz: number
+    steps: number
+    workout_done: boolean
+    sleep_hours: number | null
+    flags: { hit_cal: boolean | null; hit_protein: boolean | null; under_sat_fat: boolean | null; hit_water: boolean | null; hit_steps: boolean | null }
+  } | null
+  // Active experiments — flag any ready for verdict (end_date passed).
+  active_experiments: {
+    id: string
+    title: string
+    hypothesis: string
+    primary_metric: string
+    baseline_value: number | null
+    success_criteria: string
+    end_date: string
+    days_remaining: number
+    ready_for_verdict: boolean
+  }[]
 }
 
 function buildUserMessage(ctx: BriefContext): string {
@@ -199,6 +230,36 @@ function buildUserMessage(ctx: BriefContext): string {
     lines.push(`# ACTIVE GOALS`)
     for (const g of ctx.goals) {
       lines.push(`- ${g.label} — ${g.status} — ${g.detail}`)
+    }
+    lines.push('')
+  }
+
+  if (ctx.yesterday_adherence) {
+    const y = ctx.yesterday_adherence
+    lines.push(`# YESTERDAY ACTUALS (${y.date}) — use for continuity in todays_focus and goal_check`)
+    lines.push(`- Meals logged: ${y.meals_logged}`)
+    lines.push(`- Cal: ${Math.round(y.cal)}${y.flags.hit_cal === true ? ' ✓' : y.flags.hit_cal === false ? ' (off-target)' : ''}`)
+    lines.push(`- Protein: ${Math.round(y.protein_g)}g${y.flags.hit_protein === true ? ' ✓' : y.flags.hit_protein === false ? ' (under)' : ''}`)
+    lines.push(`- Sat fat: ${y.sat_fat_g.toFixed(1)}g${y.flags.under_sat_fat === false ? ' (OVER ceiling)' : ''}`)
+    lines.push(`- Water: ${Math.round(y.water_oz)}oz${y.flags.hit_water ? ' ✓' : ''}`)
+    lines.push(`- Steps: ${Math.round(y.steps).toLocaleString()}${y.flags.hit_steps ? ' ✓' : ''}`)
+    lines.push(`- Workout done: ${y.workout_done ? 'yes' : 'NO'}`)
+    if (y.sleep_hours != null) lines.push(`- Sleep: ${y.sleep_hours.toFixed(1)}h`)
+    lines.push('')
+  }
+
+  if (ctx.active_experiments.length > 0) {
+    lines.push(`# ACTIVE EXPERIMENTS`)
+    for (const e of ctx.active_experiments) {
+      const status = e.ready_for_verdict ? `READY FOR VERDICT (ended ${Math.abs(e.days_remaining)}d ago)` : `${e.days_remaining}d remaining`
+      lines.push(`- ${e.title} (${status})`)
+      lines.push(`  hypothesis: ${e.hypothesis}`)
+      lines.push(`  watching: ${e.primary_metric}${e.baseline_value != null ? ` (baseline ${e.baseline_value})` : ''} · goal: ${e.success_criteria}`)
+    }
+    const verdictReady = ctx.active_experiments.filter((e) => e.ready_for_verdict)
+    if (verdictReady.length > 0) {
+      lines.push('')
+      lines.push(`⚠️ ${verdictReady.length} experiment${verdictReady.length === 1 ? ' is' : 's are'} ready for a verdict review. Surface this in todays_focus and offer to review them.`)
     }
     lines.push('')
   }
@@ -417,6 +478,63 @@ async function assembleContext(admin: any, userId: string): Promise<BriefContext
     }
   }
 
+  // Yesterday's adherence (continuity layer)
+  const yest = new Date(today)
+  yest.setDate(yest.getDate() - 1)
+  const yestIso = yest.toISOString().slice(0, 10)
+  const { data: yRow } = await admin
+    .from('personal_daily_adherence')
+    .select('adherence_date, meals_logged, cal_total, protein_g_total, sat_fat_g_total, water_oz_total, steps_total, workout_count, sleep_hours, hit_cal, hit_protein, under_sat_fat, hit_water, hit_steps')
+    .eq('user_id', userId)
+    .eq('adherence_date', yestIso)
+    .maybeSingle()
+  // deno-lint-ignore no-explicit-any
+  const yAny = yRow as any
+  const yesterdayAdherence: BriefContext['yesterday_adherence'] = yAny ? {
+    date: yAny.adherence_date,
+    meals_logged: yAny.meals_logged ?? 0,
+    cal: Number(yAny.cal_total ?? 0),
+    protein_g: Number(yAny.protein_g_total ?? 0),
+    sat_fat_g: Number(yAny.sat_fat_g_total ?? 0),
+    water_oz: Number(yAny.water_oz_total ?? 0),
+    steps: Number(yAny.steps_total ?? 0),
+    workout_done: (yAny.workout_count ?? 0) > 0,
+    sleep_hours: yAny.sleep_hours != null ? Number(yAny.sleep_hours) : null,
+    flags: {
+      hit_cal: yAny.hit_cal,
+      hit_protein: yAny.hit_protein,
+      under_sat_fat: yAny.under_sat_fat,
+      hit_water: yAny.hit_water,
+      hit_steps: yAny.hit_steps,
+    },
+  } : null
+
+  // Active experiments — flag any past end_date as ready for verdict.
+  const todayIso = today.toISOString().slice(0, 10)
+  const { data: expRows } = await admin
+    .from('personal_experiments')
+    .select('id, title, hypothesis, primary_metric, baseline_value, success_criteria, end_date')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('end_date', { ascending: true })
+  // deno-lint-ignore no-explicit-any
+  const activeExperiments: BriefContext['active_experiments'] = ((expRows ?? []) as any[]).map((e) => {
+    const endMs = new Date(e.end_date + 'T00:00:00').getTime()
+    const todayMs = new Date(todayIso + 'T00:00:00').getTime()
+    const daysRemaining = Math.ceil((endMs - todayMs) / (24 * 60 * 60 * 1000))
+    return {
+      id: e.id,
+      title: e.title,
+      hypothesis: e.hypothesis,
+      primary_metric: e.primary_metric,
+      baseline_value: e.baseline_value != null ? Number(e.baseline_value) : null,
+      success_criteria: e.success_criteria,
+      end_date: e.end_date,
+      days_remaining: daysRemaining,
+      ready_for_verdict: daysRemaining <= 0,
+    }
+  })
+
   return {
     date_label: dateLabel,
     day_of_week: dayOfWeek,
@@ -438,6 +556,8 @@ async function assembleContext(admin: any, userId: string): Promise<BriefContext
     },
     todays_plan: todaysPlan,
     goals,
+    yesterday_adherence: yesterdayAdherence,
+    active_experiments: activeExperiments,
   }
 }
 

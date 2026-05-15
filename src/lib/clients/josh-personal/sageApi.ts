@@ -17,10 +17,17 @@ export interface ChatMessage {
   tool_trace?: { name: string; input: unknown; result: unknown; duration_ms: number }[]
 }
 
+// Hard ceiling for a single chat turn. The server caps at 5 Anthropic
+// calls × ~10s each plus tool calls; 90s leaves margin for fetch_url
+// turns without letting a hung request lock the UI forever.
+const CLIENT_TIMEOUT_MS = 90_000
+
 export function useSage() {
   const messages = ref<ChatMessage[]>([])
   const sending = ref(false)
   const error = ref<string | null>(null)
+  // Tracks the in-flight request so the UI's Stop button can cancel.
+  let activeController: AbortController | null = null
 
   async function sendMessage(text: string): Promise<{ ok: boolean; error?: string }> {
     if (sending.value) return { ok: false, error: 'Already sending' }
@@ -33,11 +40,15 @@ export function useSage() {
     // Optimistically append user message
     messages.value.push({ role: 'user', content: trimmed })
 
+    const controller = new AbortController()
+    activeController = controller
+    const timeoutId = setTimeout(() => controller.abort('timeout'), CLIENT_TIMEOUT_MS)
+
     try {
       const session = (await supabase.auth.getSession()).data.session
       if (!session) {
         error.value = 'Not signed in'
-        sending.value = false
+        messages.value.pop()
         return { ok: false, error: 'Not signed in' }
       }
 
@@ -57,6 +68,7 @@ export function useSage() {
           'content-type': 'application/json',
         },
         body: JSON.stringify({ messages: apiMessages }),
+        signal: controller.signal,
       })
 
       if (!res.ok) {
@@ -81,12 +93,28 @@ export function useSage() {
       })
       return { ok: true }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
+      // Distinguish user-cancel vs. timeout vs. unknown so the UI can
+      // show a sensible message instead of a raw "AbortError".
+      const wasAborted = err instanceof DOMException && err.name === 'AbortError'
+      if (wasAborted) {
+        error.value = controller.signal.reason === 'timeout'
+          ? `Sage didn't respond in ${CLIENT_TIMEOUT_MS / 1000}s. Try again or rephrase.`
+          : 'Stopped.'
+      } else {
+        error.value = err instanceof Error ? err.message : String(err)
+      }
       messages.value.pop()
       return { ok: false, error: error.value }
     } finally {
+      clearTimeout(timeoutId)
+      if (activeController === controller) activeController = null
       sending.value = false
     }
+  }
+
+  /** Cancel the in-flight request, if any. Used by the chat panel's Stop button. */
+  function abort() {
+    if (activeController) activeController.abort('user_stopped')
   }
 
   function clear() {
@@ -94,5 +122,5 @@ export function useSage() {
     error.value = null
   }
 
-  return { messages, sending, error, sendMessage, clear }
+  return { messages, sending, error, sendMessage, abort, clear }
 }
