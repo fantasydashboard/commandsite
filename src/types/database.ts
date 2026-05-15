@@ -392,6 +392,16 @@ export type CsLead = {
   // Bounce tracking (mig 0042) — null until inbox poll catches a mailer-daemon hit
   bounced_at: string | null
   bounce_reason: string | null
+  // NeverBounce verification verdict (mig 0059): 'valid' | 'catchall' | 'unknown'
+  // | 'unverified' | 'invalid' | null. New policy saves the email regardless and
+  // surfaces the verdict as a badge in the UI; only 'invalid' / 'disposable' get
+  // dropped.
+  email_verification_status: string | null
+  // Social profile URLs extracted from the company website (mig 0060). Keys:
+  // facebook, instagram, linkedin, twitter, youtube, tiktok, yelp. Surfaced
+  // as clickable buttons in Lead Detail so the operator can copy emails that
+  // owners list on social but hide behind contact forms on their website.
+  social_urls: Record<string, string> | null
   created_at: string
   updated_at: string
 }

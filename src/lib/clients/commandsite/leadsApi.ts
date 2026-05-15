@@ -442,6 +442,9 @@ export function useLeads() {
       contact_name: string | null
       contact_email: string | null
       contact_title: string | null
+      contact_phone: string | null
+      linkedin_url: string | null
+      company_url: string | null
       industry: string | null
       city: string | null
       state: string | null

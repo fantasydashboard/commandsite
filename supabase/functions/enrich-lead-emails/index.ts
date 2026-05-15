@@ -64,8 +64,8 @@ type VerifyOutcome =
   | { ok: false; nb_status: 'verifier_unavailable'; error: string }
 
 type EnrichResult =
-  | { status: 'found'; email: string; verification: VerifyOutcome }
-  | { status: 'not_found' }
+  | { status: 'found'; email: string; verification: VerifyOutcome; socialUrls: Record<string, string> }
+  | { status: 'not_found'; socialUrls: Record<string, string> }
   | { status: 'no_url' }
   | { status: 'fetch_error'; error: string }
 
@@ -79,6 +79,52 @@ const EMAIL_BLOCKLIST_PATTERNS: RegExp[] = [
 
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
 
+// Social profile URL extraction. Each entry's pattern matches the canonical
+// public profile shape, NOT share/intent/embed URLs (which would otherwise
+// flood the results with sharer.php and intent/tweet links from share
+// buttons on the homepage). We take the first match per platform — header
+// and footer typically point at the canonical profile, while later matches
+// tend to be share-CTAs or partner mentions.
+const SOCIAL_PATTERNS: Array<{ platform: string; pattern: RegExp }> = [
+  // facebook.com/page or fb.com/page — exclude sharer/dialog/intent/plugins
+  { platform: 'facebook',  pattern: /https?:\/\/(?:www\.|m\.|business\.)?(?:facebook\.com|fb\.com)\/(?!sharer|share(?:r|_post)?|dialog|plugins|tr|hashtag|v\d|home\.php|profile\.php)[A-Za-z0-9._\-]+\/?[A-Za-z0-9._\-]*/gi },
+  // instagram.com/handle — exclude posts/reels/explore/stories
+  { platform: 'instagram', pattern: /https?:\/\/(?:www\.)?instagram\.com\/(?!p\/|reel\/|reels\/|tv\/|explore|stories|accounts|share)[A-Za-z0-9._]+\/?/gi },
+  // linkedin.com/in/person or /company/X or /showcase/X
+  { platform: 'linkedin',  pattern: /https?:\/\/(?:[a-z]{2}\.)?(?:www\.)?linkedin\.com\/(?:in|company|showcase|school)\/[A-Za-z0-9._\-]+\/?/gi },
+  // twitter.com/handle or x.com/handle — exclude intent/share/search/home
+  { platform: 'twitter',   pattern: /https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/(?!intent|share|search|home|i\/)[A-Za-z0-9_]+\/?/gi },
+  // youtube.com/c|channel|@|user, or youtu.be — exclude /embed and /watch?
+  { platform: 'youtube',   pattern: /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:c\/|channel\/|@|user\/)|youtu\.be\/)[A-Za-z0-9._\-@]+\/?/gi },
+  // tiktok.com/@handle
+  { platform: 'tiktok',    pattern: /https?:\/\/(?:www\.)?tiktok\.com\/@[A-Za-z0-9._]+\/?/gi },
+  // yelp.com/biz/business-name
+  { platform: 'yelp',      pattern: /https?:\/\/(?:www\.)?yelp\.com\/biz\/[A-Za-z0-9._\-]+\/?/gi },
+]
+
+function extractSocialUrls(html: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const { platform, pattern } of SOCIAL_PATTERNS) {
+    const matches = html.match(pattern)
+    if (!matches || matches.length === 0) continue
+    // Strip trailing punctuation that often gets caught by regex when the
+    // URL is inside an HTML attribute like href="...". Also normalize
+    // protocol-relative weirdness (e.g., facebook.com/me/ vs /me).
+    let url = matches[0]
+      .replace(/[)"'>}\\<]+$/, '')
+      .replace(/\/$/, '')
+    // Sanity check: skip URLs that are just the bare domain (no profile path)
+    try {
+      const u = new URL(url)
+      if (u.pathname === '' || u.pathname === '/') continue
+    } catch {
+      continue
+    }
+    result[platform] = url
+  }
+  return result
+}
+
 function extractDomain(url: string): string | null {
   try {
     const u = new URL(url.startsWith('http') ? url : `https://${url}`)
@@ -87,6 +133,25 @@ function extractDomain(url: string): string | null {
     return null
   }
 }
+
+// Consumer email providers — emails on these domains are almost always
+// real contacts (small biz owners often list a personal Gmail). Emails on
+// other off-domain hosts (e.g., sansoxygen.com on mycousinstile.com) are
+// almost always third-party widgets, trackers, or partner CTAs.
+const CONSUMER_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com',
+  'yahoo.com', 'ymail.com',
+  'hotmail.com', 'outlook.com', 'live.com', 'msn.com',
+  'aol.com', 'icloud.com', 'me.com', 'mac.com',
+  'protonmail.com', 'proton.me',
+  'comcast.net', 'verizon.net', 'sbcglobal.net', 'att.net',
+  'cox.net', 'bellsouth.net', 'charter.net',
+])
+
+const GENERIC_BUSINESS_PREFIXES = new Set([
+  'info', 'contact', 'hello', 'sales', 'support', 'admin', 'office',
+  'service', 'team', 'help', 'mail', 'inquiry', 'inquiries',
+])
 
 function rankEmails(emails: string[], targetDomain: string | null): string[] {
   // Dedupe (case-insensitive)
@@ -105,29 +170,53 @@ function rankEmails(emails: string[], targetDomain: string | null): string[] {
     (e) => !EMAIL_BLOCKLIST_PATTERNS.some((p) => p.test(e)),
   )
 
-  // Rank: on-domain > common business prefixes on any domain > anything else.
-  // Within "on-domain", prefer owner-shaped (first.last@, firstname@) over generic (info@).
-  const onDomain = targetDomain
-    ? filtered.filter((e) => e.toLowerCase().endsWith('@' + targetDomain))
-    : []
-  const offDomain = filtered.filter((e) => !onDomain.includes(e))
+  // Extract the "stem" of the company domain for matching against email
+  // locals. "mycousinstile.com" → "mycousinstile". This lets us identify
+  // owner-branded consumer emails like mycousinstile@gmail.com as belonging
+  // to this company even though the email domain isn't the company domain.
+  const companyStem = targetDomain
+    ? targetDomain.split('.')[0]?.toLowerCase() ?? ''
+    : ''
 
   function priorityScore(email: string): number {
-    const local = email.split('@')[0]?.toLowerCase() ?? ''
-    // Owner-shaped: contains a dot, hyphen, or is short (likely first name)
-    if (/^[a-z]+\.[a-z]+$/.test(local)) return 10 // first.last
-    if (/^[a-z]+_[a-z]+$/.test(local)) return 9
-    if (/^[a-z]{3,12}$/.test(local) && !['info', 'contact', 'hello', 'sales', 'support', 'admin', 'office', 'service'].includes(local)) return 8
-    // Generic but useful business
-    if (['info', 'contact', 'hello'].includes(local)) return 5
-    if (['sales', 'office', 'admin', 'support', 'service'].includes(local)) return 4
-    return 1
+    const lower = email.toLowerCase()
+    const [local, domain] = lower.split('@')
+    if (!local || !domain) return 0
+
+    const onCompanyDomain = !!targetDomain && domain === targetDomain
+    const isConsumerProvider = CONSUMER_EMAIL_DOMAINS.has(domain)
+    const isGeneric = GENERIC_BUSINESS_PREFIXES.has(local)
+    const matchesCompanyStem = !!companyStem
+      && companyStem.length >= 4
+      && (local === companyStem || local.includes(companyStem))
+
+    // 100: owner@company.com (on-domain + owner-shaped)
+    if (onCompanyDomain && !isGeneric && /^[a-z][a-z._-]{1,30}$/.test(local)) return 100
+    // 90: info@company.com (on-domain, generic prefix — still likely real)
+    if (onCompanyDomain && isGeneric) return 90
+    // 80: any other on-domain shape (unusual but real)
+    if (onCompanyDomain) return 80
+    // 70: owner-branded consumer email (mycousinstile@gmail.com on mycousinstile.com)
+    if (matchesCompanyStem && isConsumerProvider) return 70
+    // 60: first.last@gmail.com (real-person owner email on a consumer provider)
+    if (isConsumerProvider && /^[a-z]+[._-][a-z]+$/.test(local)) return 60
+    // 50: short bareword name on a consumer provider (e.g., manny@gmail.com)
+    if (isConsumerProvider && /^[a-z]{3,20}$/.test(local) && !isGeneric) return 50
+    // 40: generic prefix on a consumer provider (rare; still real-ish)
+    if (isConsumerProvider && isGeneric) return 40
+    // 30: off-domain stem match on a non-consumer host (could be parent
+    //     company / franchise headquarters — give it a chance)
+    if (matchesCompanyStem) return 30
+    // 10: anything else — likely third-party widget, tracker, or partner CTA
+    return 10
   }
 
-  onDomain.sort((a, b) => priorityScore(b) - priorityScore(a))
-  offDomain.sort((a, b) => priorityScore(b) - priorityScore(a))
-
-  return [...onDomain, ...offDomain]
+  // Score then sort all emails together. We no longer split on-domain/off-domain
+  // because the priority score already encodes that preference, AND it lets a
+  // strong consumer match outrank a weak generic off-domain "contact@" pickup.
+  return filtered
+    .slice()
+    .sort((a, b) => priorityScore(b) - priorityScore(a))
 }
 
 async function fetchPage(url: string, timeoutMs = 8000): Promise<string | null> {
@@ -172,12 +261,12 @@ function candidateContactUrls(siteUrl: string): string[] {
 }
 
 async function findCandidateEmail(lead: LeadRow): Promise<
-  | { status: 'candidate'; email: string }
-  | { status: 'not_found' }
+  | { status: 'candidate'; email: string; socialUrls: Record<string, string> }
+  | { status: 'not_found'; socialUrls: Record<string, string> }
   | { status: 'no_url' }
   | { status: 'fetch_error'; error: string }
 > {
-  if (lead.contact_email) return { status: 'candidate', email: lead.contact_email }
+  if (lead.contact_email) return { status: 'candidate', email: lead.contact_email, socialUrls: {} }
   if (!lead.company_url) return { status: 'no_url' }
 
   const domain = extractDomain(lead.company_url)
@@ -191,9 +280,10 @@ async function findCandidateEmail(lead: LeadRow): Promise<
 
   const allHtml: string[] = [homepageHtml]
   const homepageEmails = homepageHtml.match(EMAIL_REGEX) ?? []
+  const homepageSocials = extractSocialUrls(homepageHtml)
   const homepageRanked = rankEmails(homepageEmails, domain)
   if (homepageRanked.length > 0) {
-    return { status: 'candidate', email: homepageRanked[0] }
+    return { status: 'candidate', email: homepageRanked[0], socialUrls: homepageSocials }
   }
 
   const fallback = await Promise.all(
@@ -205,9 +295,11 @@ async function findCandidateEmail(lead: LeadRow): Promise<
 
   const merged = allHtml.join('\n')
   const emails = merged.match(EMAIL_REGEX) ?? []
+  // Re-extract socials from the full corpus so contact-page links count too
+  const socialUrls = { ...extractSocialUrls(merged), ...homepageSocials }
   const ranked = rankEmails(emails, domain)
-  if (ranked.length === 0) return { status: 'not_found' }
-  return { status: 'candidate', email: ranked[0] }
+  if (ranked.length === 0) return { status: 'not_found', socialUrls }
+  return { status: 'candidate', email: ranked[0], socialUrls }
 }
 
 /**
@@ -273,10 +365,17 @@ async function verifyEmail(email: string, apiKey: string | null): Promise<Verify
 
 async function enrichOne(lead: LeadRow, neverBounceKey: string | null): Promise<EnrichResult> {
   const candidate = await findCandidateEmail(lead)
-  if (candidate.status !== 'candidate') return candidate
-
+  if (candidate.status === 'no_url' || candidate.status === 'fetch_error') return candidate
+  if (candidate.status === 'not_found') {
+    return { status: 'not_found', socialUrls: candidate.socialUrls }
+  }
   const verification = await verifyEmail(candidate.email, neverBounceKey)
-  return { status: 'found', email: candidate.email, verification }
+  return {
+    status: 'found',
+    email: candidate.email,
+    verification,
+    socialUrls: candidate.socialUrls,
+  }
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -373,14 +472,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Persist results. Per-row updates because partial updates across rows
   // don't compose well in Supabase upsert. Volume is small (≤100/call).
   //
-  // Save-vs-tag policy:
-  //   verification.ok=true (valid)         → save email,    tag email_verified
-  //   nb_status=invalid|disposable         → drop email,    tag email_invalid
-  //   nb_status=accept_all|unknown         → drop email,    tag email_unverifiable
-  //   nb_status=verifier_unavailable       → drop email,    tag email_unverified
-  //                                           (NB key missing or API down — keep the
-  //                                            address out of outreach but not lose it)
-  //   not_found / no_url / fetch_error     → previous tags  (no email change)
+  // Save-vs-tag policy (post mig 0059, May 2026):
+  //   verification.ok=true (valid)         → SAVE email, status=valid
+  //   nb_status=invalid|disposable         → drop email,  tag email_invalid
+  //   nb_status=accept_all                 → SAVE email, status=catchall
+  //   nb_status=unknown                    → SAVE email, status=unknown
+  //   nb_status=verifier_unavailable       → SAVE email, status=unverified
+  //   not_found / no_url / fetch_error     → previous tags (no email change)
+  //
+  // Rationale: NeverBounce returns `unknown` for most Gmail/Yahoo/AOL
+  // addresses because consumer-provider SMTP doesn't reveal individual
+  // accounts. The old "save only if valid" policy silently dropped every
+  // small-business Gmail address that owners list as their contact. We
+  // now keep them and surface the verification verdict as a badge so the
+  // operator can decide whether to send.
   //
   // We also still tag email_enriched on every successful regex find so the
   // pre-verification UX (counts of "Ada found N emails") still works.
@@ -392,11 +497,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       counts.found++
       const tagSet = new Set([...existingTags, 'email_enriched'])
       let saveEmail: string | null = null
+      let verificationStatus: string | null = null
 
       if (result.verification.ok) {
         counts.verified++
         tagSet.add('email_verified')
         saveEmail = result.email
+        verificationStatus = 'valid'
       } else if (
         result.verification.nb_status === 'invalid'
         || result.verification.nb_status === 'disposable'
@@ -404,33 +511,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
         counts.invalid++
         tagSet.add('email_invalid')
         if (result.verification.nb_status === 'disposable') tagSet.add('email_disposable')
-      } else if (
-        result.verification.nb_status === 'accept_all'
-        || result.verification.nb_status === 'unknown'
-      ) {
+        verificationStatus = result.verification.nb_status
+      } else if (result.verification.nb_status === 'accept_all') {
+        counts.unverifiable++
+        tagSet.add('email_catch_all')
+        saveEmail = result.email
+        verificationStatus = 'catchall'
+      } else if (result.verification.nb_status === 'unknown') {
         counts.unverifiable++
         tagSet.add('email_unverifiable')
-        if (result.verification.nb_status === 'accept_all') tagSet.add('email_catch_all')
+        saveEmail = result.email
+        verificationStatus = 'unknown'
       } else {
         counts.unverifiable++
         tagSet.add('email_unverified')
+        saveEmail = result.email
+        verificationStatus = 'unverified'
       }
 
       const tags = [...tagSet]
-      if (saveEmail) {
-        await admin
-          .from('cs_leads')
-          .update({ contact_email: saveEmail, tags })
-          .eq('id', leadId)
-      } else {
-        await admin.from('cs_leads').update({ tags }).eq('id', leadId)
-      }
+      const update: Record<string, unknown> = { tags }
+      if (saveEmail) update.contact_email = saveEmail
+      if (verificationStatus) update.email_verification_status = verificationStatus
+      if (Object.keys(result.socialUrls).length > 0) update.social_urls = result.socialUrls
+      await admin.from('cs_leads').update(update).eq('id', leadId)
     } else if (result.status === 'not_found' || result.status === 'no_url') {
       counts.not_found++
       const tagToAdd =
         result.status === 'no_url' ? 'no_website' : 'email_not_found'
       const tags = [...new Set([...existingTags, tagToAdd])]
-      await admin.from('cs_leads').update({ tags }).eq('id', leadId)
+      const update: Record<string, unknown> = { tags }
+      if (result.status === 'not_found' && Object.keys(result.socialUrls).length > 0) {
+        update.social_urls = result.socialUrls
+      }
+      await admin.from('cs_leads').update(update).eq('id', leadId)
     } else {
       counts.errors++
       const tags = [...new Set([...existingTags, 'email_fetch_error'])]

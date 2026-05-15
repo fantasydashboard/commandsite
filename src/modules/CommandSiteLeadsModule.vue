@@ -14,6 +14,7 @@ import { useSettings } from '@/lib/clients/commandsite/settingsApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
 import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModal.vue'
 import CommandSiteResearchLeadsModal from '@/components/CommandSiteResearchLeadsModal.vue'
+import CommandSiteLeadDetailModal from '@/components/CommandSiteLeadDetailModal.vue'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
 import AssistantMark from '@/components/AssistantMark.vue'
@@ -28,6 +29,31 @@ const settings = settingsApi.settings
 const statusFilter = ref<CsLeadStatus | 'all'>('all')
 const minScore = ref(0)
 const search = ref('')
+
+function emailBadge(lead: CsLead): { label: string; pillClass: string; title: string } {
+  if (!lead.contact_email) {
+    return {
+      label: '— No email',
+      pillClass: 'bg-ink-muted/10 text-ink-muted',
+      title: 'No email found yet — open this lead and click Re-scrape site or Find via Apollo.',
+    }
+  }
+  switch (lead.email_verification_status) {
+    case 'valid':
+      return { label: '✓ Valid', pillClass: 'bg-success/15 text-success', title: 'NeverBounce confirmed deliverable.' }
+    case 'catchall':
+      return { label: '~ Catch-all', pillClass: 'bg-warn/15 text-warn', title: 'Catch-all domain — likely deliverable but unverified.' }
+    case 'unknown':
+      return { label: '? Unknown', pillClass: 'bg-warn/15 text-warn', title: 'NeverBounce could not verify (common for Gmail/Yahoo).' }
+    case 'unverified':
+      return { label: '○ Unverified', pillClass: 'bg-ink-muted/15 text-ink-muted', title: 'Saved without a verification check.' }
+    case 'invalid':
+    case 'disposable':
+      return { label: '× Bad', pillClass: 'bg-danger/15 text-danger', title: 'NeverBounce flagged this address as invalid or disposable.' }
+    default:
+      return { label: '○ Saved', pillClass: 'bg-ink-muted/15 text-ink-muted', title: 'Email saved (no verification status).' }
+  }
+}
 
 const STATUS_META: Record<CsLeadStatus, { label: string; pillClass: string }> = {
   new:                    { label: 'New',           pillClass: 'bg-brand/10 text-brand' },
@@ -82,6 +108,24 @@ const kpis = computed(() => {
 const importOpen = ref(false)
 const researchOpen = ref(false)
 const submitMsg = ref<string | null>(null)
+const detailLead = ref<CsLead | null>(null)
+const detailOpen = ref(false)
+
+function openDetail(lead: CsLead) {
+  detailLead.value = lead
+  detailOpen.value = true
+}
+function closeDetail() {
+  detailOpen.value = false
+}
+async function onDetailSaved() {
+  await load()
+  // keep panel open with refreshed lead row
+  if (detailLead.value) {
+    const fresh = leads.value.find((l) => l.id === detailLead.value!.id)
+    if (fresh) detailLead.value = fresh
+  }
+}
 
 // Drafting + approving moved to the Outreach Approval Queue. The
 // outreach-auto-draft cron picks up new leads (score ≥ 65, contact
@@ -570,6 +614,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
             <tr>
               <th class="px-3 py-2 text-left w-16">Score</th>
               <th class="px-3 py-2 text-left">Company / Contact</th>
+              <th class="px-3 py-2 text-left">Email</th>
               <th class="px-3 py-2 text-left">Industry</th>
               <th class="px-3 py-2 text-left">Geo</th>
               <th class="px-3 py-2 text-left">Size</th>
@@ -579,7 +624,12 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
             </tr>
           </thead>
           <tbody class="divide-y divide-divider">
-            <tr v-for="lead in filteredLeads" :key="lead.id" class="hover:bg-canvas/50">
+            <tr
+              v-for="lead in filteredLeads"
+              :key="lead.id"
+              class="hover:bg-brand/5 cursor-pointer transition-colors"
+              @click="openDetail(lead)"
+            >
               <td class="px-3 py-2 align-top">
                 <span
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
@@ -595,6 +645,13 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
                 </div>
                 <div v-if="lead.contact_email" class="text-[11px] text-ink-disabled font-mono">{{ lead.contact_email }}</div>
               </td>
+              <td class="px-3 py-2 align-top">
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                  :class="emailBadge(lead).pillClass"
+                  :title="emailBadge(lead).title"
+                >{{ emailBadge(lead).label }}</span>
+              </td>
               <td class="px-3 py-2 align-top text-xs text-ink-muted">{{ lead.industry || '—' }}</td>
               <td class="px-3 py-2 align-top text-xs text-ink-muted">{{ [lead.city, lead.state].filter(Boolean).join(', ') || '—' }}</td>
               <td class="px-3 py-2 align-top text-xs text-ink-muted tabular-nums">{{ lead.team_size ?? '—' }}</td>
@@ -608,7 +665,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
                   :class="STATUS_META[lead.status].pillClass"
                 >{{ STATUS_META[lead.status].label }}</span>
               </td>
-              <td class="px-3 py-2 align-top text-right">
+              <td class="px-3 py-2 align-top text-right" @click.stop>
                 <div class="inline-flex flex-wrap gap-1 justify-end">
                   <button
                     v-if="lead.status !== 'promoted_to_pipeline' && lead.status !== 'disqualified'"
@@ -629,7 +686,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
                     type="button"
                     class="rounded bg-danger/10 text-danger px-2 py-0.5 text-[11px] font-medium hover:bg-danger/20"
                     @click="disqualify(lead.id)"
-                    title="Auto-skip in future"
+                    title="Drop this lead — disqualifies so the auto-draft cron skips it. Open the lead to drop with a reason instead."
                   >×</button>
                   <button
                     v-if="lead.status === 'archived' || lead.status === 'disqualified'"
@@ -663,6 +720,15 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
       :settings="settings"
       @close="researchOpen = false"
       @imported="handleImported"
+    />
+
+    <!-- Lead detail side panel -->
+    <CommandSiteLeadDetailModal
+      :open="detailOpen"
+      :lead="detailLead"
+      @close="closeDetail"
+      @saved="onDetailSaved"
+      @drafted="onDetailSaved"
     />
 
   </div>

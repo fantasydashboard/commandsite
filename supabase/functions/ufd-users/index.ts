@@ -66,34 +66,42 @@ Deno.serve(async (req: Request) => {
   if (!jwt) return json({ error: 'Missing bearer token' }, 401)
 
   // ── 1. Auth ─────────────────────────────────────────────────────────────
+  const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const csAdmin = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    SERVICE_ROLE_KEY,
     { auth: { persistSession: false } },
   )
 
-  const { data: userData, error: userErr } = await csAdmin.auth.getUser(jwt)
-  if (userErr || !userData.user) return json({ error: 'Invalid session' }, 401)
+  // Service-role bypass: trusted internal callers (cron-driven lifecycle
+  // senders, ufd-inbox-poll) pass the service role key directly. They never
+  // act on behalf of a user, so skip the JWT + profile checks.
+  const isServiceRole = jwt === SERVICE_ROLE_KEY
 
-  const { data: profile, error: profileErr } = await csAdmin
-    .from('users')
-    .select('id, role, client_id')
-    .eq('id', userData.user.id)
-    .maybeSingle()
+  if (!isServiceRole) {
+    const { data: userData, error: userErr } = await csAdmin.auth.getUser(jwt)
+    if (userErr || !userData.user) return json({ error: 'Invalid session' }, 401)
 
-  if (profileErr || !profile) return json({ error: 'Profile not found' }, 403)
+    const { data: profile, error: profileErr } = await csAdmin
+      .from('users')
+      .select('id, role, client_id')
+      .eq('id', userData.user.id)
+      .maybeSingle()
 
-  const ufdSlug = Deno.env.get('UFD_CLIENT_SLUG') ?? 'ufd'
-  const { data: ufdClient } = await csAdmin
-    .from('clients')
-    .select('id')
-    .eq('slug', ufdSlug)
-    .maybeSingle()
+    if (profileErr || !profile) return json({ error: 'Profile not found' }, 403)
 
-  if (!ufdClient) return json({ error: 'UFD client not configured' }, 500)
+    const ufdSlug = Deno.env.get('UFD_CLIENT_SLUG') ?? 'ufd'
+    const { data: ufdClient } = await csAdmin
+      .from('clients')
+      .select('id')
+      .eq('slug', ufdSlug)
+      .maybeSingle()
 
-  const allowed = profile.role === 'admin' || profile.client_id === ufdClient.id
-  if (!allowed) return json({ error: 'Forbidden' }, 403)
+    if (!ufdClient) return json({ error: 'UFD client not configured' }, 500)
+
+    const allowed = profile.role === 'admin' || profile.client_id === ufdClient.id
+    if (!allowed) return json({ error: 'Forbidden' }, 403)
+  }
 
   // ── 2. Parse body ───────────────────────────────────────────────────────
   let body: { cohort?: Cohort }
