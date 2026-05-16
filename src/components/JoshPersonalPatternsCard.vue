@@ -1,0 +1,72 @@
+<script setup lang="ts">
+/**
+ * Josh Personal — "Patterns Sage noticed" card.
+ *
+ * Shows undismissed patterns from the nightly detector. Tapping a row
+ * emits 'discuss' with a pre-filled prompt — the parent opens Sage
+ * chat with the input seeded so Josh just hits Send.
+ */
+import AssistantMark from '@/components/AssistantMark.vue'
+import type { DetectedPattern } from '@/lib/clients/josh-personal/patternsApi'
+
+defineProps<{ patterns: DetectedPattern[] }>()
+const emit = defineEmits<{ (e: 'discuss', prompt: string): void }>()
+
+const SEV_TONE: Record<string, { dot: string; pill: string }> = {
+  info:        { dot: 'bg-brand',  pill: 'bg-brand/10 text-brand' },
+  notable:     { dot: 'bg-warn',   pill: 'bg-warn/15 text-warn' },
+  concerning:  { dot: 'bg-danger', pill: 'bg-danger/15 text-danger' },
+}
+
+const TYPE_ICON: Record<string, string> = {
+  sleep_deviation:     '🌙',
+  hrv_deviation:       '❤️',
+  weight_pace:         '⚖️',
+  adherence_drift:     '📉',
+  sat_fat_breach:      '⚠️',
+  bp_threshold:        '🩺',
+  workout_gap:         '🏋️',
+  water_chronic_under: '💧',
+}
+
+function discussPrompt(p: DetectedPattern): string {
+  return `Tell me about: ${p.title}`
+}
+</script>
+
+<template>
+  <section v-if="patterns.length > 0" class="card p-0 overflow-hidden">
+    <header class="px-4 py-3 border-b border-divider bg-surface-elevated">
+      <div class="flex items-center gap-2">
+        <AssistantMark class="h-4 w-4 text-brand" />
+        <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Patterns Sage noticed</span>
+      </div>
+      <div class="text-[11px] text-ink-muted mt-0.5">
+        {{ patterns.length }} pattern{{ patterns.length === 1 ? '' : 's' }} from last night's scan · tap to discuss
+      </div>
+    </header>
+    <ul class="divide-y divide-divider">
+      <li v-for="p in patterns" :key="p.id" class="px-4 py-3 hover:bg-canvas/40 cursor-pointer group" @click="emit('discuss', discussPrompt(p))">
+        <div class="flex items-start gap-3">
+          <span class="text-base shrink-0 leading-none mt-0.5">{{ TYPE_ICON[p.pattern_type] ?? '🔍' }}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <span class="text-sm font-semibold text-ink">{{ p.title }}</span>
+              <span
+                class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5"
+                :class="(SEV_TONE[p.severity] ?? SEV_TONE.info).pill"
+              >
+                <span class="h-1.5 w-1.5 rounded-full" :class="(SEV_TONE[p.severity] ?? SEV_TONE.info).dot" />
+                {{ p.severity }}
+              </span>
+            </div>
+            <p class="text-[12px] text-ink-muted leading-snug mt-1">{{ p.evidence_summary }}</p>
+            <div class="text-[11px] text-brand font-medium mt-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
+              Discuss with Sage →
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </section>
+</template>

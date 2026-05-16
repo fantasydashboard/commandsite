@@ -14,7 +14,12 @@ import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue'
 import AssistantMark from '@/components/AssistantMark.vue'
 import { useSage, type ChatMessage } from '@/lib/clients/josh-personal/sageApi'
 
-const props = defineProps<{ open: boolean }>()
+const props = defineProps<{
+  open: boolean
+  /** When the panel opens, pre-fill the input with this string.
+   *  Used by the Today page's pattern card to seed "Tell me about: …". */
+  seedPrompt?: string | null
+}>()
 const emit = defineEmits<{
   (e: 'close'): void
   /** Fired whenever Sage's last response used a tool that mutates state
@@ -53,7 +58,20 @@ const samplePrompts = [
 // Tools that mutate state — when Sage uses these, we tell the parent
 // to reload its data (so the food log on the Today tab updates the
 // instant Sage logs a meal, etc.)
-const STATE_MUTATING_TOOLS = new Set(['log_meal'])
+const STATE_MUTATING_TOOLS = new Set([
+  'log_meal',
+  'log_metric',
+  'update_target',
+  'update_profile',
+  'revert_target_change',
+  'submit_meal_feedback',
+  'propose_experiment',
+  'complete_experiment',
+  'abandon_experiment',
+  'dismiss_pattern',
+  'save_sage_observation',
+  'archive_sage_observation',
+])
 
 async function onSend() {
   const text = input.value
@@ -92,7 +110,14 @@ async function scrollToBottom() {
 watch(messages, () => { scrollToBottom() }, { deep: true })
 
 watch(() => props.open, (isOpen) => {
-  if (isOpen) scrollToBottom()
+  if (isOpen) {
+    scrollToBottom()
+    // If parent passed a seed prompt (e.g. from a pattern chip on the
+    // Today page), pre-fill the input. User taps Send to commit.
+    if (props.seedPrompt && !input.value) {
+      input.value = props.seedPrompt
+    }
+  }
 })
 
 function close() {

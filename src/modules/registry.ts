@@ -45,6 +45,7 @@ import JoshPersonalPlanModule from './JoshPersonalPlanModule.vue'
 import JoshPersonalTrendsModule from './JoshPersonalTrendsModule.vue'
 import JoshPersonalBloodworkModule from './JoshPersonalBloodworkModule.vue'
 import JoshPersonalGoalsModule from './JoshPersonalGoalsModule.vue'
+import JoshPersonalHistoryModule from './JoshPersonalHistoryModule.vue'
 import CornerstoneTodayModule from './CornerstoneTodayModule.vue'
 import CornerstoneFrontDeskGuestsModule from './CornerstoneFrontDeskGuestsModule.vue'
 import CornerstoneCareDriftModule from './CornerstoneCareDriftModule.vue'
@@ -97,6 +98,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'today', label: 'Today' },
   { key: 'plan', label: 'Plan' },
   { key: 'trends', label: 'Trends' },
+  { key: 'history', label: 'History' },
   { key: 'bloodwork', label: 'Bloodwork' },
   { key: 'goals', label: 'Goals' },
   { key: 'overview', label: 'Overview' },
@@ -632,10 +634,18 @@ export const moduleRegistry: ModuleDefinition[] = [
   {
     key: 'josh-personal-goals',
     label: 'Josh Personal · Goals',
-    description: 'Goal cards with progress bars + per-goal Sage narrative connecting the data to the goal.',
+    description: 'Goal cards with progress bars + per-goal Sage narrative. Currently unmounted from josh-personal nav (will move to Settings later).',
     component: JoshPersonalGoalsModule,
     fullWidth: true,
     tab: 'goals',
+  },
+  {
+    key: 'josh-personal-history',
+    label: 'Josh Personal · History',
+    description: 'Decisions timeline + Sage 30-day recap + Sage long-term observations. The artifact of the AI-coach loop.',
+    component: JoshPersonalHistoryModule,
+    fullWidth: true,
+    tab: 'history',
   },
 
   // ── Cornerstone Community Church (Option 3 role-led layout) ─────────

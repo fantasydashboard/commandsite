@@ -28,6 +28,7 @@ import JoshPersonalDailyRings from '@/components/JoshPersonalDailyRings.vue'
 import JoshPersonalHydrationCard from '@/components/JoshPersonalHydrationCard.vue'
 import JoshPersonalDaySchedule from '@/components/JoshPersonalDaySchedule.vue'
 import JoshPersonalExperimentsCard from '@/components/JoshPersonalExperimentsCard.vue'
+import JoshPersonalPatternsCard from '@/components/JoshPersonalPatternsCard.vue'
 import {
   TODAY_LABEL,
   STEPS_DAILY_TARGET,
@@ -41,6 +42,7 @@ import { useWeeklyPlan } from '@/lib/clients/josh-personal/weeklyPlanApi'
 import { useMealLog } from '@/lib/clients/josh-personal/mealLogApi'
 import { useNowState, type NowAction } from '@/lib/clients/josh-personal/nowStateApi'
 import { useExperiments } from '@/lib/clients/josh-personal/experimentsApi'
+import { usePatterns } from '@/lib/clients/josh-personal/patternsApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -51,6 +53,14 @@ const { todaySlice: realTodaySlice } = useWeeklyPlan()
 const { todayMeals, todayTotals, recentDays, totalLogged, load: reloadMealLog, deleteMeal } = useMealLog()
 const { state: nowState, loading: nowLoading, refreshing: nowRefreshing, refresh: refreshNow, refreshedAgo: nowRefreshedAgo, isStale: nowIsStale } = useNowState()
 const { active: activeExperiments, recentlyCompleted: completedExperiments, daysRemaining: experimentDaysRemaining, progressPct: experimentProgressPct } = useExperiments()
+const { ordered: orderedPatterns, load: reloadPatterns } = usePatterns()
+
+// ── Pattern → Sage chat handoff ─────────────────────────────────────
+const chatSeedPrompt = ref<string | null>(null)
+function discussPattern(prompt: string) {
+  chatSeedPrompt.value = prompt
+  chatOpen.value = true
+}
 
 // ── Today's water + sleep helpers (read directly from personal_metrics) ──
 // useHealthData gives us snapshot.sleep + dailyHrvAvg trends, but not
@@ -375,6 +385,17 @@ const todayPlannedExercises = computed<PlannedWorkoutExercise[]>(() => {
 
 // Ask Sage chat — real agent loop with tools
 const chatOpen = ref(false)
+function onChatClose() {
+  chatOpen.value = false
+  // Clear any seed so the next manual open starts blank
+  chatSeedPrompt.value = null
+}
+function onChatDataChanged(payload: { tools: string[] }) {
+  reloadMealLog()
+  // If Sage dismissed a pattern or completed an experiment, refresh those too
+  reloadPatterns()
+  void payload
+}
 
 // Snap-meal photo modal
 const mealPhotoOpen = ref(false)
@@ -594,6 +615,12 @@ const mealPhotoOpen = ref(false)
 
     <p v-if="briefRegenError" class="text-sm text-danger">{{ briefRegenError }}</p>
 
+    <!-- ── Patterns Sage noticed (nightly detector) ────────────────── -->
+    <JoshPersonalPatternsCard
+      :patterns="orderedPatterns"
+      @discuss="discussPattern"
+    />
+
     <!-- ── Experiments (active + recently completed) ───────────────── -->
     <JoshPersonalExperimentsCard
       v-if="hasProfile"
@@ -710,8 +737,9 @@ const mealPhotoOpen = ref(false)
     </button>
     <JoshPersonalSageChatPanel
       :open="chatOpen"
-      @close="chatOpen = false"
-      @data-changed="reloadMealLog"
+      :seed-prompt="chatSeedPrompt"
+      @close="onChatClose"
+      @data-changed="onChatDataChanged"
     />
 
     <!-- ── Snap-meal photo modal ───────────────────────────────────── -->

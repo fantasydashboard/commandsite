@@ -11,6 +11,7 @@ import { computed, ref, onMounted } from 'vue'
 import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalPlanNextPopover from '@/components/JoshPersonalPlanNextPopover.vue'
+import JoshPersonalWorkoutHistory from '@/components/JoshPersonalWorkoutHistory.vue'
 import {
   NEXT_WEEK_LABEL,
   weeklyPlan as mockWeeklyPlan,
@@ -534,6 +535,9 @@ function toggleItem(name: string) {
         </div>
       </div>
     </section>
+
+    <!-- ── Strength log (last 30 days) ─────────────────────────────── -->
+    <JoshPersonalWorkoutHistory />
 
     <!-- ── Plan-next popover ───────────────────────────────────────── -->
     <JoshPersonalPlanNextPopover

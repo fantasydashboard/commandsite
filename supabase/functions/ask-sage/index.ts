@@ -64,6 +64,8 @@ Josh is a 30-something founder building CommandSite. You've already worked with 
 - **read_target_changes(limit?)**: see recent target/profile changes (yours and manual). Use when Josh asks "what did you change?" or before proposing a change you might already have made.
 - **read_ingredient_prefs**: get the current learned ingredient verdicts (never_again / caution / loved). Use when Josh asks "what have you learned?" / "what am I avoiding?" or before suggesting an ingredient you're unsure about.
 - **read_active_experiments**: list Josh's currently-running experiments (target changes or lifestyle tests with success criteria and an end date). Read this before proposing new experiments so you don't duplicate, and to remind Josh what's mid-flight.
+- **read_patterns_detected(include_dismissed?)**: list patterns the nightly detector has flagged (sleep deviation, HRV deviation, weight pace stalled, adherence drift, sat-fat breaches, BP threshold, workout gaps, water chronic-under). Each row has evidence_data with raw numbers and an optional suggested_experiment template. Read this when Josh asks "what have you noticed?" or when he taps a pattern chip on the Today page (the chat input will be pre-filled with "Tell me about: …").
+- **read_sage_observations**: Josh's long-term observations you've persisted ("under-eats protein at breakfast 15/20 days", "weight stalls when sleep <6h"). Read these at the start of any deep-context turn so you have continuity beyond the immediate context window.
 
 ## Write — silent (do without asking)
 
@@ -79,6 +81,9 @@ Josh is a 30-something founder building CommandSite. You've already worked with 
 - **propose_experiment(title, hypothesis, category, decision_summary, primary_metric, duration_days, success_criteria, target_change_id?, baseline_snapshot?)**: create a structured N=1 experiment that tracks whether a decision delivered the predicted outcome. Use whenever you propose a target change worth testing OR when Josh wants to try something lifestyle-shaped ("eat dinner by 7pm for 2 weeks"). target_change_id is set to the change_id you just got from update_target so the change and experiment are linked.
 - **complete_experiment(id, verdict, verdict_notes, end_value?)**: mark an experiment as ended with a verdict. Use when an experiment's end_date has arrived and you and Josh are reviewing the outcome.
 - **abandon_experiment(id, reason)**: end an experiment early without a verdict. Use when Josh wants to stop the test for any reason (life event, doesn't feel right).
+- **dismiss_pattern(id, reason?)**: mark a detected pattern as dismissed so it stops surfacing on the Today page. Use after you've discussed it AND either turned it into an experiment OR Josh has decided it's not worth acting on right now. Don't dismiss patterns just because they were read — only when there's a real outcome.
+- **save_sage_observation(body, tags?, confidence?, evidence_refs?)**: write a long-term note about Josh that future-you (in another session) should know. Use SPARINGLY — only durable observations, not in-the-moment specifics. Examples worth saving: "Skips workouts when sleep < 6h (correlation across 4 weeks)" / "Salmon dishes always log loved" / "Mid-week dinners run 200+ cal over plan." Do NOT save: today's macros, this week's weight, conversation summary.
+- **archive_sage_observation(id, reason?)**: mark an observation as no longer relevant (e.g. when fresh data refutes it).
 
 Call tools whenever you need data. Don't guess. If Josh asks "what should I eat for dinner" and you don't already know his targets + remaining macros, call read_targets and read_meal_log first.
 
@@ -99,6 +104,18 @@ Call tools whenever you need data. Don't guess. If Josh asks "what should I eat 
 - Don't override his goals — you can suggest a tighter approach, but his goals are his.
 - Don't be sycophantic. He doesn't need "great question!" — just answer.
 - If a tool returns an error or empty result, tell Josh honestly and ask what's missing.
+
+# DISCUSSING DETECTED PATTERNS
+
+When Josh starts a message with "Tell me about: …" or asks "what have you noticed?", a pattern was likely tapped on the Today page. Pattern surface protocol:
+
+1. Call read_patterns_detected to load undismissed patterns. Find the one matching Josh's prompt (by title or topic).
+2. **Explain it in your own words first** — don't just paraphrase the title. Cite the evidence_data numbers. Tie it to his profile/concerns when relevant ("the weight stall matters more during a cut because muscle loss accelerates").
+3. **Offer the next step.** If suggested_experiment is present, propose it (with a hypothesis frame). If not, suggest 1-2 actions Josh could take or things to investigate.
+4. **Wait for Josh's response.** Don't auto-create an experiment. Don't auto-dismiss the pattern. Both are explicit confirmations from him.
+5. **Once acted on**, dismiss the pattern with dismiss_pattern so it stops surfacing. The reason field on dismiss should reference the experiment_id created OR Josh's stated decision ("declined this round").
+
+If multiple patterns are active and Josh asks generically ("what have you noticed?"), summarize the top 2-3 by severity in one paragraph each. Don't dump everything.
 
 # EXPERIMENT-FIRST THINKING
 
@@ -373,6 +390,59 @@ const TOOLS = [
         reason: { type: 'string' },
       },
       required: ['id', 'reason'],
+    },
+  },
+  {
+    name: 'read_patterns_detected',
+    description: "List patterns flagged by the nightly detector. Returns title, severity, evidence_summary, and a suggested_experiment template when one was generated.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        include_dismissed: { type: 'boolean', description: 'Default false. Set true to also see patterns Josh has already dismissed.' },
+      },
+    },
+  },
+  {
+    name: 'dismiss_pattern',
+    description: 'Mark a detected pattern as dismissed so it stops surfacing on the Today page. Call AFTER acting on it (created an experiment OR Josh declined).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id:     { type: 'string', description: 'The pattern id from read_patterns_detected.' },
+        reason: { type: 'string', description: 'Optional — what was decided ("converted to experiment X" or "declined").' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'read_sage_observations',
+    description: "Pull Josh's long-term observations you've persisted across sessions.",
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'save_sage_observation',
+    description: "Persist a long-term observation about Josh. Use sparingly — durable patterns only, not in-the-moment specifics.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        body: { type: 'string', description: '1-3 sentences max. The observation itself.' },
+        tags: { type: 'array', items: { type: 'string' }, description: "Free-form tags ['nutrition', 'breakfast']." },
+        confidence: { type: 'string', enum: ['hunch', 'pattern', 'confirmed'], description: "Default 'pattern'." },
+        evidence_refs: { type: 'array', items: { type: 'object' }, description: 'Optional links to pattern/experiment ids that drove this.' },
+      },
+      required: ['body'],
+    },
+  },
+  {
+    name: 'archive_sage_observation',
+    description: 'Mark an observation as archived (no longer relevant). Use when fresh data refutes it OR Josh disagrees.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id:     { type: 'string' },
+        reason: { type: 'string' },
+      },
+      required: ['id'],
     },
   },
 ]
@@ -991,6 +1061,64 @@ async function execTool(name: string, input: any, admin: any, userId: string): P
       } as never).eq('id', id)
       if (upErr) return { error: `complete_experiment: ${upErr.message}` }
       return { ok: true, experiment_id: id, end_value: endValue, verdict }
+    }
+
+    case 'read_patterns_detected': {
+      const includeDismissed = Boolean(input.include_dismissed)
+      let query = admin
+        .from('personal_patterns_detected')
+        .select('id, pattern_type, window_key, title, evidence_summary, evidence_data, severity, suggested_experiment, detected_at, dismissed_at, experiment_id')
+        .eq('user_id', userId)
+      if (!includeDismissed) query = query.is('dismissed_at', null)
+      const { data, error: e } = await query.order('detected_at', { ascending: false }).limit(50)
+      if (e) return { error: `read_patterns_detected: ${e.message}` }
+      return { patterns: data ?? [] }
+    }
+
+    case 'dismiss_pattern': {
+      const id = String(input.id ?? '').trim()
+      if (!id) return { error: 'id is required' }
+      const reason = String(input.reason ?? '').trim()
+      const { error: e } = await admin
+        .from('personal_patterns_detected')
+        .update({ dismissed_at: new Date().toISOString() } as never)
+        .eq('id', id).eq('user_id', userId)
+      if (e) return { error: `dismiss_pattern: ${e.message}` }
+      return { ok: true, pattern_id: id, reason: reason || null }
+    }
+
+    case 'read_sage_observations': {
+      const { data, error: e } = await admin
+        .from('personal_sage_observations')
+        .select('id, body, tags, confidence, evidence_refs, set_at')
+        .eq('user_id', userId).eq('status', 'active')
+        .order('set_at', { ascending: false }).limit(50)
+      if (e) return { error: `read_sage_observations: ${e.message}` }
+      return { observations: data ?? [] }
+    }
+
+    case 'save_sage_observation': {
+      const body = String(input.body ?? '').trim()
+      if (!body) return { error: 'body is required' }
+      const tags = Array.isArray(input.tags) ? input.tags.map((t: unknown) => String(t)) : []
+      const confidence = ['hunch', 'pattern', 'confirmed'].includes(String(input.confidence)) ? input.confidence : 'pattern'
+      const evidence = Array.isArray(input.evidence_refs) ? input.evidence_refs : []
+      const { data, error: e } = await admin
+        .from('personal_sage_observations').insert({
+          user_id: userId, body, tags, confidence, evidence_refs: evidence,
+        }).select('id').single()
+      if (e) return { error: `save_sage_observation: ${e.message}` }
+      return { ok: true, observation_id: (data as { id: string }).id }
+    }
+
+    case 'archive_sage_observation': {
+      const id = String(input.id ?? '').trim()
+      if (!id) return { error: 'id is required' }
+      const { error: e } = await admin.from('personal_sage_observations').update({
+        status: 'archived', archived_at: new Date().toISOString(),
+      } as never).eq('id', id).eq('user_id', userId)
+      if (e) return { error: `archive_sage_observation: ${e.message}` }
+      return { ok: true, observation_id: id }
     }
 
     case 'abandon_experiment': {

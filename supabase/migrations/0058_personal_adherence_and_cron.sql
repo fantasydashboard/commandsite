@@ -127,43 +127,51 @@ end $$;
 -- Daily 03:00 UTC — end-of-day adherence rollup for the day that just ended in ET.
 -- (When fired at 03:00 UTC, ET is 22:00-23:00 the previous day, so we summarize
 -- "yesterday from the user's perspective" using the local date the cron computes.)
+-- NOTE: tagged dollar-quotes ($cron$) so the SQL editor doesn't peek inside
+-- and choke on the := named-arg syntax.
 select cron.schedule(
   'josh-personal-end-of-day',
   '0 3 * * *',
-  $$ select net.http_post(
-       url := 'https://hrdcjautrdkdpmwxuaar.supabase.co/functions/v1/end-of-day-adherence',
-       headers := jsonb_build_object(
-         'Content-Type', 'application/json',
-         'X-Cron-Secret', coalesce((select decrypted_secret from vault.decrypted_secrets where name = 'health_cron_secret'), '')
-       ),
-       body := '{}'::jsonb
-     ) $$
+  $cron$
+  select net.http_post(
+    url := 'https://hrdcjautrdkdpmwxuaar.supabase.co/functions/v1/end-of-day-adherence',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'X-Cron-Secret', (select decrypted_secret from vault.decrypted_secrets where name = 'health_cron_secret')
+    ),
+    body := '{}'::jsonb
+  )
+  $cron$
 );
 
 -- Daily 11:00 UTC — morning brief.
 select cron.schedule(
   'josh-personal-morning-brief',
   '0 11 * * *',
-  $$ select net.http_post(
-       url := 'https://hrdcjautrdkdpmwxuaar.supabase.co/functions/v1/generate-morning-brief',
-       headers := jsonb_build_object(
-         'Content-Type', 'application/json',
-         'X-Cron-Secret', coalesce((select decrypted_secret from vault.decrypted_secrets where name = 'health_cron_secret'), '')
-       ),
-       body := '{}'::jsonb
-     ) $$
+  $cron$
+  select net.http_post(
+    url := 'https://hrdcjautrdkdpmwxuaar.supabase.co/functions/v1/generate-morning-brief',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'X-Cron-Secret', (select decrypted_secret from vault.decrypted_secrets where name = 'health_cron_secret')
+    ),
+    body := '{}'::jsonb
+  )
+  $cron$
 );
 
 -- Sundays 22:00 UTC — auto-draft next week's plan for review.
 select cron.schedule(
   'josh-personal-weekly-plan',
   '0 22 * * 0',
-  $$ select net.http_post(
-       url := 'https://hrdcjautrdkdpmwxuaar.supabase.co/functions/v1/generate-weekly-plan',
-       headers := jsonb_build_object(
-         'Content-Type', 'application/json',
-         'X-Cron-Secret', coalesce((select decrypted_secret from vault.decrypted_secrets where name = 'health_cron_secret'), '')
-       ),
-       body := '{}'::jsonb
-     ) $$
+  $cron$
+  select net.http_post(
+    url := 'https://hrdcjautrdkdpmwxuaar.supabase.co/functions/v1/generate-weekly-plan',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'X-Cron-Secret', (select decrypted_secret from vault.decrypted_secrets where name = 'health_cron_secret')
+    ),
+    body := '{}'::jsonb
+  )
+  $cron$
 );

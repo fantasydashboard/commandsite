@@ -93,8 +93,8 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'josh-personal-today' },
     { key: 'josh-personal-plan' },
     { key: 'josh-personal-trends' },
+    { key: 'josh-personal-history' },
     { key: 'josh-personal-bloodwork' },
-    { key: 'josh-personal-goals' },
   ],
 }
 
