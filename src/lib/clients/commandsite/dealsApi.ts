@@ -162,6 +162,22 @@ export function useDeals() {
       .update({ stage: newStage })
       .eq('id', dealId)
     if (e) throw new Error(e.message)
+
+    // Auto-fire the customer handoff when a deal closes won. The function
+    // is idempotent — calling it twice for the same deal returns the
+    // existing customer id without re-sending the welcome. Fail-soft:
+    // we never want a transient handoff error to block stage updates.
+    if (newStage === 'closed_won') {
+      try {
+        const { error: fnErr } = await supabase.functions.invoke('deal-won-handoff', {
+          body: { deal_id: dealId },
+        })
+        if (fnErr) console.warn('deal-won-handoff failed (non-blocking):', fnErr.message)
+      } catch (err) {
+        console.warn('deal-won-handoff threw (non-blocking):', err)
+      }
+    }
+
     await load()
   }
 
