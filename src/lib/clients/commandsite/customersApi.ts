@@ -12,6 +12,29 @@ export type PersonaType = 'ada' | 'grace'
 export type CustomerStatus = 'onboarding' | 'active' | 'paused' | 'churned'
 export type BillingPeriod = 'monthly' | 'annual'
 
+// Kanban pipeline stages for status='onboarding' customers. Ordered.
+// (mig 0062)
+export type OnboardingStage =
+  | 'signed'        // verbal yes, awaiting payment
+  | 'paid'          // Stripe webhook received, ready for kickoff call
+  | 'discovery'     // kickoff done, persona interviewing them
+  | 'provisioned'   // tenant + theme + modules + OAuth done
+  | 'shadow'        // persona drafting only, staff reviewing
+  | 'live'          // drafts auto-sending, verifying for ~2 weeks
+
+export const ONBOARDING_STAGES: OnboardingStage[] = [
+  'signed', 'paid', 'discovery', 'provisioned', 'shadow', 'live',
+]
+
+export const STAGE_META: Record<OnboardingStage, { label: string; description: string }> = {
+  signed:      { label: 'Signed',      description: 'Verbal yes, contract / first email out, awaiting payment' },
+  paid:        { label: 'Paid',        description: 'Payment received. Ready for kickoff call' },
+  discovery:   { label: 'Discovery',   description: 'Persona interviewing them — services, ministries, staff, pain' },
+  provisioned: { label: 'Provisioned', description: 'Tenant, theme, modules, OAuth — technical setup complete' },
+  shadow:      { label: 'Shadow',      description: 'Drafting only — staff reviews everything before send' },
+  live:        { label: 'Live',        description: 'Drafts auto-sending. Watching for ~2 weeks before "Active"' },
+}
+
 export interface CustomerContact {
   name: string
   role: string
@@ -60,6 +83,9 @@ export interface Customer {
   integrations: Record<string, unknown>
 
   onboarding_step: number
+  onboarding_stage: OnboardingStage | null
+  stage_entered_at: string | null
+  last_customer_action_at: string | null
   onboarding_completed_at: string | null
   // Welcome email tracking (mig 0045) — written by customer-welcome-send
   welcome_sent_at: string | null
@@ -189,6 +215,65 @@ export function useCustomers() {
     return { ok: true }
   }
 
+  /** Advance a customer to the next onboarding stage. If they're at the
+   *  final ('live') stage, calling this flips status to 'active' and fires
+   *  the welcome email (same path as activateCustomer). */
+  async function advanceStage(id: string): Promise<{ ok: boolean; error?: string; activated?: boolean }> {
+    const customer = customers.value.find((c) => c.id === id)
+    if (!customer) return { ok: false, error: 'Customer not found in local cache' }
+    const current = customer.onboarding_stage
+    const idx = current ? ONBOARDING_STAGES.indexOf(current) : -1
+    const next = idx >= 0 && idx < ONBOARDING_STAGES.length - 1
+      ? ONBOARDING_STAGES[idx + 1]
+      : null
+
+    if (next === null) {
+      // From 'live' → activate
+      const res = await activateCustomer(id)
+      if (!res.ok) return { ok: false, error: res.error }
+      // Clear the stage now that they're active
+      await supabase
+        .from('cs_customers')
+        .update({ onboarding_stage: null } as never)
+        .eq('id', id)
+      await load()
+      return { ok: true, activated: true }
+    }
+
+    const { error: e } = await supabase
+      .from('cs_customers')
+      .update({
+        onboarding_stage: next,
+        stage_entered_at: new Date().toISOString(),
+      } as never)
+      .eq('id', id)
+    if (e) return { ok: false, error: e.message }
+    await load()
+    return { ok: true }
+  }
+
+  /** Move a customer back one stage. Useful if discovery stalled and you
+   *  want to send them back to 'paid' for a re-kickoff, etc. */
+  async function revertStage(id: string): Promise<{ ok: boolean; error?: string }> {
+    const customer = customers.value.find((c) => c.id === id)
+    if (!customer || !customer.onboarding_stage) {
+      return { ok: false, error: 'No stage to revert' }
+    }
+    const idx = ONBOARDING_STAGES.indexOf(customer.onboarding_stage)
+    if (idx <= 0) return { ok: false, error: 'Already at first stage' }
+    const prev = ONBOARDING_STAGES[idx - 1]
+    const { error: e } = await supabase
+      .from('cs_customers')
+      .update({
+        onboarding_stage: prev,
+        stage_entered_at: new Date().toISOString(),
+      } as never)
+      .eq('id', id)
+    if (e) return { ok: false, error: e.message }
+    await load()
+    return { ok: true }
+  }
+
   const activeCustomers = computed(() => customers.value.filter((c) => c.status === 'active'))
   const onboardingCustomers = computed(() => customers.value.filter((c) => c.status === 'onboarding'))
 
@@ -205,6 +290,48 @@ export function useCustomers() {
     updateCustomer,
     deleteCustomer,
     activateCustomer,
+    advanceStage,
+    revertStage,
     sendWelcome,
   }
+}
+
+/** Format cents as a USD string. */
+export function fmtMoney(cents: number | null | undefined): string {
+  if (cents == null) return '—'
+  return `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+}
+
+/** Days between an ISO timestamp and now (clamped to ≥0). */
+export function daysSince(iso: string | null | undefined): number {
+  if (!iso) return 0
+  const ms = Date.now() - new Date(iso).getTime()
+  return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)))
+}
+
+/** Lifetime revenue earned from this customer (monthly_rate × months active). */
+export function lifetimeCents(customer: Customer): number {
+  if (!customer.billing_start_at) return customer.setup_fee_cents ?? 0
+  const startMs = new Date(customer.billing_start_at).getTime()
+  const elapsedMonths = (Date.now() - startMs) / (1000 * 60 * 60 * 24 * 30.4375)
+  const months = Math.max(0, elapsedMonths)
+  return Math.round((customer.monthly_rate_cents ?? 0) * months + (customer.setup_fee_cents ?? 0))
+}
+
+/** Health pill verdict — drives the colored badge in the active table.
+ *  Heuristic: based on welcome delivery, days since onboarding completion,
+ *  and last_customer_action_at if present. Replace with richer logic as
+ *  per-customer telemetry lands. */
+export type HealthStatus = 'healthy' | 'watch' | 'at_risk' | 'new'
+export function healthStatus(customer: Customer): HealthStatus {
+  if (customer.status !== 'active') return 'new'
+  const daysSinceActivation = daysSince(customer.onboarding_completed_at)
+  if (daysSinceActivation < 14) return 'new'
+  if (customer.welcome_send_error) return 'at_risk'
+  const daysSinceAction = customer.last_customer_action_at
+    ? daysSince(customer.last_customer_action_at)
+    : 999
+  if (daysSinceAction <= 3) return 'healthy'
+  if (daysSinceAction <= 14) return 'watch'
+  return 'at_risk'
 }
