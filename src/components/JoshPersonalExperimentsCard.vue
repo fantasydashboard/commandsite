@@ -11,6 +11,7 @@
  */
 import { ref } from 'vue'
 import AssistantMark from '@/components/AssistantMark.vue'
+import JoshPersonalNewExperimentModal from '@/components/JoshPersonalNewExperimentModal.vue'
 import type { Experiment } from '@/lib/clients/josh-personal/experimentsApi'
 
 const props = defineProps<{
@@ -19,6 +20,10 @@ const props = defineProps<{
   daysRemaining: (e: Experiment) => number
   progressPct: (e: Experiment) => number
 }>()
+const emit = defineEmits<{ (e: 'reload'): void }>()
+
+const newOpen = ref(false)
+function onCreated() { emit('reload') }
 
 const showCompleted = ref(false)
 // Reference the prop so TS doesn't flag it as unused when only the
@@ -75,12 +80,19 @@ function fmtDelta(e: Experiment): string | null {
           </template>
         </div>
       </div>
-      <button
-        v-if="recentlyCompleted.length > 0"
-        type="button"
-        class="text-[11px] text-brand font-semibold hover:underline"
-        @click="showCompleted = !showCompleted"
-      >{{ showCompleted ? 'Hide' : 'Show' }} past {{ recentlyCompleted.length }}</button>
+      <div class="flex items-center gap-3">
+        <button
+          v-if="recentlyCompleted.length > 0"
+          type="button"
+          class="text-[11px] text-brand font-semibold hover:underline"
+          @click="showCompleted = !showCompleted"
+        >{{ showCompleted ? 'Hide' : 'Show' }} past {{ recentlyCompleted.length }}</button>
+        <button
+          type="button"
+          class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90"
+          @click="newOpen = true"
+        >+ New</button>
+      </div>
     </header>
 
     <!-- Empty state (no active, no completed) — make the surface
@@ -160,5 +172,6 @@ function fmtDelta(e: Experiment): string | null {
         </div>
       </li>
     </ul>
+    <JoshPersonalNewExperimentModal :open="newOpen" @close="newOpen = false" @created="onCreated" />
   </section>
 </template>

@@ -8,9 +8,11 @@
  *   2. Sage's persistent observations about Josh
  *   3. Decisions timeline — experiments + target changes interleaved
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
+import JoshPersonalNewExperimentModal from '@/components/JoshPersonalNewExperimentModal.vue'
+import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
 import {
   useSageSummary,
   useSageObservations,
@@ -22,7 +24,12 @@ defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 const { state: summary, refreshing: summaryRefreshing, refresh: refreshSummary, refreshedAgo: summaryRefreshedAgo } = useSageSummary()
 const { observations, archive: archiveObservation } = useSageObservations()
-const { entries: timelineEntries, loading: timelineLoading } = useDecisionTimeline(90)
+const { entries: timelineEntries, loading: timelineLoading, load: reloadTimeline } = useDecisionTimeline(90)
+
+const newExperimentOpen = ref(false)
+function onExperimentCreated() {
+  reloadTimeline()
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -92,6 +99,15 @@ function deltaText(e: DecisionEntry): string | null {
 
 const hasAnyDecisions = computed(() => timelineEntries.value.length > 0)
 const hasObservations = computed(() => observations.value.length > 0)
+
+// ── Ask Sage floating chat ──────────────────────────────────────────
+const chatOpen = ref(false)
+const chatSeedPrompt = ref<string | null>(null)
+function onChatClose() {
+  chatOpen.value = false
+  chatSeedPrompt.value = null
+}
+function onChatDataChanged(payload: { tools: string[] }) { void payload }
 </script>
 
 <template>
@@ -188,13 +204,20 @@ const hasObservations = computed(() => observations.value.length > 0)
 
     <!-- ── Decisions timeline ─────────────────────────────────────── -->
     <section class="card p-0 overflow-hidden">
-      <header class="px-4 py-3 border-b border-divider bg-surface-elevated">
-        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Decisions timeline · last 90 days</div>
-        <div class="text-[11px] text-ink-muted mt-0.5">
-          <template v-if="timelineLoading">Loading…</template>
-          <template v-else-if="hasAnyDecisions">{{ timelineEntries.length }} {{ timelineEntries.length === 1 ? 'entry' : 'entries' }} — newest first</template>
-          <template v-else>No decisions in the last 90 days. Once you and Sage start running experiments or adjusting targets, they show up here.</template>
+      <header class="px-4 py-3 border-b border-divider bg-surface-elevated flex items-start justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Decisions timeline · last 90 days</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">
+            <template v-if="timelineLoading">Loading…</template>
+            <template v-else-if="hasAnyDecisions">{{ timelineEntries.length }} {{ timelineEntries.length === 1 ? 'entry' : 'entries' }} — newest first</template>
+            <template v-else>No decisions in the last 90 days. Once you and Sage start running experiments or adjusting targets, they show up here.</template>
+          </div>
         </div>
+        <button
+          type="button"
+          class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 shrink-0"
+          @click="newExperimentOpen = true"
+        >+ New experiment</button>
       </header>
       <ul v-if="hasAnyDecisions" class="divide-y divide-divider">
         <li v-for="e in timelineEntries" :key="`${e.kind}-${e.id}`" class="px-4 py-3">
@@ -240,5 +263,28 @@ const hasObservations = computed(() => observations.value.length > 0)
         </li>
       </ul>
     </section>
+
+    <JoshPersonalNewExperimentModal
+      :open="newExperimentOpen"
+      @close="newExperimentOpen = false"
+      @created="onExperimentCreated"
+    />
+
+    <!-- ── Ask Sage floating chat ──────────────────────────────────── -->
+    <button
+      type="button"
+      class="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-brand text-white px-4 py-2.5 shadow-lg hover:opacity-90 transition-all hover:scale-105"
+      title="Ask Sage about your history"
+      @click="chatOpen = !chatOpen"
+    >
+      <AssistantMark class="h-4 w-4 text-white" />
+      Ask Sage
+    </button>
+    <JoshPersonalSageChatPanel
+      :open="chatOpen"
+      :seed-prompt="chatSeedPrompt"
+      @close="onChatClose"
+      @data-changed="onChatDataChanged"
+    />
   </div>
 </template>

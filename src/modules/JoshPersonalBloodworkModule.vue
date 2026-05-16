@@ -12,6 +12,7 @@ import { ref, computed } from 'vue'
 import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalBloodworkEntryModal from '@/components/JoshPersonalBloodworkEntryModal.vue'
+import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
 import JoshPersonalBloodworkUploadModal from '@/components/JoshPersonalBloodworkUploadModal.vue'
 import {
   useBloodwork,
@@ -163,6 +164,15 @@ function statusIcon(status: 'good' | 'warn' | 'danger'): string {
   if (status === 'warn')   return '⚠'
   return '✕'
 }
+
+// ── Ask Sage floating chat ──────────────────────────────────────────
+const chatOpen = ref(false)
+const chatSeedPrompt = ref<string | null>(null)
+function onChatClose() {
+  chatOpen.value = false
+  chatSeedPrompt.value = null
+}
+function onChatDataChanged(payload: { tools: string[] }) { void payload }
 </script>
 
 <template>
@@ -398,6 +408,23 @@ function statusIcon(status: 'good' | 'warn' | 'danger'): string {
       :open="uploadOpen"
       @close="uploadOpen = false"
       @saved="uploadOpen = false"
+    />
+
+    <!-- ── Ask Sage floating chat ──────────────────────────────────── -->
+    <button
+      type="button"
+      class="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-brand text-white px-4 py-2.5 shadow-lg hover:opacity-90 transition-all hover:scale-105"
+      title="Ask Sage about your bloodwork"
+      @click="chatOpen = !chatOpen"
+    >
+      <AssistantMark class="h-4 w-4 text-white" />
+      Ask Sage
+    </button>
+    <JoshPersonalSageChatPanel
+      :open="chatOpen"
+      :seed-prompt="chatSeedPrompt"
+      @close="onChatClose"
+      @data-changed="onChatDataChanged"
     />
   </div>
 </template>

@@ -439,6 +439,12 @@ export function useHealthData() {
     trends,
     stepsSummary,
     dailyWeight,
+    // Expose the rest of the daily series so callers (e.g. Trends page)
+    // can pair values with real dates for axis labels + hover tooltips.
+    dailySteps,
+    dailySleepAsleep,
+    dailyHrvAvg,
+    dailyActiveCal,
   }
 }
 

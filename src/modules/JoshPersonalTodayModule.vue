@@ -52,7 +52,7 @@ const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: r
 const { todaySlice: realTodaySlice } = useWeeklyPlan()
 const { todayMeals, todayTotals, recentDays, totalLogged, load: reloadMealLog, deleteMeal } = useMealLog()
 const { state: nowState, loading: nowLoading, refreshing: nowRefreshing, refresh: refreshNow, refreshedAgo: nowRefreshedAgo, isStale: nowIsStale } = useNowState()
-const { active: activeExperiments, recentlyCompleted: completedExperiments, daysRemaining: experimentDaysRemaining, progressPct: experimentProgressPct } = useExperiments()
+const { active: activeExperiments, recentlyCompleted: completedExperiments, daysRemaining: experimentDaysRemaining, progressPct: experimentProgressPct, load: reloadExperiments } = useExperiments()
 const { ordered: orderedPatterns, load: reloadPatterns } = usePatterns()
 
 // ── Pattern → Sage chat handoff ─────────────────────────────────────
@@ -628,6 +628,7 @@ const mealPhotoOpen = ref(false)
       :recently-completed="completedExperiments"
       :days-remaining="experimentDaysRemaining"
       :progress-pct="experimentProgressPct"
+      @reload="reloadExperiments"
     />
 
     <!-- ── Today header + Quick log button ────────────────────────── -->

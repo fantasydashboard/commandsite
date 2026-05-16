@@ -2,49 +2,151 @@
 /**
  * Josh Personal — Trends tab.
  *
- * Time-series surfaces — weight, sleep, HRV, steps (with 10k goal
- * line), active calories, weekly workout count. Larger charts than
- * the Today tab's snapshot strip; this is where Josh comes for the
- * weekly review.
+ * Time-series surfaces with Sage's narrative on top, experiment
+ * overlays on the relevant charts, an adherence-rate grid, and
+ * bloodwork trends with reference bands.
+ *
+ * The flat shape (Today's snapshot strip) lives elsewhere; this is the
+ * page Josh comes to for the weekly/monthly review.
  */
+import { computed } from 'vue'
 import type { Client } from '@/types/database'
-import {
-  STEPS_DAILY_TARGET,
-  buildSparklinePath,
-  sparklineTargetY,
-} from '@/lib/clients/josh-personal/health'
+import { ref } from 'vue'
+import AssistantMark from '@/components/AssistantMark.vue'
+import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
+import JoshPersonalTrendChart from '@/components/JoshPersonalTrendChart.vue'
+import JoshPersonalAdherenceTrends from '@/components/JoshPersonalAdherenceTrends.vue'
+import JoshPersonalBloodworkTrends from '@/components/JoshPersonalBloodworkTrends.vue'
+import { STEPS_DAILY_TARGET } from '@/lib/clients/josh-personal/health'
 import { useHealthData } from '@/lib/clients/josh-personal/healthData'
-
-// Live trends from Apple Health (Phase 0 ingestion).
-const { trends, stepsSummary } = useHealthData()
+import { useTrendsSummary } from '@/lib/clients/josh-personal/trendsSummaryApi'
+import { useExperiments } from '@/lib/clients/josh-personal/experimentsApi'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
-// Slightly larger chart canvas for the Trends tab vs. the small
-// sparklines used in the snapshot strip.
-const CHART_W = 400
-const CHART_H = 80
+// Live trends from Apple Health
+const { trends, stepsSummary, dailyWeight, dailySteps, dailySleepAsleep, dailyHrvAvg } = useHealthData()
+const { state: summary, refreshing: summaryRefreshing, refresh: refreshSummary, refreshedAgo: summaryRefreshedAgo } = useTrendsSummary()
+const { experiments } = useExperiments()
 
-function pathFor(values: number[]): string {
-  return buildSparklinePath(values, CHART_W, CHART_H)
+// Map experiments to span objects per primary_metric the chart understands
+type Span = {
+  start_date: string
+  end_date: string
+  status: 'active' | 'completed' | 'abandoned'
+  verdict: 'confirmed' | 'partial' | 'refuted' | 'inconclusive' | 'pending' | null
+  title: string
+}
+function spansForMetric(metric: string): Span[] {
+  return experiments.value
+    .filter((e) => e.primary_metric === metric)
+    .map((e) => ({
+      start_date: e.start_date,
+      end_date: e.end_date,
+      status: e.status,
+      verdict: e.verdict ?? null,
+      title: e.title,
+    }))
 }
 
-function targetYFor(values: number[], target: number): number {
-  return sparklineTargetY(values, target, CHART_H)
+const weightExperiments = computed(() => spansForMetric('weight_body_mass'))
+const sleepExperiments  = computed(() => spansForMetric('sleep_7d_avg'))
+const hrvExperiments    = computed(() => spansForMetric('hrv_14d_avg'))
+const stepsExperiments  = computed<Span[]>(() => [])
+
+// Highlight tones for the Sage summary chips (parallel to History tab)
+const HIGHLIGHT_KIND_TONE: Record<string, string> = {
+  weight:     'bg-brand/10 text-brand',
+  sleep:      'bg-brand/10 text-brand',
+  hrv:        'bg-brand/10 text-brand',
+  adherence:  'bg-success/10 text-success',
+  experiment: 'bg-success/15 text-success',
+  bloodwork:  'bg-warn/10 text-warn',
+  workout:    'bg-brand/10 text-brand',
 }
+
+// ── Ask Sage floating chat ──────────────────────────────────────────
+const chatOpen = ref(false)
+const chatSeedPrompt = ref<string | null>(null)
+function onChatClose() {
+  chatOpen.value = false
+  chatSeedPrompt.value = null
+}
+function onChatDataChanged(payload: { tools: string[] }) { void payload }
 </script>
 
 <template>
   <div class="space-y-5">
-    <!-- Header -->
+    <!-- ── Header ─────────────────────────────────────────────────── -->
     <div>
       <h2 class="text-xl font-semibold text-ink">Trends</h2>
       <p class="text-xs text-ink-muted mt-0.5">
-        Last 8 weeks across Apple Health + workout logs. Use this for your weekly review.
+        Last 8 weeks across Apple Health, adherence, and bloodwork. Use this for your weekly review.
       </p>
     </div>
 
-    <!-- Steps — featured at top with goal line + summary cards -->
+    <!-- ── Sage's 8-week recap ────────────────────────────────────── -->
+    <section class="rounded-card border-2 border-brand/40 bg-brand/5 overflow-hidden">
+      <header class="px-5 py-3 border-b border-brand/20 bg-brand/10 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <AssistantMark class="h-5 w-5 text-brand" />
+          <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
+            Sage's 8-week recap
+            <span v-if="summary" class="text-ink-muted font-normal normal-case ml-1">· refreshed {{ summaryRefreshedAgo }}</span>
+          </span>
+        </div>
+        <button
+          type="button"
+          class="text-[11px] text-brand font-semibold hover:underline disabled:opacity-50"
+          :disabled="summaryRefreshing"
+          @click="refreshSummary"
+        >
+          <span v-if="summaryRefreshing">Sage is summarizing…</span>
+          <span v-else>Refresh</span>
+        </button>
+      </header>
+      <div v-if="!summary" class="px-5 py-4">
+        <p class="text-sm text-ink-muted">
+          No 8-week recap yet. Tap refresh and Sage will pull weight, sleep, HRV, adherence, experiment outcomes, and bloodwork delta into one paragraph.
+        </p>
+      </div>
+      <div v-else class="px-5 py-4">
+        <p class="text-sm text-ink leading-relaxed">{{ summary.body }}</p>
+        <div v-if="summary.highlights.length > 0" class="flex flex-wrap gap-2 mt-3">
+          <span
+            v-for="(h, i) in summary.highlights"
+            :key="i"
+            class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+            :class="HIGHLIGHT_KIND_TONE[h.kind] ?? 'bg-canvas text-ink-muted'"
+          >{{ h.label }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Adherence weekly grid ─────────────────────────────────── -->
+    <JoshPersonalAdherenceTrends />
+
+    <!-- ── Weight (with experiment overlay) ───────────────────────── -->
+    <section class="card p-4">
+      <div class="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
+        <div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Weight</div>
+          <div class="text-base font-semibold text-ink mt-0.5">{{ trends.weight.label }}</div>
+          <p class="text-xs text-ink-muted mt-0.5">{{ trends.weight.summary }}</p>
+        </div>
+      </div>
+      <JoshPersonalTrendChart
+        :series="dailyWeight"
+        :unit="'lbs'"
+        :experiments="weightExperiments"
+        ariaLabel="Weight last 8 weeks"
+      />
+      <p v-if="weightExperiments.length > 0" class="text-[11px] text-ink-muted mt-2">
+        Shaded bands = experiments tracking weight as the primary metric.
+      </p>
+    </section>
+
+    <!-- ── Steps ────────────────────────────────────────────────── -->
     <section class="card p-4">
       <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
         <div>
@@ -52,37 +154,14 @@ function targetYFor(values: number[], target: number): number {
           <div class="text-base font-semibold text-ink mt-0.5">{{ trends.steps.label }}</div>
           <p class="text-xs text-ink-muted mt-0.5">{{ trends.steps.summary }}</p>
         </div>
-        <div class="flex items-center gap-2 text-[11px] text-ink-muted">
-          <span class="inline-flex items-center gap-1">
-            <span class="h-0.5 w-3 bg-brand inline-block" />
-            <span>weekly avg</span>
-          </span>
-          <span class="inline-flex items-center gap-1">
-            <span class="h-0 w-3 border-t border-dashed border-warn inline-block" />
-            <span>10k goal</span>
-          </span>
-        </div>
       </div>
-      <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="h-20 w-full">
-        <line
-          :x1="0"
-          :x2="CHART_W"
-          :y1="targetYFor(trends.steps.values, STEPS_DAILY_TARGET)"
-          :y2="targetYFor(trends.steps.values, STEPS_DAILY_TARGET)"
-          stroke="rgb(var(--color-warn))"
-          stroke-width="1"
-          stroke-dasharray="3 3"
-          opacity="0.6"
-        />
-        <path
-          :d="pathFor(trends.steps.values)"
-          fill="none"
-          stroke="rgb(var(--color-brand))"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <JoshPersonalTrendChart
+        :series="dailySteps"
+        :target-line="STEPS_DAILY_TARGET"
+        target-label="10k goal"
+        :experiments="stepsExperiments"
+        ariaLabel="Steps last 8 weeks"
+      />
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
         <div>
           <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">7d avg</div>
@@ -103,46 +182,38 @@ function targetYFor(values: number[], target: number): number {
       </div>
     </section>
 
-    <!-- Weight + Sleep + HRV — stacked sparklines -->
+    <!-- ── Sleep + HRV stacked -->
     <div class="grid gap-4 md:grid-cols-2">
-      <section class="card p-4">
-        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Weight</div>
-        <div class="text-base font-semibold text-ink mt-0.5">{{ trends.weight.label }}</div>
-        <p class="text-xs text-ink-muted mt-0.5">{{ trends.weight.summary }}</p>
-        <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="h-20 w-full mt-3">
-          <path :d="pathFor(trends.weight.values)" fill="none" stroke="rgb(var(--color-brand))" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </section>
-
       <section class="card p-4">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Sleep</div>
         <div class="text-base font-semibold text-ink mt-0.5">{{ trends.sleep.label }}</div>
         <p class="text-xs text-ink-muted mt-0.5">{{ trends.sleep.summary }}</p>
-        <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="h-20 w-full mt-3">
-          <path :d="pathFor(trends.sleep.values)" fill="none" stroke="rgb(var(--color-brand))" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
+        <div class="mt-3">
+          <JoshPersonalTrendChart
+            :series="dailySleepAsleep"
+            :unit="'h'"
+            :experiments="sleepExperiments"
+            ariaLabel="Sleep last 8 weeks"
+          />
+        </div>
       </section>
 
       <section class="card p-4">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">HRV</div>
         <div class="text-base font-semibold text-ink mt-0.5">{{ trends.hrv.label }}</div>
         <p class="text-xs text-ink-muted mt-0.5">{{ trends.hrv.summary }}</p>
-        <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="h-20 w-full mt-3">
-          <path :d="pathFor(trends.hrv.values)" fill="none" stroke="rgb(var(--color-brand))" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </section>
-
-      <section class="card p-4">
-        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Active calories</div>
-        <div class="text-base font-semibold text-ink mt-0.5">{{ trends.activeCal.label }}</div>
-        <p class="text-xs text-ink-muted mt-0.5">{{ trends.activeCal.summary }}</p>
-        <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="h-20 w-full mt-3">
-          <path :d="pathFor(trends.activeCal.values)" fill="none" stroke="rgb(var(--color-brand))" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
+        <div class="mt-3">
+          <JoshPersonalTrendChart
+            :series="dailyHrvAvg"
+            :unit="'ms'"
+            :experiments="hrvExperiments"
+            ariaLabel="HRV last 8 weeks"
+          />
+        </div>
       </section>
     </div>
 
-    <!-- Workouts/week — bar chart -->
+    <!-- ── Workouts/week — bar chart -->
     <section class="card p-4">
       <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Workouts/week</div>
       <div class="text-base font-semibold text-ink mt-0.5">{{ trends.workouts.label }}</div>
@@ -164,5 +235,25 @@ function targetYFor(values: number[], target: number): number {
         <span>this wk →</span>
       </div>
     </section>
+
+    <!-- ── Bloodwork ────────────────────────────────────────────── -->
+    <JoshPersonalBloodworkTrends />
+
+    <!-- ── Ask Sage floating chat ──────────────────────────────────── -->
+    <button
+      type="button"
+      class="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-brand text-white px-4 py-2.5 shadow-lg hover:opacity-90 transition-all hover:scale-105"
+      title="Ask Sage about these trends"
+      @click="chatOpen = !chatOpen"
+    >
+      <AssistantMark class="h-4 w-4 text-white" />
+      Ask Sage
+    </button>
+    <JoshPersonalSageChatPanel
+      :open="chatOpen"
+      :seed-prompt="chatSeedPrompt"
+      @close="onChatClose"
+      @data-changed="onChatDataChanged"
+    />
   </div>
 </template>

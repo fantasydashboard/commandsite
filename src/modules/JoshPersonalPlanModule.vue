@@ -11,6 +11,7 @@ import { computed, ref, onMounted } from 'vue'
 import type { Client } from '@/types/database'
 import AssistantMark from '@/components/AssistantMark.vue'
 import JoshPersonalPlanNextPopover from '@/components/JoshPersonalPlanNextPopover.vue'
+import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
 import JoshPersonalWorkoutHistory from '@/components/JoshPersonalWorkoutHistory.vue'
 import {
   NEXT_WEEK_LABEL,
@@ -187,6 +188,25 @@ function toggleItem(name: string) {
   if (next.has(name)) next.delete(name)
   else next.add(name)
   shoppingChecked.value = next
+}
+
+// ── Ask Sage chat ─────────────────────────────────────────────────────
+// Floating chat panel so plain-English edits to the meal plan are one
+// click away. Sage's tools include weekly-plan revision, so commands
+// like "swap Tuesday lunch for something high-protein" route through
+// the same agent loop used on Today.
+const chatOpen = ref(false)
+const chatSeedPrompt = ref<string | null>(null)
+function onChatClose() {
+  chatOpen.value = false
+  chatSeedPrompt.value = null
+}
+function onChatDataChanged(payload: { tools: string[] }) {
+  // If Sage edited the plan, refresh it so the grid reflects the change
+  void payload
+  // useWeeklyPlan reloads via its own subscription; trigger an explicit
+  // refetch to be safe in case the subscription hasn't fired yet.
+  // (No-op if no real plan; mock plan ignores this.)
 }
 </script>
 
@@ -550,6 +570,23 @@ function toggleItem(name: string) {
       @submit-review="onSubmitReview"
       @mark-reviewed="onMarkReviewed"
       @generate="onGenerate"
+    />
+
+    <!-- ── Ask Sage floating chat ──────────────────────────────────── -->
+    <button
+      type="button"
+      class="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-brand text-white px-4 py-2.5 shadow-lg hover:opacity-90 transition-all hover:scale-105"
+      :title="'Ask Sage to adjust this plan'"
+      @click="chatOpen = !chatOpen"
+    >
+      <AssistantMark class="h-4 w-4 text-white" />
+      Ask Sage
+    </button>
+    <JoshPersonalSageChatPanel
+      :open="chatOpen"
+      :seed-prompt="chatSeedPrompt"
+      @close="onChatClose"
+      @data-changed="onChatDataChanged"
     />
   </div>
 </template>
