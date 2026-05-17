@@ -429,10 +429,10 @@ function onChatDataChanged(payload: { tools: string[] }) {
                   </div>
                   <span v-else class="text-ink-disabled text-[10px] uppercase tracking-wider">Rest</span>
                 </td>
-                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals.breakfast.name">{{ d.meals.breakfast.name }}</td>
-                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals.lunch.name">{{ d.meals.lunch.name }}</td>
-                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals.dinner.name">{{ d.meals.dinner.name }}</td>
-                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink-muted truncate max-w-[140px]" :title="d.meals.snacks.name">{{ d.meals.snacks.name }}</td>
+                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals?.breakfast?.name ?? '—'">{{ d.meals?.breakfast?.name ?? '—' }}</td>
+                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals?.lunch?.name ?? '—'">{{ d.meals?.lunch?.name ?? '—' }}</td>
+                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink truncate max-w-[160px]" :title="d.meals?.dinner?.name ?? '—'">{{ d.meals?.dinner?.name ?? '—' }}</td>
+                <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-ink-muted truncate max-w-[140px]" :title="d.meals?.snacks?.name ?? '—'">{{ d.meals?.snacks?.name ?? '—' }}</td>
                 <td v-if="viewMode !== 'workouts'" class="px-3 py-2 text-right tabular-nums text-ink">
                   {{ d.totalCal }}
                   <div class="text-[10px] text-ink-muted">{{ d.totalProtein }}g p</div>
@@ -457,7 +457,8 @@ function onChatDataChanged(payload: { tools: string[] }) {
                   <div v-if="viewMode !== 'workouts'">
                     <div class="text-[10px] font-semibold uppercase tracking-wider text-brand mb-2">Meal detail</div>
                     <div class="grid sm:grid-cols-2 gap-3">
-                      <div v-for="(meal, slot) in d.meals" :key="slot">
+                      <template v-for="(meal, slot) in d.meals" :key="slot">
+                      <div v-if="meal">
                         <div class="flex items-center justify-between gap-2">
                           <div class="text-[10px] uppercase tracking-wider text-ink-muted mb-0.5">{{ slot }}</div>
                           <div v-if="usingReal && realPlan" class="flex items-center gap-1">
@@ -481,6 +482,7 @@ function onChatDataChanged(payload: { tools: string[] }) {
                         <div class="text-ink-muted text-[12px] leading-snug">{{ meal.detail }}</div>
                         <div class="text-[10px] text-ink-disabled mt-0.5">{{ meal.cal }} cal · {{ meal.protein }}g protein</div>
                       </div>
+                      </template>
                     </div>
                   </div>
                 </td>
