@@ -759,6 +759,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
         continue
       }
 
+      // Defensive normalization: ensure every day has all included_slots
+      // filled with at least a placeholder meal. Sage occasionally drops a
+      // slot in revisions, which would crash the frontend's `meal.name`
+      // reads. The placeholder renders as "—" so the page stays alive
+      // and Josh can re-ask Sage to fill it back in.
+      const PLACEHOLDER_MEAL = {
+        name: '—',
+        cal: 0,
+        protein: 0,
+        detail: 'Sage did not provide this slot. Ask her to add it back.',
+      }
+      // deno-lint-ignore no-explicit-any
+      const normalizedDays = (toolUse.input.days as any[]).map((day) => {
+        const meals = day.meals && typeof day.meals === 'object' ? day.meals : {}
+        for (const slot of ctx.included_slots) {
+          if (!meals[slot] || typeof meals[slot] !== 'object' || typeof meals[slot].name !== 'string') {
+            meals[slot] = { ...PLACEHOLDER_MEAL }
+          }
+        }
+        return { ...day, meals }
+      })
+
       const planRow = {
         user_id: userId,
         week_starting: startDate,  // legacy column — keeps old reads working
@@ -766,7 +788,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         servings_by_slot: ctx.servings_by_slot,
         included_slots: ctx.included_slots,
         strategy: toolUse.input.strategy,
-        days: toolUse.input.days,
+        days: normalizedDays,
         shopping_list: toolUse.input.shopping_list ?? [],
         swaps: toolUse.input.swaps ?? [],
         totals: toolUse.input.totals,

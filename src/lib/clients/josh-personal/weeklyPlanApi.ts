@@ -60,6 +60,57 @@ export interface MealFeedbackRow {
   created_at: string
 }
 
+// Placeholder used when Sage produces a plan with a missing meal slot.
+// Renders as "—" in the UI so the page never crashes on undefined.name.
+const PLACEHOLDER_MEAL = {
+  name: '—',
+  cal: 0,
+  protein: 0,
+  detail: 'Sage did not provide this slot (revision dropped it). Ask her to add it back.',
+} as const
+
+const ALL_SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snacks']
+
+/**
+ * Defensive normalizer — runs on every read from the DB. Ensures every
+ * day in `plan.days` has all four meal slots filled with at least a
+ * placeholder Meal so downstream components can read `.name` / `.cal`
+ * etc. without crashing.
+ *
+ * This is the "normalize on read" half of the bad-data defense. The
+ * "tighten on write" half lives in the generate-weekly-plan and
+ * ask-sage edge functions where we should refuse to save a plan with
+ * missing slots (TODO if Sage continues producing bad shapes here).
+ *
+ * Returns the same plan object reference but with `.days[].meals`
+ * mutated in place. Logs a single warning per call if any slot was
+ * filled — surfaces upstream bugs without spamming the console.
+ */
+function normalizePlan(p: WeeklyPlan | null): WeeklyPlan | null {
+  if (!p || !Array.isArray(p.days)) return p
+  let filled = 0
+  for (const day of p.days) {
+    if (!day.meals || typeof day.meals !== 'object') {
+      // deno-lint-ignore no-explicit-any
+      (day as any).meals = { breakfast: { ...PLACEHOLDER_MEAL }, lunch: { ...PLACEHOLDER_MEAL }, dinner: { ...PLACEHOLDER_MEAL }, snacks: { ...PLACEHOLDER_MEAL } }
+      filled += 4
+      continue
+    }
+    for (const slot of ALL_SLOTS) {
+      // deno-lint-ignore no-explicit-any
+      const meals = day.meals as any
+      if (!meals[slot] || typeof meals[slot] !== 'object' || typeof meals[slot].name !== 'string') {
+        meals[slot] = { ...PLACEHOLDER_MEAL }
+        filled++
+      }
+    }
+  }
+  if (filled > 0) {
+    console.warn(`[weeklyPlan] normalized ${filled} missing meal slot(s) — upstream produced an incomplete plan`)
+  }
+  return p
+}
+
 export function useWeeklyPlan() {
   const plan = ref<WeeklyPlan | null>(null)
   const loading = ref(true)
@@ -83,7 +134,7 @@ export function useWeeklyPlan() {
       .limit(1)
       .maybeSingle()
     if (e) error.value = e.message
-    else plan.value = (data as unknown as WeeklyPlan | null) ?? null
+    else plan.value = normalizePlan((data as unknown as WeeklyPlan | null) ?? null)
     loading.value = false
   }
 
@@ -259,7 +310,7 @@ export function useWeeklyPlan() {
       .order('week_starting', { ascending: false })
       .limit(1)
       .maybeSingle()
-    return (data as unknown as WeeklyPlan | null) ?? null
+    return normalizePlan((data as unknown as WeeklyPlan | null) ?? null)
   }
 
   /** Fetch all feedback rows for a given plan (used to prefill Step 1). */
