@@ -48,10 +48,11 @@ const emit = defineEmits<{
     length_days: number
     servings_by_slot: Record<MealSlot, number>
     included_slots: MealSlot[]
+    weekly_preferences: string
   }): Promise<{ ok: boolean; error?: string }>
 }>()
 
-const STEPS = ['review', 'window', 'servings', 'generate'] as const
+const STEPS = ['review', 'window', 'servings', 'preferences', 'generate'] as const
 type StepKey = typeof STEPS[number]
 const step = ref<StepKey>('review')
 const error = ref<string | null>(null)
@@ -135,6 +136,33 @@ const servings = ref<Record<MealSlot, number>>({
   breakfast: 1, lunch: 1, dinner: 1, snacks: 1,
 })
 
+// ── Step 4 — Preferences (per-week, transient) ───────────────────────
+// Free-form text Josh adds at plan-creation time. Examples:
+//   "more grilled protein, less rice"
+//   "no fish this week — bad batch last time"
+//   "try one Thai meal"
+//   "easy on the dishes, sheet-pan stuff"
+// Passed straight into the generate-weekly-plan prompt. Separate from
+// the persistent foods_avoided/cuisines_loved on personal_profile which
+// applies every week.
+const weeklyPreferences = ref('')
+
+const PREFERENCE_SUGGESTIONS = [
+  'more grilled protein',
+  'less rice / fewer carbs',
+  'easy cleanup (sheet-pan, one-pot)',
+  'no fish this week',
+  'add one Thai or Vietnamese meal',
+  'leftovers-friendly for the work week',
+  'spicy is fine',
+  'something new for dinner Friday',
+]
+
+function addSuggestion(text: string) {
+  const cur = weeklyPreferences.value.trim()
+  weeklyPreferences.value = cur ? `${cur}\n${text}` : text
+}
+
 // Prefill from last plan when opened
 watch(() => props.open, (open) => {
   if (!open) return
@@ -145,6 +173,8 @@ watch(() => props.open, (open) => {
   startDate.value = nextMondayIso()
   lengthDays.value = 7
   slotsIncluded.value = { breakfast: true, lunch: true, dinner: true, snacks: true }
+  // Reset weekly preferences — they're transient, not persisted
+  weeklyPreferences.value = ''
   // Prefill servings from last plan if present
   if (props.currentPlan?.servings_by_slot) {
     servings.value = { ...props.currentPlan.servings_by_slot }
@@ -240,10 +270,11 @@ async function onGenerate() {
     length_days: lengthDays.value,
     servings_by_slot: servings.value,
     included_slots: includedSlots.value,
+    weekly_preferences: weeklyPreferences.value.trim(),
   })
   if (!r.ok) {
     error.value = r.error ?? 'Plan generation failed'
-    step.value = 'servings'  // let them retry
+    step.value = 'preferences'  // let them retry from preferences (their last edit point)
     return
   }
   emit('close')
@@ -279,9 +310,10 @@ const REASON_OPTIONS = [
             <div>
               <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Plan next</div>
               <div class="font-semibold text-ink text-sm">
-                <span v-if="step === 'review'">Step 1 of 4 · Quick review</span>
-                <span v-else-if="step === 'window'">Step 2 of 4 · Window</span>
-                <span v-else-if="step === 'servings'">Step 3 of 4 · Servings</span>
+                <span v-if="step === 'review'">Step 1 of 5 · Quick review</span>
+                <span v-else-if="step === 'window'">Step 2 of 5 · Window</span>
+                <span v-else-if="step === 'servings'">Step 3 of 5 · Servings</span>
+                <span v-else-if="step === 'preferences'">Step 4 of 5 · This week's preferences</span>
                 <span v-else>Generating…</span>
               </div>
             </div>
@@ -448,7 +480,36 @@ const REASON_OPTIONS = [
             </p>
           </div>
 
-          <!-- ── Step 4: Generating ──────────────────────────────────── -->
+          <!-- ── Step 4: This week's preferences ─────────────────────── -->
+          <div v-else-if="step === 'preferences'">
+            <label class="block text-[11px] uppercase tracking-wider text-ink-muted mb-2">
+              Anything Sage should know about THIS week?
+            </label>
+            <textarea
+              v-model="weeklyPreferences"
+              rows="4"
+              placeholder="E.g., more grilled protein, no fish, try one Thai dinner, easy on the dishes…"
+              class="w-full rounded-md border border-divider bg-surface-raised px-2.5 py-1.5 text-sm text-ink focus:border-brand focus:outline-none resize-y"
+            />
+            <p class="text-[11px] text-ink-muted mt-1.5 leading-snug">
+              One thought per line. Optional — leave blank if nothing comes to mind. Persistent preferences (foods avoided, cuisines loved) come from your profile and apply every week.
+            </p>
+
+            <div class="mt-3">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1.5">Quick adds</div>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="s in PREFERENCE_SUGGESTIONS"
+                  :key="s"
+                  type="button"
+                  class="rounded-full border border-divider bg-surface-raised px-2 py-0.5 text-[11px] text-ink-muted hover:border-brand hover:text-brand"
+                  @click="addSuggestion(s)"
+                >+ {{ s }}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Step 5: Generating ──────────────────────────────────── -->
           <div v-else class="py-6 text-center">
             <div class="inline-flex items-center gap-2 text-ink">
               <AssistantMark class="h-5 w-5 text-brand animate-pulse" />
@@ -479,6 +540,12 @@ const REASON_OPTIONS = [
             >Next</button>
             <button
               v-else-if="step === 'servings'"
+              type="button"
+              class="rounded-md bg-brand text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+              @click="step = 'preferences'"
+            >Next</button>
+            <button
+              v-else-if="step === 'preferences'"
               type="button"
               class="rounded-md bg-brand text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50"
               :disabled="generating"

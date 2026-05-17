@@ -180,6 +180,7 @@ export function useWeeklyPlan() {
     length_days: number
     servings_by_slot: Record<MealSlot, number>
     included_slots: MealSlot[]
+    weekly_preferences?: string
   }): Promise<{ ok: boolean; error?: string }> {
     return callGenerator(options)
   }

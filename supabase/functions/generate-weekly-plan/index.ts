@@ -129,6 +129,8 @@ If the annotation math doesn't add up to the qty, the qty is wrong. Recompute.
 - Variety enough that it doesn't feel like prison food. ~4-5 distinct dinners per week.
 - Lean on cuisines from cuisines_loved. Default to Mediterranean if list is empty.
 - Snacks are usually high-protein (Greek yogurt, cottage cheese, whey + nuts) since they're easiest way to hit protein target.
+- **NO repeating cuisine genre within a single day.** If lunch is Mexican (tacos, burrito bowls, fajitas), dinner is NOT also Mexican. Same for Italian, Asian, Mediterranean, BBQ, etc. Cross-genre pairing every day. The exception: if Josh's "this week's preferences" explicitly asks for a theme day, follow that.
+- Across the week, no single genre dominates more than 30% of dinners. If Josh's cuisines_loved is long, rotate through it; if short, supplement with neutral options (sheet-pan, simple grilled protein with sides) so he doesn't burn out on the same flavor profile.
 
 # LEARNED PREFERENCES (read this every time, treat as constraints)
 
@@ -748,6 +750,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     servings_by_slot?: Partial<Record<MealSlot, number>>
     included_slots?: MealSlot[]
     revision_request?: string
+    weekly_preferences?: string
   }
   try { body = await req.json() } catch { body = {} }
   const startDate = body.start_date ?? body.week_starting ?? nextMondayIso()
@@ -771,6 +774,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     included_slots: includedSlots,
   }
   const revisionRequest = (body.revision_request ?? '').trim() || null
+  const weeklyPreferences = (body.weekly_preferences ?? '').trim() || null
 
   const plans: { user_id: string; start_date: string; status: 'ok' | 'error'; error?: string }[] = []
 
@@ -778,6 +782,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     try {
       const ctx = await assemblePlanContext(admin, userId, planRequest)
       let userMessage = buildUserMessage(ctx)
+
+      // Per-week preferences from the popover — transient guidance for this
+      // generation only (e.g. "more grilled protein, no fish, try one
+      // Thai meal"). Treated as high-priority hints, not hard rules.
+      // Persistent foods_avoided / cuisines_loved live on personal_profile
+      // and are already woven into buildUserMessage via assemblePlanContext.
+      if (weeklyPreferences) {
+        userMessage += `\n\n# THIS WEEK'S PREFERENCES (priority guidance)\n${weeklyPreferences}\n\n` +
+          `Apply these for this plan only. They are layered on top of Josh's persistent preferences. If anything here conflicts with a hard biological constraint (e.g., a bloodwork-driven rule), the constraint wins — note the conflict in your strategy.`
+      }
 
       // Revision mode: load the existing plan and inject it + Josh's request
       if (revisionRequest) {
