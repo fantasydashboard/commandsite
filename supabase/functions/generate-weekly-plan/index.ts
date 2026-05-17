@@ -485,6 +485,80 @@ interface PlanRequest {
   included_slots: MealSlot[]
 }
 
+/**
+ * Self-heal helper — called when the primary generation returned days[]
+ * but no shopping_list. Re-prompts Sage with a narrow, focused tool that
+ * only outputs the aggregated grocery list from a serialized view of the
+ * meals. Returns [] on failure so the caller can keep going.
+ */
+// deno-lint-ignore no-explicit-any
+async function reaggregateShoppingList(days: any[], anthropicKey: string): Promise<any[]> {
+  const mealsText = days.map((d) => {
+    const lines = [`${d.day} (${d.date}):`]
+    for (const [slot, meal] of Object.entries(d.meals ?? {})) {
+      // deno-lint-ignore no-explicit-any
+      const m = meal as any
+      if (!m || m.name === '—') continue
+      const servings = typeof m.servings === 'number' ? m.servings : 1
+      lines.push(`  ${slot}: ${m.name} × ${servings} serving(s) — ${m.detail ?? '(no ingredient detail)'}`)
+    }
+    return lines.join('\n')
+  }).join('\n\n')
+
+  const prompt = `You are aggregating a grocery shopping list from a week of planned meals. Walk through each meal's ingredient detail one at a time, total the quantities (e.g., "3 eggs" + "2 eggs" = "5 eggs"; round up egg counts to nearest dozen for shopping qty). Skip leftover-X meals (no new ingredients). Skip ingredients Josh already has in any reasonable pantry (salt, pepper, common spices, oil, butter, cooking spray). Combine duplicates across meals.
+
+Output ONLY by calling save_shopping_list with the aggregated array. Each item: {name, qty (e.g., "24 oz", "2 lbs", "1 dozen"), category (one of: "Proteins" | "Carbs & Grains" | "Produce" | "Pantry" | "Dairy" | "Other")}.
+
+Meals this week:
+
+${mealsText}`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 3000,
+      tools: [{
+        name: 'save_shopping_list',
+        description: 'Save the aggregated grocery shopping list for the week.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            shopping_list: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  qty: { type: 'string' },
+                  category: { type: 'string', enum: ['Proteins', 'Carbs & Grains', 'Produce', 'Pantry', 'Dairy', 'Other'] },
+                },
+                required: ['name', 'qty', 'category'],
+              },
+            },
+          },
+          required: ['shopping_list'],
+        },
+      }],
+      tool_choice: { type: 'tool', name: 'save_shopping_list' },
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  // deno-lint-ignore no-explicit-any
+  const data = await res.json() as { content?: Array<{ type: string; name?: string; input?: any }> }
+  const toolUse = data.content?.find((c) => c.type === 'tool_use' && c.name === 'save_shopping_list')
+  if (!toolUse?.input?.shopping_list || !Array.isArray(toolUse.input.shopping_list)) {
+    throw new Error('Sage did not return a shopping list')
+  }
+  return toolUse.input.shopping_list
+}
+
 // deno-lint-ignore no-explicit-any
 async function assemblePlanContext(admin: any, userId: string, req: PlanRequest): Promise<PlanContext> {
   const startDate = req.start_date
@@ -781,6 +855,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return { ...day, meals }
       })
 
+      // Shopping-list self-heal: Sage skips the re-aggregation on
+      // revisions sometimes ("you only asked me to change one meal, so
+      // I'll leave the list alone"). Detect empty list when we clearly
+      // have meals, then re-prompt with a narrow tool that only
+      // returns the aggregated shopping list.
+      // deno-lint-ignore no-explicit-any
+      let shoppingList = (toolUse.input.shopping_list ?? []) as any[]
+      const hasMeals = normalizedDays.some((d) =>
+        ctx.included_slots.some((slot) => d.meals[slot] && d.meals[slot].name !== '—'),
+      )
+      if (shoppingList.length === 0 && hasMeals) {
+        try {
+          shoppingList = await reaggregateShoppingList(normalizedDays, anthropicKey)
+        } catch (err) {
+          console.warn(`[generate-weekly-plan] shopping list re-aggregation failed: ${err instanceof Error ? err.message : String(err)}`)
+          // Leave it empty — the UI will show "0 items" and Josh can
+          // ask Sage in chat to redo it manually.
+        }
+      }
+
       const planRow = {
         user_id: userId,
         week_starting: startDate,  // legacy column — keeps old reads working
@@ -789,7 +883,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         included_slots: ctx.included_slots,
         strategy: toolUse.input.strategy,
         days: normalizedDays,
-        shopping_list: toolUse.input.shopping_list ?? [],
+        shopping_list: shoppingList,
         swaps: toolUse.input.swaps ?? [],
         totals: toolUse.input.totals,
         generated_at: new Date().toISOString(),
