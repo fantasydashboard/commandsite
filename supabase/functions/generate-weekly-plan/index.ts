@@ -866,7 +866,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
             meals[slot] = { ...PLACEHOLDER_MEAL }
           }
         }
-        return { ...day, meals }
+        // The tool schema uses snake_case (natural for JSON tools), but the
+        // frontend reads camelCase. Rename here so saved plans match what
+        // the UI expects — keeps the storage shape canonical.
+        const { workout_exercises, workout_detail, ...rest } = day
+        return {
+          ...rest,
+          meals,
+          ...(Array.isArray(workout_exercises) ? { workoutExercises: workout_exercises } : {}),
+          ...(typeof workout_detail === 'string' ? { workoutDetail: workout_detail } : {}),
+        }
       })
 
       // Shopping-list self-heal: Sage skips the re-aggregation on

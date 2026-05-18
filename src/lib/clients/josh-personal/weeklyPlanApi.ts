@@ -90,6 +90,15 @@ function normalizePlan(p: WeeklyPlan | null): WeeklyPlan | null {
   if (!p || !Array.isArray(p.days)) return p
   let filled = 0
   for (const day of p.days) {
+    // Sage's save_weekly_plan tool schema uses snake_case `workout_exercises`,
+    // but the frontend (Today card + Plan table) reads `workoutExercises`.
+    // Bridge it on read so existing saved plans display correctly without
+    // requiring a regen. Forward-fix lives in the edge function.
+    // deno-lint-ignore no-explicit-any
+    const d = day as any
+    if (!Array.isArray(d.workoutExercises) && Array.isArray(d.workout_exercises)) {
+      d.workoutExercises = d.workout_exercises
+    }
     if (!day.meals || typeof day.meals !== 'object') {
       // deno-lint-ignore no-explicit-any
       (day as any).meals = { breakfast: { ...PLACEHOLDER_MEAL }, lunch: { ...PLACEHOLDER_MEAL }, dinner: { ...PLACEHOLDER_MEAL }, snacks: { ...PLACEHOLDER_MEAL } }
