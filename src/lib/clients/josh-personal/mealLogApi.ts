@@ -60,6 +60,33 @@ export function useMealLog() {
     return { ok: true }
   }
 
+  /**
+   * Insert a meal log entry manually (e.g., "logged the planned lunch
+   * as-eaten"). Source is fixed to 'manual' so it's distinguishable
+   * from Sage-driven chat logs in the history view.
+   */
+  async function logMeal(input: {
+    description: string
+    meal_slot: MealLogEntry['meal_slot']
+    estimated_cal: number | null
+    estimated_protein_g: number | null
+  }): Promise<{ ok: boolean; error?: string }> {
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) return { ok: false, error: 'Not signed in' }
+    const { error: e } = await supabase.from('personal_meal_log').insert({
+      user_id: userData.user.id,
+      logged_at: new Date().toISOString(),
+      description: input.description,
+      meal_slot: input.meal_slot,
+      estimated_cal: input.estimated_cal,
+      estimated_protein_g: input.estimated_protein_g,
+      source: 'manual',
+    } as never)
+    if (e) return { ok: false, error: e.message }
+    await load()
+    return { ok: true }
+  }
+
   function isToday(iso: string): boolean {
     const d = new Date(iso)
     const today = new Date()
@@ -129,5 +156,6 @@ export function useMealLog() {
     totalLogged,
     load,
     deleteMeal,
+    logMeal,
   }
 }

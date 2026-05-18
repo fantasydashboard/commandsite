@@ -50,7 +50,7 @@ const { snapshot, dailyWeight, trends } = useHealthData()
 const { profile, hasProfile, targets, loading: profileLoading } = useProfile()
 const { brief, generating: briefGenerating, isStale: briefIsStale, regenerate: regenerateBrief } = useMorningBrief()
 const { todaySlice: realTodaySlice } = useWeeklyPlan()
-const { todayMeals, todayTotals, recentDays, totalLogged, load: reloadMealLog, deleteMeal } = useMealLog()
+const { todayMeals, todayTotals, recentDays, totalLogged, load: reloadMealLog, deleteMeal, logMeal } = useMealLog()
 const { state: nowState, loading: nowLoading, refreshing: nowRefreshing, refresh: refreshNow, refreshedAgo: nowRefreshedAgo, isStale: nowIsStale } = useNowState()
 const { active: activeExperiments, recentlyCompleted: completedExperiments, daysRemaining: experimentDaysRemaining, progressPct: experimentProgressPct, load: reloadExperiments } = useExperiments()
 const { ordered: orderedPatterns, load: reloadPatterns } = usePatterns()
@@ -87,6 +87,16 @@ async function reloadAfterMetricWrite() {
 async function onDeleteMeal(id: string) {
   if (!window.confirm('Delete this meal entry?')) return
   await deleteMeal(id)
+}
+
+async function onLogPlanned(payload: {
+  description: string
+  meal_slot: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  estimated_cal: number | null
+  estimated_protein_g: number | null
+}) {
+  const r = await logMeal(payload)
+  if (!r.ok) console.warn('[today] manual meal log failed:', r.error)
 }
 const showRecent = ref(false)
 
@@ -678,6 +688,7 @@ const mealPhotoOpen = ref(false)
       :logged-meals="todayMeals"
       :show-plan-fallback-hint="true"
       @delete-meal="onDeleteMeal"
+      @log-planned="onLogPlanned"
     />
 
     <!-- ── Today's workout ────────────────────────────────────────── -->

@@ -47,6 +47,14 @@ async function onTap(oz: number) {
     setTimeout(() => { flash.value = null }, 2500)
   }
 }
+
+const customOz = ref<string>('')
+async function onLogCustom() {
+  const n = Number(customOz.value)
+  if (!Number.isFinite(n) || n <= 0 || n > 200) return
+  customOz.value = ''
+  await onTap(Math.round(n))
+}
 </script>
 
 <template>
@@ -67,7 +75,7 @@ async function onTap(oz: number) {
           <span v-if="flash" class="ml-2 text-success font-semibold">{{ flash }}</span>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <button
           v-for="oz in [8, 16, 32]"
           :key="oz"
@@ -81,6 +89,34 @@ async function onTap(oz: number) {
           :disabled="writing"
           @click="onTap(oz)"
         >+{{ oz }} oz</button>
+        <form class="flex items-center gap-1" @submit.prevent="onLogCustom">
+          <input
+            v-model="customOz"
+            type="number"
+            inputmode="numeric"
+            min="1"
+            max="200"
+            step="1"
+            placeholder="oz"
+            class="w-14 rounded-md text-xs px-2 py-2 text-center tabular-nums focus:outline-none disabled:opacity-50"
+            :style="{
+              border: '1px solid rgb(14 165 233 / 0.30)',
+              backgroundColor: 'rgb(14 165 233 / 0.06)',
+              color: '#0ea5e9',
+            }"
+            :disabled="writing"
+          />
+          <button
+            type="submit"
+            class="rounded-md px-2.5 py-2 text-xs font-semibold disabled:opacity-50 transition-colors"
+            :style="{
+              border: '1px solid rgb(14 165 233 / 0.30)',
+              backgroundColor: 'rgb(14 165 233 / 0.06)',
+              color: '#0ea5e9',
+            }"
+            :disabled="writing || !customOz || Number(customOz) <= 0"
+          >+</button>
+        </form>
       </div>
     </div>
   </section>
