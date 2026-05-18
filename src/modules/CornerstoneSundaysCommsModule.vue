@@ -1,25 +1,23 @@
 <script setup lang="ts">
 /**
  * Cornerstone — Sundays & Comms.
- *
- * Combined home for Grace's operational roles: Volunteer
- * Coordination (Sunday roster + suggested fills) and
- * Communications (drafts + sent + performance). Pulls from the
- * existing sundays + comms fixtures.
+ * Grace's roles on this page: Volunteer Coordination + Communications.
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { Client } from '@/types/database'
 import { sundayStats, upcomingService, VOLUNTEER_ROLE_META } from '@/lib/clients/cornerstone/sundays'
 import { commsStats, posts, CHANNEL_META } from '@/lib/clients/cornerstone/comms'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
 const sunday = computed(() => sundayStats())
 const comms = computed(() => commsStats())
 
-// Roles short this Sunday with Grace's suggested fills
 const understaffedRoles = computed(() => {
   return upcomingService.slots
     .filter((s) => s.confirmed.length < s.needed)
@@ -47,7 +45,8 @@ function readinessTone(p: number): string {
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'sun-nursery-9',
-    icon: '🙋',
+    role: 'volunteer_coord',
+    icon: 'calendar',
     badge: 'Volunteer Coord',
     badgeClass: 'bg-accent/15 text-accent',
     title: 'Fill ask — Nursery Sunday 9 AM',
@@ -58,7 +57,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'sun-parking-11',
-    icon: '🅿️',
+    role: 'volunteer_coord',
+    icon: 'calendar',
     badge: 'Volunteer Coord',
     badgeClass: 'bg-accent/15 text-accent',
     title: 'Fill ask — Parking Sunday 11 AM',
@@ -69,7 +69,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'sun-newsletter',
-    icon: '📧',
+    role: 'communications',
+    icon: 'email_marketing',
     badge: 'Communications',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Sunday newsletter — week of May 11',
@@ -80,7 +81,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'sun-recap',
-    icon: '✏️',
+    role: 'communications',
+    icon: 'email_marketing',
     badge: 'Communications',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Sunday recap email draft',
@@ -91,7 +93,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'sun-ribbon-cutting',
-    icon: '🏗️',
+    role: 'communications',
+    icon: 'trending-up',
     badge: 'Communications',
     badgeClass: 'bg-success/15 text-success',
     title: 'Building fund milestone post',
@@ -102,44 +105,49 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-const tickerSeed = [
-  { icon: '🎵', text: 'Worship setlist locked — Jess + Marcus + Holloway', ageSec: 12 * 60 },
-  { icon: '✅', text: 'Holloway confirmed for backing vocals 9 AM', ageSec: 38 * 60 },
-  { icon: '📧', text: 'Newsletter open: 38% (847 subscribers)', ageSec: 4 * 3600 },
-  { icon: '🅿️', text: 'Parking team — 1 short for 11 AM, ask drafted', ageSec: 6 * 3600 },
+// ── Live activity (scoped to Sundays & Comms) ─────────────────────────
+const liveSeed = [
+  seedEvent(12 * 60,   'check-circle',    'Worship setlist locked — Jess + Marcus + Holloway',   'volunteer_coord'),
+  seedEvent(38 * 60,   'check-circle',    'Holloway confirmed for backing vocals 9 AM',          'volunteer_coord'),
+  seedEvent(4 * 3600,  'email_marketing', 'Newsletter open: 38% (847 subscribers)',              'communications'),
+  seedEvent(6 * 3600,  'calendar',        'Parking team — 1 short for 11 AM, ask drafted',       'volunteer_coord'),
 ]
-const tickerPool = [
-  { icon: '🙋', text: 'Volunteer accept — Mia Pham confirmed for 9 AM nursery' },
-  { icon: '📅', text: 'Sunday slot auto-confirmed — Kids Ministry team complete' },
-  { icon: '✏️', text: 'Sermon notes uploaded for Sunday — formatted for app' },
-  { icon: '📧', text: 'Newsletter delivered to 847 — opens trickling in' },
-  { icon: '🎵', text: 'Worship rehearsal Tuesday 7 PM — calendar invite sent' },
-  { icon: '💬', text: 'New small group inquiry routed to Pastor Mark' },
+const livePool: PoolEvent[] = [
+  { icon: 'calendar',        text: 'Volunteer accept — Mia Pham confirmed for 9 AM nursery',  role: 'volunteer_coord' },
+  { icon: 'calendar',        text: 'Sunday slot auto-confirmed — Kids Ministry team complete', role: 'volunteer_coord' },
+  { icon: 'email_marketing', text: 'Sermon notes uploaded for Sunday — formatted for app',     role: 'communications' },
+  { icon: 'email_marketing', text: 'Newsletter delivered to 847 — opens trickling in',         role: 'communications' },
+  { icon: 'check-circle',    text: 'Worship rehearsal Tuesday 7 PM — calendar invite sent',     role: 'volunteer_coord' },
+  { icon: 'qa_assistant',    text: 'New small group inquiry routed to Pastor Mark',             role: 'communications' },
 ]
 
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'communications'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+const pageRoles = rolesOnTab('sundays-comms')
 </script>
 
 <template>
   <div class="space-y-4">
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Sunday + comms activity — auto-updates"
+    <RolesOnPage
+      :roles="pageRoles"
+      :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="6"
+      assistant-name="Grace"
       heading="Sunday + comms queue"
-      subtitle="Volunteer asks + drafted comms ready to schedule. Approve to send."
+      subtitle="Volunteer asks + drafted comms ready to schedule. Co-sign to send."
       @approved="onApproved"
     />
 
@@ -170,11 +178,11 @@ function onApproved(item: ApprovalQueueItem) {
     </div>
 
     <!-- Volunteer Coordination — Sunday readiness + Grace's suggestions -->
-    <section class="card">
+    <section id="volunteer_coord" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">🙋 Volunteer Coordination · This Sunday</span>
-          <span class="text-xs text-ink-muted">— Grace's roster gaps + suggested fills</span>
+          <span class="eyebrow">Volunteer Coordination · This Sunday</span>
+          <span class="text-xs text-ink-muted">Grace's roster gaps + suggested fills</span>
         </div>
         <span class="text-[11px] text-ink-disabled">{{ upcomingService.date_label }} · {{ upcomingService.sermon.title }}</span>
       </div>
@@ -222,11 +230,11 @@ function onApproved(item: ApprovalQueueItem) {
     </section>
 
     <!-- Communications — Sent + Drafts + Performance -->
-    <section class="card">
+    <section id="communications" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">📧 Communications · Recent</span>
-          <span class="text-xs text-ink-muted">— sent in the last few weeks</span>
+          <span class="eyebrow">Communications · Recent</span>
+          <span class="text-xs text-ink-muted">sent in the last few weeks</span>
         </div>
       </div>
 
@@ -234,7 +242,7 @@ function onApproved(item: ApprovalQueueItem) {
         <li
           v-for="p in recentPosts"
           :key="p.id"
-          class="rounded-md bg-canvas/50 px-3 py-2"
+          class="rounded-md bg-surface-elevated/60 px-3 py-2"
         >
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-base flex-shrink-0">{{ CHANNEL_META[p.channel].icon }}</span>
@@ -250,7 +258,7 @@ function onApproved(item: ApprovalQueueItem) {
       </ul>
 
       <div v-if="draftedPosts.length > 0">
-        <div class="kpi-label mb-2">📝 Drafts waiting for your review</div>
+        <div class="kpi-label mb-2">Drafts waiting for your review</div>
         <ul class="space-y-1.5">
           <li
             v-for="p in draftedPosts.slice(0, 4)"
@@ -267,5 +275,13 @@ function onApproved(item: ApprovalQueueItem) {
         </ul>
       </div>
     </section>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Sunday + comms activity"
+      subtitle="Grace's stream scoped to this page · auto-updates"
+    />
   </div>
 </template>

@@ -1,28 +1,41 @@
 <script setup lang="ts">
 /**
- * Cornerstone — Today (Grace command bridge).
+ * Cornerstone Community Church — Today (Grace command bridge).
  *
- * Live operational surface using the shared grace/* components:
- * live ticker → approval queue → command bridge → recent history.
- * The floating chat lives in DashboardLayout (AskAiFloatingButton)
- * and approval-queue actions push acknowledgments into it.
+ * Mirrors the Apex Today pattern:
+ *   1. Grace at Work hub              ← value-prop hero (11 roles + time saved)
+ *   2. Approval queue                 ← Grace's drafts waiting on Pastor Mark
+ *   3. Today snapshot + Live feed     ← merged: Sunday/giving/at-risk pulse +
+ *                                       auto-updating activity feed below
+ *
+ * The shared "Ask Grace" chat lives in the floating widget rendered by
+ * DashboardLayout (AskAiFloatingButton) — approval-queue approves push
+ * a chime-in into that conversation (default GraceApprovalQueue
+ * behavior preserved via pushApprovedToChat=true).
  */
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Client } from '@/types/database'
 import { todayPulse } from '@/lib/clients/cornerstone/today'
 import { givingStats } from '@/lib/clients/cornerstone/giving'
 import { peopleStats } from '@/lib/clients/cornerstone/people'
-import { graceRoles, ROLE_STATUS_META } from '@/lib/clients/cornerstone/roles'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { graceRoles, getRole, type GraceRole } from '@/lib/clients/cornerstone/roles'
+import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import { useLiveActivity, seedEvent, type PoolEvent, type LiveEvent } from '@/composables/useLiveActivity'
+import { money, fmtAgo } from '@/lib/format'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 const router = useRouter()
-function goToRole(tab: string) {
-  router.push({ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab } })
-}
-
 defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+function onRoleClick(role: GraceRole) {
+  router.push({
+    name: 'dashboard.tab',
+    params: { slug: 'cornerstone-church', tab: role.tab },
+    hash: `#${role.key}`,
+  })
+}
 
 const pulse = computed(() => todayPulse())
 const giving = computed(() => givingStats())
@@ -33,11 +46,6 @@ const attendanceTrend = computed(() => {
   return { diff, sign: diff >= 0 ? '↑' : '↓', isUp: diff >= 0 }
 })
 
-function money(cents: number): string {
-  if (cents >= 100_000) return '$' + Math.round(cents / 100_000) + 'k'
-  return '$' + Math.round(cents / 100).toLocaleString()
-}
-
 const greeting = computed(() => {
   const hr = new Date().getHours()
   if (hr < 12) return 'Good morning, Pastor Mark'
@@ -45,11 +53,12 @@ const greeting = computed(() => {
   return 'Good evening, Pastor Mark'
 })
 
-// ── Approval queue items ──────────────────────────────────────────────
+// ── Approval queue: Grace's drafts waiting on Pastor Mark ─────────────
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'q-ellison',
-    icon: '🎉',
+    role: 'communications',
+    icon: 'check-circle',
     badge: 'Communications',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Birth congrats note — Ellison Family',
@@ -60,7 +69,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'q-sullivan',
-    icon: '🤝',
+    role: 'care_triage',
+    icon: 'referral_hunter',
     badge: 'Care Triage',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Pastoral check-in — Sullivan Family',
@@ -71,7 +81,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'q-maddux',
-    icon: '👋',
+    role: 'guest_followup',
+    icon: 'qa_assistant',
     badge: 'Guest Follow-Up',
     badgeClass: 'bg-success/15 text-success',
     title: 'Welcome card — Maddux Family',
@@ -82,7 +93,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'q-nursery',
-    icon: '🙋',
+    role: 'volunteer_coord',
+    icon: 'calendar',
     badge: 'Volunteer Coord',
     badgeClass: 'bg-accent/15 text-accent',
     title: 'Fill ask — Nursery Sunday 9 AM',
@@ -93,7 +105,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'q-hawthorne',
-    icon: '💳',
+    role: 'communications',
+    icon: 'dollar-sign',
     badge: 'Giving',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Card-update reminder — Hawthorne Family',
@@ -104,149 +117,142 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-// Live ticker seed + pool
-const tickerSeed = [
-  { icon: '✉️', text: 'Riley opened your welcome text — 11 min ago', ageSec: 11 * 60 },
-  { icon: '🎂', text: 'Card #4 mailed for the Hawthorne family', ageSec: 22 * 60 },
-  { icon: '📞', text: 'Connect form submitted — Kennedy Park', ageSec: 47 * 60 },
-  { icon: '🌱', text: 'Baptism testimony captured — Marcus L.', ageSec: 95 * 60 },
+// ── Live-updating activity feed ────────────────────────────────────────
+const liveSeed: LiveEvent[] = [
+  seedEvent(11 * 60,  'email_marketing', 'Riley opened your welcome text', 'communications'),
+  seedEvent(22 * 60,  'check-circle',    'Card #4 mailed for the Hawthorne family', 'communications'),
+  seedEvent(47 * 60,  'front_desk',      'Connect form submitted — Kennedy Park', 'front_desk'),
+  seedEvent(95 * 60,  'review_engine',   'Baptism testimony captured — Marcus L.', 'stories'),
 ]
-const tickerPool = [
-  { icon: '✉️', text: 'Newsletter open: 38% (847 recipients)' },
-  { icon: '👋', text: 'Connect card submitted — first-time visitor' },
-  { icon: '📅', text: 'Sunday volunteer slot auto-confirmed (Parking)' },
-  { icon: '🎂', text: 'Birthday card queued for next Monday print run' },
-  { icon: '💬', text: 'New small group inquiry — replied with the directory' },
-  { icon: '🏡', text: '"We missed you" SMS opened by the Reyes Family' },
-  { icon: '📧', text: 'Auto-drafted Sunday recap for review' },
-  { icon: '🙋', text: 'Volunteer fill confirmed — Mia Pham accepted' },
+const livePool: PoolEvent[] = [
+  { icon: 'email_marketing', text: 'Newsletter open: 38% (847 recipients)',                role: 'communications' },
+  { icon: 'qa_assistant',    text: 'Connect card submitted — first-time visitor',          role: 'guest_followup' },
+  { icon: 'calendar',        text: 'Sunday volunteer slot auto-confirmed (Parking)',       role: 'volunteer_coord' },
+  { icon: 'check-circle',    text: 'Birthday card queued for next Monday print run',       role: 'communications' },
+  { icon: 'qa_assistant',    text: 'New small group inquiry — replied with the directory', role: 'guest_followup' },
+  { icon: 'reactivation',    text: '"We missed you" SMS opened by the Reyes Family',       role: 'reengagement' },
+  { icon: 'email_marketing', text: 'Auto-drafted Sunday recap for review',                 role: 'communications' },
+  { icon: 'calendar',        text: 'Volunteer fill confirmed — Mia Pham accepted',         role: 'volunteer_coord' },
 ]
 
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'communications'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
 
-// ── Recent activity (de-emphasized — collapse-able history) ────────────
-interface AutoEvent { icon: string; label: string; detail: string; ago: string; tone: 'success' | 'info' | 'warn' }
-const recentHistory: AutoEvent[] = [
-  { icon: '👋', label: 'Welcome SMS to Riley Boucher', detail: 'First-time visitor · opened in 11 min', ago: '2h ago', tone: 'success' },
-  { icon: '🎂', label: '4 birthday cards mailed', detail: 'Auto-printed Mon AM · posted Tue', ago: '1d ago', tone: 'success' },
-  { icon: '🏡', label: '"We missed you" check-in to the Reyes Family', detail: 'Back after a 4-month gap', ago: '3d ago', tone: 'success' },
-  { icon: '⚠', label: 'Drift escalation — Sullivan Family', detail: '3rd flag turned red, paged you', ago: '4d ago', tone: 'warn' },
-  { icon: '📧', label: 'Sunday newsletter sent', detail: '847 recipients · 38% open · 12% click', ago: '5d ago', tone: 'success' },
-]
+// Suppress unused warnings — kept for future surfaces.
+void greeting
+void fmtAgo
 
-const historyOpen = ref(false)
+// Reactive minute tick → re-render fmtAgo across the recent-history list.
+const nowTick = ref(0)
+let tickInterval: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  tickInterval = setInterval(() => { nowTick.value++ }, 60_000)
+})
+onBeforeUnmount(() => {
+  if (tickInterval) clearInterval(tickInterval)
+})
 </script>
 
 <template>
-  <div class="space-y-4 pb-32 relative">
-    <GraceLiveTicker ref="tickerRef" :seed="tickerSeed" :pool="tickerPool" />
+  <div class="space-y-4">
+    <!-- ── 1. Grace at Work hub — value-prop hero ─────────────────── -->
+    <AdaAtWorkHub
+      :roles="graceRoles"
+      owner-name="Pastor Mark"
+      assistant-name="Grace"
+      @role-click="onRoleClick"
+    />
 
+    <!-- ── 2. Approval queue — Grace's drafts waiting on Pastor Mark ─ -->
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="8"
-      :subtitle="`${greeting}. Approve to send, edit to revise, skip to resurface tomorrow.`"
+      :subtitle="`${greeting}. Co-sign to send, edit to revise, skip to resurface tomorrow.`"
       @approved="onApproved"
     />
 
-    <!-- ── Command bridge — pulse + roles + KPIs in one panel ────── -->
-    <section class="rounded-card overflow-hidden border border-divider bg-surface-raised">
-      <header class="px-4 py-3 border-b border-divider bg-canvas/50 flex items-baseline justify-between flex-wrap gap-2">
-        <div class="flex items-baseline gap-2">
-          <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Command bridge</span>
-          <span class="text-xs text-ink-muted">— Cornerstone at a glance</span>
+    <!-- ── 3. Today snapshot + Live activity (merged) ─────────────── -->
+    <section class="card overflow-hidden !p-0">
+      <!-- Header: Cornerstone pulse stats -->
+      <header class="border-b border-divider px-5 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 bg-surface-elevated/40">
+        <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Today</span>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-lg font-bold tabular-nums text-ink">{{ pulse.attendance_last_sunday }}</span>
+          <span class="text-xs text-ink-muted">last Sun</span>
+          <span
+            class="text-[10px] font-semibold tabular-nums ml-0.5"
+            :class="attendanceTrend.isUp ? 'text-success' : 'text-warn'"
+          >{{ attendanceTrend.sign }}{{ Math.abs(attendanceTrend.diff) }}</span>
         </div>
-        <span class="text-[11px] text-ink-disabled">
-          {{ graceRoles.filter((r) => r.status === 'active').length }} of {{ graceRoles.length }} of Grace's roles active
-        </span>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-lg font-bold tabular-nums text-ink">{{ pulse.visitors_last_sunday }}</span>
+          <span class="text-xs text-ink-muted">visitors</span>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <span
+            class="text-lg font-bold tabular-nums"
+            :class="people.at_risk_two_plus_flags > 0 ? 'text-warn' : 'text-ink'"
+          >{{ people.at_risk_two_plus_flags }}</span>
+          <span class="text-xs text-ink-muted">at-risk</span>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-lg font-bold tabular-nums text-ink">{{ money(giving.current_month_cents, { compact: true }) }}</span>
+          <span class="text-xs text-ink-muted">giving this month</span>
+        </div>
       </header>
 
-      <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-divider/60 border-b border-divider">
-        <div class="px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Last Sun</div>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span class="text-xl font-bold tabular-nums text-ink">{{ pulse.attendance_last_sunday }}</span>
-            <span
-              class="text-[11px] font-semibold tabular-nums"
-              :class="attendanceTrend.isUp ? 'text-success' : 'text-warn'"
-            >{{ attendanceTrend.sign }}{{ Math.abs(attendanceTrend.diff) }}</span>
+      <!-- Live activity feed -->
+      <div class="px-5 py-4">
+        <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+            </span>
+            <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Live</span>
+            <span class="text-sm font-semibold text-ink">Recent activity</span>
           </div>
+          <span class="text-[11px] text-ink-muted">Grace's stream · auto-updates as work happens</span>
         </div>
-        <div class="px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Visitors</div>
-          <div class="text-xl font-bold tabular-nums text-ink mt-0.5">{{ pulse.visitors_last_sunday }}</div>
-        </div>
-        <div class="px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">At-risk</div>
-          <div
-            class="text-xl font-bold tabular-nums mt-0.5"
-            :class="people.at_risk_two_plus_flags > 0 ? 'text-danger' : 'text-ink'"
-          >{{ people.at_risk_two_plus_flags }}</div>
-        </div>
-        <div class="px-4 py-3">
-          <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Giving (mo)</div>
-          <div class="text-xl font-bold tabular-nums text-ink mt-0.5">{{ money(giving.current_month_cents) }}</div>
-        </div>
-      </div>
-
-      <div class="p-3 flex flex-wrap gap-1.5">
-        <button
-          v-for="role in graceRoles"
-          :key="role.key"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border border-divider bg-surface px-2.5 py-1 text-[11px] hover:border-brand hover:bg-brand/5 transition-colors"
-          @click="goToRole(role.tab)"
+        <TransitionGroup
+          tag="ul"
+          class="relative space-y-1"
+          aria-live="polite"
+          aria-atomic="false"
+          enter-active-class="transition-[opacity,transform,background-color] duration-[280ms] ease-out-quart"
+          enter-from-class="opacity-0 -translate-y-3 bg-success/15"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-opacity duration-200 ease-out-quart absolute"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
         >
-          <span>{{ role.icon }}</span>
-          <span class="font-semibold text-ink">{{ role.name }}</span>
-          <span
-            class="rounded-full px-1 text-[8px] font-bold uppercase tracking-wider"
-            :class="ROLE_STATUS_META[role.status].pillClass"
-          >{{ role.status === 'active' ? '●' : ROLE_STATUS_META[role.status].label }}</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- ── Recent history (collapsed by default) ─────────────────── -->
-    <section class="rounded-card border border-divider overflow-hidden">
-      <button
-        type="button"
-        class="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas/50 text-left transition-colors"
-        @click="historyOpen = !historyOpen"
-      >
-        <div class="flex items-center gap-2">
-          <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Recent history</span>
-          <span class="text-xs text-ink-muted">— what Grace handled this week</span>
-        </div>
-        <span class="text-[11px] text-ink-disabled">
-          {{ recentHistory.length }} actions
-          <span class="ml-1">{{ historyOpen ? '▲' : '▼' }}</span>
-        </span>
-      </button>
-      <Transition
-        enter-active-class="transition-all duration-300 ease-out overflow-hidden"
-        enter-from-class="max-h-0 opacity-0"
-        enter-to-class="max-h-[400px] opacity-100"
-        leave-active-class="transition-all duration-200 ease-in overflow-hidden"
-        leave-from-class="max-h-[400px] opacity-100"
-        leave-to-class="max-h-0 opacity-0"
-      >
-        <ul v-if="historyOpen" class="divide-y divide-divider/60 border-t border-divider">
-          <li v-for="(e, i) in recentHistory" :key="i" class="flex items-start gap-3 px-4 py-2.5">
-            <span class="text-base flex-shrink-0">{{ e.icon }}</span>
+          <li
+            v-for="ev in liveEvents"
+            :key="ev.id"
+            class="flex items-start gap-3 rounded-md px-3 py-2 hover:bg-surface-elevated/40 transition-colors duration-200"
+          >
+            <AdaIcon :name="ev.icon" class="h-4 w-4 text-ink-muted flex-shrink-0 mt-1" />
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-semibold text-ink">{{ e.label }}</div>
-              <div class="text-[11px] text-ink-muted">{{ e.detail }}</div>
+              <div class="text-sm text-ink leading-snug">{{ ev.text }}</div>
+              <div class="flex items-center gap-2 mt-1">
+                <span
+                  v-if="getRole(ev.role)"
+                  class="rounded-full bg-brand/10 text-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                >{{ getRole(ev.role)?.name }}</span>
+                <span class="text-[11px] text-ink-disabled">{{ fmtLiveAgo(ev.at) }}</span>
+              </div>
             </div>
-            <span class="text-[10px] text-ink-disabled flex-shrink-0">{{ e.ago }}</span>
           </li>
-        </ul>
-      </Transition>
+        </TransitionGroup>
+      </div>
     </section>
   </div>
 </template>

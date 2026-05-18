@@ -1,13 +1,18 @@
 <script setup lang="ts">
 /**
- * Apex — Reputation & Marketing (Ada's roles 6 + 7).
+ * Apex — Reputation & Marketing.
+ * Ada's roles on this page: ⭐ Review Engine + 📧 Email Marketing + 🤝 Referral Hunter.
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { Client } from '@/types/database'
 import { reviews, reviewStats } from '@/lib/clients/apex/reviews'
 import { campaigns, recentSends, campaignStats } from '@/lib/clients/apex/emailCampaigns'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { rolesOnTab, getRole } from '@/lib/clients/apex/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
+import { money, fmtAgoCoarse } from '@/lib/format'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -19,12 +24,6 @@ const liveCampaigns = computed(() => campaigns.filter((c) => c.active).slice(0, 
 const recentSendsList = computed(() => recentSends.slice(0, 6))
 
 function pct(v: number): string { return Math.round(v * 100) + '%' }
-function fmtAgo(iso: string): string {
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000))
-  if (days === 0) return 'today'
-  if (days < 30) return `${days}d ago`
-  return `${Math.floor(days / 30)}mo ago`
-}
 
 function starColor(stars: number): string {
   if (stars >= 4) return 'text-success'
@@ -39,11 +38,51 @@ function sendStatusClass(s: string): string {
   return 'bg-ink-muted/10 text-ink-muted'
 }
 
+// ── Referral Hunter (new section) ──────────────────────────────────────
+// Ada texts past happy customers ~30 days after install asking who they'd
+// refer. Conversions tracked back to original referrer (for thank-you +
+// credit). Zero compliance risk — only customers who already know us.
+type ReferralStatus = 'sent' | 'opened' | 'replied' | 'referred'
+interface ReferralAsk {
+  id: string
+  customer: string
+  sent_label: string
+  status: ReferralStatus
+  referred_to: string | null
+  est_value_cents: number
+}
+const referralAsks: ReferralAsk[] = [
+  { id: 'rf1', customer: 'Tom Bradley',       sent_label: '2 days ago', status: 'referred', referred_to: 'Mark T. (next-door neighbor)', est_value_cents: 4_200_00 },
+  { id: 'rf2', customer: 'Karen Holloway',    sent_label: '4 days ago', status: 'referred', referred_to: 'Hannah W. (sister)',           est_value_cents: 2_800_00 },
+  { id: 'rf3', customer: 'Maria Chen',        sent_label: 'today',      status: 'opened',   referred_to: null,                            est_value_cents: 0 },
+  { id: 'rf4', customer: 'Lisa Bennett',      sent_label: '3 days ago', status: 'opened',   referred_to: null,                            est_value_cents: 0 },
+  { id: 'rf5', customer: 'Jennifer Martinez', sent_label: '5 days ago', status: 'sent',     referred_to: null,                            est_value_cents: 0 },
+  { id: 'rf6', customer: 'Robert Chen',       sent_label: '6 days ago', status: 'replied',  referred_to: null,                            est_value_cents: 0 },
+]
+const referralStats = computed(() => {
+  const replied = referralAsks.filter((a) => a.status === 'replied' || a.status === 'referred').length
+  const referred = referralAsks.filter((a) => a.status === 'referred').length
+  const revenue = referralAsks.reduce((s, a) => s + a.est_value_cents, 0)
+  return {
+    count: referralAsks.length,
+    replyRate: replied / referralAsks.length,
+    referredCount: referred,
+    revenue,
+  }
+})
+function refStatusClass(s: ReferralStatus): string {
+  if (s === 'referred') return 'bg-success/15 text-success'
+  if (s === 'replied')  return 'bg-brand/15 text-brand'
+  if (s === 'opened')   return 'bg-warn/15 text-warn'
+  return 'bg-ink-muted/10 text-ink-muted'
+}
+
 // ── Approval queue: review replies + campaign drafts ─────────────────
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'rep-castellanos',
-    icon: '⭐',
+    role: 'review_engine',
+    icon: 'review_engine',
     badge: 'Review reply · 3★',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Apology reply — Jim Castellanos',
@@ -54,7 +93,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'rep-maria-thanks',
-    icon: '⭐',
+    role: 'review_engine',
+    icon: 'review_engine',
     badge: 'Review reply · 5★',
     badgeClass: 'bg-success/15 text-success',
     title: 'Thank-you reply — Maria Chen 5★',
@@ -65,7 +105,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'rep-spring-tuneup',
-    icon: '📧',
+    role: 'email_marketing',
+    icon: 'email_marketing',
     badge: 'Campaign draft',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Spring tune-up campaign — drafted',
@@ -76,7 +117,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'rep-yelp-batch',
-    icon: '🌟',
+    role: 'review_engine',
+    icon: 'review_engine',
     badge: 'Yelp replies',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Yelp review batch reply — 4 new this week',
@@ -87,7 +129,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'rep-bf-newsletter',
-    icon: '🎯',
+    role: 'email_marketing',
+    icon: 'deal_won_handoff',
     badge: 'Local SEO post',
     badgeClass: 'bg-success/15 text-success',
     title: 'Google Business Profile post — drafted',
@@ -98,44 +141,49 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-const tickerSeed = [
-  { icon: '⭐', text: 'New 5★ — Maria Chen, named Tony in the review', ageSec: 38 * 60 },
-  { icon: '📧', text: 'Spring tune-up draft auto-generated · ready for review', ageSec: 2 * 3600 },
-  { icon: '🌟', text: 'Yelp review opened — auto-drafted reply queued', ageSec: 3 * 3600 },
-  { icon: '🎯', text: 'GBP post engagement: 47 views, 8 clicks', ageSec: 6 * 3600 },
+// ── Live activity (scoped to Reputation & Marketing) ──────────────────
+const liveSeed = [
+  seedEvent(38 * 60,   'review_engine', 'New 5★ — Maria Chen, named Tony in the review',          'review_engine'),
+  seedEvent(2 * 3600,  'email_marketing', 'Spring tune-up draft auto-generated · ready for review', 'email_marketing'),
+  seedEvent(3 * 3600,  'review_engine', 'Yelp review opened — auto-drafted reply queued',         'review_engine'),
+  seedEvent(6 * 3600,  'referral_hunter', 'Referral landed — Tom Bradley sent us his neighbor',     'referral_hunter'),
 ]
-const tickerPool = [
-  { icon: '⭐', text: 'Review request opened — clicked through to Google' },
-  { icon: '⭐', text: 'New 5★ posted — added to homepage carousel queue' },
-  { icon: '📧', text: 'Newsletter delivered to 847 — opens flowing in' },
-  { icon: '📨', text: 'Email reply — campaign-attributed booking inquiry' },
-  { icon: '🎯', text: 'GBP click → website → booking form view' },
-  { icon: '🌟', text: 'Yelp listing impression count: +18% week-over-week' },
+const livePool: PoolEvent[] = [
+  { icon: 'review_engine', text: 'Review request opened — clicked through to Google',         role: 'review_engine' },
+  { icon: 'review_engine', text: 'New 5★ posted — added to homepage carousel queue',           role: 'review_engine' },
+  { icon: 'email_marketing', text: 'Newsletter delivered to 847 — opens flowing in',            role: 'email_marketing' },
+  { icon: 'email_marketing', text: 'Email reply — campaign-attributed booking inquiry',         role: 'email_marketing' },
+  { icon: 'deal_won_handoff', text: 'GBP click → website → booking form view',                    role: 'email_marketing' },
+  { icon: 'review_engine', text: 'Yelp listing impression count: +18% week-over-week',         role: 'review_engine' },
+  { icon: 'referral_hunter', text: 'Referral ask opened — past customer reading the link',       role: 'referral_hunter' },
+  { icon: 'check-circle', text: 'Referral converted — Hannah W. booked $2,800 install',      role: 'referral_hunter' },
 ]
 
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'review_engine'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+const pageRoles = rolesOnTab('reputation-marketing')
 </script>
 
 <template>
   <div class="space-y-4">
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Reputation + marketing signals — reviews, opens, clicks"
-    />
+    <RolesOnPage :roles="pageRoles" />
 
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="8"
-      heading="Reputation + marketing queue"
-      subtitle="Review replies + campaign drafts + GBP posts. Approve to publish."
+      assistant-name="Ada"
+      :push-approved-to-chat="false"
+      heading="Reputation + marketing"
+      subtitle="Review replies + campaign drafts + GBP posts. Co-sign to publish."
       @approved="onApproved"
     />
 
@@ -164,28 +212,28 @@ function onApproved(item: ApprovalQueueItem) {
     </div>
 
     <!-- Review Engine -->
-    <section class="card">
+    <section id="review_engine" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">⭐ Review Engine · Recent reviews</span>
-          <span class="text-xs text-ink-muted">— Ada texts customers 2h after job completion</span>
+          <span class="eyebrow">Review Engine · Recent reviews</span>
+          <span class="text-xs text-ink-muted">Ada texts customers 2h after job completion</span>
         </div>
       </div>
       <ul class="space-y-2">
         <li
           v-for="r in recentReviews"
           :key="r.id"
-          class="rounded-md bg-canvas/50 px-3 py-2"
+          class="rounded-md bg-surface-elevated/60 px-3 py-2"
         >
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-base font-bold tabular-nums" :class="starColor(r.rating)">{{ r.rating }}★</span>
             <span class="text-sm font-semibold text-ink">{{ r.customer }}</span>
-            <span class="text-[10px] text-ink-disabled">— {{ r.source }} · {{ fmtAgo(r.received_at) }}</span>
+            <span class="text-[10px] text-ink-disabled">{{ r.source }} · {{ fmtAgoCoarse(r.received_at) }}</span>
             <span v-if="r.job_type" class="text-[10px] rounded bg-surface-elevated text-ink-muted px-1.5 py-0.5 font-medium">{{ r.job_type }}</span>
           </div>
           <p class="text-[11px] text-ink-muted italic leading-snug">"{{ r.text }}"</p>
           <p v-if="r.ai_response_draft && !r.response" class="text-[10px] text-brand mt-1 italic">
-            ✨ Ada drafted reply: "{{ r.ai_response_draft.slice(0, 120) }}…"
+            Ada drafted reply: "{{ r.ai_response_draft.slice(0, 120) }}…"
           </p>
           <p v-else-if="r.response" class="text-[10px] text-success mt-1 italic">
             ✓ Replied: "{{ r.response.text.slice(0, 100) }}…"
@@ -195,18 +243,18 @@ function onApproved(item: ApprovalQueueItem) {
     </section>
 
     <!-- Email Marketing -->
-    <section class="card">
+    <section id="email_marketing" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">📧 Email Marketing · Live campaigns</span>
-          <span class="text-xs text-ink-muted">— what Ada is currently running</span>
+          <span class="eyebrow">Email Marketing · Live campaigns</span>
+          <span class="text-xs text-ink-muted">what Ada is currently running</span>
         </div>
       </div>
       <ul class="space-y-2 mb-4">
         <li
           v-for="c in liveCampaigns"
           :key="c.id"
-          class="rounded-md border border-divider bg-canvas/40 px-3 py-2"
+          class="rounded-md border border-divider bg-surface-elevated/40 px-3 py-2"
         >
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-ink">{{ c.name }}</span>
@@ -231,7 +279,7 @@ function onApproved(item: ApprovalQueueItem) {
           >
             <span class="font-medium text-ink truncate w-40">{{ s.recipient_name }}</span>
             <span class="text-ink-muted text-[11px] truncate flex-1">{{ s.recipient_email }}</span>
-            <span class="text-[10px] text-ink-disabled">{{ fmtAgo(s.sent_at) }}</span>
+            <span class="text-[10px] text-ink-disabled">{{ fmtAgoCoarse(s.sent_at) }}</span>
             <span
               class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide flex-shrink-0"
               :class="sendStatusClass(s.status)"
@@ -240,5 +288,62 @@ function onApproved(item: ApprovalQueueItem) {
         </ul>
       </div>
     </section>
+
+    <!-- Referral Hunter (NEW) -->
+    <section id="referral_hunter" class="card scroll-mt-24">
+      <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow">Referral Hunter · Recent asks</span>
+          <span class="text-xs text-ink-muted">Ada texts past happy customers ~30d after install</span>
+        </div>
+      </div>
+
+      <!-- Referral KPI row -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div class="rounded-md bg-surface-elevated/60 px-3 py-2">
+          <div class="kpi-label">Asks this week</div>
+          <div class="mt-0.5 text-lg font-bold text-ink tabular-nums">{{ referralStats.count }}</div>
+        </div>
+        <div class="rounded-md bg-surface-elevated/60 px-3 py-2">
+          <div class="kpi-label">Reply rate</div>
+          <div class="mt-0.5 text-lg font-bold text-brand tabular-nums">{{ Math.round(referralStats.replyRate * 100) }}%</div>
+        </div>
+        <div class="rounded-md bg-surface-elevated/60 px-3 py-2">
+          <div class="kpi-label">Referrals in</div>
+          <div class="mt-0.5 text-lg font-bold text-success tabular-nums">{{ referralStats.referredCount }}</div>
+        </div>
+        <div class="rounded-md bg-surface-elevated/60 px-3 py-2">
+          <div class="kpi-label">Referred $ pipeline</div>
+          <div class="mt-0.5 text-lg font-bold text-success tabular-nums">{{ money(referralStats.revenue) }}</div>
+        </div>
+      </div>
+
+      <!-- Asks list -->
+      <ul class="space-y-2">
+        <li
+          v-for="a in referralAsks"
+          :key="a.id"
+          class="rounded-md bg-surface-elevated/60 px-3 py-2 flex items-center gap-2 flex-wrap"
+        >
+          <span class="text-sm font-semibold text-ink min-w-0 truncate w-40">{{ a.customer }}</span>
+          <span class="text-[11px] text-ink-muted truncate flex-1">
+            asked {{ a.sent_label }}<span v-if="a.referred_to"> · referred {{ a.referred_to }}</span>
+          </span>
+          <span v-if="a.est_value_cents > 0" class="text-[10px] text-success font-semibold">{{ money(a.est_value_cents) }}</span>
+          <span
+            class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide flex-shrink-0"
+            :class="refStatusClass(a.status)"
+          >{{ a.status }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Reputation + marketing signals"
+      subtitle="Reviews, opens, clicks, referrals · auto-updates"
+    />
   </div>
 </template>

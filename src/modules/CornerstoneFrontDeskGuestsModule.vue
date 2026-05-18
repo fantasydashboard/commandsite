@@ -1,17 +1,16 @@
 <script setup lang="ts">
 /**
  * Cornerstone — Front Desk & Guests.
- *
- * Combined home for Grace's first-touch roles: Front Desk (calls /
- * forms / connect cards), Guest Follow-Up (visitor sequences), and
- * the Story Engine (testimony collection). Same fixture data the
- * old Engagement module pulled from for visitor stats.
+ * Grace's roles on this page: Front Desk + Guest Follow-Up + Story Engine.
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { Client } from '@/types/database'
 import { visitorStats, STAGE_META as VISITOR_STAGE_META, visitors } from '@/lib/clients/cornerstone/visitors'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -58,7 +57,8 @@ function storyStatusClass(s: Story['status']): string {
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'fd-yates-nudge',
-    icon: '👋',
+    role: 'guest_followup',
+    icon: 'qa_assistant',
     badge: 'Guest Follow-Up',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Day-7 nudge — The Yates Family',
@@ -69,7 +69,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'fd-tellez-story',
-    icon: '🌱',
+    role: 'stories',
+    icon: 'review_engine',
     badge: 'Story Engine',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Share story — The Téllez Family',
@@ -80,7 +81,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'fd-ellison-permission',
-    icon: '🌱',
+    role: 'stories',
+    icon: 'review_engine',
     badge: 'Story Engine',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Story permission ask — Baby Ellison',
@@ -91,7 +93,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'fd-kennedy-day3',
-    icon: '👋',
+    role: 'guest_followup',
+    icon: 'qa_assistant',
     badge: 'Guest Follow-Up',
     badgeClass: 'bg-success/15 text-success',
     title: 'Day-3 nudge — Kennedy Park',
@@ -102,45 +105,49 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-const tickerSeed = [
-  { icon: '📞', text: 'Caught a call — Sun service times question, info text sent', ageSec: 6 * 60 },
-  { icon: '👋', text: 'Riley opened welcome SMS — 11 min after send', ageSec: 11 * 60 },
-  { icon: '✅', text: 'Connect form submitted — Kennedy Park (2nd visit)', ageSec: 47 * 60 },
-  { icon: '🌱', text: 'Owen Holloway story captured — 1-yr Youth Leader milestone', ageSec: 3 * 3600 },
+// ── Live activity (scoped to Front Desk & Guests) ─────────────────────
+const liveSeed = [
+  seedEvent(6 * 60,   'front_desk',    'Caught a call — Sun service times question, info text sent', 'front_desk'),
+  seedEvent(11 * 60,  'qa_assistant',  'Riley opened welcome SMS — 11 min after send',                'guest_followup'),
+  seedEvent(47 * 60,  'check-circle',  'Connect form submitted — Kennedy Park (2nd visit)',            'front_desk'),
+  seedEvent(3 * 3600, 'review_engine', 'Owen Holloway story captured — 1-yr Youth Leader milestone',  'stories'),
+]
+const livePool: PoolEvent[] = [
+  { icon: 'front_desk',    text: 'Caught a call — pastoral request, escalated to Pastor Mark', role: 'front_desk' },
+  { icon: 'check-circle',  text: 'Connect card submitted via web form',                          role: 'front_desk' },
+  { icon: 'qa_assistant',  text: 'Welcome SMS opened — first-time visitor',                      role: 'guest_followup' },
+  { icon: 'review_engine', text: 'Story drafted — testimony ready for review',                   role: 'stories' },
+  { icon: 'calendar',      text: 'Newcomers Lunch RSVP — Maddux Family',                          role: 'guest_followup' },
+  { icon: 'qa_assistant',  text: 'Forwarded inquiry — kids ministry routed to team lead',         role: 'front_desk' },
 ]
 
-const tickerPool = [
-  { icon: '📞', text: 'Caught a call — pastoral request, escalated to Pastor Mark' },
-  { icon: '✅', text: 'Connect card submitted via web form' },
-  { icon: '👋', text: 'Welcome SMS opened — first-time visitor' },
-  { icon: '🌱', text: 'Story drafted — testimony ready for review' },
-  { icon: '📅', text: 'Newcomers Lunch RSVP — Maddux Family' },
-  { icon: '💬', text: 'Forwarded inquiry — kids ministry routed to team lead' },
-]
-
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'front_desk'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+const pageRoles = rolesOnTab('front-desk-guests')
 </script>
 
 <template>
   <div class="space-y-4">
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Front-desk activity — calls, forms, stories. Auto-updates."
+    <RolesOnPage
+      :roles="pageRoles"
+      :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="5"
+      assistant-name="Grace"
       heading="First-touch queue"
-      subtitle="Visitor sequences + story permissions awaiting your eyes. Approve to send."
+      subtitle="Visitor sequences + story permissions awaiting your eyes. Co-sign to send."
       @approved="onApproved"
     />
 
@@ -169,24 +176,24 @@ function onApproved(item: ApprovalQueueItem) {
     </div>
 
     <!-- Front Desk: recent calls Grace handled -->
-    <section class="card">
+    <section id="front_desk" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">📞 Front Desk · Recent calls</span>
-          <span class="text-xs text-ink-muted">— what Grace handled at the phone</span>
+          <span class="eyebrow">Front Desk · Recent calls</span>
+          <span class="text-xs text-ink-muted">what Grace handled at the phone</span>
         </div>
       </div>
       <ul class="space-y-2">
         <li
           v-for="(c, i) in recentCalls"
           :key="i"
-          class="flex items-start gap-3 rounded-md bg-canvas/50 px-3 py-2"
+          class="flex items-start gap-3 rounded-md bg-surface-elevated/60 px-3 py-2"
         >
           <span class="text-[10px] text-ink-disabled flex-shrink-0 mt-0.5 w-14">{{ c.time }}</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-sm font-semibold text-ink">{{ c.from }}</span>
-              <span class="text-[11px] text-ink-muted">— {{ c.topic }}</span>
+              <span class="text-[11px] text-ink-muted">· {{ c.topic }}</span>
             </div>
             <p class="text-[11px] text-ink-muted mt-0.5">{{ c.outcome }}</p>
           </div>
@@ -199,11 +206,11 @@ function onApproved(item: ApprovalQueueItem) {
     </section>
 
     <!-- Guest Follow-Up: visitor pipeline -->
-    <section class="card">
+    <section id="guest_followup" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">👋 Guest Follow-Up · Pipeline</span>
-          <span class="text-xs text-ink-muted">— Grace's sequences, by stage</span>
+          <span class="eyebrow">Guest Follow-Up · Pipeline</span>
+          <span class="text-xs text-ink-muted">Grace's sequences, by stage</span>
         </div>
       </div>
 
@@ -211,7 +218,7 @@ function onApproved(item: ApprovalQueueItem) {
         <div
           v-for="stage in (['first_time','returning','connected','membership_class','member'] as const)"
           :key="stage"
-          class="rounded-md border border-divider bg-canvas/40 px-3 py-2"
+          class="rounded-md border border-divider bg-surface-elevated/40 px-3 py-2"
         >
           <div class="flex items-center gap-1.5 mb-0.5">
             <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: VISITOR_STAGE_META[stage].color }"></span>
@@ -239,22 +246,22 @@ function onApproved(item: ApprovalQueueItem) {
     </section>
 
     <!-- Story Engine -->
-    <section class="card">
+    <section id="stories" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">🌱 Story Engine · Recent</span>
-          <span class="text-xs text-ink-muted">— testimonies Grace asked for</span>
+          <span class="eyebrow">Story Engine · Recent</span>
+          <span class="text-xs text-ink-muted">testimonies Grace asked for</span>
         </div>
       </div>
       <div class="space-y-2">
         <article
           v-for="(s, i) in recentStories"
           :key="i"
-          class="rounded-md border border-divider bg-canvas/40 px-3 py-2"
+          class="rounded-md border border-divider bg-surface-elevated/40 px-3 py-2"
         >
           <div class="flex items-center gap-2 flex-wrap mb-1">
             <span class="text-sm font-semibold text-ink">{{ s.person }}</span>
-            <span class="text-[11px] text-ink-muted">— {{ s.trigger }}</span>
+            <span class="text-[11px] text-ink-muted">· {{ s.trigger }}</span>
             <span
               class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
               :class="storyStatusClass(s.status)"
@@ -264,6 +271,14 @@ function onApproved(item: ApprovalQueueItem) {
         </article>
       </div>
     </section>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Front desk + guests activity"
+      subtitle="Grace's stream scoped to this page · auto-updates"
+    />
 
     <!-- Quiet visitors used reference (silence ESLint via reference) -->
     <span v-if="false">{{ visitors.length }}</span>

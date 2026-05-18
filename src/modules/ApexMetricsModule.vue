@@ -3,14 +3,15 @@
  * Apex Performance Metrics — service-business analytics: revenue trend,
  * lead-source ROI, tech leaderboard, service mix, conversion funnel.
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import {
   Chart,
   LineController, LineElement, PointElement,
+  BarController, BarElement,
   DoughnutController, ArcElement,
   CategoryScale, LinearScale, Tooltip, Filler,
 } from 'chart.js'
-import { Line, Doughnut } from 'vue-chartjs'
+import { Line, Bar, Doughnut } from 'vue-chartjs'
 import type { Client } from '@/types/database'
 
 import {
@@ -21,15 +22,23 @@ import {
   conversionFunnel,
   metricsHeadline,
 } from '@/lib/clients/apex/metrics'
-import { brandAreaDataset, lineDefaults, chartColors } from '@/lib/chartTheme'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { callStats } from '@/lib/clients/apex/calls'
+import { quoteFollowupCounts } from '@/lib/clients/apex/quotes'
+import { revenueRecovered } from '@/lib/clients/apex/revenueRecovered'
+import { rolesOnTab, getRole } from '@/lib/clients/apex/roles'
+import { brandAreaDataset, lineDefaults, barDefaults, chartColors } from '@/lib/chartTheme'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 Chart.register(
   LineController, LineElement, PointElement,
+  BarController, BarElement,
   DoughnutController, ArcElement,
   CategoryScale, LinearScale, Tooltip, Filler,
 )
+import { money } from '@/lib/format'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -90,14 +99,89 @@ const totalServiceRevenue = computed(() =>
   serviceMix.reduce((s, x) => s + x.revenue_cents, 0),
 )
 
-// ── Helpers ────────────────────────────────────────────────────────────
-function money(cents: number, opts: { compact?: boolean } = {}): string {
-  if (opts.compact && cents >= 100_000) return '$' + (cents / 100_000).toFixed(1) + 'k'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: 'USD',
-    minimumFractionDigits: 0, maximumFractionDigits: 0,
-  }).format(cents / 100)
+// ── Volume + Recovery (moved from Today page) ──────────────────────────
+const callsStats = computed(() => callStats())
+const followups = computed(() => quoteFollowupCounts())
+const recoveredRev = computed(() => revenueRecovered())
+
+const CALLS_DONUT_SEGMENTS = computed(() => [
+  { key: 'ai_handled' as const,           label: 'AI-Handled',           color: chartColors.brand()  },
+  { key: 'booked' as const,               label: 'Booked Jobs',          color: chartColors.accent() },
+  { key: 'after_hours' as const,          label: 'After-Hours',          color: '#A0D8F8'            },
+  { key: 'emergency_dispatched' as const, label: 'Emergency Dispatched', color: '#EF4444'            },
+])
+
+const callsDonutData = computed(() => ({
+  labels: CALLS_DONUT_SEGMENTS.value.map((s) => s.label),
+  datasets: [{
+    data: CALLS_DONUT_SEGMENTS.value.map((s) => callsStats.value[s.key]),
+    backgroundColor: CALLS_DONUT_SEGMENTS.value.map((s) => s.color),
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    hoverOffset: 8,
+  }],
+}))
+// deno-lint-ignore no-explicit-any
+const callsDonutOpts: any = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '68%',
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+      titleColor: '#fff', bodyColor: '#E2E8F0', padding: 10, cornerRadius: 6,
+      callbacks: {
+        label: (ctx: { parsed: number; label: string }) =>
+          ` ${ctx.parsed} ${ctx.label.toLowerCase()}`,
+      },
+    },
+  },
 }
+
+const callsLineData = computed(() => ({
+  labels: callsStats.value.daily.map((d) => d.date.slice(5)),
+  datasets: [brandAreaDataset('Calls', callsStats.value.daily.map((d) => d.calls))],
+}))
+const callsLineOpts = lineDefaults()
+
+const followupBarData = computed(() => ({
+  labels: followups.value.map((d) => d.day),
+  datasets: [{
+    label: 'Sent',
+    data: followups.value.map((d) => d.sent),
+    backgroundColor: chartColors.brand(),
+  }],
+}))
+const followupBarOpts = barDefaults()
+
+const recoveredLineData = computed(() => ({
+  labels: recoveredRev.value.daily.map((d) => d.date.slice(5)),
+  datasets: [
+    brandAreaDataset(
+      'Recovered',
+      recoveredRev.value.daily.map((d) => d.cents / 100),
+      { color: chartColors.accent() },
+    ),
+  ],
+}))
+const recoveredLineOpts = (() => {
+  // deno-lint-ignore no-explicit-any
+  const base: any = lineDefaults()
+  const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+  base.plugins.tooltip = {
+    ...base.plugins.tooltip,
+    callbacks: { label: (ctx: { parsed: { y: number } }) => ' ' + fmt.format(ctx.parsed.y) },
+  }
+  base.scales.y.ticks = {
+    ...base.scales.y.ticks,
+    callback: (v: number | string) =>
+      typeof v === 'number' && v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`,
+  }
+  return base
+})()
+
+// ── Helpers ────────────────────────────────────────────────────────────
 function pct(v: number, opts: { signed?: boolean } = {}): string {
   const value = (v * 100).toFixed(0)
   if (opts.signed) return (v >= 0 ? '+' : '') + value + '%'
@@ -125,7 +209,8 @@ const sortedSources = computed(() =>
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'ins-yelp-conversion',
-    icon: '⚡',
+    role: 'performance_reporting',
+    icon: 'zap',
     badge: 'Conversion signal',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Yelp lead conversion dropped 9 pts',
@@ -136,7 +221,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-saturday-cap',
-    icon: '📈',
+    role: 'performance_reporting',
+    icon: 'trending-up',
     badge: 'Demand signal',
     badgeClass: 'bg-success/15 text-success',
     title: 'Saturday bookings up 22% — capacity check?',
@@ -147,7 +233,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-reactivation-batch2',
-    icon: '🔁',
+    role: 'performance_reporting',
+    icon: 'reactivation',
     badge: 'Reactivation signal',
     badgeClass: 'bg-success/15 text-success',
     title: 'Reactivation revenue trending up — invest in Batch 2?',
@@ -158,7 +245,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-after-hours',
-    icon: '⏰',
+    role: 'performance_reporting',
+    icon: 'clock',
     badge: 'Coverage signal',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'After-hours call volume rising — coverage gap?',
@@ -169,7 +257,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-pricing-test',
-    icon: '🔬',
+    role: 'performance_reporting',
+    icon: 'flask',
     badge: 'Revenue signal',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Diagnostic fee test — willing to A/B?',
@@ -180,51 +269,54 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-const tickerSeed = [
-  { icon: '📊', text: 'Performance dashboard recomputed — $135k MTD', ageSec: 18 * 60 },
-  { icon: '🎯', text: 'Lead-source ROI refreshed — Google LSA at 6.7×', ageSec: 47 * 60 },
-  { icon: '⚡', text: 'Yelp conversion alert triggered — 9pt drop', ageSec: 3 * 3600 },
-  { icon: '📈', text: 'Saturday demand pattern flagged — +22% MoM', ageSec: 6 * 3600 },
+// ── Live activity (scoped to Performance Reporting) ───────────────────
+const liveSeed = [
+  seedEvent(18 * 60,  'performance_reporting', 'Performance dashboard recomputed — $135k MTD',  'performance_reporting'),
+  seedEvent(47 * 60,  'deal_won_handoff', 'Lead-source ROI refreshed — Google LSA at 6.7×', 'performance_reporting'),
+  seedEvent(3 * 3600, 'zap', 'Yelp conversion alert triggered — 9pt drop',     'performance_reporting'),
+  seedEvent(6 * 3600, 'trending-up', 'Saturday demand pattern flagged — +22% MoM',     'performance_reporting'),
 ]
-const tickerPool = [
-  { icon: '📊', text: 'Daily metrics rolled up — KPIs synced' },
-  { icon: '💰', text: 'Revenue attributed — Yelp lead → booked job, $1,840' },
-  { icon: '🎯', text: 'Lead source ROI: Google LSA 6.7× · Yelp 4.2× · Repeat 8.1×' },
-  { icon: '⚡', text: 'Conversion alert: change >10% from baseline detected' },
-  { icon: '📈', text: 'Capacity utilization: 87% (target 80-90%)' },
-  { icon: '🔬', text: 'A/B test result trickling in — significance pending' },
+const livePool: PoolEvent[] = [
+  { icon: 'performance_reporting', text: 'Daily metrics rolled up — KPIs synced',                          role: 'performance_reporting' },
+  { icon: 'dollar-sign', text: 'Revenue attributed — Yelp lead → booked job, $1,840',             role: 'performance_reporting' },
+  { icon: 'deal_won_handoff', text: 'Lead source ROI: Google LSA 6.7× · Yelp 4.2× · Repeat 8.1×',     role: 'performance_reporting' },
+  { icon: 'zap', text: 'Conversion alert: change >10% from baseline detected',           role: 'performance_reporting' },
+  { icon: 'trending-up', text: 'Capacity utilization: 87% (target 80-90%)',                       role: 'performance_reporting' },
+  { icon: 'flask', text: 'A/B test result trickling in — significance pending',             role: 'performance_reporting' },
 ]
 
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'performance_reporting'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+const pageRoles = rolesOnTab('insights')
 </script>
 
 <template>
   <div class="space-y-4">
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Performance signals — auto-updates from your stack"
-    />
+    <RolesOnPage :roles="pageRoles" />
 
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="3"
+      assistant-name="Ada"
+      :push-approved-to-chat="false"
       heading="Patterns Ada noticed this week"
-      subtitle="She's not just reporting numbers — she's spotting trends + proposing action. Approve to dig in or run the test."
+      subtitle="She's not just reporting numbers, she's spotting trends and proposing action. Co-sign to dig in or run the test."
       @approved="onApproved"
     />
 
     <!-- Header -->
-    <div class="card flex flex-wrap items-center justify-between gap-3">
+    <div id="performance_reporting" class="card flex flex-wrap items-center justify-between gap-3 scroll-mt-24">
       <div>
-        <h2 class="text-lg font-semibold text-ink">Performance</h2>
+        <h2 class="text-lg font-semibold text-ink">Performance Reporting</h2>
         <p class="text-sm text-ink-muted">
           Where the money is coming from, who's closing it, and what's working.
         </p>
@@ -266,6 +358,98 @@ function onApproved(item: ApprovalQueueItem) {
         <div class="text-[11px] text-ink-muted mt-0.5">jobs needing return visit</div>
       </div>
     </div>
+
+    <!-- ── Volume + Recovery (moved from Today page) ─────────────── -->
+
+    <!-- Calls Handled — donut + breakdown -->
+    <section class="card">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="eyebrow">Calls Handled · Breakdown</span>
+        <span class="chip !py-0.5 !px-2 !text-[10px]">30 Days</span>
+        <span class="text-xs text-ink-muted ml-1">Click a segment to drill in</span>
+      </div>
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div class="lg:col-span-5 relative flex items-center justify-center min-h-[260px]">
+          <div class="relative w-full max-w-[280px] aspect-square">
+            <Doughnut :data="callsDonutData" :options="callsDonutOpts" />
+            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div class="text-[44px] font-bold text-ink leading-none tracking-tight">{{ callsStats.total }}</div>
+              <div class="mt-1.5 kpi-label">Calls Handled</div>
+              <div class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-success">↑ +89 new</div>
+            </div>
+          </div>
+        </div>
+        <div class="lg:col-span-7 space-y-1.5">
+          <div
+            v-for="row in CALLS_DONUT_SEGMENTS"
+            :key="row.key"
+            class="flex items-center gap-3 rounded-lg px-3 py-2.5"
+          >
+            <span class="h-3 w-3 rounded-full flex-shrink-0" :style="{ backgroundColor: row.color }"></span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-ink truncate">{{ row.label }}</div>
+            </div>
+            <div class="flex items-baseline gap-2 whitespace-nowrap">
+              <span class="text-xl font-bold text-ink tabular-nums">{{ callsStats[row.key] }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Calls captured + quote follow-ups (row) -->
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <section class="card">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-ink">Calls Captured</h3>
+          <span class="chip !py-0.5 !px-2 !text-[10px]">30 Days</span>
+        </div>
+        <div class="h-56">
+          <Line :data="callsLineData" :options="callsLineOpts" />
+        </div>
+      </section>
+      <section class="card">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-ink">Quote Follow-Ups Sent</h3>
+          <span class="chip !py-0.5 !px-2 !text-[10px]">30 Days</span>
+        </div>
+        <div class="h-56">
+          <Bar :data="followupBarData" :options="followupBarOpts" />
+        </div>
+      </section>
+    </div>
+
+    <!-- Revenue Recovered -->
+    <section class="card">
+      <div class="mb-3 flex items-center gap-2">
+        <span class="eyebrow">Revenue Recovered</span>
+        <span class="chip !py-0.5 !px-2 !text-[10px]">This Month</span>
+        <span class="text-xs text-ink-muted ml-1">From after-hours, follow-up, and reactivation</span>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-4 flex flex-col justify-center">
+          <div class="text-[44px] font-bold text-brand leading-none tracking-tight">
+            {{ money(recoveredRev.this_month_cents) }}
+          </div>
+          <div class="mt-1.5 kpi-label">Recovered this month</div>
+          <div class="mt-3 grid grid-cols-2 gap-3 border-t border-divider pt-3">
+            <div>
+              <div class="kpi-label">Avg Ticket</div>
+              <div class="mt-0.5 text-lg font-semibold text-ink tabular-nums">{{ money(recoveredRev.avg_ticket_cents) }}</div>
+            </div>
+            <div>
+              <div class="kpi-label">Projected Annual</div>
+              <div class="mt-0.5 text-lg font-semibold text-ink tabular-nums">{{ money(recoveredRev.projected_annual_cents) }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="lg:col-span-8">
+          <div class="h-48">
+            <Line :data="recoveredLineData" :options="recoveredLineOpts" />
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Revenue trend (full width) -->
     <section class="card">
@@ -431,7 +615,7 @@ function onApproved(item: ApprovalQueueItem) {
             </div>
             <div class="h-7 rounded-md bg-surface-elevated/60 overflow-hidden">
               <div
-                class="h-full rounded-md transition-all"
+                class="h-full rounded-md transition-[width] duration-700 ease-out-quart"
                 :style="{
                   width: (step.pct_of_top * 100) + '%',
                   backgroundColor: i === 0 ? 'rgb(var(--color-brand))'
@@ -452,5 +636,13 @@ function onApproved(item: ApprovalQueueItem) {
         </div>
       </section>
     </div>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Performance signals"
+      subtitle="Daily metric rollups, ROI shifts, conversion alerts · auto-updates"
+    />
   </div>
 </template>

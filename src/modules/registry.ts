@@ -101,7 +101,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'history', label: 'History' },
   { key: 'bloodwork', label: 'Bloodwork' },
   { key: 'goals', label: 'Goals' },
-  { key: 'overview', label: 'Overview' },
+  { key: 'overview', label: 'Today' },
   { key: 'metrics', label: 'Metrics' },
   { key: 'pipeline', label: 'Pipeline' },
   { key: 'leads', label: 'Leads' },

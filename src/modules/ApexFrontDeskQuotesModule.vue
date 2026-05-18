@@ -1,13 +1,18 @@
 <script setup lang="ts">
 /**
- * Apex — Front Desk & Quotes (Ada's roles 1 + 2).
+ * Apex — Front Desk & Quotes.
+ * Ada's roles on this page: 📞 Front Desk + 📋 Quote Follow-Up + 🎯 Deal-Won Handoff.
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { Client } from '@/types/database'
 import { calls, callStats } from '@/lib/clients/apex/calls'
 import { quotes, quoteFollowupCounts } from '@/lib/clients/apex/quotes'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { rolesOnTab, getRole } from '@/lib/clients/apex/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
+import { money, fmtAgo } from '@/lib/format'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -33,19 +38,7 @@ const topOpenQuotes = computed(() =>
     .slice(0, 5),
 )
 
-function money(cents: number): string {
-  if (cents >= 100_000) return '$' + Math.round(cents / 100_000) + 'k'
-  return '$' + Math.round(cents / 100).toLocaleString()
-}
 
-function fmtAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(ms / 60_000)
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  return `${Math.floor(hr / 24)}d ago`
-}
 
 function fmtDuration(s: number): string {
   if (s < 60) return s + 's'
@@ -53,8 +46,10 @@ function fmtDuration(s: number): string {
 }
 
 function outcomeClass(o: string): string {
-  if (o === 'booked' || o === 'qualified_lead' || o === 'info_provided') return 'bg-success/15 text-success'
-  if (o === 'emergency_dispatched') return 'bg-warn/15 text-warn'
+  if (o === 'booked') return 'bg-success/15 text-success'
+  if (o === 'opted_out') return 'bg-danger/10 text-danger'
+  if (o === 'voicemail') return 'bg-warn/15 text-warn'
+  // 'dispatched' and anything else fall through to neutral accent.
   return 'bg-accent/15 text-accent'
 }
 
@@ -69,7 +64,8 @@ function stageClass(s: string): string {
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'fd-riverpoint',
-    icon: '💬',
+    role: 'quote_followup',
+    icon: 'qa_assistant',
     badge: 'Quote · stale',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Day-11 nudge — Riverpoint Condos ($14,800)',
@@ -80,7 +76,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'fd-patterson',
-    icon: '💬',
+    role: 'quote_followup',
+    icon: 'qa_assistant',
     badge: 'Quote · day 7',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Day-7 follow-up — Patterson residential ($2,400)',
@@ -91,7 +88,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'fd-batch-day7',
-    icon: '📋',
+    role: 'quote_followup',
+    icon: 'quote_followup',
     badge: 'Quote · batch',
     badgeClass: 'bg-accent/15 text-accent',
     title: 'Day-7 batch nudge — 5 small residential quotes',
@@ -102,7 +100,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'fd-emergency-callback',
-    icon: '🚨',
+    role: 'front_desk',
+    icon: 'alert-triangle',
     badge: 'After-hours',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'After-hours emergency callback — Lisa Reyes',
@@ -113,7 +112,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'fd-rodriguez',
-    icon: '📅',
+    role: 'front_desk',
+    icon: 'calendar',
     badge: 'Booking confirm',
     badgeClass: 'bg-success/15 text-success',
     title: 'Rodriguez wants to schedule — confirm window',
@@ -124,45 +124,48 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-const tickerSeed = [
-  { icon: '📞', text: 'Caught a call — service times question, info text sent', ageSec: 4 * 60 },
-  { icon: '✅', text: 'Quote opened — Patterson clicked the financing link', ageSec: 21 * 60 },
-  { icon: '🚐', text: 'Marcus en-route to no-cooling emergency, ETA 18 min', ageSec: 47 * 60 },
-  { icon: '💬', text: 'Quote follow-up reply — Rodriguez wants to schedule Sat', ageSec: 2 * 3600 },
+// ── Live activity (scoped to this page's roles) ────────────────────────
+const liveSeed = [
+  seedEvent(4 * 60,    'front_desk', 'Caught a call — service times question, info text sent',     'front_desk'),
+  seedEvent(21 * 60,   'check-circle', 'Quote opened — Patterson clicked the financing link',         'quote_followup'),
+  seedEvent(47 * 60,   'truck', 'Marcus en-route to no-cooling emergency, ETA 18 min',          'front_desk'),
+  seedEvent(2 * 3600,  'qa_assistant', 'Quote follow-up reply — Rodriguez wants to schedule Sat',     'quote_followup'),
 ]
-const tickerPool = [
-  { icon: '📞', text: 'Caught a call — booking inquiry, scheduled for Thu' },
-  { icon: '📋', text: 'New quote sent — residential AC replace, $4,200' },
-  { icon: '✅', text: 'Quote opened — link clicked from email' },
-  { icon: '💬', text: 'Day-3 follow-up landed — open rate 71%' },
-  { icon: '⏰', text: 'After-hours line caught a call — escalated to on-call' },
-  { icon: '🎯', text: 'Quote closed — $3,800 ductwork repair booked' },
-  { icon: '📞', text: 'Caught a call — voicemail captured, transcript sent to Brett' },
+const livePool: PoolEvent[] = [
+  { icon: 'front_desk', text: 'Caught a call — booking inquiry, scheduled for Thu',                role: 'front_desk' },
+  { icon: 'quote_followup', text: 'New quote sent — residential AC replace, $4,200',                    role: 'quote_followup' },
+  { icon: 'check-circle', text: 'Quote opened — link clicked from email',                              role: 'quote_followup' },
+  { icon: 'qa_assistant', text: 'Day-3 follow-up landed — open rate 71%',                              role: 'quote_followup' },
+  { icon: 'clock', text: 'After-hours line caught a call — escalated to on-call',              role: 'front_desk' },
+  { icon: 'deal_won_handoff', text: 'Quote closed — $3,800 ductwork repair booked',                       role: 'deal_won_handoff' },
+  { icon: 'front_desk', text: 'Caught a call — voicemail captured, transcript sent to Brett',       role: 'front_desk' },
 ]
 
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'front_desk'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+const pageRoles = rolesOnTab('front-desk-quotes')
 </script>
 
 <template>
   <div class="space-y-4">
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Front desk + quotes activity — auto-updates"
-    />
+    <RolesOnPage :roles="pageRoles" />
 
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="9"
-      heading="Front desk + quotes queue"
-      subtitle="Quote follow-ups + after-hours triage drafted by Ada. Approve to send."
+      assistant-name="Ada"
+      :push-approved-to-chat="false"
+      heading="Front desk + quotes"
+      subtitle="Quote follow-ups + after-hours triage drafted by Ada. Co-sign to send."
       @approved="onApproved"
     />
 
@@ -191,24 +194,24 @@ function onApproved(item: ApprovalQueueItem) {
     </div>
 
     <!-- Front Desk: recent calls -->
-    <section class="card">
+    <section id="front_desk" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">📞 Front Desk · Recent calls</span>
-          <span class="text-xs text-ink-muted">— what Ada handled at the phone</span>
+          <span class="eyebrow">Front Desk · Recent calls</span>
+          <span class="text-xs text-ink-muted">what Ada handled at the phone</span>
         </div>
       </div>
       <ul class="space-y-2">
         <li
           v-for="c in recentCalls"
           :key="c.id"
-          class="flex items-start gap-3 rounded-md bg-canvas/50 px-3 py-2"
+          class="flex items-start gap-3 rounded-md bg-surface-elevated/60 px-3 py-2"
         >
           <span class="text-[10px] text-ink-disabled flex-shrink-0 mt-0.5 w-14">{{ fmtAgo(c.time) }}</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-sm font-semibold text-ink">{{ c.caller }}</span>
-              <span v-if="c.job_type" class="text-[11px] text-ink-muted">— {{ c.job_type }}</span>
+              <span v-if="c.job_type" class="text-[11px] text-ink-muted">· {{ c.job_type }}</span>
               <span class="text-[10px] text-ink-disabled">· {{ fmtDuration(c.duration) }}</span>
             </div>
             <p v-if="c.transcript" class="text-[11px] text-ink-muted mt-0.5 line-clamp-1 italic">"{{ c.transcript.slice(0, 120) }}…"</p>
@@ -222,11 +225,11 @@ function onApproved(item: ApprovalQueueItem) {
     </section>
 
     <!-- Quote follow-ups -->
-    <section class="card">
+    <section id="quote_followup" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">📋 Quote Follow-Up · Pipeline</span>
-          <span class="text-xs text-ink-muted">— Ada's 7-day SMS sequence in your voice</span>
+          <span class="eyebrow">Quote Follow-Up · Pipeline</span>
+          <span class="text-xs text-ink-muted">Ada's 7-day SMS sequence in your voice</span>
         </div>
       </div>
 
@@ -273,5 +276,13 @@ function onApproved(item: ApprovalQueueItem) {
         </ul>
       </div>
     </section>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Front desk + quotes activity"
+      subtitle="Ada's stream scoped to this page · auto-updates"
+    />
   </div>
 </template>

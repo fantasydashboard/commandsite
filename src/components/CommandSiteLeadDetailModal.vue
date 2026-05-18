@@ -201,10 +201,17 @@ async function save(): Promise<boolean> {
   }
 
   try {
+    // .select('id').single() forces a 200 JSON response instead of the
+    // default 204 No Content. supabase-js's 204 path has caused stuck
+    // promises here — the wire request finishes but the JS handler
+    // never resolves, leaving "Saving…" frozen and locking the auth
+    // queue against the next save.
     const { error } = await supabase
       .from('cs_leads')
       .update(payload as never)
       .eq('id', l.id)
+      .select('id')
+      .single()
     if (error) {
       message.value = { kind: 'err', text: `Save failed: ${error.message}` }
       return false

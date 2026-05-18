@@ -63,6 +63,15 @@ export default {
       borderRadius: {
         'card': '14px',
       },
+      transitionTimingFunction: {
+        // Custom easings — defined in main.css and mirrored here so they're
+        // usable as Tailwind utility classes (ease-out-quart, etc.). Built-in
+        // CSS keywords are too weak; these are the punchier curves.
+        'out-quart':  'cubic-bezier(0.23, 1, 0.32, 1)',
+        'out-quint':  'cubic-bezier(0.22, 1, 0.36, 1)',
+        'in-out-quart': 'cubic-bezier(0.77, 0, 0.175, 1)',
+        'drawer':     'cubic-bezier(0.32, 0.72, 0, 1)',
+      },
     },
   },
   plugins: [],

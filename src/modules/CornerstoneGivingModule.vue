@@ -6,7 +6,7 @@
  * household flag. No individual snooping. The pastoral value is
  * spotting drift, not surveillance.
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import {
   Chart, BarController, BarElement, DoughnutController, ArcElement,
   CategoryScale, LinearScale, Tooltip,
@@ -20,9 +20,12 @@ import {
   givingStats,
   STOP_REASON_LABEL,
 } from '@/lib/clients/cornerstone/giving'
+import { getRole } from '@/lib/clients/cornerstone/roles'
 import { barDefaults, chartColors } from '@/lib/chartTheme'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
+import { money } from '@/lib/format'
 
 Chart.register(BarController, BarElement, DoughnutController, ArcElement, CategoryScale, LinearScale, Tooltip)
 
@@ -110,14 +113,6 @@ const perGiverMetrics = computed(() => {
   }
 })
 
-function money(cents: number, opts: { compact?: boolean } = {}): string {
-  if (opts.compact && cents >= 100_000) return '$' + Math.round(cents / 1000) + 'k'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: 'USD',
-    minimumFractionDigits: 0, maximumFractionDigits: 0,
-  }).format(cents / 100)
-}
-
 function pct(v: number, opts: { signed?: boolean } = {}): string {
   const value = (v * 100).toFixed(0)
   if (opts.signed) return (v >= 0 ? '+' : '') + value + '%'
@@ -143,7 +138,8 @@ const sortedStopped = computed(() =>
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'gv-hawthorne',
-    icon: '💳',
+    role: 'communications',
+    icon: 'dollar-sign',
     badge: 'Card update',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Card-update reminder — Hawthorne Family',
@@ -154,7 +150,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'gv-bigift-thanks',
-    icon: '🙏',
+    role: 'communications',
+    icon: 'check-circle',
     badge: 'Big-gift thanks',
     badgeClass: 'bg-success/15 text-success',
     title: 'Thank-you note — anonymous $5,000 Building Fund gift',
@@ -165,7 +162,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'gv-stopped-1',
-    icon: '🏡',
+    role: 'reengagement',
+    icon: 'reactivation',
     badge: 'Reactivation',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Reactivation outreach — multi-flag stopped giver',
@@ -176,7 +174,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'gv-bf-update',
-    icon: '🏗️',
+    role: 'communications',
+    icon: 'trending-up',
     badge: 'Stewardship comms',
     badgeClass: 'bg-success/15 text-success',
     title: 'Building Fund 60% milestone — contributor update',
@@ -187,28 +186,31 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-const tickerSeed = [
-  { icon: '💚', text: '$240 anonymous gift just cleared — General Fund', ageSec: 6 * 60 },
-  { icon: '🏗️', text: 'Building Fund pace check: 14 days ahead of plan', ageSec: 28 * 60 },
-  { icon: '⚠', text: 'Hawthorne card-on-file failure detected', ageSec: 2 * 3600 },
-  { icon: '🔄', text: 'Recurring gift retry succeeded — Marsh family', ageSec: 6 * 3600 },
+// ── Live activity (Giving stream — auto-updates from the merchant + stack) ──
+const liveSeed = [
+  seedEvent(6 * 60,    'dollar-sign',    '$240 anonymous gift just cleared — General Fund',  'communications'),
+  seedEvent(28 * 60,   'trending-up',    'Building Fund pace check: 14 days ahead of plan',  'communications'),
+  seedEvent(2 * 3600,  'alert-triangle', 'Hawthorne card-on-file failure detected',           'communications'),
+  seedEvent(6 * 3600,  'reactivation',   'Recurring gift retry succeeded — Marsh family',     'reengagement'),
+]
+const livePool: PoolEvent[] = [
+  { icon: 'dollar-sign',    text: 'Recurring gift processed — General Fund',                 role: 'communications' },
+  { icon: 'dollar-sign',    text: 'Card-update link clicked — gift retried successfully',     role: 'communications' },
+  { icon: 'trending-up',    text: 'Building Fund crossed 61% of goal',                         role: 'communications' },
+  { icon: 'check-circle',   text: 'Big-gift thank-you delivered — opened in 4 min',             role: 'communications' },
+  { icon: 'trending-up',    text: 'Monthly recurring giving up 3.2% MoM',                      role: 'communications' },
+  { icon: 'alert-triangle', text: 'Stopped-giving flag triggered — auto-drafted reactivation', role: 'reengagement' },
 ]
 
-const tickerPool = [
-  { icon: '💚', text: 'Recurring gift processed — General Fund' },
-  { icon: '💳', text: 'Card-update link clicked — gift retried successfully' },
-  { icon: '🏗️', text: 'Building Fund crossed 61% of goal' },
-  { icon: '🙏', text: 'Big-gift thank-you delivered — opened in 4 min' },
-  { icon: '📈', text: 'Monthly recurring giving up 3.2% MoM' },
-  { icon: '⚠', text: 'Stopped-giving flag triggered — auto-drafted reactivation' },
-]
-
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'communications'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
 </script>
 
@@ -222,18 +224,12 @@ function onApproved(item: ApprovalQueueItem) {
       </div>
     </div>
 
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Giving signals — auto-updates from the merchant + your stack"
-    />
-
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="4"
+      assistant-name="Grace"
       heading="Stewardship queue"
-      subtitle="Card-updates, big-gift thank-yous, reactivation — all drafted with restraint. Approve to send."
+      subtitle="Card-updates, big-gift thank-yous, reactivation — all drafted with restraint. Co-sign to send."
       @approved="onApproved"
     />
 
@@ -314,7 +310,7 @@ function onApproved(item: ApprovalQueueItem) {
       <!-- Visual: recurring/one-time split bar -->
       <div>
         <div class="kpi-label mb-1.5">Giving mix this month</div>
-        <div class="h-3 w-full rounded-full overflow-hidden bg-canvas flex">
+        <div class="h-3 w-full rounded-full overflow-hidden bg-surface-elevated flex">
           <div class="h-full bg-brand" :style="{ width: (perGiverMetrics.recurring_pct * 100) + '%' }" :title="`${pct(perGiverMetrics.recurring_pct)} recurring`"></div>
           <div class="h-full bg-accent" :style="{ width: (perGiverMetrics.one_time_pct * 100) + '%' }" :title="`${pct(perGiverMetrics.one_time_pct)} one-time`"></div>
         </div>
@@ -413,7 +409,7 @@ function onApproved(item: ApprovalQueueItem) {
                   <span class="text-sm font-semibold text-ink">{{ h.household_name }}</span>
                   <span
                     v-if="h.also_kids_flag || h.also_serving_flag"
-                    class="rounded-full bg-danger text-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                    class="rounded-full bg-danger text-ink-inverse px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
                   >Multi-flag — priority</span>
                   <span
                     v-if="h.also_kids_flag"
@@ -435,7 +431,7 @@ function onApproved(item: ApprovalQueueItem) {
                 <button
                   v-if="h.reason === 'card_expired_no_update'"
                   type="button"
-                  class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 whitespace-nowrap"
+                  class="rounded-md bg-brand text-ink-inverse px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 whitespace-nowrap"
                 >Send card-update reminder</button>
                 <button
                   v-else
@@ -452,5 +448,13 @@ function onApproved(item: ApprovalQueueItem) {
         </div>
       </section>
     </div>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Giving signals"
+      subtitle="Auto-updates from the merchant + your stack"
+    />
   </div>
 </template>

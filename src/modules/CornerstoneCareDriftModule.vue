@@ -1,11 +1,7 @@
 <script setup lang="ts">
 /**
  * Cornerstone — Care & Drift.
- *
- * Combined home for Grace's pastoral care roles: Drift Detection
- * (the three-flag household directory), Re-engagement (dormant-
- * member outreach), and Care Triage (urgent cases + drafted
- * check-ins). Pulls from the existing people + care fixtures.
+ * Grace's roles on this page: Re-engagement + Drift Detection + Care Triage.
  */
 import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
@@ -15,8 +11,12 @@ import {
   type Household, type HouseholdStage,
 } from '@/lib/clients/cornerstone/people'
 import { careCases, careStats, KIND_META as CARE_KIND_META, URGENCY_META, type CareCase } from '@/lib/clients/cornerstone/care'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
+import { fmtAgoCoarse } from '@/lib/format'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -66,21 +66,12 @@ function memberSummary(h: Household): string {
   return parts.join(' · ')
 }
 
-function fmtAgo(iso?: string): string {
-  if (!iso) return 'Never'
-  const ms = Date.now() - new Date(iso).getTime()
-  const day = Math.floor(ms / (24 * 60 * 60 * 1000))
-  if (day === 0) return 'today'
-  if (day < 30) return `${day}d ago`
-  if (day < 365) return `${Math.floor(day / 30)}mo ago`
-  return `${(day / 365).toFixed(1)}yr ago`
-}
-
 // ── Approval queue: pastoral check-ins Grace has drafted ──────────────
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'care-whitaker',
-    icon: '🤝',
+    role: 'care_triage',
+    icon: 'referral_hunter',
     badge: 'Care Triage',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Pastoral check-in — The Whitaker Family',
@@ -91,7 +82,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'care-castellano',
-    icon: '🤝',
+    role: 'care_triage',
+    icon: 'referral_hunter',
     badge: 'Care Triage',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Pastoral check-in — The Castellano Family',
@@ -102,7 +94,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'care-foster-funeral',
-    icon: '🕯️',
+    role: 'care_triage',
+    icon: 'alert-triangle',
     badge: 'Care · Urgent',
     badgeClass: 'bg-danger/15 text-danger',
     title: 'Funeral logistics confirm — Foster Family',
@@ -113,7 +106,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'care-reyes-followup',
-    icon: '🏡',
+    role: 'reengagement',
+    icon: 'reactivation',
     badge: 'Re-engagement',
     badgeClass: 'bg-success/15 text-success',
     title: 'Day-7 follow-up — The Reyes Family',
@@ -124,46 +118,49 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-// Live ticker — care/drift specific events
-const tickerSeed = [
-  { icon: '⚠', label: 'Drift flag', text: 'Hawthorne household crossed 2-flag threshold', ageSec: 8 * 60 },
-  { icon: '🤝', text: 'Whitaker draft updated with new context', ageSec: 27 * 60 },
-  { icon: '🏡', text: 'Reyes Family opened "we missed you" SMS', ageSec: 73 * 60 },
-  { icon: '📞', text: 'James Foster called — funeral logistics confirmed', ageSec: 4 * 3600 },
-].map(({ icon, text, ageSec }) => ({ icon, text, ageSec }))
-
-const tickerPool = [
-  { icon: '🤝', text: 'Pastoral check-in queued — auto-drafted from drift signals' },
-  { icon: '⚠', text: 'Sullivan Family — flag count refreshed (still 3 red)' },
-  { icon: '🏡', text: 'Drift detection swept 142 households, 4 new flags' },
-  { icon: '💬', text: 'Reyes Family replied — moved to Pastor inbox' },
-  { icon: '✉️', text: 'Whitaker check-in opened (12 min ago)' },
-  { icon: '📅', text: 'Coffee scheduled — Pastor Mark + Castellanos for Tue' },
+// ── Live activity (scoped to Care & Drift) ────────────────────────────
+const liveSeed = [
+  seedEvent(8 * 60,    'alert-triangle',  'Hawthorne household crossed 2-flag threshold',         'drift_detection'),
+  seedEvent(27 * 60,   'referral_hunter', 'Whitaker draft updated with new context',              'care_triage'),
+  seedEvent(73 * 60,   'reactivation',    'Reyes Family opened "we missed you" SMS',              'reengagement'),
+  seedEvent(4 * 3600,  'front_desk',      'James Foster called — funeral logistics confirmed',    'care_triage'),
+]
+const livePool: PoolEvent[] = [
+  { icon: 'referral_hunter', text: 'Pastoral check-in queued — auto-drafted from drift signals',  role: 'care_triage' },
+  { icon: 'alert-triangle',  text: 'Sullivan Family — flag count refreshed (still 3 red)',         role: 'drift_detection' },
+  { icon: 'reactivation',    text: 'Drift detection swept 142 households, 4 new flags',           role: 'drift_detection' },
+  { icon: 'qa_assistant',    text: 'Reyes Family replied — moved to Pastor inbox',                 role: 'reengagement' },
+  { icon: 'email_marketing', text: 'Whitaker check-in opened (12 min ago)',                        role: 'care_triage' },
+  { icon: 'calendar',        text: 'Coffee scheduled — Pastor Mark + Castellanos for Tue',         role: 'care_triage' },
 ]
 
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'care_triage'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+const pageRoles = rolesOnTab('care-drift')
 </script>
 
 <template>
   <div class="space-y-4">
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Drift flags + care signals — auto-updates"
+    <RolesOnPage
+      :roles="pageRoles"
+      :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="3"
+      assistant-name="Grace"
       heading="Grace's care queue"
-      subtitle="Pastoral check-ins drafted from drift signals + open care cases. Approve to send."
+      subtitle="Pastoral check-ins drafted from drift signals + open care cases. Co-sign to send."
       @approved="onApproved"
     />
 
@@ -192,11 +189,11 @@ function onApproved(item: ApprovalQueueItem) {
     </div>
 
     <!-- Care queue (urgent cases + Grace's drafts) -->
-    <section class="card">
+    <section id="care_triage" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">🤝 Care Triage · Open cases</span>
-          <span class="text-xs text-ink-muted">— sorted by urgency</span>
+          <span class="eyebrow">Care Triage · Open cases</span>
+          <span class="text-xs text-ink-muted">sorted by urgency</span>
         </div>
         <span class="text-[11px] text-ink-disabled">{{ openCareCases.length }} open · {{ care.drafts_pending }} drafted</span>
       </div>
@@ -204,13 +201,13 @@ function onApproved(item: ApprovalQueueItem) {
         <li
           v-for="c in openCareCases.slice(0, 5)"
           :key="c.id"
-          class="rounded-md border border-divider bg-canvas/40 px-3 py-2"
+          class="rounded-md border border-divider bg-surface-elevated/40 px-3 py-2"
         >
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-base flex-shrink-0">{{ CARE_KIND_META[c.kind].icon }}</span>
             <span class="text-sm font-semibold text-ink">{{ c.household_name }}</span>
             <span
-              class="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+              class="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-inverse"
               :style="{ backgroundColor: URGENCY_META[c.urgency].color }"
             >{{ URGENCY_META[c.urgency].label }}</span>
             <span class="text-[10px] text-ink-disabled">· {{ c.days_open }}d open</span>
@@ -224,11 +221,11 @@ function onApproved(item: ApprovalQueueItem) {
     </section>
 
     <!-- Drift detection — household directory (filtered to at-risk by default) -->
-    <section class="card">
+    <section id="drift_detection" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">⚠ Drift Detection · Household directory</span>
-          <span class="text-xs text-ink-muted">— three-flag system, sorted by risk</span>
+          <span class="eyebrow">Drift Detection · Household directory</span>
+          <span class="text-xs text-ink-muted">three-flag system, sorted by risk</span>
         </div>
       </div>
 
@@ -237,17 +234,17 @@ function onApproved(item: ApprovalQueueItem) {
         <button type="button" class="chip" :class="stageFilter === 'all' ? 'chip-active' : ''" @click="stageFilter = 'all'">All ({{ households.length }})</button>
         <button
           type="button"
-          class="rounded-full px-3 py-1 text-xs font-semibold transition-colors text-white"
-          :style="stageFilter === 'at_risk'
-            ? { backgroundColor: '#EF4444' }
-            : { backgroundColor: '#EF444422', color: '#EF4444' }"
+          class="rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+          :class="stageFilter === 'at_risk'
+            ? 'bg-danger text-ink-inverse'
+            : 'bg-danger/15 text-danger hover:bg-danger/25'"
           @click="stageFilter = 'at_risk'"
-        >⚠ At-risk ({{ stats.at_risk_one_flag + stats.at_risk_two_plus_flags }})</button>
+        >At-risk ({{ stats.at_risk_one_flag + stats.at_risk_two_plus_flags }})</button>
         <button
           v-for="s in stageOrder"
           :key="s"
           type="button"
-          class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-white"
+          class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-ink-inverse"
           :style="stageFilter === s
             ? { backgroundColor: STAGE_META[s].color }
             : { backgroundColor: STAGE_META[s].color + '22', color: STAGE_META[s].color }"
@@ -281,7 +278,7 @@ function onApproved(item: ApprovalQueueItem) {
               </td>
               <td class="px-2 py-2">
                 <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white whitespace-nowrap"
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-inverse whitespace-nowrap"
                   :style="{ backgroundColor: STAGE_META[h.stage].color }"
                 >{{ STAGE_META[h.stage].label }}</span>
               </td>
@@ -294,7 +291,7 @@ function onApproved(item: ApprovalQueueItem) {
                   :style="{ color: totalFlagCount(h) >= 2 ? '#EF4444' : totalFlagCount(h) === 1 ? '#F59E0B' : '#10B981' }"
                 >{{ totalFlagCount(h) }}</span>
               </td>
-              <td class="px-2 py-2 text-[11px] text-ink-muted">{{ fmtAgo(h.last_personal_touch_at) }}</td>
+              <td class="px-2 py-2 text-[11px] text-ink-muted">{{ fmtAgoCoarse(h.last_personal_touch_at) }}</td>
             </tr>
             <tr v-if="filtered.length === 0">
               <td colspan="7" class="text-center py-4 text-xs text-ink-disabled italic">No households match this filter.</td>
@@ -306,5 +303,15 @@ function onApproved(item: ApprovalQueueItem) {
         Showing top 12 of {{ filtered.length }} — sorted by flag count.
       </p>
     </section>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Drift flags + care signals"
+      subtitle="Grace's stream scoped to this page · auto-updates"
+    />
+
+    <!-- Reference openCareCases is used; silence no-unused if needed -->
   </div>
 </template>

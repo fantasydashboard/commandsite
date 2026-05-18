@@ -36,12 +36,34 @@
      Stored as a full rgba value because it includes alpha by default
      (consumed by raw CSS, not Tailwind alpha modifiers). */
   --color-page-wash:    rgb(186 230 253 / 0.45);  /* sky-200 @ 45% */
+
+  /* Motion — custom easing curves with more punch than CSS keywords.
+     UI animations use --ease-out-quart; on-screen movement uses
+     --ease-in-out; drawer/sheet transitions use --ease-drawer.
+     Sources: easing.dev (Lucide-style quart), Ionic Framework. */
+  --ease-out-quart:  cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-out-quint:  cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:     cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer:     cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @layer base {
   html, body, #app {
     @apply text-ink;
     min-height: 100%;
+  }
+  /* Reduced-motion guardrail — keep opacity transitions (they aid
+     comprehension), kill movement and looping animations.
+     Per WCAG: motion-sickness-sensitive users opt into less, not zero. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
   body {
     -webkit-font-smoothing: antialiased;
@@ -67,7 +89,15 @@
 @layer components {
   /* Buttons — pill-shaped, roomier padding. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:pointer-events-none;
+    transition: transform 160ms var(--ease-out-quart),
+                background-color 160ms var(--ease-out-quart),
+                color 160ms var(--ease-out-quart),
+                box-shadow 160ms var(--ease-out-quart),
+                border-color 160ms var(--ease-out-quart);
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
   }
   .btn-primary {
     @apply btn bg-brand text-ink-inverse shadow-sm hover:bg-brand-hover active:bg-brand-active focus:ring-brand;

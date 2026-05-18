@@ -6,7 +6,7 @@
  * with year-over-year compare, adults vs kids breakdown, service-time
  * split, visitor flow, and growth indicators (baptisms / new members).
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import {
   Chart, LineController, BarController, LineElement, PointElement,
   BarElement, ArcElement, DoughnutController,
@@ -20,8 +20,12 @@ import {
 } from '@/lib/clients/cornerstone/attendance'
 import { givingStats, monthlyGiving } from '@/lib/clients/cornerstone/giving'
 import { peopleStats } from '@/lib/clients/cornerstone/people'
-import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
+import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
+import { money } from '@/lib/format'
 
 Chart.register(
   LineController, BarController, LineElement, PointElement,
@@ -198,10 +202,6 @@ const breadth = computed(() => {
 })
 
 function pct(v: number, places = 0): string { return (v * 100).toFixed(places) + '%' }
-function money(cents: number): string {
-  if (cents >= 100_000) return '$' + Math.round(cents / 1000) + 'k'
-  return '$' + Math.round(cents / 100).toLocaleString()
-}
 
 // ── Insights queue: patterns Grace noticed + proposed action ──────────
 // This is the most distinctive use of the queue — Grace as an analyst.
@@ -209,7 +209,8 @@ function money(cents: number): string {
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'ins-attendance-dip',
-    icon: '📉',
+    role: 'engagement_reporting',
+    icon: 'trending-up',
     badge: 'Attendance signal',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Attendance dipped 6% from 4-wk avg',
@@ -220,7 +221,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-building-fund',
-    icon: '🏗️',
+    role: 'engagement_reporting',
+    icon: 'check-circle',
     badge: 'Giving signal',
     badgeClass: 'bg-success/15 text-success',
     title: 'Building Fund just crossed 60% of goal',
@@ -231,7 +233,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-newsletter-ab',
-    icon: '🔬',
+    role: 'engagement_reporting',
+    icon: 'flask',
     badge: 'Communications signal',
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Newsletter open rate dropped 4 pts',
@@ -242,7 +245,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-baptism-pipeline',
-    icon: '🌊',
+    role: 'engagement_reporting',
+    icon: 'check-circle',
     badge: 'Pastoral signal',
     badgeClass: 'bg-success/15 text-success',
     title: 'Baptism pipeline: 6 candidates from DC',
@@ -253,7 +257,8 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'ins-volunteer-burnout',
-    icon: '⚠',
+    role: 'engagement_reporting',
+    icon: 'alert-triangle',
     badge: 'Volunteer signal',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Volunteer burnout flag: 3 serving 4+ Sundays in a row',
@@ -264,45 +269,49 @@ const queueItems: ApprovalQueueItem[] = [
   },
 ]
 
-const tickerSeed = [
-  { icon: '📊', text: 'Sunday attendance synced from Planning Center', ageSec: 18 * 60 },
-  { icon: '💚', text: '7th first-time visitor this week — Connect form just submitted', ageSec: 41 * 60 },
-  { icon: '🌊', text: 'Baptism interest captured from DC form — Marcus L.', ageSec: 2 * 3600 },
-  { icon: '📉', text: 'Attendance trend recalculated — 6% below 4-wk avg', ageSec: 3 * 3600 },
+// ── Live activity (scoped to Engagement Reporting) ────────────────────
+const liveSeed = [
+  seedEvent(18 * 60,   'performance_reporting', 'Sunday attendance synced from Planning Center',                  'engagement_reporting'),
+  seedEvent(41 * 60,   'qa_assistant',          '7th first-time visitor this week — Connect form just submitted', 'engagement_reporting'),
+  seedEvent(2 * 3600,  'review_engine',         'Baptism interest captured from DC form — Marcus L.',             'engagement_reporting'),
+  seedEvent(3 * 3600,  'trending-up',           'Attendance trend recalculated — 6% below 4-wk avg',              'engagement_reporting'),
+]
+const livePool: PoolEvent[] = [
+  { icon: 'performance_reporting', text: 'Engagement summary draft auto-generated for Tuesday meeting',  role: 'engagement_reporting' },
+  { icon: 'dollar-sign',           text: 'Giving trend recalculated — Building Fund at 61%',              role: 'engagement_reporting' },
+  { icon: 'reactivation',          text: 'First-time visitor → returning conversion: 57% (4-wk rolling)', role: 'engagement_reporting' },
+  { icon: 'qa_assistant',          text: 'Newsletter open: 36% (down 2pt week-over-week)',                role: 'engagement_reporting' },
+  { icon: 'check-circle',          text: 'Day-3 follow-up landing rate: 89%',                              role: 'engagement_reporting' },
+  { icon: 'trending-up',           text: 'Year-over-year attendance: +12.4%',                              role: 'engagement_reporting' },
 ]
 
-const tickerPool = [
-  { icon: '📊', text: 'Engagement summary draft auto-generated for Tuesday meeting' },
-  { icon: '💰', text: 'Giving trend recalculated — Building Fund at 61%' },
-  { icon: '🔄', text: 'First-time visitor → returning conversion: 57% (4-wk rolling)' },
-  { icon: '👀', text: 'Newsletter open: 36% (down 2pt week-over-week)' },
-  { icon: '✅', text: 'Day-3 follow-up landing rate: 89%' },
-  { icon: '📈', text: 'Year-over-year attendance: +12.4%' },
-]
-
-const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
+const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
+  seed: liveSeed,
+  pool: livePool,
+})
 
 function onApproved(item: ApprovalQueueItem) {
-  if (item.ticker_after_approval) {
-    tickerRef.value?.pushEvent({ icon: item.icon, text: item.ticker_after_approval })
-  }
+  if (!item.ticker_after_approval) return
+  const role = item.role ?? 'engagement_reporting'
+  pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+const pageRoles = rolesOnTab('insights')
 </script>
 
 <template>
   <div class="space-y-4">
-    <GraceLiveTicker
-      ref="tickerRef"
-      :seed="tickerSeed"
-      :pool="tickerPool"
-      subtitle="Engagement signals — auto-updates from Planning Center + your stack"
+    <RolesOnPage
+      :roles="pageRoles"
+      :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="2"
+      assistant-name="Grace"
       heading="Patterns Grace noticed this week"
-      subtitle="She's not just reporting numbers — she's spotting trends + proposing action. Approve to draft."
+      subtitle="She's not just reporting numbers, she's spotting trends and proposing action. Co-sign to draft."
       @approved="onApproved"
     />
 
@@ -441,7 +450,7 @@ function onApproved(item: ApprovalQueueItem) {
               <span class="text-xs font-semibold text-ink">{{ b.label }}</span>
               <span class="text-sm font-bold tabular-nums" :style="{ color: b.color }">{{ pct(b.pct) }}</span>
             </div>
-            <div class="h-2 rounded-full bg-canvas overflow-hidden">
+            <div class="h-2 rounded-full bg-surface-elevated overflow-hidden">
               <div
                 class="h-full rounded-full"
                 :style="{ width: (b.pct * 100) + '%', backgroundColor: b.color }"
@@ -470,5 +479,13 @@ function onApproved(item: ApprovalQueueItem) {
         <Line :data="givingLineData" :options="givingLineOpts" />
       </div>
     </section>
+
+    <LiveActivityFeed
+      :events="liveEvents"
+      :fmt-ago="fmtLiveAgo"
+      :get-role="getRole"
+      title="Engagement signals"
+      subtitle="Grace's stream scoped to this page · auto-updates from Planning Center"
+    />
   </div>
 </template>

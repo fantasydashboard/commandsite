@@ -89,6 +89,10 @@ export interface RecentActivityEvent {
   text: string
   /** For coloring/icon — call / quote / review / reactivation / dispatch */
   kind: 'call' | 'quote' | 'review' | 'reactivation' | 'dispatch'
+  /** Which Ada role produced this event — key from adaRoles. Rendered
+   *  as a chip in the activity feed so the owner sees which "employee"
+   *  did the work. */
+  role?: string
 }
 
 export interface RevenueRecovered {
