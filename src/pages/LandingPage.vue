@@ -13,12 +13,53 @@
  *     account is set up + "30-min Discovery Walkthrough" event exists.
  */
 import { ref, onMounted, onUnmounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
 import AssistantMark from '@/components/AssistantMark.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
+import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
+import AdaActivityColumn from '@/components/landing/AdaActivityColumn.vue'
+import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import { adaRoles, getRole, type AdaRole } from '@/lib/clients/apex/roles'
+import { useLiveActivity, seedEvent } from '@/composables/useLiveActivity'
+
+const router = useRouter()
+
+// Hero "real product" preview clicks → the demo dashboard, with the
+// clicked role's section pre-targeted via hash. Buyer goes from
+// "look, that's Front Desk" on the landing → straight to the demo.
+function onHeroRoleClick(role: AdaRole) {
+  router.push({
+    name: 'dashboard.tab',
+    params: { slug: 'apex-heating-and-air', tab: role.tab },
+    hash: `#${role.key}`,
+  })
+}
 
 const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough'
 const CTA_LABEL = 'Book a discovery walkthrough'
+
+// Hero "she's working right now" feed — sits below the role hub so the
+// product reads as alive on first paint. Drift slowed to 22s so the demo
+// doesn't feel like a slot machine.
+const { events: heroEvents, fmtAgo: heroFmtAgo } = useLiveActivity({
+  seed: [
+    seedEvent(45, 'phone-off', 'Caught a missed call from Walter Knox. Wants an AC quote.', 'front_desk'),
+    seedEvent(180, 'quote_followup', 'Sent 3-day check-in to the Whitlocks on their $4,200 quote', 'quote_followup'),
+    seedEvent(420, 'review_engine', 'Asked Diane Rivera for a Google review (job finished 2 hrs ago)', 'review_engine'),
+    seedEvent(960, 'reactivation', 'Reactivation note went out to 12 customers who haven\'t called in 18 months', 'reactivation'),
+  ],
+  pool: [
+    { icon: 'phone-off', text: 'After-hours call from Marcus Hill. Booked Tuesday 9 AM.', role: 'front_desk' },
+    { icon: 'quote_followup', text: 'Day-1 follow-up sent on the $7,800 heat-pump quote for the Yangs', role: 'quote_followup' },
+    { icon: 'review_engine', text: 'Trevor Ng left a 5-star review. Ada thanked him.', role: 'review_engine' },
+    { icon: 'schedule_coord', text: 'Booked an emergency no-heat call for the Petersons at 6:15 AM', role: 'schedule_coord' },
+    { icon: 'customer_health', text: 'Flagged the Hernandez account. Last service: 14+ months.', role: 'customer_health' },
+    { icon: 'reactivation', text: 'Win-back SMS to 3 dormant customers; Megan Riley replied', role: 'reactivation' },
+  ],
+  driftMs: 22_000,
+  cap: 6,
+})
 
 // Mobile sticky bottom CTA: appears once the hero scrolls offscreen,
 // disappears when the user scrolls back up. Truck-cab buyers don't have
@@ -64,31 +105,31 @@ const pains: Pain[] = [
 interface Module { icon: string; title: string; tagline: string; detail: string }
 const modules: Module[] = [
   {
-    icon: '📞',
+    icon: 'front_desk',
     title: 'Ada at the front desk',
     tagline: 'Catches every call. Books every job.',
-    detail: 'Trained on your services, pricing, hours, and dispatch rules. Answers in your business\'s voice, books straight to your calendar, escalates emergencies to your cell — 24/7. Sounds like a thoughtful office manager, not a chatbot.',
+    detail: 'Trained on your services, pricing, hours, and dispatch rules. Answers in your business\'s voice, books straight to your calendar, escalates emergencies to your cell, 24/7. Sounds like a thoughtful office manager, not a chatbot.',
   },
   {
-    icon: '📋',
+    icon: 'quote_followup',
     title: 'Ada chases your quotes',
     tagline: 'No more estimates collecting dust.',
     detail: 'Every quote you send gets a 7-day SMS follow-up sequence in your voice. Ada answers basic questions, schedules walk-throughs, and only pings you when a serious lead needs a human.',
   },
   {
-    icon: '⭐',
+    icon: 'review_engine',
     title: 'Ada asks for the review',
     tagline: 'At the moment customers are happiest.',
-    detail: 'Ada texts customers 2 hours after job completion — the highest-converting window. She drafts your responses to anything 3 stars or below before they go live, so a bad review never sits unanswered.',
+    detail: 'Ada texts customers two hours after the job\'s done. The work\'s still fresh, and that\'s when people actually reply. She drafts your response to anything 3 stars or below before it goes live, so a bad review never sits unanswered.',
   },
   {
-    icon: '🔁',
+    icon: 'reactivation',
     title: 'Ada wakes up old customers',
     tagline: 'The leads you forgot about? She didn\'t.',
-    detail: 'Ada pulls dormant leads and past customers from your CRM, segments by job type and time silent, and runs personalized re-engagement campaigns. Most owners book 4-8 jobs in the first 30 days from leads they\'d written off.',
+    detail: 'Ada digs through your CRM for customers who\'ve gone quiet, sorts them by what work they had and how long it\'s been, and texts them in your voice. Most owners book 4–8 jobs in the first 30 days from leads they\'d written off.',
   },
   {
-    icon: '📊',
+    icon: 'performance_reporting',
     title: 'Ada\'s daily report',
     tagline: 'One screen. Everything that matters.',
     detail: 'Calls handled, quotes sent, reviews earned, jobs booked. No bouncing between tabs. No "wait, which tool does that live in?" Open it in the morning, see what Ada handled overnight, and get back on the truck.',
@@ -97,7 +138,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; ada: string }
 const compare: CompareRow[] = [
-  { dimension: 'Cost',                hire: '$30-50K/year + benefits', ada: 'A fraction of the cost — quoted on your discovery call' },
+  { dimension: 'Cost',                hire: '$30-50K/year + benefits', ada: 'A lot less than a CSR salary. Exact number on the discovery call.' },
   { dimension: 'Hours worked',        hire: 'Office hours, M-F',        ada: '24/7, including weekends' },
   { dimension: 'Time off',            hire: 'PTO, sick days, holidays', ada: 'Never out' },
   { dimension: 'Quote follow-up',     hire: 'When she remembers',       ada: 'Every quote, every time, on schedule' },
@@ -168,19 +209,20 @@ const faqs: Faq[] = [
     </header>
 
     <!-- ── Hero ──────────────────────────────────────────────────────── -->
-    <section ref="heroRef" class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
-      <div class="grid gap-12 lg:grid-cols-[1fr_380px] lg:gap-12 items-center">
-        <div>
-          <AssistantMark class="h-16 w-16 mb-6 text-brand" />
+    <section ref="heroRef" class="mx-auto max-w-6xl px-4 sm:px-8 pt-16 pb-12 sm:pt-20">
+      <div class="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+        <!-- Copy column -->
+        <div class="lg:col-span-7 hero-stagger">
+          <AssistantMark class="hero-mark h-16 w-16 mb-6 text-brand" />
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
             For service businesses
           </div>
           <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
-            Meet Ada —<br />
+            Meet Ada,<br />
             your AI employee.
           </h1>
           <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
-            <strong class="text-ink font-semibold">CommandSite</strong> builds Ada custom for your service business — trained on your services, your pricing, the way you actually run jobs. She catches every call, chases every quote, asks every customer for a review — while you're on the truck.
+            We're <strong class="text-ink font-semibold">CommandSite</strong>. We build Ada for your service business: your services, your pricing, the way you actually run jobs. While you're on the truck, she's catching calls, chasing quotes, asking customers for reviews.
           </p>
           <p class="mt-2 text-sm text-ink-muted italic">
             (Yes, named after Ada Lovelace, the first programmer.)
@@ -195,66 +237,56 @@ const faqs: Faq[] = [
           </div>
         </div>
 
-        <!-- "Ada at work today" — floating activity cards -->
-        <div class="hidden lg:block">
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-4 pl-2">
-            Ada · today
-          </div>
-          <div class="space-y-4">
-            <!-- Card 1: Call caught -->
-            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">📞</span>
-                <p class="text-sm font-semibold text-ink">Caught a call</p>
-                <span class="ml-auto text-[10px] text-ink-disabled">9:42 AM</span>
-              </div>
-              <p class="text-xs text-ink-muted leading-relaxed">
-                Sarah M. — <span class="italic">"AC stopped working overnight"</span>
-              </p>
-              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
-                <span class="text-success font-bold">✓</span>
-                <span class="text-ink font-medium">Booked emergency · Tue 10 AM</span>
-              </div>
-            </div>
-
-            <!-- Card 2: Quote chased -->
-            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-6">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">✉️</span>
-                <p class="text-sm font-semibold text-ink">Chased a quote</p>
-                <span class="ml-auto text-[10px] text-ink-disabled">11:18 AM</span>
-              </div>
-              <p class="text-xs text-ink-muted leading-relaxed">
-                Reynolds family — $4,500 install · 14 days silent
-              </p>
-              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
-                <span class="text-success font-bold">✓</span>
-                <span class="text-ink font-medium">Reply received · ready to schedule</span>
-              </div>
-            </div>
-
-            <!-- Card 3: Review asked -->
-            <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-2">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">⭐</span>
-                <p class="text-sm font-semibold text-ink">Asked for a review</p>
-                <span class="ml-auto text-[10px] text-ink-disabled">2:30 PM</span>
-              </div>
-              <p class="text-xs text-ink-muted leading-relaxed">
-                Johnson household · job completed yesterday
-              </p>
-              <div class="mt-2.5 flex items-center gap-1.5 text-xs">
-                <span class="text-success font-bold">✓</span>
-                <span class="text-ink font-medium">5★ posted to Google</span>
-              </div>
-            </div>
-          </div>
+        <!-- Activity column — atmospheric proof of "while you're on the truck" -->
+        <div class="hero-column-in lg:col-span-5 h-[420px] sm:h-[520px] lg:h-[640px] -mt-2 lg:-mt-8">
+          <AdaActivityColumn />
         </div>
       </div>
     </section>
 
+    <!-- ── Hero product preview ──────────────────────────────────────────
+         Renders the actual Apex Today Hub component with real role data.
+         Same code that powers /dashboard/apex-heating-and-air; clicks
+         deep-link straight into the public demo. -->
+    <section v-reveal class="mx-auto max-w-6xl px-4 sm:px-8 pb-20 sm:pb-28">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+          Ada at work · Apex Heating &amp; Air
+        </div>
+        <RouterLink
+          to="/dashboard/apex-heating-and-air"
+          class="text-xs text-brand font-medium hover:underline"
+        >
+          Open the full demo →
+        </RouterLink>
+      </div>
+      <!-- Real product surface, framed by a thin chrome-tinted rail so it
+           reads as "look inside the dashboard" instead of "another section." -->
+      <div class="rounded-card border border-divider bg-surface-raised shadow-raised overflow-hidden">
+        <div class="h-1.5 bg-brand" aria-hidden="true"></div>
+        <div class="p-4 sm:p-6 space-y-4">
+          <AdaAtWorkHub
+            :roles="adaRoles"
+            owner-name="Brett"
+            assistant-name="Ada"
+            @role-click="onHeroRoleClick"
+          />
+          <LiveActivityFeed
+            :events="heroEvents"
+            :fmt-ago="heroFmtAgo"
+            :get-role="getRole"
+            title="What she's doing right now"
+            subtitle="Ada's stream · auto-updating"
+          />
+        </div>
+      </div>
+      <p class="mt-3 text-[11px] text-ink-disabled italic">
+        Click any role to drop into the demo. Apex is fictional. The dashboard is the real product.
+      </p>
+    </section>
+
     <!-- ── Live demo CTA — "see Ada in action first" ────────────────── -->
-    <section class="border-y border-divider py-12">
+    <section v-reveal class="border-y border-divider py-12">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">
         <div class="relative overflow-hidden rounded-card border border-brand/30 bg-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row items-start gap-6">
           <div class="absolute top-0 left-0 right-0 h-[3px] bg-brand" aria-hidden="true"></div>
@@ -266,7 +298,7 @@ const faqs: Faq[] = [
               Want to see Ada in action first? <span class="text-ink-muted font-normal">No call required.</span>
             </h2>
             <p class="text-sm text-ink-muted leading-relaxed mb-4 max-w-lg">
-              Walk through the same dashboard a real HVAC shop would use. Click every tab. Try the chat — Ada knows the demo data and answers like she would for your business.
+              Walk through the same dashboard a real HVAC shop would use. Click every tab. Try the chat. Ada knows the demo data and answers like she would for your business.
             </p>
             <ul class="space-y-1.5 text-sm text-ink mb-5">
               <li class="flex items-start gap-2">
@@ -279,14 +311,14 @@ const faqs: Faq[] = [
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-brand font-bold">→</span>
-                <span>Drill into all 10 of her roles from the Today page</span>
+                <span>Drill into all 12 of her roles from the Today page</span>
               </li>
             </ul>
             <div class="flex flex-wrap items-center gap-3">
               <RouterLink to="/dashboard/apex-heating-and-air" class="btn-primary !text-sm">
                 Tour the demo →
               </RouterLink>
-              <p class="text-[11px] text-ink-disabled italic">Demo data is for "Apex Heating &amp; Air" — fictional, fully click-through.</p>
+              <p class="text-[11px] text-ink-disabled italic">Demo data is for "Apex Heating &amp; Air" (fictional, fully click-through).</p>
             </div>
           </div>
         </div>
@@ -294,13 +326,13 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Pain ──────────────────────────────────────────────────────── -->
-    <section class="py-16 sm:py-20">
+    <section v-reveal class="py-16 sm:py-20">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
           Sound familiar
         </div>
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10 max-w-3xl">
-          If this sounds like your business, keep reading.
+          Four ways money slips out.
         </h2>
         <div class="grid gap-4 sm:grid-cols-2">
           <div
@@ -319,15 +351,15 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── What Ada does ─────────────────────────────────────────────── -->
-    <section id="how-it-works" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
+    <section v-reveal id="how-it-works" class="mx-auto max-w-6xl px-4 sm:px-8 py-16 sm:py-24">
       <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
         What Ada handles
       </div>
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
-        Five things Ada handles for you.
+        Five jobs. One Ada.
       </h2>
       <p class="text-base text-ink-muted max-w-2xl mb-10">
-        Trained on your business specifically — not a generic chatbot bolted onto a template.
+        Trained on your business specifically. Not a generic chatbot bolted onto a template.
       </p>
 
       <!-- Lead module: hero card with real call transcript -->
@@ -346,7 +378,9 @@ const faqs: Faq[] = [
         <!-- Real-feeling call transcript on the right -->
         <div class="w-full lg:flex-1 rounded-xl bg-surface-elevated p-4 sm:p-5 border border-divider">
           <div class="flex items-center gap-2 mb-3 pb-3 border-b border-divider">
-            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand text-[11px]" aria-hidden="true">📞</span>
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand flex-shrink-0">
+              <AdaIcon name="front_desk" class="h-3 w-3" />
+            </span>
             <span class="text-xs text-ink font-semibold">Inbound · Sat 8:42 PM</span>
             <span class="ml-auto text-[11px] text-ink-disabled">3m 12s</span>
           </div>
@@ -370,7 +404,9 @@ const faqs: Faq[] = [
           :key="m.title"
           class="rounded-card bg-surface-raised border border-divider p-5 flex items-start gap-4"
         >
-          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand text-lg flex-shrink-0" aria-hidden="true">{{ m.icon }}</div>
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand flex-shrink-0">
+            <AdaIcon :name="m.icon" class="h-5 w-5" />
+          </div>
           <div class="flex-1 min-w-0">
             <h3 class="text-base font-semibold text-ink leading-snug">{{ m.title }}</h3>
             <p class="text-xs font-medium text-brand mt-0.5">{{ m.tagline }}</p>
@@ -408,7 +444,7 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Why custom-built ──────────────────────────────────────────── -->
-    <section class="py-16 sm:py-24">
+    <section v-reveal class="py-16 sm:py-24">
       <div class="mx-auto max-w-6xl px-4 sm:px-8">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
           Custom-built
@@ -453,7 +489,7 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Hire Ada vs. Hire Someone ─────────────────────────────────── -->
-    <section id="compare" class="mx-auto max-w-5xl px-4 sm:px-8 py-16 sm:py-24">
+    <section v-reveal id="compare" class="mx-auto max-w-5xl px-4 sm:px-8 py-16 sm:py-24">
       <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
         Honest math
       </div>
@@ -461,7 +497,7 @@ const faqs: Faq[] = [
         Hire Ada vs. hire another person.
       </h2>
       <p class="text-base text-ink-muted max-w-2xl mb-10">
-        The honest math on what an AI employee actually does for your business — compared to bringing on another part-time CSR or office admin.
+        What an AI employee actually does, compared to hiring another part-time CSR or office admin.
       </p>
 
       <div class="rounded-card border border-divider bg-surface-raised overflow-hidden">
@@ -489,7 +525,7 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Founder note ──────────────────────────────────────────────── -->
-    <section class="py-16 sm:py-24">
+    <section v-reveal class="py-16 sm:py-24">
       <div class="mx-auto max-w-5xl px-4 sm:px-8">
         <div class="grid gap-10 lg:grid-cols-[1fr_220px] lg:gap-16">
           <!-- Letter -->
@@ -498,10 +534,9 @@ const faqs: Faq[] = [
               From the founder
             </div>
             <h2 class="text-3xl sm:text-4xl font-semibold text-ink mb-8 leading-[1.1] tracking-tight">
-              A note from the founder.
+              Honestly? I built CommandSite because I was tired.
             </h2>
             <div class="space-y-5 text-base text-ink leading-relaxed">
-              <p>Honestly? I built CommandSite because I was tired.</p>
               <p>
                 Tired of watching good leads go to voicemail because nobody answered after 5 PM. Tired of estimates sitting in inboxes for two weeks while the customer hired the next guy. Tired of bouncing between five different tools and still feeling like things were slipping through the cracks.
               </p>
@@ -519,11 +554,10 @@ const faqs: Faq[] = [
 
           <!-- Founder identity card (right rail at lg+, stacks above on mobile via order on parent) -->
           <aside class="lg:sticky lg:top-24 lg:self-start order-first lg:order-last">
-            <!-- TODO: replace placeholder with josh-headshot.jpg when available. Keep the rounded-full + h-24 w-24 sizing. -->
-            <div class="h-24 w-24 rounded-full bg-surface-elevated border border-divider flex items-center justify-center mb-4 overflow-hidden">
-              <svg viewBox="0 0 24 24" class="h-12 w-12 text-ink-disabled" fill="currentColor" aria-hidden="true">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
+            <!-- Monogram stand-in until josh-headshot.jpg lands. Honest about
+                 the absence (brand mark, not a generic person icon). -->
+            <div class="h-24 w-24 rounded-full bg-brand/10 flex items-center justify-center mb-4" aria-hidden="true">
+              <span class="text-brand text-4xl font-semibold tracking-tight">J</span>
             </div>
             <p class="text-base font-semibold text-ink leading-tight">Josh</p>
             <p class="text-sm text-ink-muted">Founder, CommandSite</p>
@@ -539,12 +573,12 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── FAQ ───────────────────────────────────────────────────────── -->
-    <section class="mx-auto max-w-3xl px-4 sm:px-8 py-16 sm:py-24">
+    <section v-reveal class="mx-auto max-w-3xl px-4 sm:px-8 py-16 sm:py-24">
       <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
         FAQ
       </div>
       <h2 class="text-xl sm:text-2xl font-semibold text-ink mb-8">
-        Common questions
+        Questions before you book.
       </h2>
       <div class="space-y-3">
         <details
@@ -553,7 +587,7 @@ const faqs: Faq[] = [
           class="group rounded-card border border-divider bg-surface-raised overflow-hidden"
         >
           <summary class="cursor-pointer list-none px-5 py-4 flex items-start gap-3 hover:bg-surface-elevated/40 transition-colors">
-            <span class="text-brand font-bold text-lg leading-none flex-shrink-0 group-open:rotate-45 transition-transform">+</span>
+            <span class="text-brand font-bold text-lg leading-none flex-shrink-0 group-open:rotate-45 transition-transform duration-[250ms] ease-out-quart">+</span>
             <span class="text-sm font-semibold text-ink leading-snug">{{ f.q }}</span>
           </summary>
           <div class="px-5 pb-4 pl-12 text-sm text-ink-muted leading-relaxed">
@@ -564,7 +598,7 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Final CTA ─────────────────────────────────────────────────── -->
-    <section class="bg-chrome text-ink-inverse py-16 sm:py-24">
+    <section v-reveal class="bg-chrome text-ink-inverse py-16 sm:py-24">
       <div class="mx-auto max-w-3xl px-4 sm:px-8 text-center">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent mb-4">
           Get started
@@ -605,7 +639,7 @@ const faqs: Faq[] = [
       enter-active-class="transition-transform duration-200 ease-out"
       enter-from-class="translate-y-full"
       enter-to-class="translate-y-0"
-      leave-active-class="transition-transform duration-150 ease-in"
+      leave-active-class="transition-transform duration-200 ease-out-quart"
       leave-from-class="translate-y-0"
       leave-to-class="translate-y-full"
     >

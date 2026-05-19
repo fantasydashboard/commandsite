@@ -47,6 +47,81 @@
   --ease-drawer:     cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* ── Scroll-reveal (v-reveal directive) ─────────────────────────────── */
+
+.reveal-pending {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.reveal-pending.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 380ms var(--ease-out-quart), transform 380ms var(--ease-out-quart);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-pending {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── AdaAtWorkHub: tile stagger entrance ────────────────────────────── */
+
+@keyframes roleTileEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.role-tile-enter {
+  animation: roleTileEnter 380ms var(--ease-out-quart) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .role-tile-enter {
+    animation: none;
+  }
+}
+
+/* ── Hero stagger entrance ──────────────────────────────────────────
+   The first 500ms of the page sets the craft tone. Each hero item
+   fades + rises in sequence; the AssistantMark gets a soft scale-in
+   so the visual signature feels deliberate rather than instant. */
+
+@keyframes heroFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes heroMarkIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes heroColumnIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.hero-stagger > * {
+  animation: heroFadeUp 350ms var(--ease-out-quart) backwards;
+}
+.hero-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.hero-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.hero-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.hero-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.hero-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.hero-stagger > *:nth-child(6) { animation-delay: 200ms; }
+/* The AssistantMark scale-in replaces the fade-up for the first child. */
+.hero-stagger > .hero-mark {
+  animation: heroMarkIn 500ms var(--ease-out-quart) backwards;
+}
+.hero-column-in {
+  animation: heroColumnIn 600ms var(--ease-out-quart) backwards;
+  animation-delay: 120ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-stagger > *,
+  .hero-stagger > .hero-mark,
+  .hero-column-in {
+    animation: none;
+  }
+}
+
 @layer base {
   html, body, #app {
     @apply text-ink;

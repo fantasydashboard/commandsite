@@ -1,6 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{vue,ts,tsx}'],
+  future: {
+    // Gate `hover:` utilities behind `@media (hover: hover)` so touch devices
+    // don't fire hover styles on tap (sticky false positives). Project-wide
+    // — applies to every `hover:` utility in the codebase.
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     extend: {
       colors: {

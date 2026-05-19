@@ -3,10 +3,12 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import { router } from './router'
 import { useAuthStore } from './stores/auth'
+import { reveal } from './directives/reveal'
 import './assets/main.css'
 
 const app = createApp(App)
 app.use(createPinia())
+app.directive('reveal', reveal)
 
 // Kick off session hydration before mounting the router.
 // The router's beforeEach also awaits init(), but doing it here

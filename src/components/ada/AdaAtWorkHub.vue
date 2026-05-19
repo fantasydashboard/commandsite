@@ -11,7 +11,7 @@
  * Configured / setup-needed roles render muted and are excluded from the
  * aggregated total — only active roles count toward saved-hours claim.
  */
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import type { EmployeeRole } from '@/lib/types/employeeRole'
 import { ROLE_STATUS_META } from '@/lib/types/employeeRole'
 import AdaIcon from './AdaIcon.vue'
@@ -54,15 +54,81 @@ function fmtTimeSaved(mins: number): string {
   return `~${hours}h ${remaining}m`
 }
 
-const headlineHours = computed(() => {
-  const h = totalHoursSaved.value
+function formatHours(h: number): string {
   return h >= 10 ? `~${Math.round(h)}` : `~${h.toFixed(1)}`
-})
+}
+
+const headlineTarget = computed(() => totalHoursSaved.value)
+const displayedHours = ref(0)
+const headlineHours = computed(() => formatHours(displayedHours.value))
 
 const daysPhrase = computed(() => {
   const d = workingDaysSaved.value
   if (d < 1) return 'most of a working day'
   return `~${d.toFixed(1)} working days`
+})
+
+// ── Count-up animation on the headline number ──────────────────────────────
+//
+// Triggers once when the headline strip scrolls into view. The eased curve
+// matches the ease-out-quart token used elsewhere in the system. Reduced-motion
+// users skip the animation and see the final value immediately.
+const headlineEl = useTemplateRef<HTMLElement>('headlineEl')
+let rafId: number | null = null
+let observer: IntersectionObserver | null = null
+const hasAnimated = ref(false)
+
+function animateCountUp() {
+  if (hasAnimated.value) return
+  hasAnimated.value = true
+
+  const target = headlineTarget.value
+  // Reduced motion → snap to final value.
+  if (
+    typeof window === 'undefined'
+    || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    displayedHours.value = target
+    return
+  }
+
+  const duration = 900
+  const startTime = performance.now()
+  const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4)
+
+  function tick(now: number) {
+    const t = Math.min(1, (now - startTime) / duration)
+    displayedHours.value = target * easeOutQuart(t)
+    if (t < 1) {
+      rafId = requestAnimationFrame(tick)
+    } else {
+      displayedHours.value = target
+      rafId = null
+    }
+  }
+
+  rafId = requestAnimationFrame(tick)
+}
+
+watch(headlineEl, (el) => {
+  if (!el) return
+  if (typeof IntersectionObserver === 'undefined') {
+    animateCountUp()
+    return
+  }
+  observer = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      animateCountUp()
+      observer?.disconnect()
+      observer = null
+    }
+  }, { threshold: 0.4 })
+  observer.observe(el)
+})
+
+onBeforeUnmount(() => {
+  if (rafId !== null) cancelAnimationFrame(rafId)
+  observer?.disconnect()
 })
 </script>
 
@@ -80,6 +146,7 @@ const daysPhrase = computed(() => {
 
     <!-- Headline strip: aggregated hours saved -->
     <div
+      ref="headlineEl"
       class="rounded-card bg-brand text-ink-inverse px-5 py-4 mb-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2"
     >
       <div>
@@ -100,11 +167,12 @@ const daysPhrase = computed(() => {
     <!-- Role grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
       <button
-        v-for="role in roles"
+        v-for="(role, i) in roles"
         :key="role.key"
         type="button"
-        class="text-left rounded-card border border-divider bg-surface-raised p-3.5 hover:border-brand hover:bg-brand/5 hover:shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out-quart focus:outline-none focus:ring-2 focus:ring-brand/40 active:scale-[0.98]"
+        class="role-tile-enter text-left rounded-card border border-divider bg-surface-raised p-3.5 hover:border-brand hover:bg-brand/5 hover:shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out-quart focus:outline-none focus:ring-2 focus:ring-brand/40 active:scale-[0.98]"
         :class="role.status !== 'active' ? 'opacity-60' : ''"
+        :style="{ animationDelay: `${i * 30}ms` }"
         @click="emit('role-click', role)"
       >
         <!-- Header row: icon + name + status -->
