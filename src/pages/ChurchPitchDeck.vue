@@ -13,6 +13,8 @@
  * the same way.
  */
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import AssistantMark from '@/components/AssistantMark.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 interface LeadInput {
   company_name: string
@@ -207,7 +209,7 @@ const notes = computed<string[]>(() => [
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-canvas via-surface to-canvas relative overflow-hidden">
+  <div class="min-h-screen bg-surface relative overflow-hidden">
     <!-- Top progress + nav -->
     <header class="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-6 py-3 bg-gradient-to-b from-surface/80 to-transparent">
       <div class="flex items-center gap-2 text-xs text-ink-muted">
@@ -216,7 +218,7 @@ const notes = computed<string[]>(() => [
         <span>{{ churchName }} pitch</span>
       </div>
       <div class="flex items-center gap-1.5 text-[10px] font-mono text-ink-muted">
-        <span v-for="n in SLIDE_COUNT" :key="n" class="block h-0.5 w-6 transition-all"
+        <span v-for="n in SLIDE_COUNT" :key="n" class="block h-0.5 w-6 transition-colors duration-200 ease-out-quart"
           :class="(n - 1) === slideIdx ? 'bg-brand' : (n - 1) < slideIdx ? 'bg-brand/40' : 'bg-divider'"></span>
         <span class="ml-2 text-ink-disabled">{{ slideIdx + 1 }}/{{ SLIDE_COUNT }}</span>
       </div>
@@ -226,12 +228,12 @@ const notes = computed<string[]>(() => [
     <footer class="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between px-6 py-3 bg-gradient-to-t from-surface/80 to-transparent">
       <div class="flex items-center gap-2">
         <button
-          class="rounded-md border border-divider bg-surface-raised px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand transition-colors disabled:opacity-30"
+          class="rounded-md border border-divider bg-surface-raised px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand transition-[border-color,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:opacity-30 disabled:active:scale-100"
           :disabled="slideIdx === 0"
           @click="prev"
         >← Back</button>
         <button
-          class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-30"
+          class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:opacity-30 disabled:active:scale-100"
           :disabled="slideIdx === SLIDE_COUNT - 1"
           @click="next"
         >Next →</button>
@@ -247,16 +249,16 @@ const notes = computed<string[]>(() => [
 
     <!-- Speaker notes panel -->
     <Transition
-      enter-active-class="transition-all duration-300 ease-out"
-      enter-from-class="opacity-0 translate-y-4"
+      enter-active-class="transition-[opacity,transform] duration-[220ms] ease-out-quart"
+      enter-from-class="opacity-0 translate-y-3"
       enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition-all duration-200 ease-in"
+      leave-active-class="transition-[opacity,transform] duration-150 ease-out-quart"
       leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-4"
+      leave-to-class="opacity-0 translate-y-3"
     >
       <aside
         v-if="showNotes"
-        class="fixed bottom-14 inset-x-0 mx-auto max-w-3xl z-30 rounded-xl bg-ink text-white shadow-2xl px-5 py-4"
+        class="fixed bottom-14 inset-x-0 mx-auto max-w-3xl z-30 rounded-xl bg-ink text-ink-inverse shadow-2xl px-5 py-4"
       >
         <div class="flex items-center gap-2 mb-2">
           <span class="text-[10px] font-bold uppercase tracking-[0.18em] opacity-60">Speaker notes</span>
@@ -269,6 +271,7 @@ const notes = computed<string[]>(() => [
     <main class="relative w-full min-h-screen flex items-center justify-center px-6 py-16">
       <!-- ── Slide 0: Cover ───────────────────────────────────────── -->
       <section v-if="slideIdx === 0" class="text-center max-w-4xl">
+        <AssistantMark class="h-14 w-14 mx-auto mb-6 text-brand" />
         <div class="text-[10px] font-bold uppercase tracking-[0.24em] text-brand mb-6">A 30-min ministry walkthrough</div>
         <h1 class="text-6xl sm:text-7xl font-bold text-ink mb-4 tracking-tight leading-none">
           Grace for<br />
@@ -293,7 +296,7 @@ const notes = computed<string[]>(() => [
             'Grace in action — live on a sample dashboard',
             'What partnership would look like',
           ]" :key="i" class="flex items-start gap-4">
-            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white font-bold text-sm flex-shrink-0">{{ i + 1 }}</span>
+            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-ink-inverse font-bold text-sm flex-shrink-0">{{ i + 1 }}</span>
             <span class="text-xl text-ink leading-snug pt-1">{{ it }}</span>
           </li>
         </ol>
@@ -397,7 +400,7 @@ const notes = computed<string[]>(() => [
           :href="demoUrl"
           target="_blank"
           rel="noopener"
-          class="inline-flex items-center gap-3 rounded-xl bg-brand text-white px-8 py-4 text-base font-semibold hover:opacity-90 transition-opacity shadow-2xl"
+          class="inline-flex items-center gap-3 rounded-xl bg-brand text-ink-inverse px-8 py-4 text-base font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97] shadow-2xl"
         >
           Open {{ churchName }}'s Grace dashboard
           <span>→</span>
@@ -413,7 +416,7 @@ const notes = computed<string[]>(() => [
         <h2 class="text-3xl font-bold text-ink mb-6 tracking-tight">You'd want to plug those gaps no matter what. Here are the options.</h2>
         <div class="overflow-x-auto rounded-xl border border-divider">
           <table class="w-full text-sm">
-            <thead class="bg-canvas/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+            <thead class="bg-surface-elevated/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
               <tr>
                 <th class="text-left px-4 py-3">Option</th>
                 <th class="text-left px-4 py-3">Year-1 cost</th>
@@ -421,24 +424,24 @@ const notes = computed<string[]>(() => [
                 <th class="text-left px-4 py-3">What it misses</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-divider">
+            <tbody class="table-stagger divide-y divide-divider">
               <tr>
                 <td class="px-4 py-3 font-semibold text-ink">Hire a church administrator</td>
-                <td class="px-4 py-3 text-ink-muted">$35-50K + benefits</td>
+                <td class="px-4 py-3 text-ink-muted">$35–50K + benefits</td>
                 <td class="px-4 py-3 text-ink-muted">Ops + scheduling + comms</td>
                 <td class="px-4 py-3 text-ink-muted">Hiring is hard · sick days · learning curve · no nights/weekends</td>
               </tr>
               <tr>
                 <td class="px-4 py-3 font-semibold text-ink">Hire a comms director (PT)</td>
-                <td class="px-4 py-3 text-ink-muted">$20-35K + benefits</td>
+                <td class="px-4 py-3 text-ink-muted">$20–35K + benefits</td>
                 <td class="px-4 py-3 text-ink-muted">Newsletter + social + cards</td>
                 <td class="px-4 py-3 text-ink-muted">Comms only · no drift detection · no care triage</td>
               </tr>
               <tr>
                 <td class="px-4 py-3 font-semibold text-ink">Stack ChMS tools (Planning Center, Breeze, Subsplash)</td>
-                <td class="px-4 py-3 text-ink-muted">$3.6-9.6K</td>
+                <td class="px-4 py-3 text-ink-muted">$3.6–9.6K</td>
                 <td class="px-4 py-3 text-ink-muted">Roster + giving + maybe an app</td>
-                <td class="px-4 py-3 text-ink-muted">Tools store data — they don't DO things. Still need someone to act</td>
+                <td class="px-4 py-3 text-ink-muted">Tools store data. They don't DO things. Still need someone to act</td>
               </tr>
               <tr class="bg-warn/5">
                 <td class="px-4 py-3 font-semibold text-ink">You yourself, evenings + Saturdays</td>
@@ -446,9 +449,9 @@ const notes = computed<string[]>(() => [
                 <td class="px-4 py-3 text-ink-muted">Whatever you can squeeze in</td>
                 <td class="px-4 py-3 text-warn font-semibold">Time you'd rather spend on people, sermon prep, family</td>
               </tr>
-              <tr class="bg-brand/10 border-l-4 border-brand">
+              <tr class="bg-brand/10">
                 <td class="px-4 py-3 font-bold text-brand">Grace (CommandSite)</td>
-                <td class="px-4 py-3 font-bold text-brand">From {{ pricing.solutionsTeaser }}/mo<br /><span class="text-[10px] font-medium opacity-70">we'll get to the full breakdown next</span></td>
+                <td class="px-4 py-3 font-bold text-brand">From {{ pricing.solutionsTeaser }}/mo<br /><span class="text-[10px] font-medium opacity-70">full breakdown next</span></td>
                 <td class="px-4 py-3 text-ink">Visitor follow-up + drift detection + care triage + comms + volunteer coord</td>
                 <td class="px-4 py-3 text-ink-muted">New product · founder-built · I respond same-day</td>
               </tr>
@@ -467,20 +470,20 @@ const notes = computed<string[]>(() => [
           <template v-if="pricingRevealStep === 0">The standard rate.</template>
           <template v-else>An introductory rate, just for {{ churchName }}.</template>
         </h2>
-        <p class="text-sm text-ink-muted mb-8 leading-relaxed transition-opacity duration-500">
+        <p class="text-sm text-ink-muted mb-8 leading-relaxed min-h-[2.5rem]">
           <template v-if="pricingRevealStep === 0">
-            This is what {{ churchName }} would pay at our standard rate — what new churches who come on after our founding window will see.
+            This is the standard rate. What new churches who come on after our founding window will see.
           </template>
           <template v-else>
-            {{ churchName }} would be coming on as a founding partner while Grace is still new to the world. That earns you the founding rate — half off, locked for {{ pricing.lockMonths }} months. Worth being early.
+            {{ churchName }} would be coming on as a founding partner while Grace is still new to the world. That earns you the founding rate: half off, locked for {{ pricing.lockMonths }} months. Worth being early.
           </template>
         </p>
 
-        <div class="rounded-2xl bg-gradient-to-br from-brand/5 via-surface-raised to-success/5 border-2 border-brand/40 overflow-hidden mb-6 shadow-xl">
+        <div class="rounded-2xl bg-surface-raised border-2 border-brand/40 overflow-hidden mb-6 shadow-xl">
           <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-divider">
             <!-- Standard rate — fades + strikes through on reveal -->
             <div
-              class="px-6 py-5 transition-all duration-700 ease-out"
+              class="px-6 py-5 transition-opacity duration-300 ease-out-quart"
               :class="pricingRevealStep > 0 ? 'opacity-60' : 'opacity-100'"
             >
               <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-3">Standard rate</div>
@@ -497,15 +500,15 @@ const notes = computed<string[]>(() => [
             </div>
             <!-- Founding rate — slides in on reveal -->
             <Transition
-              enter-active-class="transition-all duration-700 ease-out"
-              enter-from-class="opacity-0 translate-x-12"
+              enter-active-class="transition-[opacity,transform] duration-[400ms] ease-out-quart"
+              enter-from-class="opacity-0 translate-x-4"
               enter-to-class="opacity-100 translate-x-0"
             >
               <div
                 v-if="pricingRevealStep > 0"
                 class="px-6 py-5 bg-brand/10 relative"
               >
-                <div class="absolute top-3 right-3 rounded-full bg-success text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 yours-bounce">Yours</div>
+                <div class="absolute top-3 right-3 rounded-full bg-success text-ink-inverse text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 yours-pop">Yours</div>
                 <div class="text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Founding rate</div>
                 <div class="text-brand text-3xl font-bold tabular-nums leading-tight">{{ pricing.setup }}</div>
                 <div class="text-[11px] text-ink-muted mb-3">setup, one-time</div>
@@ -513,7 +516,7 @@ const notes = computed<string[]>(() => [
                 <div class="text-[11px] text-ink-muted">monthly · locked {{ pricing.lockMonths }} months</div>
               </div>
               <!-- Placeholder while standard is the only thing visible -->
-              <div v-else class="px-6 py-5 flex items-center justify-center text-center">
+              <div v-else class="px-6 py-5 flex items-center justify-center text-center min-h-[178px]">
                 <div>
                   <div class="text-[10px] font-bold uppercase tracking-wider text-ink-disabled mb-1">Next →</div>
                   <div class="text-xs text-ink-muted italic max-w-[180px]">But there's something else I want to show you first.</div>
@@ -521,15 +524,15 @@ const notes = computed<string[]>(() => [
               </div>
             </Transition>
           </div>
-          <!-- Savings strip — only shows after reveal -->
+          <!-- Savings strip — appears on reveal, lands after the founding column -->
           <Transition
-            enter-active-class="transition-all duration-500 ease-out delay-300"
-            enter-from-class="opacity-0 -translate-y-2"
-            enter-to-class="opacity-100 translate-y-0"
+            enter-active-class="transition-[opacity,transform,max-height] duration-[300ms] ease-out-quart [transition-delay:200ms]"
+            enter-from-class="opacity-0 -translate-y-1 max-h-0"
+            enter-to-class="opacity-100 translate-y-0 max-h-[60px]"
           >
             <div
               v-if="pricingRevealStep > 0"
-              class="bg-success/10 px-6 py-3 flex items-center justify-between border-t border-divider"
+              class="bg-success/10 px-6 py-3 flex items-center justify-between border-t border-divider overflow-hidden"
             >
               <span class="text-success font-semibold text-sm">Year-one savings:</span>
               <span class="text-success text-xl font-bold tabular-nums">${{ pricing.year1Savings.toLocaleString() }}</span>
@@ -537,17 +540,17 @@ const notes = computed<string[]>(() => [
           </Transition>
         </div>
 
-        <!-- Detail bullets — only after reveal -->
+        <!-- Detail bullets — fade in after the savings strip -->
         <Transition
-          enter-active-class="transition-all duration-500 ease-out delay-500"
+          enter-active-class="transition-[opacity,transform] duration-[280ms] ease-out-quart [transition-delay:350ms]"
           enter-from-class="opacity-0 translate-y-2"
           enter-to-class="opacity-100 translate-y-0"
         >
           <div v-if="pricingRevealStep > 0" class="space-y-1.5 text-[13px] text-ink-muted">
-            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Annual prepay</strong> available: {{ pricing.annualPrepay }}</span></p>
-            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">Cancel anytime</strong> — no annual contract, no commitment. If Grace isn't pulling her weight, you walk.</span></p>
-            <p class="flex items-start gap-2"><span class="text-success font-bold">✓</span><span><strong class="text-ink">We set everything up.</strong> You don't lift a finger past the kickoff call</span></p>
-            <p class="flex items-start gap-2"><span class="text-ink-muted">·</span><span class="italic">Founding rate is locked for {{ pricing.lockMonths }} months while you're a partner. After that, renews at standard rate — we'll tell you 60 days out.</span></p>
+            <p class="flex items-start gap-2"><AdaIcon name="check-circle" class="h-4 w-4 text-success flex-shrink-0 mt-0.5" /><span><strong class="text-ink">Annual prepay</strong> available: {{ pricing.annualPrepay }}</span></p>
+            <p class="flex items-start gap-2"><AdaIcon name="check-circle" class="h-4 w-4 text-success flex-shrink-0 mt-0.5" /><span><strong class="text-ink">Cancel anytime.</strong> No annual contract, no commitment. If Grace isn't pulling her weight, you walk.</span></p>
+            <p class="flex items-start gap-2"><AdaIcon name="check-circle" class="h-4 w-4 text-success flex-shrink-0 mt-0.5" /><span><strong class="text-ink">We set everything up.</strong> You don't lift a finger past the kickoff call</span></p>
+            <p class="flex items-start gap-2"><span class="text-ink-muted flex-shrink-0 mt-0.5">·</span><span class="italic">Founding rate is locked for {{ pricing.lockMonths }} months while you're a partner. After that, renews at standard rate — we'll tell you 60 days out.</span></p>
           </div>
           <div v-else class="text-center mt-4">
             <span class="text-[11px] text-ink-disabled italic">Press → to see {{ churchName }}'s founding rate</span>
@@ -572,7 +575,7 @@ const notes = computed<string[]>(() => [
           </div>
         </div>
         <p class="text-base text-ink-muted">
-          Either is honestly fine. No pressure — just clarity on the next step.
+          Either is honestly fine. No pressure. Just clarity on the next step.
         </p>
         <p class="mt-12 text-xs text-ink-disabled">
           {{ founderFirst }} Daniel · josh@commandsite.io · CommandSite
@@ -583,15 +586,31 @@ const notes = computed<string[]>(() => [
 </template>
 
 <style scoped>
-section {
-  animation: fade-in 250ms ease-out;
-}
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
+/* Slide enter — single section fade. Per Emil's keyboard-nav rule, no
+   per-child stagger on the slide content; the slide arrives as one block.
+   180ms keeps the operator's keypress feeling instant. */
+@keyframes slideFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+section {
+  animation: slideFadeUp 180ms var(--ease-out-quart);
+}
 
-/* Animated strike-through — line draws across the price */
+/* Alternatives table (slide 7) — the one place stagger earns its keep.
+   Tight 30ms steps, no front delay; cascade settles in ~250ms. */
+.table-stagger tr {
+  animation: slideFadeUp 240ms var(--ease-out-quart) backwards;
+}
+.table-stagger tr:nth-child(1) { animation-delay: 0ms; }
+.table-stagger tr:nth-child(2) { animation-delay: 30ms; }
+.table-stagger tr:nth-child(3) { animation-delay: 60ms; }
+.table-stagger tr:nth-child(4) { animation-delay: 90ms; }
+.table-stagger tr:nth-child(5) { animation-delay: 120ms; }
+
+/* Price strike-through — pseudo-element line draws across left-to-right
+   via transform: scaleX (GPU-friendly per Emil's "transform + opacity only"
+   rule). Ease-in-out-quart reads as deliberate ink, not a snap. */
 .strike-anim {
   position: relative;
   display: inline-block;
@@ -599,25 +618,39 @@ section {
 .strike-anim::after {
   content: '';
   position: absolute;
-  left: 0;
+  left: -4%;
+  right: -4%;
   top: 50%;
-  width: 0;
-  height: 2.5px;
+  height: 2px;
   background-color: currentColor;
-  transition: width 600ms cubic-bezier(0.65, 0, 0.35, 1);
-  transform: translateY(-50%);
+  transform-origin: left center;
+  transform: scaleX(0) translateY(-50%);
+  transition: transform 500ms cubic-bezier(0.77, 0, 0.175, 1);
+  transition-delay: 100ms;
+  pointer-events: none;
 }
 .strike-anim.strike-active::after {
-  width: 100%;
+  transform: scaleX(1) translateY(-50%);
 }
 
-/* "Yours" badge bounces in */
-.yours-bounce {
-  animation: yours-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms both;
+/* "Yours" badge — quiet scale-in, no rotation, no bounce (Emil bans
+   bounce in most UI contexts). Lands 200ms after the founding column. */
+.yours-pop {
+  animation: yoursPop 350ms var(--ease-out-quart) 250ms backwards;
 }
-@keyframes yours-pop {
-  0%   { transform: scale(0.3) rotate(-12deg); opacity: 0; }
-  60%  { transform: scale(1.1) rotate(2deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+@keyframes yoursPop {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  section,
+  .table-stagger tr,
+  .yours-pop {
+    animation: none;
+  }
+  .strike-anim::after {
+    transition: none;
+  }
 }
 </style>
