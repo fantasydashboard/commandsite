@@ -180,7 +180,7 @@ function onCancel() {
         @click.self="onCancel"
       >
         <Transition
-          enter-active-class="transition-all duration-200 ease-out"
+          enter-active-class="transition-[opacity,transform] duration-200 ease-out-quart"
           enter-from-class="opacity-0 translate-y-4"
           enter-to-class="opacity-100 translate-y-0"
         >
@@ -195,17 +195,17 @@ function onCancel() {
 
             <div class="px-6 py-5 space-y-4 max-h-[calc(100vh-14rem)] overflow-y-auto">
               <!-- Source toggle -->
-              <div class="flex items-center gap-1 p-1 bg-canvas rounded-md w-fit text-xs">
+              <div class="flex items-center gap-1 p-1 bg-surface-elevated rounded-md w-fit text-xs">
                 <button
                   type="button"
                   class="px-3 py-1.5 rounded font-medium transition-colors"
-                  :class="fromLead ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'"
+                  :class="fromLead ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:text-ink'"
                   @click="fromLead = true"
                 >From an existing lead</button>
                 <button
                   type="button"
                   class="px-3 py-1.5 rounded font-medium transition-colors"
-                  :class="!fromLead ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'"
+                  :class="!fromLead ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:text-ink'"
                   @click="fromLead = false"
                 >Manual entry</button>
               </div>
@@ -327,11 +327,11 @@ function onCancel() {
               <p v-if="errorMsg" class="text-sm text-danger">{{ errorMsg }}</p>
             </div>
 
-            <footer class="px-6 py-3 border-t border-divider bg-canvas/30 flex items-center justify-end gap-2">
+            <footer class="px-6 py-3 border-t border-divider bg-surface-elevated/30 flex items-center justify-end gap-2">
               <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand" @click="onCancel">Cancel</button>
               <button
                 type="button"
-                class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
+                class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
                 :disabled="!canSave || saving"
                 @click="save"
               >{{ saving ? 'Saving…' : 'Log demo' }}</button>

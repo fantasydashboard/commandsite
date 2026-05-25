@@ -100,10 +100,10 @@ async function actOnItem(item: ApprovalQueueItem, action: 'approve' | 'edit' | '
     }
     emit('approved', item)
   } else if (action === 'edit') {
-    toasts.push('Opened for editing — your changes will go into the queue', 'info')
+    toasts.push('Opened for editing. Your changes will go into the queue.', 'info')
     emit('edited', item)
   } else if (action === 'skip') {
-    toasts.push(`Skipped — ${assistantName.value} will resurface this in 24 hrs`, 'info')
+    toasts.push(`Skipped. ${assistantName.value} will resurface this in 24 hrs.`, 'info')
     emit('skipped', item)
   }
 

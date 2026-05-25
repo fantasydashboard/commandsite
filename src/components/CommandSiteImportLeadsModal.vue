@@ -270,7 +270,7 @@ function submit() {
                 v-model="csvText"
                 rows="6"
                 placeholder="company,contact,email,title,industry,city,state,employees&#10;Pinnacle Heating,Travis Reeves,travis@pinnacle-air.com,Owner,HVAC,Austin,TX,8&#10;Sunshine Plumbing,Maria Castillo,maria@sunshineplumbing.co,GM,Plumbing,Orlando,FL,12"
-                class="w-full rounded-md border border-divider bg-canvas px-3 py-2 text-xs text-ink font-mono resize-y focus:outline-none focus:border-brand"
+                class="w-full rounded-md border border-divider bg-surface-elevated px-3 py-2 text-xs text-ink font-mono resize-y focus:outline-none focus:border-brand"
               ></textarea>
             </div>
 
@@ -301,7 +301,7 @@ function submit() {
               </div>
               <div class="overflow-x-auto rounded-md border border-divider">
                 <table class="w-full text-xs">
-                  <thead class="bg-canvas text-[10px] font-medium text-ink-muted uppercase tracking-wide">
+                  <thead class="bg-surface-elevated text-[10px] font-medium text-ink-muted uppercase tracking-wide">
                     <tr>
                       <th class="px-2 py-1.5 text-left">Score</th>
                       <th class="px-2 py-1.5 text-left">Company</th>
@@ -350,7 +350,7 @@ function submit() {
               >Cancel</button>
               <button
                 type="button"
-                class="rounded-md bg-brand text-white px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90"
+                class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90"
                 :disabled="!canImport || submitting"
                 @click="submit"
               >{{ submitting ? 'Importing…' : `Import ${validRowCount} leads` }}</button>

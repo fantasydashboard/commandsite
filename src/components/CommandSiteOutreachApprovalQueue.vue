@@ -11,6 +11,7 @@
 import { computed, ref, watch } from 'vue'
 import type { CsLead } from '@/types/database'
 import type { QueueItem } from '@/lib/clients/commandsite/useAutoOutreach'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 const props = defineProps<{
   items: QueueItem[]
@@ -65,8 +66,8 @@ watch(() => props.draftedToday, (n) => animateCount(n, displayedDrafted))
 
 const queueLabel = computed(() => {
   const n = props.items.length
-  if (n === 0) return 'All clear — drafts will appear here as Ada writes them'
-  return `${n} ${n === 1 ? 'draft needs' : 'drafts need'} your eyes`
+  if (n === 0) return 'All clear · drafts will appear here as Ada writes them'
+  return `${n} ${n === 1 ? 'draft' : 'drafts'} ready for your sign-off`
 })
 
 async function act(lead: CsLead, action: 'approve' | 'edit' | 'skip') {
@@ -145,12 +146,12 @@ function snippet(body: string | null): string {
     <!-- ── Header: title, auto-approve toggle, counters ─────────────── -->
     <header class="flex items-start justify-between gap-4 px-5 py-4 bg-brand/10 border-b border-brand/20 flex-wrap">
       <div class="flex items-start gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white text-lg font-bold flex-shrink-0">
-          📨
+        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-ink-inverse flex-shrink-0">
+          <AdaIcon name="email_marketing" class="h-5 w-5" />
         </div>
         <div>
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-0.5">
-            Approval queue
+            Today's sign-offs
           </div>
           <h2 class="text-lg font-bold text-ink leading-tight">{{ queueLabel }}</h2>
           <p class="text-xs text-ink-muted mt-0.5">
@@ -160,15 +161,15 @@ function snippet(body: string | null): string {
             </template>
             <template v-else>
               <span class="text-warn font-semibold">Gmail not connected</span>
-              — Approve opens a compose tab
+              · Sign-off opens a compose tab
             </template>
           </p>
           <p
             v-if="autoApprove && !gmailConnected"
-            class="text-[11px] text-danger mt-1.5 font-semibold"
+            class="text-[11px] text-danger mt-1.5 font-semibold inline-flex items-start gap-1.5"
           >
-            ⚠️ Auto-approve is on but Gmail isn't connected. Drafts will log as sent without actually delivering.
-            Connect Gmail in the Settings tab.
+            <AdaIcon name="alert-triangle" class="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+            <span>Auto sign-off is on but Gmail isn't connected. Drafts will log as sent without actually delivering. Connect Gmail in the Settings tab.</span>
           </p>
         </div>
       </div>
@@ -180,7 +181,7 @@ function snippet(body: string | null): string {
           class="flex items-center gap-2.5 rounded-md border px-3 py-2 cursor-pointer transition-colors"
           :class="autoApprove
             ? 'border-success/50 bg-success/10'
-            : 'border-divider bg-surface-raised hover:bg-canvas/30'"
+            : 'border-divider bg-surface-raised hover:bg-surface-elevated/30'"
         >
           <span class="relative inline-flex h-5 w-9 items-center">
             <input
@@ -198,7 +199,7 @@ function snippet(body: string | null): string {
           <div class="text-left">
             <div class="text-[11px] font-bold uppercase tracking-wider"
               :class="autoApprove ? 'text-success' : 'text-ink'">
-              {{ autoApprove ? 'Auto-approve ON' : 'Manual approve' }}
+              {{ autoApprove ? 'Auto sign-off ON' : 'Manual sign-off' }}
             </div>
             <div class="text-[10px] text-ink-muted">
               {{ autoApprove ? 'Drafts send without you' : 'You review each draft' }}
@@ -234,11 +235,11 @@ function snippet(body: string | null): string {
       </p>
       <button
         type="button"
-        class="rounded-md bg-brand text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
+        class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
         :disabled="busy"
         @click="emit('approveAll')"
       >
-        Approve all ({{ items.length }})
+        Sign off all ({{ items.length }})
       </button>
     </div>
 
@@ -246,13 +247,13 @@ function snippet(body: string | null): string {
     <TransitionGroup
       tag="div"
       class="divide-y divide-brand/10 relative"
-      enter-active-class="transition-all duration-400 ease-out"
+      enter-active-class="transition-[opacity,transform] duration-[400ms] ease-out-quart"
       enter-from-class="opacity-0 -translate-y-2"
       enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition-all duration-400 ease-out absolute w-full"
+      leave-active-class="transition-[opacity,transform] duration-[400ms] ease-out-quart absolute w-full"
       leave-from-class="opacity-100 translate-x-0"
       leave-to-class="opacity-0 translate-x-32"
-      move-class="transition-transform duration-300 ease-out"
+      move-class="transition-transform duration-300 ease-out-quart"
     >
       <article
         v-for="{ lead, scoreColor } in items"
@@ -299,11 +300,11 @@ function snippet(body: string | null): string {
         <div class="flex flex-col gap-1.5 flex-shrink-0 w-24">
           <button
             type="button"
-            class="rounded-md bg-success text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
+            class="rounded-md bg-success text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
             :disabled="processingId === lead.id || busy"
             @click="act(lead, 'approve')"
           >
-            {{ processingId === lead.id ? '✓' : 'Approve' }}
+            {{ processingId === lead.id ? 'Sending' : 'Sign off' }}
           </button>
           <button
             type="button"
@@ -323,7 +324,9 @@ function snippet(body: string | null): string {
 
     <!-- ── Empty state ─────────────────────────────────────────────── -->
     <div v-if="items.length === 0" class="px-5 py-10 text-center">
-      <div class="text-4xl mb-2">✨</div>
+      <div class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-success/10 text-success mb-3">
+        <AdaIcon name="check-circle" class="h-5 w-5" />
+      </div>
       <p class="text-sm font-semibold text-ink">All clear</p>
       <p class="text-xs text-ink-muted mt-1">
         <template v-if="autoApprove">

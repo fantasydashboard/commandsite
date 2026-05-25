@@ -157,7 +157,7 @@ const flagsByCompany = computed(() => {
           </div>
           <div class="h-7 rounded-md bg-surface-elevated/60 overflow-hidden">
             <div
-              class="h-full rounded-md transition-all"
+              class="h-full rounded-md transition-[width] duration-300 ease-out-quart"
               :style="{
                 width: (step.pct_of_top * 100) + '%',
                 backgroundColor: i === 0 ? 'rgb(var(--color-brand))'
@@ -220,7 +220,7 @@ const flagsByCompany = computed(() => {
               </td>
               <td class="px-2 py-1.5 text-center">
                 <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white whitespace-nowrap"
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-inverse whitespace-nowrap"
                   :style="{ backgroundColor: PLAN_META[c.plan].color }"
                 >{{ PLAN_META[c.plan].label }}</span>
               </td>

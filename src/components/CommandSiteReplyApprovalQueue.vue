@@ -15,6 +15,7 @@
 import { computed, ref, watch } from 'vue'
 import type { CsReply, CsReplyClassification } from '@/types/database'
 import { CLASSIFICATION_META } from '@/lib/clients/commandsite/repliesApi'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 export interface ReplyQueueItem {
   reply: CsReply
@@ -50,7 +51,7 @@ async function retryDraft(reply: CsReply) {
 
 const queueLabel = computed(() => {
   const n = props.items.length
-  if (n === 0) return 'Inbox clear — no replies waiting for response'
+  if (n === 0) return 'Inbox clear · no replies waiting for response'
   return `${n} ${n === 1 ? 'reply needs' : 'replies need'} a response`
 })
 
@@ -124,13 +125,13 @@ watch(
     >
       <div class="flex items-start gap-3">
         <div
-          class="flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold flex-shrink-0 transition-all duration-500"
+          class="flex h-10 w-10 items-center justify-center rounded-full flex-shrink-0 transition-[background-color,color,transform] duration-500 ease-out-quart"
           :class="[
-            items.length > 0 ? 'bg-accent text-white' : 'bg-ink-muted/20 text-ink-muted',
+            items.length > 0 ? 'bg-accent text-ink-inverse' : 'bg-ink-muted/20 text-ink-muted',
             newReplyFlash ? 'scale-110' : '',
           ]"
         >
-          💬
+          <AdaIcon name="qa_assistant" class="h-5 w-5" />
         </div>
         <div>
           <div
@@ -142,7 +143,7 @@ watch(
           <h2 class="text-lg font-bold text-ink leading-tight">{{ queueLabel }}</h2>
           <p class="text-xs text-ink-muted mt-0.5">
             <template v-if="items.length > 0">
-              Real humans replied. Approve sends in-thread via Gmail API.
+              Real humans replied. Sign off sends in-thread via Gmail API.
             </template>
             <template v-else>
               Replies that need a response will land here automatically.
@@ -156,13 +157,13 @@ watch(
     <TransitionGroup
       tag="div"
       class="divide-y divide-accent/10 relative"
-      enter-active-class="transition-all duration-400 ease-out"
+      enter-active-class="transition-[opacity,transform] duration-[400ms] ease-out-quart"
       enter-from-class="opacity-0 -translate-y-2"
       enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition-all duration-400 ease-out absolute w-full"
+      leave-active-class="transition-[opacity,transform] duration-[400ms] ease-out-quart absolute w-full"
       leave-from-class="opacity-100 translate-x-0"
       leave-to-class="opacity-0 translate-x-32"
-      move-class="transition-transform duration-300 ease-out"
+      move-class="transition-transform duration-300 ease-out-quart"
     >
       <article
         v-for="item in items"
@@ -210,7 +211,7 @@ watch(
           </div>
           <button
             type="button"
-            class="rounded-md bg-danger text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 whitespace-nowrap"
+            class="rounded-md bg-danger text-ink-inverse px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 whitespace-nowrap"
             :disabled="processingId === item.reply.id || busy"
             @click="emit('markAsBounce', item.reply)"
           >Mark as bounce</button>
@@ -242,7 +243,7 @@ watch(
           </span>
           <button
             type="button"
-            class="rounded-md bg-warn text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 disabled:opacity-50 not-italic"
+            class="rounded-md bg-warn text-ink-inverse px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 disabled:opacity-50 not-italic"
             :disabled="retryingId === item.reply.id || busy"
             @click="retryDraft(item.reply)"
           >
@@ -254,12 +255,12 @@ watch(
         <div class="flex items-center gap-2 mt-3">
           <button
             type="button"
-            class="rounded-md bg-success text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
+            class="rounded-md bg-success text-ink-inverse px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
             :disabled="!item.reply.drafted_response || processingId === item.reply.id || busy"
             :title="!item.reply.drafted_response ? 'Waiting on Sage to draft a response. Use Write manually if you need to send now.' : ''"
             @click="act(item.reply, 'approve')"
           >
-            {{ processingId === item.reply.id ? '✓' : 'Approve & send' }}
+            {{ processingId === item.reply.id ? 'Sending' : 'Sign off & send' }}
           </button>
           <button
             type="button"
@@ -279,7 +280,9 @@ watch(
 
     <!-- Empty state -->
     <div v-if="items.length === 0" class="px-5 py-8 text-center">
-      <div class="text-3xl mb-2">🌊</div>
+      <div class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-success/10 text-success mb-3">
+        <AdaIcon name="check-circle" class="h-5 w-5" />
+      </div>
       <p class="text-sm font-semibold text-ink">All caught up</p>
       <p class="text-xs text-ink-muted mt-1">
         Inbox poll runs every 10 minutes. Replies + drafted responses land here automatically.

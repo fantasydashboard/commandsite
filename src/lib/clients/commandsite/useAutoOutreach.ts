@@ -140,7 +140,15 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
     )
   })
 
-  /** Leads sitting in the queue, awaiting Josh's eyes. */
+  /** Leads sitting in the queue, awaiting Josh's eyes.
+   *
+   *  Sort order is intentional: follow-ups (send_count >= 1) come BEFORE
+   *  fresh T1 drafts (send_count = 0), then oldest draft first within each
+   *  group. Reason: when the daily send cap is tight, follow-ups deserve
+   *  priority. A Touch 2 sent late breaks cadence integrity and wastes the
+   *  earlier Touch 1 spend; a Touch 1 sent a day later is essentially
+   *  equivalent in value. The reserve in outreach_send_window backs this
+   *  up at the server gate — UI ordering just makes the priority visible. */
   const queueItems = computed<QueueItem[]>(() => {
     return leads.value
       .filter(
@@ -151,6 +159,15 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
           !!l.contact_email,
       )
       .map((lead) => ({ lead, scoreColor: bandForScore(lead.icp_score) }))
+      .sort((a, b) => {
+        const aFollowup = (a.lead.send_count ?? 0) >= 1 ? 0 : 1
+        const bFollowup = (b.lead.send_count ?? 0) >= 1 ? 0 : 1
+        if (aFollowup !== bFollowup) return aFollowup - bFollowup
+        // Tie-break: oldest draft first (FIFO within each group).
+        const aDate = a.lead.draft_cold_email_at ?? ''
+        const bDate = b.lead.draft_cold_email_at ?? ''
+        return aDate.localeCompare(bDate)
+      })
   })
 
   // ── The chain step: draft for any pending candidates ───────────────
@@ -234,11 +251,16 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
    *
    *  All three paths write a cs_outreach_sends row, which trips the
    *  trigger that flips cs_leads.status and bumps send_count. */
-  async function approve(lead: CsLead, opts: { silent?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
+  async function approve(lead: CsLead, opts: { silent?: boolean } = {}): Promise<{ ok: boolean; error?: string; deferred?: boolean; code?: string }> {
     if (!lead.contact_email) return { ok: false, error: 'No contact email' }
     const subject = lead.draft_cold_email_subject ?? ''
     const body = lead.draft_cold_email_body ?? ''
     const gmailConnected = !!settings.value.gmail_refresh_token
+
+    // Touch number for the reserve gate + audit row. send_count reflects
+    // sends ALREADY logged for this lead, so the NEXT send is send_count + 1.
+    // Clamped to [1, 3] because the followup cron stops drafting after Touch 3.
+    const touchNumber = Math.max(1, Math.min(3, (lead.send_count ?? 0) + 1))
 
     let source: CsOutreachSendInsert['source'] = 'manual_gmail'
     let externalMessageId: string | null = null
@@ -246,12 +268,41 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
     if (gmailConnected) {
       // Path 1: API direct send
       const { data: sendResp, error: fnErr } = await supabase.functions.invoke('gmail-send', {
-        body: { to: lead.contact_email, subject, body, lead_id: lead.id },
+        body: { to: lead.contact_email, subject, body, lead_id: lead.id, touch_number: touchNumber },
       })
       if (fnErr) {
+        // Supabase wraps non-2xx as `fnErr`. Pull the actual payload (429 deferral, etc.)
+        // out of fnErr.context if present so the operator sees the real reason.
+        type FnErrWithContext = { message: string; context?: { body?: unknown } }
+        const ctx = (fnErr as FnErrWithContext).context
+        const ctxBody = ctx?.body as { deferred?: boolean; code?: string; reason?: string } | null | undefined
+        if (ctxBody?.deferred) {
+          return {
+            ok: false,
+            deferred: true,
+            code: ctxBody.code,
+            error: ctxBody.reason ?? 'Send deferred — outside the send window.',
+          }
+        }
         return { ok: false, error: `Gmail send failed: ${fnErr.message}` }
       }
-      const result = sendResp as { ok?: boolean; message_id?: string; thread_id?: string; error?: string } | null
+      const result = sendResp as {
+        ok?: boolean
+        deferred?: boolean
+        code?: string
+        reason?: string
+        message_id?: string
+        thread_id?: string
+        error?: string
+      } | null
+      if (result?.deferred) {
+        return {
+          ok: false,
+          deferred: true,
+          code: result.code,
+          error: result.reason ?? 'Send deferred — outside the send window.',
+        }
+      }
       if (!result?.ok) {
         return { ok: false, error: result?.error ?? 'Gmail send returned no ok' }
       }
@@ -285,6 +336,7 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
       sent_at: new Date().toISOString(),
       sent_by: userData.user?.id ?? null,
       external_message_id: externalMessageId,
+      touch_number: touchNumber,
     }
     const { error: sendErr } = await supabase
       .from('cs_outreach_sends')
@@ -343,18 +395,28 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
   }
 
   /** Approve every queued item — the "I'm caught up, just send it" pass. */
-  async function approveAll(): Promise<{ sent: number; failed: number }> {
+  async function approveAll(): Promise<{ sent: number; failed: number; deferred: number; deferredReason?: string }> {
     const items = [...queueItems.value]
     let sent = 0
     let failed = 0
+    let deferred = 0
+    let deferredReason: string | undefined
     for (const q of items) {
       const r = await approve(q.lead)
       if (r.ok) sent++
+      else if (r.deferred) {
+        deferred++
+        deferredReason = r.error
+        // If the gate just defers everything, no point looping further — every
+        // remaining lead would hit the same wall. Bail and let the operator
+        // either tune the window or wait for it to open.
+        break
+      }
       else failed++
       // Tiny stagger so multi-window-open doesn't get blocked
       await new Promise((r) => setTimeout(r, 250))
     }
-    return { sent, failed }
+    return { sent, failed, deferred, deferredReason }
   }
 
   /** Manually trigger draft-followup-emails (Touch 2/3 cron).

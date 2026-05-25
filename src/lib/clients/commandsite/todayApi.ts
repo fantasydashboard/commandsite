@@ -13,6 +13,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
 import type { ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import type { Customer } from './customersApi'
+import { needsSignoff } from './onboarding'
 
 export interface TodayTickerEvent {
   icon: string
@@ -60,6 +62,7 @@ export function useCommandSiteToday() {
   const positiveReplies = ref<PositiveReply[]>([])
   const upcomingDemos = ref<UpcomingDeal[]>([])
   const staleDemoDones = ref<UpcomingDeal[]>([])
+  const onboardingSignoffs = ref<Customer[]>([])
   const recentSendCount = ref(0)
   const recentReplyCount = ref(0)
   const recentDealAdvances = ref(0)
@@ -120,6 +123,18 @@ export function useCommandSiteToday() {
         .limit(10)
       staleDemoDones.value = (staleDeals ?? []) as unknown as UpcomingDeal[]
 
+      // 4b. Onboarding sign-offs — customers in active onboarding whose
+      // current stage has a required manual task waiting on the operator.
+      // The needsSignoff() helper does the per-customer filter; we pull
+      // every onboarding row and prune.
+      const { data: onboardingRows } = await supabase
+        .from('cs_customers')
+        .select('*')
+        .eq('status', 'onboarding')
+        .order('stage_entered_at', { ascending: true })
+      const allOnboarding = (onboardingRows ?? []) as unknown as Customer[]
+      onboardingSignoffs.value = allOnboarding.filter((c) => needsSignoff(c).length > 0)
+
       // 5. Counters: sends, replies, deal advances last 7 days
       const { count: sendCount } = await supabase
         .from('cs_outreach_sends')
@@ -169,26 +184,29 @@ export function useCommandSiteToday() {
       for (const s of (recentSends ?? []) as unknown as SendRow[]) {
         const ageSec = Math.floor((now - new Date(s.sent_at).getTime()) / 1000)
         const co = s.cs_leads?.company_name ?? 'lead'
-        events.push({ icon: '📤', text: `Sent to ${co}: "${(s.subject ?? '').slice(0, 50)}"`, ageSec })
+        events.push({ icon: 'email_marketing', text: `Sent to ${co}: "${(s.subject ?? '').slice(0, 50)}"`, ageSec })
       }
       for (const r of (recentReplies ?? []) as unknown as ReplyRow[]) {
         const ageSec = Math.floor((now - new Date(r.received_at).getTime()) / 1000)
         const co = r.cs_leads?.company_name ?? 'lead'
-        const tone = r.classification === 'positive' ? '✅' : r.classification === 'objection' ? '🤔' : '💬'
-        events.push({ icon: tone, text: `Reply from ${co} — ${r.classification ?? 'pending'}`, ageSec })
+        const icon =
+          r.classification === 'positive' ? 'check-circle' :
+          r.classification === 'objection' ? 'alert-triangle' :
+          'qa_assistant'
+        events.push({ icon, text: `Reply from ${co} · ${r.classification ?? 'pending'}`, ageSec })
       }
       for (const d of (recentDealEvents ?? []) as DealRow[]) {
         if (!d.stage_entered_at) continue
         const ageSec = Math.floor((now - new Date(d.stage_entered_at).getTime()) / 1000)
-        const stageMap: Record<string, string> = {
-          demo_booked: '📅 Demo booked',
-          demo_done: '🎤 Demo complete',
-          proposal_sent: '📨 Proposal sent',
-          closed_won: '🎉 Closed won',
-          closed_lost: '❌ Closed lost',
+        const stageMap: Record<string, { icon: string; label: string }> = {
+          demo_booked:   { icon: 'calendar',           label: 'Demo booked' },
+          demo_done:     { icon: 'check-circle',       label: 'Demo complete' },
+          proposal_sent: { icon: 'quote_followup',     label: 'Proposal sent' },
+          closed_won:    { icon: 'trending-up',        label: 'Closed won' },
+          closed_lost:   { icon: 'alert-triangle',     label: 'Closed lost' },
         }
-        const label = stageMap[d.stage] ?? `Deal → ${d.stage}`
-        events.push({ icon: label.split(' ')[0], text: `${d.company_name} — ${label.split(' ').slice(1).join(' ')}`, ageSec })
+        const stage = stageMap[d.stage] ?? { icon: 'shuffle', label: `Deal → ${d.stage}` }
+        events.push({ icon: stage.icon, text: `${d.company_name} · ${stage.label}`, ageSec })
       }
 
       // Sort newest first, cap at 8
@@ -209,7 +227,7 @@ export function useCommandSiteToday() {
     for (const d of topDrafts) {
       items.push({
         id: `today-draft-${d.id}`,
-        icon: '📨',
+        icon: 'email_marketing',
         badge: 'Cold email',
         badgeClass: 'bg-brand/15 text-brand',
         title: `Send to ${d.company_name}`,
@@ -222,13 +240,13 @@ export function useCommandSiteToday() {
     if (draftsReady.value.length > 3) {
       items.push({
         id: 'today-drafts-more',
-        icon: '📋',
+        icon: 'referral_hunter',
         badge: 'Outreach · batch',
         badgeClass: 'bg-accent/15 text-accent',
         title: `+${draftsReady.value.length - 3} more drafts ready to send`,
         recipient: 'All sitting in Outreach → Ready to send',
         preview: `Top picks: ${draftsReady.value.slice(3, 8).map((d) => d.company_name).join(', ')}${draftsReady.value.length > 8 ? '…' : ''}`,
-        approved_response: 'All drafts queued — work through them at your pace from Outreach. Each one has the Open-Gmail + mark-sent shortcut.',
+        approved_response: 'All drafts queued. Work through them at your pace from Outreach. Each one has the Open-Gmail + mark-sent shortcut.',
         ticker_after_approval: `${draftsReady.value.length - 3} additional drafts surfaced`,
       })
     }
@@ -241,14 +259,14 @@ export function useCommandSiteToday() {
       const preview = (r.body ?? '').slice(0, 200)
       items.push({
         id: `today-reply-${r.id}`,
-        icon: cls === 'positive' ? '✅' : cls === 'objection' ? '🤔' : '💬',
+        icon: cls === 'positive' ? 'check-circle' : cls === 'objection' ? 'alert-triangle' : 'qa_assistant',
         badge: cls === 'positive' ? 'Positive reply' : cls === 'objection' ? 'Objection' : 'Reply',
         badgeClass: cls === 'positive' ? 'bg-success/15 text-success' : cls === 'objection' ? 'bg-warn/15 text-warn' : 'bg-brand/15 text-brand',
-        title: `${co} replied — ${cls}`,
+        title: `${co} replied · ${cls}`,
         recipient: `${contact} · received ${fmtAgo(r.received_at)}`,
         preview: r.drafted_response
           ? `Their reply: "${preview}${(r.body ?? '').length > 200 ? '…' : ''}"\n\nAda's drafted response is ready in Outreach → Inbox. Approve to review + send.`
-          : `Their reply: "${preview}${(r.body ?? '').length > 200 ? '…' : ''}"\n\nNo Ada draft yet — open inbox to classify + draft response.`,
+          : `Their reply: "${preview}${(r.body ?? '').length > 200 ? '…' : ''}"\n\nNo Ada draft yet. Open inbox to classify + draft response.`,
         approved_response: `Routing to Outreach → Inbox. Ada's drafted response is editable there before send.`,
         ticker_after_approval: `Routed to inbox for ${co} reply`,
       })
@@ -263,7 +281,7 @@ export function useCommandSiteToday() {
         : 'soon'
       items.push({
         id: `today-brief-${d.id}`,
-        icon: '🧠',
+        icon: 'flask',
         badge: 'Pre-call brief',
         badgeClass: 'bg-brand/15 text-brand',
         title: `Brief for ${d.company_name} demo`,
@@ -274,20 +292,44 @@ export function useCommandSiteToday() {
       })
     }
 
-    // 4. Stale demo_done deals
+    // 4. Onboarding sign-offs — customers in onboarding with manual
+    // tasks blocking advancement. Surfaced near the top so Josh sees
+    // them before the day's outreach work.
+    for (const c of onboardingSignoffs.value.slice(0, 3)) {
+      const tasks = needsSignoff(c)
+      const stageLabel = c.onboarding_stage ?? 'unknown stage'
+      const daysIn = c.stage_entered_at
+        ? Math.floor((Date.now() - new Date(c.stage_entered_at).getTime()) / (24 * 60 * 60 * 1000))
+        : 0
+      items.push({
+        id: `today-onboarding-${c.id}`,
+        icon: 'check-circle',
+        badge: 'Onboarding sign-off',
+        badgeClass: daysIn >= 5
+          ? 'bg-warn/15 text-warn'
+          : 'bg-brand/15 text-brand',
+        title: `${c.org_name} · ${tasks.length} task${tasks.length === 1 ? '' : 's'} waiting on you`,
+        recipient: `Stage: ${stageLabel} · ${daysIn}d in stage`,
+        preview: tasks.map((t) => `• ${t.label}`).join('\n'),
+        approved_response: `Routing to Customers → Onboarding pipeline. Click the ${c.org_name} card to open the action drawer.`,
+        ticker_after_approval: `Routed to onboarding for ${c.org_name}`,
+      })
+    }
+
+    // 5. Stale demo_done deals
     for (const d of staleDemoDones.value.slice(0, 2)) {
       const days = d.stage_entered_at
         ? Math.floor((Date.now() - new Date(d.stage_entered_at).getTime()) / (24 * 60 * 60 * 1000))
         : 0
       items.push({
         id: `today-stale-${d.id}`,
-        icon: '⏰',
+        icon: 'clock',
         badge: 'Stale deal',
         badgeClass: 'bg-warn/15 text-warn',
-        title: `${d.company_name} — demo done ${days}d ago, no follow-up sent`,
+        title: `${d.company_name} · demo done ${days}d ago, no follow-up sent`,
         recipient: `${d.contact_name ?? ''} · proposal cycle stalling`,
         preview: d.post_call_followup_draft
-          ? `Ada drafted a post-call follow-up after the demo — still in your queue. Open Outreach → Demos to review and send.`
+          ? `Ada drafted a post-call follow-up after the demo. Still in your queue. Open Outreach → Demos to review and send.`
           : `No follow-up drafted yet. Open Outreach → Demos and use the post-call form to give Ada the recap inputs; she'll draft the follow-up email.`,
         approved_response: `Routing to Outreach → Demos. Either approve the existing draft or fill in the post-call form for ${d.company_name}.`,
         ticker_after_approval: `Routed to demos for ${d.company_name} follow-up`,

@@ -231,9 +231,9 @@ const tabs: { key: View; label: string; badge?: number }[] = [
       tab-key="social"
       summary="Ada drafts cross-platform posts in your voice — Reddit, X, LinkedIn — for your review + scheduling. She also watches engagement signals and feeds high-ICP engagers into the pipeline."
       :activity="[
-        { icon: '📱', label: '3 posts drafted this week', detail: 'Reddit comment on r/HVAC · LinkedIn post on tool sprawl · X thread on Ada Lovelace', ago: 'rolling' },
-        { icon: '📅', label: '2 scheduled to publish', detail: 'Wednesday LinkedIn + Friday Reddit', ago: 'this week' },
-        { icon: '🎯', label: 'Flagged 1 high-ICP engager', detail: 'HVAC owner commented on r/Smallbusiness post — added to leads', ago: '2d' },
+        { icon: 'email_marketing', label: '3 posts drafted this week', detail: 'Reddit comment on r/HVAC · LinkedIn post on tool sprawl · X thread on Ada Lovelace', ago: 'rolling' },
+        { icon: 'calendar', label: '2 scheduled to publish', detail: 'Wednesday LinkedIn + Friday Reddit', ago: 'this week' },
+        { icon: 'referral_hunter', label: 'Flagged 1 high-ICP engager', detail: 'HVAC owner commented on r/Smallbusiness post — added to leads', ago: '2d' },
       ]"
     />
 
@@ -247,7 +247,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
       </div>
       <button
         type="button"
-        class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+        class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90"
         @click="view = 'composer'"
       >+ New post</button>
     </div>
@@ -293,11 +293,11 @@ const tabs: { key: View; label: string; badge?: number }[] = [
         {{ t.label }}
         <span
           v-if="t.key === 'inbox' && stats.inbox_to_address > 0"
-          class="ml-1 rounded-full bg-warn text-white px-1.5 text-[10px] font-bold"
+          class="ml-1 rounded-full bg-warn text-ink-inverse px-1.5 text-[10px] font-bold"
         >{{ stats.inbox_to_address }}</span>
         <span
           v-if="t.key === 'leads' && stats.leads_to_review > 0"
-          class="ml-1 rounded-full bg-success text-white px-1.5 text-[10px] font-bold"
+          class="ml-1 rounded-full bg-success text-ink-inverse px-1.5 text-[10px] font-bold"
         >{{ stats.leads_to_review }}</span>
       </button>
     </div>
@@ -428,7 +428,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
             v-for="(meta, p) in PLATFORM_META"
             :key="p"
             type="button"
-            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-white"
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-ink-inverse"
             :style="composerPlatforms.has(p as Platform)
               ? { backgroundColor: meta.color }
               : { backgroundColor: meta.color + '22', color: meta.color }"
@@ -436,7 +436,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
           >{{ meta.label }}</button>
           <button
             type="button"
-            class="ml-auto rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+            class="ml-auto rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90"
           >✨ Regenerate drafts</button>
         </div>
       </section>
@@ -450,7 +450,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-2">
             <span
-              class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+              class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse"
               :style="{ backgroundColor: PLATFORM_META[d.platform].color }"
             >{{ PLATFORM_META[d.platform].label }}</span>
             <span class="text-[11px] text-ink-muted">· {{ d.format_label }}</span>
@@ -471,7 +471,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
         <div class="mt-3 flex items-center justify-end gap-2">
           <button type="button" class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink">Save draft</button>
           <button type="button" class="rounded-md bg-surface-elevated text-ink px-3 py-1.5 text-xs font-semibold hover:bg-surface-elevated/80">Schedule</button>
-          <button type="button" class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90">Post now</button>
+          <button type="button" class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90">Post now</button>
         </div>
       </article>
 
@@ -487,14 +487,14 @@ const tabs: { key: View; label: string; badge?: number }[] = [
           <button
             type="button"
             class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-            :class="inboxFilter === 'all' ? 'bg-brand text-white' : 'bg-surface-elevated text-ink-muted hover:bg-surface-elevated/80'"
+            :class="inboxFilter === 'all' ? 'bg-brand text-ink-inverse' : 'bg-surface-elevated text-ink-muted hover:bg-surface-elevated/80'"
             @click="inboxFilter = 'all'"
           >All ({{ engagements.length }})</button>
           <button
             v-for="(meta, k) in CLASS_META"
             :key="k"
             type="button"
-            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-white"
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-ink-inverse"
             :style="inboxFilter === k
               ? { backgroundColor: meta.color }
               : { backgroundColor: meta.color + '22', color: meta.color }"
@@ -520,7 +520,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
             </div>
             <div class="text-[11px] text-ink-disabled flex flex-wrap items-center gap-2">
               <span
-                class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+                class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-inverse"
                 :style="{ backgroundColor: PLATFORM_META[e.platform].color }"
               >{{ PLATFORM_META[e.platform].label }} · {{ e.kind }}</span>
               <span v-if="e.author_industry">{{ e.author_industry }}</span>
@@ -530,7 +530,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
           </div>
           <div class="flex flex-col items-end gap-1 flex-shrink-0">
             <span
-              class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white whitespace-nowrap"
+              class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse whitespace-nowrap"
               :style="{ backgroundColor: CLASS_META[e.classification].color }"
             >{{ CLASS_META[e.classification].icon }} {{ CLASS_META[e.classification].label }}</span>
             <span class="text-[10px] tabular-nums" :style="{ color: fitColor(e.icp_fit_score) }">
@@ -552,7 +552,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
         >
           <div class="flex items-center justify-between gap-2 mb-1.5">
             <div class="flex items-center gap-2">
-              <span class="rounded-full bg-brand text-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">AI draft</span>
+              <span class="rounded-full bg-brand text-ink-inverse px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">AI draft</span>
             </div>
           </div>
           <textarea
@@ -567,7 +567,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
               class="rounded-md bg-success/15 text-success px-3 py-1.5 text-xs font-semibold hover:bg-success/25"
               @click="handleEng(e.id)"
             >+ Add to Pipeline</button>
-            <button type="button" class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90" @click="handleEng(e.id)">Reply</button>
+            <button type="button" class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90" @click="handleEng(e.id)">Reply</button>
           </div>
         </div>
         <div v-else class="text-[11px] text-ink-disabled italic">
@@ -639,7 +639,7 @@ const tabs: { key: View; label: string; badge?: number }[] = [
             <button
               v-if="!l.in_pipeline && !addedLeads.has(l.id)"
               type="button"
-              class="rounded-md bg-success text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
+              class="rounded-md bg-success text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
               @click="addedLeads.add(l.id)"
             >+ Add to Pipeline</button>
             <button

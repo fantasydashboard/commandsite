@@ -14,13 +14,14 @@
  * is kept below as a secondary collapsed section since it's still used
  * for dashboard routing.
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useCustomers } from '@/lib/clients/commandsite/customersApi'
 import type { Client } from '@/types/database'
 import CommandSiteCustomerKanban from '@/components/CommandSiteCustomerKanban.vue'
 import CommandSiteActiveCustomersTable from '@/components/CommandSiteActiveCustomersTable.vue'
+import CommandSiteOnboardingDrawer from '@/components/CommandSiteOnboardingDrawer.vue'
 
 const router = useRouter()
 
@@ -34,9 +35,26 @@ const {
   revertStage,
 } = useCustomers()
 
-// Legacy dashboard registry — collapsed by default to keep focus on customers
+// Onboarding drawer state — opens when an onboarding-stage card is clicked.
+// Active customer rows still route to the detail page (the kanban-only
+// click opens the drawer; the table-row click stays as before).
+const drawerCustomerId = ref<string | null>(null)
+const drawerCustomer = computed(() =>
+  drawerCustomerId.value
+    ? customers.value.find((c) => c.id === drawerCustomerId.value) ?? null
+    : null,
+)
+function openOnboardingDrawer(id: string) {
+  drawerCustomerId.value = id
+}
+function closeOnboardingDrawer() {
+  drawerCustomerId.value = null
+}
+
+// Legacy dashboard registry — expanded by default so demo dashboards
+// (Apex / Cornerstone / commandsite-demo) stay one click away.
 const dashboards = ref<Client[]>([])
-const dashboardsExpanded = ref(false)
+const dashboardsExpanded = ref(true)
 const dashboardsLoading = ref(true)
 const dashboardsError = ref<string | null>(null)
 
@@ -89,8 +107,17 @@ async function onRevert(id: string) {
 }
 
 function openCustomerDetail(id: string) {
-  // Reuse the existing client-detail route — it's keyed by id and works
-  // for cs_customers rows by querying both tables.
+  // For active customers, jump straight to their dashboard (where the
+  // operator actually works). For onboarding customers, we'd open the
+  // drawer instead — but the kanban handles that path via @open ->
+  // openOnboardingDrawer. This handler only gets called from the
+  // active-customers table.
+  const customer = customers.value.find((c) => c.id === id)
+  if (customer?.status === 'active' && customer.slug) {
+    router.push({ name: 'dashboard.home', params: { slug: customer.slug } })
+    return
+  }
+  // Fallback to the legacy detail route
   router.push({ name: 'admin.client-detail', params: { id } })
 }
 
@@ -135,6 +162,58 @@ onMounted(() => {
 
     <p v-if="customersError" class="text-sm text-danger">{{ customersError }}</p>
 
+    <!-- Public landing pages — quick links to every marketing surface
+         in this repo. Useful when sending a prospect a link, doing a
+         design review, or QA'ing after a deploy. -->
+    <section class="card p-0 overflow-hidden">
+      <header class="px-5 py-3 border-b border-divider bg-surface-raised">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">
+          Public landing pages
+        </div>
+        <p class="text-xs text-ink-muted mt-0.5">
+          Marketing surfaces · open in new tab.
+        </p>
+      </header>
+      <ul class="divide-y divide-divider">
+        <li class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-canvas/40 transition-colors">
+          <div>
+            <div class="text-sm font-semibold text-ink">CommandSite · Ada</div>
+            <div class="text-[11px] text-ink-muted mt-0.5">
+              AI employees for local service businesses · <code class="font-mono text-[10px]">/</code>
+            </div>
+          </div>
+          <a href="/" target="_blank" rel="noopener" class="text-xs font-semibold text-brand hover:underline">Open →</a>
+        </li>
+        <li class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-canvas/40 transition-colors">
+          <div>
+            <div class="text-sm font-semibold text-ink">CommandSite · Grace</div>
+            <div class="text-[11px] text-ink-muted mt-0.5">
+              AI ministry assistant for churches · <code class="font-mono text-[10px]">/churches</code>
+            </div>
+          </div>
+          <a href="/churches" target="_blank" rel="noopener" class="text-xs font-semibold text-brand hover:underline">Open →</a>
+        </li>
+        <li class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-canvas/40 transition-colors">
+          <div>
+            <div class="text-sm font-semibold text-ink">Staci Daniel Music</div>
+            <div class="text-[11px] text-ink-muted mt-0.5">
+              Classical piano lessons · Kissimmee, FL · <code class="font-mono text-[10px]">/staci</code>
+            </div>
+          </div>
+          <a href="/staci" target="_blank" rel="noopener" class="text-xs font-semibold text-brand hover:underline">Open →</a>
+        </li>
+        <li class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-canvas/40 transition-colors">
+          <div>
+            <div class="text-sm font-semibold text-ink">Pitch deck</div>
+            <div class="text-[11px] text-ink-muted mt-0.5">
+              Sales deck · used live on discovery calls · <code class="font-mono text-[10px]">/pitch</code>
+            </div>
+          </div>
+          <a href="/pitch" target="_blank" rel="noopener" class="text-xs font-semibold text-brand hover:underline">Open →</a>
+        </li>
+      </ul>
+    </section>
+
     <!-- Onboarding pipeline kanban -->
     <div v-if="customersLoading" class="text-sm text-ink-muted">Loading…</div>
     <template v-else>
@@ -143,12 +222,20 @@ onMounted(() => {
         :busy="stageBusy"
         @advance="onAdvance"
         @revert="onRevert"
-        @open="openCustomerDetail"
+        @open="openOnboardingDrawer"
       />
 
       <CommandSiteActiveCustomersTable
         :customers="activeCustomers"
         @open="openCustomerDetail"
+      />
+
+      <!-- Per-customer onboarding action drawer — opens from any
+           kanban card click; shows the full task list + sign-offs. -->
+      <CommandSiteOnboardingDrawer
+        :customer="drawerCustomer"
+        :open="drawerCustomerId !== null"
+        @close="closeOnboardingDrawer"
       />
 
       <!-- Empty-state hint when there are no customers at all -->

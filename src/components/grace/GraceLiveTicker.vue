@@ -7,6 +7,7 @@
  * its own event via `pushEvent({ icon, text })` (exposed via defineExpose).
  */
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 interface TickerEvent { id: number; icon: string; text: string; ageSec: number }
 interface PoolEvent { icon: string; text: string }
@@ -79,15 +80,15 @@ onBeforeUnmount(() => {
         </span>
         <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Live</span>
       </div>
-      <span class="text-[11px] text-ink-muted">{{ subtitle ?? "Grace's activity stream — auto-updates" }}</span>
+      <span class="text-[11px] text-ink-muted">{{ subtitle ?? "Grace's activity stream · auto-updating" }}</span>
     </div>
     <ul class="divide-y divide-divider/40">
       <TransitionGroup
         tag="div"
-        enter-active-class="transition-all duration-500 ease-out"
+        enter-active-class="transition-[opacity,transform,background-color] duration-[400ms] ease-out-quart"
         enter-from-class="opacity-0 -translate-y-3 bg-success/10"
         enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition-opacity duration-300"
+        leave-active-class="transition-opacity duration-200 ease-out-quart"
         leave-from-class="opacity-100"
         leave-to-class="opacity-0"
       >
@@ -97,7 +98,7 @@ onBeforeUnmount(() => {
           class="flex items-center gap-3 px-4 py-2"
           :class="idx === 0 && ev.ageSec < 5 ? 'bg-success/5' : ''"
         >
-          <span class="text-base flex-shrink-0">{{ ev.icon }}</span>
+          <AdaIcon :name="ev.icon" class="h-4 w-4 text-ink-muted flex-shrink-0" />
           <span class="flex-1 text-sm text-ink truncate">{{ ev.text }}</span>
           <span
             class="text-[10px] font-mono tabular-nums flex-shrink-0"

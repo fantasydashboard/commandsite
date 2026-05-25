@@ -183,8 +183,8 @@ function fmtUntil(iso: string): string {
       tab-key="revenue"
       summary="Ada watches MRR + churn signals + plan-mix shifts. She drops a daily AM brief and a Monday-morning strategic summary so you start the week knowing where you stand."
       :activity="[
-        { icon: '💰', label: 'MRR snapshot ready', detail: 'will activate when first paying customer subscribes', ago: '—' },
-        { icon: '☕', label: 'Daily AM brief queued', detail: '7:30 AM drop into your inbox once revenue starts', ago: '—' },
+        { icon: 'dollar-sign', label: 'MRR snapshot ready', detail: 'will activate when first paying customer subscribes', ago: '—' },
+        { icon: 'performance_reporting', label: 'Daily AM brief queued', detail: '7:30 AM drop into your inbox once revenue starts', ago: '—' },
       ]"
     />
 
@@ -387,7 +387,7 @@ function fmtUntil(iso: string): string {
               <td
                 v-for="age in maxCohortAge"
                 :key="age"
-                class="px-0 py-0 text-center text-[10px] font-bold tabular-nums w-12 h-7 rounded text-white"
+                class="px-0 py-0 text-center text-[10px] font-bold tabular-nums w-12 h-7 rounded text-ink-inverse"
                 :style="age - 1 < c.retention.length
                   ? { backgroundColor: retentionColor(c.retention[age - 1]) }
                   : { backgroundColor: 'transparent', color: 'transparent' }"

@@ -10,6 +10,8 @@
 import { computed, ref, watch } from 'vue'
 import type { CsLead, CsLeadStatus } from '@/types/database'
 import { supabase } from '@/lib/supabase'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
+import CommandSiteLeadTimeline from '@/components/CommandSiteLeadTimeline.vue'
 
 const props = defineProps<{
   open: boolean
@@ -40,7 +42,40 @@ const saving = ref(false)
 const drafting = ref(false)
 const enriching = ref(false)
 const dropping = ref(false)
+const unpausing = ref(false)
 const message = ref<{ kind: 'ok' | 'err'; text: string } | null>(null)
+
+// ── Unpause: resume the sequence after the trigger paused this lead
+async function unpauseOutreach() {
+  if (!props.lead || unpausing.value) return
+  unpausing.value = true
+  message.value = null
+  const { error } = await supabase
+    .from('cs_leads')
+    .update({
+      outreach_paused: false,
+      outreach_paused_reason: null,
+      outreach_paused_at: null,
+    } as never)
+    .eq('id', props.lead.id)
+  unpausing.value = false
+  if (error) {
+    message.value = { kind: 'err', text: `Unpause failed: ${error.message}` }
+    return
+  }
+  message.value = { kind: 'ok', text: 'Outreach resumed. Next eligible touch will fire on the next cron tick.' }
+  emit('saved')
+}
+
+function fmtPausedAge(iso: string | null): string {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(ms / 60_000)
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  return `${Math.floor(hr / 24)}d ago`
+}
 
 // Reset form whenever the lead object identity changes — including when
 // the parent reloads after a save/enrich and reassigns detailLead.value
@@ -84,18 +119,18 @@ const draftReadiness = computed(() => {
   const l = props.lead
   if (!l) return null
   if (!form.value.contact_email.trim()) {
-    return { ready: false, reason: 'Add a contact email — auto-draft needs one to send to.' }
+    return { ready: false, reason: 'Add a contact email. Auto-draft needs one to send to.' }
   }
   if ((l.icp_score ?? 0) < 65) {
     return { ready: false, reason: `Score ${l.icp_score ?? 0} is below the auto-draft threshold of 65.` }
   }
   if (l.status === 'replied' || l.status === 'disqualified' || l.status === 'archived') {
-    return { ready: false, reason: `Status is "${STATUS_LABEL[l.status]}" — auto-draft skips this lead.` }
+    return { ready: false, reason: `Status is "${STATUS_LABEL[l.status]}". Auto-draft skips this lead.` }
   }
   if (l.draft_cold_email_subject && l.draft_cold_email_body) {
-    return { ready: false, reason: 'A draft already exists — find it in the Outreach approval queue.' }
+    return { ready: false, reason: 'A draft already exists. Find it in the Outreach approval queue.' }
   }
-  return { ready: true, reason: 'Eligible. The cron will draft within 5 minutes — or use "Draft now" to skip the wait.' }
+  return { ready: true, reason: 'Eligible. The cron will draft within 5 minutes, or use "Draft now" to skip the wait.' }
 })
 
 const websiteHref = computed(() => {
@@ -147,14 +182,14 @@ const verificationBadge = computed<VerificationBadge | null>(() => {
         label: '~ Catch-all domain',
         pillClass: 'bg-warn/15 text-warn border border-warn/30',
         explainer:
-          'The domain accepts mail for any address — we can\'t prove this specific inbox exists. Likely still deliverable but riskier for sender reputation.',
+          'The domain accepts mail for any address, so we can\'t prove this specific inbox exists. Likely still deliverable but riskier for sender reputation.',
       }
     case 'unknown':
       return {
         label: '? Unverifiable',
         pillClass: 'bg-warn/15 text-warn border border-warn/30',
         explainer:
-          'NeverBounce couldn\'t test this address (common for Gmail / Yahoo — provider hides individual accounts). Send at your own discretion.',
+          'NeverBounce couldn\'t test this address (common for Gmail / Yahoo, where the provider hides individual accounts). Send at your own discretion.',
       }
     case 'unverified':
       return {
@@ -392,9 +427,9 @@ async function draftNow() {
 
     <!-- panel -->
     <Transition
-      enter-active-class="transition-transform duration-300 ease-out"
+      enter-active-class="transition-transform duration-300 ease-out-quart"
       enter-from-class="translate-x-full" enter-to-class="translate-x-0"
-      leave-active-class="transition-transform duration-200 ease-out"
+      leave-active-class="transition-transform duration-200 ease-out-quart"
       leave-from-class="translate-x-0" leave-to-class="translate-x-full"
     >
       <aside
@@ -424,16 +459,53 @@ async function draftNow() {
         </header>
 
         <div class="flex-1 overflow-y-auto p-5 space-y-5">
+          <!-- Paused banner — takes precedence over the readiness banner because
+               a paused lead is also non-eligible, but for a more important reason. -->
+          <div
+            v-if="lead.outreach_paused"
+            class="rounded-card border border-accent/40 bg-accent/10 px-3 py-2.5 text-xs"
+          >
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div class="flex items-start gap-2 flex-1 min-w-0">
+                <AdaIcon name="phone-off" class="h-4 w-4 text-accent flex-shrink-0 mt-0.5" />
+                <div class="min-w-0">
+                  <div class="font-semibold text-accent">Outreach paused</div>
+                  <p class="text-ink leading-snug mt-0.5">
+                    {{ lead.outreach_paused_reason ?? 'Paused by operator' }}
+                    <span v-if="lead.outreach_paused_at" class="text-ink-muted">
+                      · {{ fmtPausedAge(lead.outreach_paused_at) }}
+                    </span>
+                  </p>
+                  <p class="text-[11px] text-ink-muted mt-1 leading-snug">
+                    Followup + auto-draft crons skip this lead until you resume.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="rounded-md border border-accent/40 text-accent bg-surface px-2.5 py-1 text-[11px] font-semibold hover:bg-accent/10 disabled:opacity-50 transition-[background-color,transform] duration-150 ease-out-quart active:scale-[0.97] disabled:active:scale-100 inline-flex items-center gap-1 flex-shrink-0"
+                :disabled="unpausing"
+                @click="unpauseOutreach"
+              >
+                <AdaIcon name="shuffle" class="h-3 w-3" />
+                {{ unpausing ? 'Resuming…' : 'Resume outreach' }}
+              </button>
+            </div>
+          </div>
+
           <!-- Readiness banner -->
           <div
-            v-if="draftReadiness"
+            v-if="draftReadiness && !lead.outreach_paused"
             class="rounded-card border px-3 py-2.5 text-xs"
             :class="draftReadiness.ready
               ? 'border-success/30 bg-success/10 text-success'
               : 'border-warn/30 bg-warn/10 text-warn'"
           >
             <div class="flex items-center gap-2 font-semibold mb-0.5">
-              <span class="text-base leading-none">{{ draftReadiness.ready ? '✓' : '⚠' }}</span>
+              <AdaIcon
+                :name="draftReadiness.ready ? 'check-circle' : 'alert-triangle'"
+                class="h-4 w-4 flex-shrink-0"
+              />
               <span>{{ draftReadiness.ready ? 'Auto-draft eligible' : 'Auto-draft blocked' }}</span>
             </div>
             <p class="text-ink leading-snug">{{ draftReadiness.reason }}</p>
@@ -447,18 +519,24 @@ async function draftNow() {
                 <button
                   v-if="lead?.company_url"
                   type="button"
-                  class="rounded-md border border-brand/40 text-brand bg-surface px-2 py-0.5 text-[11px] font-semibold hover:bg-brand/10 disabled:opacity-50"
+                  class="rounded-md border border-brand/40 text-brand bg-surface px-2 py-0.5 text-[11px] font-semibold hover:bg-brand/10 disabled:opacity-50 transition-[background-color,transform] duration-150 ease-out-quart active:scale-[0.97] disabled:active:scale-100 inline-flex items-center gap-1"
                   :disabled="enriching || saving || drafting"
                   title="Re-scrape the company website for emails under the latest ranker logic. Clears the current email first."
                   @click="rerunEmailScrape"
-                >{{ enriching ? 'Working…' : '↻ Re-scrape site' }}</button>
+                >
+                  <AdaIcon name="shuffle" class="h-3 w-3" />
+                  {{ enriching ? 'Working…' : 'Re-scrape site' }}
+                </button>
                 <button
                   type="button"
-                  class="rounded-md border border-accent/40 text-accent bg-surface px-2 py-0.5 text-[11px] font-semibold hover:bg-accent/10 disabled:opacity-50"
+                  class="rounded-md border border-accent/40 text-accent bg-surface px-2 py-0.5 text-[11px] font-semibold hover:bg-accent/10 disabled:opacity-50 transition-[background-color,transform] duration-150 ease-out-quart active:scale-[0.97] disabled:active:scale-100 inline-flex items-center gap-1"
                   :disabled="enriching || saving || drafting"
-                  title="Search Apollo for verified contact info — costs 1 email credit if a result is returned"
+                  title="Search Apollo for verified contact info. Costs 1 email credit if a result is returned."
                   @click="enrichViaApollo"
-                >{{ enriching ? 'Searching…' : '🔍 Find via Apollo' }}</button>
+                >
+                  <AdaIcon name="flask" class="h-3 w-3" />
+                  {{ enriching ? 'Searching…' : 'Find via Apollo' }}
+                </button>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -627,6 +705,9 @@ async function draftNow() {
             </div>
           </section>
 
+          <!-- Conversation timeline — sends + replies + state changes -->
+          <CommandSiteLeadTimeline :lead-id="lead.id" />
+
           <!-- Status message -->
           <div
             v-if="message"
@@ -643,29 +724,29 @@ async function draftNow() {
           <div class="flex items-center gap-3">
             <button
               type="button"
-              class="text-xs text-ink-muted hover:text-ink"
+              class="text-xs text-ink-muted hover:text-ink transition-colors"
               :disabled="saving || drafting || dropping"
               @click="close"
             >Cancel</button>
             <button
               v-if="lead && lead.status !== 'disqualified' && lead.status !== 'promoted_to_pipeline'"
               type="button"
-              class="text-xs text-danger hover:underline disabled:opacity-50"
+              class="text-xs text-danger hover:underline disabled:opacity-50 transition-colors"
               :disabled="saving || drafting || dropping"
-              :title="'Mark this lead as unreachable — no email found. Sets status to Disqualified with a recovery tag.'"
+              :title="'Mark this lead as unreachable. Sets status to Disqualified with a recovery tag.'"
               @click="dropAsUnreachable"
-            >{{ dropping ? 'Dropping…' : 'Drop — can\'t reach' }}</button>
+            >{{ dropping ? 'Dropping…' : 'Drop · can\'t reach' }}</button>
           </div>
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="rounded-md border border-brand/40 text-brand bg-surface px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50"
+              class="rounded-md border border-brand/40 text-brand bg-surface px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50 transition-[background-color,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:active:scale-100"
               :disabled="saving || drafting || dropping"
               @click="save"
             >{{ saving ? 'Saving…' : 'Save changes' }}</button>
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+              class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:active:scale-100"
               :disabled="!draftReadiness?.ready || saving || drafting || dropping"
               :title="draftReadiness?.ready ? 'Draft a touch-1 cold email now (skips the 5-min cron wait)' : draftReadiness?.reason"
               @click="draftNow"

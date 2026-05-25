@@ -172,7 +172,7 @@ const npsBarStops = computed(() => {
         @click="view = 'reviews'"
       >
         Reviews ({{ reviews.length }})
-        <span v-if="stats.unanswered_reviews > 0" class="ml-1 rounded-full bg-warn text-white px-1.5 text-[10px] font-bold">{{ stats.unanswered_reviews }}</span>
+        <span v-if="stats.unanswered_reviews > 0" class="ml-1 rounded-full bg-warn text-ink-inverse px-1.5 text-[10px] font-bold">{{ stats.unanswered_reviews }}</span>
       </button>
       <button
         type="button"
@@ -196,14 +196,14 @@ const npsBarStops = computed(() => {
           <button
             type="button"
             class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-            :class="sourceFilter === 'all' ? 'bg-brand text-white' : 'bg-surface-elevated text-ink-muted hover:bg-surface-elevated/80'"
+            :class="sourceFilter === 'all' ? 'bg-brand text-ink-inverse' : 'bg-surface-elevated text-ink-muted hover:bg-surface-elevated/80'"
             @click="sourceFilter = 'all'"
           >All sources</button>
           <button
             v-for="(meta, src) in SOURCE_META"
             :key="src"
             type="button"
-            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-white"
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-ink-inverse"
             :style="sourceFilter === src
               ? { backgroundColor: meta.color }
               : { backgroundColor: meta.color + '22', color: meta.color }"
@@ -236,7 +236,7 @@ const npsBarStops = computed(() => {
               </span>
               <h3 class="text-sm font-semibold text-ink">{{ r.title }}</h3>
               <span
-                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse"
                 :style="{ backgroundColor: SOURCE_META[r.source].color }"
               >{{ SOURCE_META[r.source].label }}</span>
               <span v-if="r.verified" class="rounded-full bg-success/15 text-success px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">✓ Verified</span>
@@ -277,7 +277,7 @@ const npsBarStops = computed(() => {
         >
           <div class="flex items-center justify-between gap-2 mb-1.5">
             <div class="flex items-center gap-2">
-              <span class="rounded-full bg-brand text-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">AI-drafted reply</span>
+              <span class="rounded-full bg-brand text-ink-inverse px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">AI-drafted reply</span>
               <span class="text-[10px] text-ink-muted">Approve to post publicly</span>
             </div>
           </div>
@@ -290,7 +290,7 @@ const npsBarStops = computed(() => {
             <button type="button" class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink">Skip</button>
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+              class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90"
               @click="send(r)"
             >Approve & Post</button>
           </div>
@@ -308,19 +308,19 @@ const npsBarStops = computed(() => {
         </div>
         <div class="flex items-center gap-1 h-10 rounded-md overflow-hidden mb-3">
           <div
-            class="h-full bg-danger flex items-center justify-center text-white text-xs font-semibold"
+            class="h-full bg-danger flex items-center justify-center text-ink-inverse text-xs font-semibold"
             :style="{ width: npsBarStops.detractors + '%' }"
           >
             <span v-if="npsBarStops.detractors >= 8">{{ stats.detractors }} detractor{{ stats.detractors === 1 ? '' : 's' }}</span>
           </div>
           <div
-            class="h-full bg-slate-400 flex items-center justify-center text-white text-xs font-semibold"
+            class="h-full bg-slate-400 flex items-center justify-center text-ink-inverse text-xs font-semibold"
             :style="{ width: npsBarStops.passives + '%', backgroundColor: '#94A3B8' }"
           >
             <span v-if="npsBarStops.passives >= 8">{{ stats.passives }} passive{{ stats.passives === 1 ? '' : 's' }}</span>
           </div>
           <div
-            class="h-full bg-success flex items-center justify-center text-white text-xs font-semibold"
+            class="h-full bg-success flex items-center justify-center text-ink-inverse text-xs font-semibold"
             :style="{ width: npsBarStops.promoters + '%' }"
           >
             <span v-if="npsBarStops.promoters >= 8">{{ stats.promoters }} promoter{{ stats.promoters === 1 ? '' : 's' }}</span>
@@ -367,7 +367,7 @@ const npsBarStops = computed(() => {
             class="flex items-start gap-3 rounded-md border border-divider p-3"
           >
             <div
-              class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md text-xl font-bold text-white"
+              class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md text-xl font-bold text-ink-inverse"
               :style="{ backgroundColor: npsCategory(r.score).color }"
             >{{ r.score }}</div>
             <div class="min-w-0 flex-1">
@@ -375,7 +375,7 @@ const npsBarStops = computed(() => {
                 <span class="text-sm font-semibold text-ink">{{ r.respondent_name }}</span>
                 <span class="text-[11px] text-ink-muted">· {{ r.respondent_title }} at {{ r.customer_company }}</span>
                 <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-inverse"
                   :style="{ backgroundColor: npsCategory(r.score).color }"
                 >{{ npsCategory(r.score).label }}</span>
                 <span v-if="r.reference_optin" class="rounded-full bg-brand/10 text-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">Reference OK</span>
@@ -411,7 +411,7 @@ const npsBarStops = computed(() => {
           </div>
           <div class="flex flex-col items-end gap-1 flex-shrink-0">
             <span
-              class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+              class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse"
               :style="{ backgroundColor: mentionSentimentColor(m.sentiment) }"
             >{{ m.sentiment }}</span>
             <div class="text-right">

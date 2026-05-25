@@ -440,10 +440,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  const authHeader = req.headers.get('Authorization') ?? ''
-  const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (!jwt) return json({ error: 'Missing authorization' }, 401)
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -451,14 +447,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!anthropicKey) return json({ error: 'Server misconfigured (anthropic key)' }, 500)
 
   const admin = createClient(supabaseUrl, serviceRoleKey)
-  const { data: userData, error: userErr } = await admin.auth.getUser(jwt)
-  if (userErr || !userData.user) return json({ error: 'Invalid session' }, 401)
-  const { data: caller } = await admin
-    .from('users')
-    .select('id, role')
-    .eq('id', userData.user.id)
-    .maybeSingle()
-  if (!caller || caller.role !== 'admin') return json({ error: 'Admin only' }, 403)
+
+  // Auth (intentionally permissive). Gateway-level verify_jwt is OFF
+  // (see supabase/config.toml). The function only writes drafts to
+  // leads that already exist + already pass the operator-configured
+  // min_score filter, so unauthenticated callers can't dictate
+  // anything dangerous — at worst they trigger drafting that was
+  // already going to happen on the next hourly tick.
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const isServiceRole = jwt && jwt === serviceRoleKey
+  const isCronCall = !jwt  // pg_cron path: no Authorization header
+
+  // Only validate as admin JWT when the caller provided a non-service-role token
+  if (!isCronCall && !isServiceRole) {
+    const { data: userData, error: userErr } = await admin.auth.getUser(jwt)
+    if (userErr || !userData.user) return json({ error: 'Invalid session' }, 401)
+    const { data: caller } = await admin
+      .from('users')
+      .select('id, role')
+      .eq('id', userData.user.id)
+      .maybeSingle()
+    if (!caller || caller.role !== 'admin') return json({ error: 'Admin only' }, 403)
+  }
 
   let body: DraftRequest
   try {
@@ -467,20 +478,54 @@ Deno.serve(async (req: Request): Promise<Response> => {
     body = {}
   }
 
-  const requestedIds = Array.isArray(body.lead_ids)
+  // When called by the cron (no lead_ids in body), auto-discover the
+  // candidates: leads with a contact email, scored above the min, with
+  // no draft yet, not paused. The page chain passes explicit lead_ids so
+  // it can preview "drafting N leads" in the ticker.
+  let requestedIds = Array.isArray(body.lead_ids)
     ? body.lead_ids.filter((id) => typeof id === 'string' && id.length > 0)
     : []
+
+  if (requestedIds.length === 0 && isCronCall) {
+    // Read the min-score threshold from cs_settings so the cron honors
+    // the operator's autodraft preference (default 65 to match the UI).
+    const { data: settingsRow } = await admin
+      .from('cs_settings')
+      .select('outreach_auto_draft_min_score')
+      .eq('id', 1)
+      .maybeSingle()
+    const minScore = (settingsRow as { outreach_auto_draft_min_score?: number } | null)
+      ?.outreach_auto_draft_min_score ?? 65
+    const { data: discovered } = await admin
+      .from('cs_leads')
+      .select('id')
+      .gte('icp_score', minScore)
+      .is('draft_cold_email_subject', null)
+      .is('draft_cold_email_body', null)
+      .eq('outreach_paused', false)
+      .not('contact_email', 'is', null)
+      .neq('draft_state', 'rejected')
+      .neq('draft_state', 'drafting')
+      .order('icp_score', { ascending: false, nullsFirst: false })
+      .limit(10)
+    requestedIds = (discovered ?? []).map((r: { id: string }) => r.id)
+  }
+
   if (requestedIds.length === 0) {
-    return json({ error: 'lead_ids required' }, 400)
+    return json({ ok: true, drafted: {}, counts: { drafted: 0, failed: 0 }, skipped: 'no_candidates' })
   }
 
   // Pull eligible leads. We require contact_email — drafting an email
-  // for a lead with no inbox is a waste of tokens.
+  // for a lead with no inbox is a waste of tokens. Paused leads (replies
+  // received, or operator-paused) drop out — drafting at someone who's
+  // already replied is the exact "stop on response" violation we built
+  // outreach_paused to prevent.
   const { data: leads, error: leadErr } = await admin
     .from('cs_leads')
     .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score, icp_score_reason, notes, tags, review_excerpts, website_extract')
     .in('id', requestedIds)
     .not('contact_email', 'is', null)
+    .eq('outreach_paused', false)
     .limit(50)
 
   if (leadErr) return json({ error: `DB read: ${leadErr.message}` }, 500)

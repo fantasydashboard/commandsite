@@ -6,28 +6,49 @@
  * emits 'discuss' with a pre-filled prompt — the parent opens Sage
  * chat with the input seeded so Josh just hits Send.
  */
+import { computed } from 'vue'
 import AssistantMark from '@/components/AssistantMark.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 import type { DetectedPattern } from '@/lib/clients/josh-personal/patternsApi'
 
-defineProps<{ patterns: DetectedPattern[] }>()
+const props = defineProps<{ patterns: DetectedPattern[] }>()
 const emit = defineEmits<{ (e: 'discuss', prompt: string): void }>()
 
-const SEV_TONE: Record<string, { dot: string; pill: string }> = {
-  info:        { dot: 'bg-brand',  pill: 'bg-brand/10 text-brand' },
-  notable:     { dot: 'bg-warn',   pill: 'bg-warn/15 text-warn' },
-  concerning:  { dot: 'bg-danger', pill: 'bg-danger/15 text-danger' },
+const SEV_TONE: Record<string, { dot: string; pill: string; iconClass: string }> = {
+  info:        { dot: 'bg-brand',  pill: 'bg-brand/10 text-brand',   iconClass: 'text-brand' },
+  notable:     { dot: 'bg-warn',   pill: 'bg-warn/15 text-warn',     iconClass: 'text-warn' },
+  concerning:  { dot: 'bg-danger', pill: 'bg-danger/15 text-danger', iconClass: 'text-danger' },
 }
 
+// AdaIcon names (NOT emoji) per impeccable register. The icon system
+// matches Apex / Cornerstone surfaces so the visual vocabulary is
+// consistent across the brand.
 const TYPE_ICON: Record<string, string> = {
-  sleep_deviation:     '🌙',
-  hrv_deviation:       '❤️',
-  weight_pace:         '⚖️',
-  adherence_drift:     '📉',
-  sat_fat_breach:      '⚠️',
-  bp_threshold:        '🩺',
-  workout_gap:         '🏋️',
-  water_chronic_under: '💧',
+  sleep_deviation:     'clock',
+  hrv_deviation:       'trending-up',
+  weight_pace:         'quote_followup',
+  adherence_drift:     'alert-triangle',
+  sat_fat_breach:      'alert-triangle',
+  bp_threshold:        'flask',
+  workout_gap:         'phone-off',
+  water_chronic_under: 'flask',
 }
+
+// Dedupe by (pattern_type + title) so we never render the same pattern
+// twice. Backend has been emitting duplicates for some types and the
+// double-render is the most visible bug on this surface. Belt + braces
+// at the UI layer until the detector is tightened up.
+const uniquePatterns = computed<DetectedPattern[]>(() => {
+  const seen = new Set<string>()
+  const out: DetectedPattern[] = []
+  for (const p of props.patterns) {
+    const key = `${p.pattern_type}|${p.title}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(p)
+  }
+  return out
+})
 
 function discussPrompt(p: DetectedPattern): string {
   return `Tell me about: ${p.title}`
@@ -35,20 +56,24 @@ function discussPrompt(p: DetectedPattern): string {
 </script>
 
 <template>
-  <section v-if="patterns.length > 0" class="card p-0 overflow-hidden">
+  <section v-if="uniquePatterns.length > 0" class="card p-0 overflow-hidden">
     <header class="px-4 py-3 border-b border-divider bg-surface-elevated">
       <div class="flex items-center gap-2">
         <AssistantMark class="h-4 w-4 text-brand" />
         <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Patterns Sage noticed</span>
       </div>
       <div class="text-[11px] text-ink-muted mt-0.5">
-        {{ patterns.length }} pattern{{ patterns.length === 1 ? '' : 's' }} from last night's scan · tap to discuss
+        {{ uniquePatterns.length }} pattern{{ uniquePatterns.length === 1 ? '' : 's' }} from last night's scan · tap to discuss
       </div>
     </header>
     <ul class="divide-y divide-divider">
-      <li v-for="p in patterns" :key="p.id" class="px-4 py-3 hover:bg-canvas/40 cursor-pointer group" @click="emit('discuss', discussPrompt(p))">
+      <li v-for="p in uniquePatterns" :key="p.id" class="px-4 py-3 hover:bg-canvas/40 cursor-pointer group" @click="emit('discuss', discussPrompt(p))">
         <div class="flex items-start gap-3">
-          <span class="text-base shrink-0 leading-none mt-0.5">{{ TYPE_ICON[p.pattern_type] ?? '🔍' }}</span>
+          <AdaIcon
+            :name="TYPE_ICON[p.pattern_type] ?? 'qa_assistant'"
+            class="h-4 w-4 shrink-0 mt-0.5"
+            :class="(SEV_TONE[p.severity] ?? SEV_TONE.info).iconClass"
+          />
           <div class="flex-1 min-w-0">
             <div class="flex items-baseline justify-between gap-2 flex-wrap">
               <span class="text-sm font-semibold text-ink">{{ p.title }}</span>

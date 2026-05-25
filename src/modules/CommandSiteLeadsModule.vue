@@ -18,6 +18,7 @@ import CommandSiteLeadDetailModal from '@/components/CommandSiteLeadDetailModal.
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import LoadingBar from '@/components/LoadingBar.vue'
 import AssistantMark from '@/components/AssistantMark.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -35,14 +36,14 @@ function emailBadge(lead: CsLead): { label: string; pillClass: string; title: st
     return {
       label: '— No email',
       pillClass: 'bg-ink-muted/10 text-ink-muted',
-      title: 'No email found yet — open this lead and click Re-scrape site or Find via Apollo.',
+      title: 'No email found yet. Open this lead and click Re-scrape site or Find via Apollo.',
     }
   }
   switch (lead.email_verification_status) {
     case 'valid':
       return { label: '✓ Valid', pillClass: 'bg-success/15 text-success', title: 'NeverBounce confirmed deliverable.' }
     case 'catchall':
-      return { label: '~ Catch-all', pillClass: 'bg-warn/15 text-warn', title: 'Catch-all domain — likely deliverable but unverified.' }
+      return { label: '~ Catch-all', pillClass: 'bg-warn/15 text-warn', title: 'Catch-all domain. Likely deliverable but unverified.' }
     case 'unknown':
       return { label: '? Unknown', pillClass: 'bg-warn/15 text-warn', title: 'NeverBounce could not verify (common for Gmail/Yahoo).' }
     case 'unverified':
@@ -385,26 +386,26 @@ const tickerSeed = computed(() => {
     const ageSec = Math.floor((now - new Date(l.created_at).getTime()) / 1000)
     const co = l.company_name ?? 'lead'
     if (l.icp_score && l.icp_score >= 80) {
-      events.push({ icon: '🎯', text: `Lead added — ${co} (ICP ${l.icp_score})`, ageSec })
+      events.push({ icon: 'referral_hunter', text: `Lead added · ${co} (ICP ${l.icp_score})`, ageSec })
     } else if (l.draft_cold_email_at) {
-      events.push({ icon: '📝', text: `Draft generated — ${co}`, ageSec })
+      events.push({ icon: 'quote_followup', text: `Draft generated · ${co}`, ageSec })
     } else {
-      events.push({ icon: '📋', text: `Lead added — ${co}`, ageSec })
+      events.push({ icon: 'referral_hunter', text: `Lead added · ${co}`, ageSec })
     }
   }
   if (events.length === 0) {
-    return [{ icon: '⚙️', text: 'Lead engine ready — pull from Apollo / paste manually / research via Google Maps', ageSec: 0 }]
+    return [{ icon: 'flask', text: 'Lead engine ready · pull from Apollo, paste manually, or research via Google Maps', ageSec: 0 }]
   }
   return events.sort((a, b) => a.ageSec - b.ageSec).slice(0, 5)
 })
 
 const tickerPool = [
-  { icon: '🎯', text: 'Lead scored ICP 80+ — flagged for drafting' },
-  { icon: '📝', text: 'Cold-email draft generated — Ada used review excerpts' },
-  { icon: '✉️', text: 'Email enrichment succeeded — verified deliverable' },
-  { icon: '📋', text: 'New lead added from Apollo CSV import' },
-  { icon: '🔍', text: 'Google Maps research swept — 12 candidates surfaced' },
-  { icon: '⚠️', text: 'Lead disqualified — outside ICP after enrichment' },
+  { icon: 'referral_hunter', text: 'Lead scored ICP 80+ · flagged for drafting' },
+  { icon: 'quote_followup',  text: 'Cold-email draft generated · Ada used review excerpts' },
+  { icon: 'email_marketing', text: 'Email enrichment succeeded · verified deliverable' },
+  { icon: 'referral_hunter', text: 'New lead added from Apollo CSV import' },
+  { icon: 'flask',           text: 'Google Maps research swept · 12 candidates surfaced' },
+  { icon: 'alert-triangle',  text: 'Lead disqualified · outside ICP after enrichment' },
 ]
 
 const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
@@ -416,15 +417,16 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
       ref="leadsTicker"
       :seed="tickerSeed"
       :pool="tickerPool"
-      subtitle="Lead activity — pulls, scores, drafts, enrichment events"
+      subtitle="Lead activity · pulls, scores, drafts, enrichment events"
     />
 
     <!-- Header -->
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-1">Prospects · pre-pipeline</div>
         <h2 class="text-xl font-semibold text-ink">Leads</h2>
         <p class="text-xs text-ink-muted mt-0.5">
-          Pre-pipeline prospects — imported from Apollo, LinkedIn, Reddit, or pasted manually. Auto-scored against your ICP.
+          Imported from Apollo, LinkedIn, Reddit, or pasted manually. Auto-scored against your ICP.
         </p>
       </div>
 
@@ -440,7 +442,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
         </div>
         <RouterLink
           :to="{ name: 'dashboard.tab', params: { slug: 'commandsite', tab: 'outreach' } }"
-          class="rounded-md bg-brand text-white px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 whitespace-nowrap"
+          class="rounded-md bg-brand text-ink-inverse px-2.5 py-1 text-[11px] font-semibold hover:opacity-90 transition-[opacity,transform] duration-150 ease-out-quart active:scale-[0.97] whitespace-nowrap inline-block"
         >Open Outreach →</RouterLink>
       </div>
       <div class="flex items-center gap-2">
@@ -461,7 +463,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
         <button
           v-if="!usingFixture && enrichableCount > 0"
           type="button"
-          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand disabled:opacity-50 inline-flex items-center gap-1.5"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand disabled:opacity-50 inline-flex items-center gap-1.5 transition-[border-color,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:active:scale-100"
           :disabled="isPipelineWorking"
           :title="`Visit each lead's website, extract any publicly-listed email, then verify with NeverBounce`"
           @click="runEnrichEmails"
@@ -470,16 +472,22 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
             <AssistantMark class="h-3.5 w-3.5 text-brand" />
             Ada is working…
           </span>
-          <span v-else>🔎 Find emails ({{ enrichableCount }})</span>
+          <span v-else class="inline-flex items-center gap-1.5">
+            <AdaIcon name="email_marketing" class="h-3.5 w-3.5" />
+            Find emails ({{ enrichableCount }})
+          </span>
         </button>
         <button
           type="button"
-          class="rounded-md bg-surface-raised border border-brand text-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand/5"
+          class="rounded-md bg-surface-raised border border-brand text-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand/5 transition-[background-color,transform] duration-200 ease-out-quart active:scale-[0.97] inline-flex items-center gap-1.5"
           @click="researchOpen = true"
-        >🔍 Research</button>
+        >
+          <AdaIcon name="flask" class="h-3.5 w-3.5" />
+          Research
+        </button>
         <button
           type="button"
-          class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90"
+          class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-sm font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
           @click="importOpen = true"
         >+ Import CSV</button>
       </div>
@@ -542,7 +550,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
       <div class="card p-3"><div class="kpi-label">Queued</div><div class="text-xl font-semibold tabular-nums">{{ kpis.queued }}</div></div>
       <div class="card p-3"><div class="kpi-label">In flight</div><div class="text-xl font-semibold tabular-nums">{{ kpis.inFlight }}</div></div>
       <div class="card p-3"><div class="kpi-label">Promoted</div><div class="text-xl font-semibold tabular-nums">{{ kpis.promoted }}</div></div>
-      <div class="card p-3"><div class="kpi-label">High-score (≥80)</div><div class="text-xl font-semibold tabular-nums text-success">{{ kpis.highScore }}</div></div>
+      <div class="card p-3"><div class="kpi-label">High-score (≥80)</div><div class="text-xl font-semibold tabular-nums" :class="kpis.highScore > 0 ? 'text-success' : 'text-ink'">{{ kpis.highScore }}</div></div>
       <div class="card p-3"><div class="kpi-label">Avg ICP score</div><div class="text-xl font-semibold tabular-nums">{{ kpis.avgScore }}</div></div>
     </div>
 
@@ -595,12 +603,15 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
       <div v-else class="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
-          class="rounded-md bg-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90"
+          class="rounded-md bg-brand text-ink-inverse px-4 py-2 text-sm font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97] inline-flex items-center gap-1.5"
           @click="researchOpen = true"
-        >🔍 Research from Maps</button>
+        >
+          <AdaIcon name="flask" class="h-4 w-4" />
+          Research from Maps
+        </button>
         <button
           type="button"
-          class="rounded-md bg-surface-raised border border-divider text-ink px-4 py-2 text-sm font-semibold hover:border-brand"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-4 py-2 text-sm font-semibold hover:border-brand transition-[border-color,transform] duration-200 ease-out-quart active:scale-[0.97]"
           @click="importOpen = true"
         >Or import a CSV</button>
       </div>
@@ -610,7 +621,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
     <div v-else class="card overflow-hidden p-0">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-canvas text-[10px] font-medium text-ink-muted uppercase tracking-wide">
+          <thead class="bg-surface-elevated text-[10px] font-medium text-ink-muted uppercase tracking-wide">
             <tr>
               <th class="px-3 py-2 text-left w-16">Score</th>
               <th class="px-3 py-2 text-left">Company / Contact</th>
@@ -660,38 +671,49 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
                 <div class="text-[10px] text-ink-disabled mt-0.5">{{ fmtAge(lead.created_at) }}</div>
               </td>
               <td class="px-3 py-2 align-top">
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                  :class="STATUS_META[lead.status].pillClass"
-                >{{ STATUS_META[lead.status].label }}</span>
+                <div class="inline-flex flex-col items-start gap-1">
+                  <span
+                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    :class="STATUS_META[lead.status].pillClass"
+                  >{{ STATUS_META[lead.status].label }}</span>
+                  <span
+                    v-if="lead.outreach_paused"
+                    class="inline-flex items-center gap-1 rounded-full bg-accent/10 text-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                    :title="lead.outreach_paused_reason ?? 'Outreach paused'"
+                  >
+                    <AdaIcon name="phone-off" class="h-2.5 w-2.5" />
+                    Paused
+                  </span>
+                </div>
               </td>
               <td class="px-3 py-2 align-top text-right" @click.stop>
                 <div class="inline-flex flex-wrap gap-1 justify-end">
                   <button
                     v-if="lead.status !== 'promoted_to_pipeline' && lead.status !== 'disqualified'"
                     type="button"
-                    class="rounded bg-brand text-white px-2 py-0.5 text-[11px] font-semibold hover:opacity-90"
+                    class="rounded bg-brand text-ink-inverse px-2 py-0.5 text-[11px] font-semibold hover:opacity-90 transition-[opacity,transform] duration-150 ease-out-quart active:scale-[0.97]"
                     @click="onPromote(lead)"
                     title="Create a deal in the pipeline from this lead"
                   >→ Pipeline</button>
                   <button
                     v-if="lead.status !== 'archived' && lead.status !== 'disqualified' && lead.status !== 'promoted_to_pipeline'"
                     type="button"
-                    class="rounded bg-ink-muted/10 text-ink-muted px-2 py-0.5 text-[11px] font-medium hover:bg-ink-muted/20"
+                    class="rounded bg-ink-muted/10 text-ink-muted px-2 py-0.5 text-[11px] font-medium hover:bg-ink-muted/20 transition-[background-color,transform] duration-150 ease-out-quart active:scale-[0.97]"
                     @click="archive(lead.id)"
                     title="Save for later"
                   >Archive</button>
                   <button
                     v-if="lead.status !== 'disqualified' && lead.status !== 'promoted_to_pipeline'"
                     type="button"
-                    class="rounded bg-danger/10 text-danger px-2 py-0.5 text-[11px] font-medium hover:bg-danger/20"
+                    class="rounded bg-danger/10 text-danger px-2 py-0.5 text-[11px] font-medium hover:bg-danger/20 transition-[background-color,transform] duration-150 ease-out-quart active:scale-[0.97]"
                     @click="disqualify(lead.id)"
-                    title="Drop this lead — disqualifies so the auto-draft cron skips it. Open the lead to drop with a reason instead."
+                    aria-label="Disqualify lead"
+                    title="Drop this lead. Auto-draft cron will skip it. Open the lead to drop with a reason instead."
                   >×</button>
                   <button
                     v-if="lead.status === 'archived' || lead.status === 'disqualified'"
                     type="button"
-                    class="rounded bg-warn/10 text-warn px-2 py-0.5 text-[11px] font-medium hover:bg-warn/20"
+                    class="rounded bg-warn/10 text-warn px-2 py-0.5 text-[11px] font-medium hover:bg-warn/20 transition-[background-color,transform] duration-150 ease-out-quart active:scale-[0.97]"
                     @click="requeue(lead.id)"
                     title="Move back to New"
                   >Requeue</button>
@@ -701,7 +723,7 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
           </tbody>
         </table>
       </div>
-      <div class="border-t border-divider bg-canvas px-3 py-2 text-[11px] text-ink-muted">
+      <div class="border-t border-divider bg-surface-elevated px-3 py-2 text-[11px] text-ink-muted">
         Showing {{ filteredLeads.length }} of {{ leads.length }} leads · sorted by score
       </div>
     </div>

@@ -17,6 +17,7 @@ import { RouterLink } from 'vue-router'
 import type { Client } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import AssistantMark from '@/components/AssistantMark.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 import JoshPersonalOnboardingModal from '@/components/JoshPersonalOnboardingModal.vue'
 import JoshPersonalSageChatPanel from '@/components/JoshPersonalSageChatPanel.vue'
 import JoshPersonalMealPhotoModal from '@/components/JoshPersonalMealPhotoModal.vue'
@@ -365,7 +366,44 @@ function formatBriefDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
+// AI-generated copy still slips em dashes past the prompt-level ban
+// (especially in the headline). Per CLAUDE.md em dashes are banned in
+// UI/microcopy. Render-time scrub catches both stale cached briefs and
+// any future drift before they hit the operator's eye. Replaces em
+// dashes wrapped in spaces with a period + space; bare em dashes
+// (rare) get a comma.
+function scrubEmDashes(s: string | null | undefined): string {
+  if (!s) return ''
+  return s
+    .replace(/\s+—\s+/g, '. ')   // " — " between clauses → ". "
+    .replace(/—/g, ', ')          // any leftover em dash → ", "
+}
+
 const onboardingOpen = ref(false)
+
+// ── Collapse state for deeper-context sections ──────────────────────
+// Default to closed so above-the-fold stays tight; persist preference
+// in localStorage so power users (Josh) who always want them open
+// don't re-collapse on every page load. Per impeccable: vary visual
+// weight by what the user is doing right now; let them surface
+// secondary content on intent.
+function persistedCollapseState(key: string, defaultClosed = true): boolean {
+  if (typeof localStorage === 'undefined') return defaultClosed
+  const stored = localStorage.getItem(`josh-personal.collapsed.${key}`)
+  if (stored === 'true') return true
+  if (stored === 'false') return false
+  return defaultClosed
+}
+function setCollapsedPref(key: string, collapsed: boolean) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(`josh-personal.collapsed.${key}`, String(collapsed))
+}
+
+const briefCollapsed = ref(persistedCollapseState('brief'))
+const weightTrendCollapsed = ref(persistedCollapseState('weight-trend'))
+
+function toggleBrief()      { briefCollapsed.value = !briefCollapsed.value;             setCollapsedPref('brief',        briefCollapsed.value) }
+function toggleWeightTrend(){ weightTrendCollapsed.value = !weightTrendCollapsed.value; setCollapsedPref('weight-trend', weightTrendCollapsed.value) }
 
 // Best-effort current weight: try the snapshot first (today's reading),
 // otherwise the latest from profile metrics.
@@ -429,7 +467,7 @@ const mealPhotoOpen = ref(false)
     <section v-if="activeConcerns.length > 0" class="card p-3 border-warn/30">
       <div class="flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-3 min-w-0">
-          <span class="text-base shrink-0">⚠️</span>
+          <AdaIcon name="alert-triangle" class="h-4 w-4 text-warn shrink-0" />
           <div class="min-w-0">
             <div class="text-xs font-semibold text-ink">
               {{ activeConcerns.length }} active concern{{ activeConcerns.length === 1 ? '' : 's' }} from your last blood draw
@@ -472,55 +510,149 @@ const mealPhotoOpen = ref(false)
       </div>
     </section>
 
-    <!-- ── Targets summary (one-line, links to onboarding) ──────────── -->
-    <section v-if="hasProfile && targets" class="card p-3">
-      <div class="flex items-center justify-between gap-3 flex-wrap">
-        <div class="min-w-0">
-          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Targets · calculated from your profile</div>
-          <div class="text-sm font-semibold text-ink mt-0.5 tabular-nums">
-            {{ targets.daily_cal_target.toLocaleString() }} kcal · {{ targets.protein_g }}g protein · ≤ {{ targets.sat_fat_g_ceiling }}g sat fat
-            <span class="text-ink-muted text-xs font-normal ml-1">·
-              {{ targets.deficit_or_surplus_kcal !== 0
-                ? `${targets.deficit_or_surplus_kcal > 0 ? '+' : ''}${targets.deficit_or_surplus_kcal} vs TDEE`
-                : 'maintenance' }}
-            </span>
-          </div>
-          <div
-            v-if="targets.computed_from.bloodwork_adjustments.length > 0"
-            class="text-[11px] text-warn mt-1"
-          >
-            <strong class="font-semibold">Sage's blood-work guardrails:</strong>
-            {{ targets.computed_from.bloodwork_adjustments.join(' · ') }}
-          </div>
+    <!-- ════════════════════════════════════════════════════════════════
+         DAILY-DRIVER LOOP (above the fold)
+         The user's main daily flow lives here: orient → check metrics →
+         work the plan. Each section serves a specific morning action.
+         ════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── Today header + Quick log button ────────────────────────── -->
+    <div v-if="hasProfile" class="flex items-end justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="text-xl font-semibold text-ink">Today · {{ TODAY_LABEL }}</h2>
+        <p class="text-xs text-ink-muted mt-0.5">Apple Watch + Apple Health, synced this morning.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="card p-2 px-3 flex items-center gap-2">
+          <span class="text-[10px] uppercase tracking-wider text-ink-muted">Streak</span>
+          <span class="text-sm font-bold tabular-nums text-ink">{{ snapshot.streak.value }}<span class="text-[10px] font-normal text-ink-muted ml-0.5">{{ snapshot.streak.unit }}</span></span>
         </div>
         <button
           type="button"
-          class="text-xs text-brand font-medium hover:underline shrink-0"
-          @click="onboardingOpen = true"
-        >Edit profile</button>
+          class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90"
+          @click="openQuickLog"
+        >+ Quick log</button>
       </div>
-    </section>
+    </div>
 
-    <!-- ── Bigger goal: weight trend (line graph) ─────────────────── -->
-    <JoshPersonalWeightTrendCard
-      v-if="weightGoal"
-      :current="weightGoal.current"
-      :target="weightGoal.target"
-      :series="dailyWeight"
-      :target-deadline="profile?.target_deadline ?? null"
-      :primary-goal="profile?.primary_goal"
-      :status-label="weightGoal.statusLabel"
-      :status-badge-class="weightGoalStatusBadge(weightGoal.status)"
-      :detail="weightGoal.detail"
+    <!-- ── Goal-aware daily rings + focus metric ─────────────────── -->
+    <JoshPersonalDailyRings
+      v-if="hasProfile"
+      :calories-value="todayTotals.cal"
+      :calories-target="safeTargets.daily_cal_target"
+      :protein-value="todayTotals.protein_g"
+      :protein-target="safeTargets.protein_g"
+      :steps-value="todayStepsNumeric"
+      :steps-target="STEPS_DAILY_TARGET"
+      :water-value="todayWaterOz"
+      :water-target="safeTargets.water_oz ?? 96"
+      :sleep-value="lastNightSleep"
+      :sleep-target="sleepTargetHours"
+      :micro-insights="microInsights"
     />
 
+    <!-- ── Hydration tap-log ──────────────────────────────────────── -->
+    <JoshPersonalHydrationCard
+      v-if="hasProfile"
+      :today-oz="todayWaterOz"
+      :target-oz="safeTargets.water_oz ?? 96"
+      @logged="reloadAfterMetricWrite"
+    />
+
+    <!-- ── Today: plan vs actual (meals) ──────────────────────────── -->
+    <JoshPersonalDaySchedule
+      v-if="hasProfile"
+      :planned-meals="plannedTodayMeals"
+      :logged-meals="todayMeals"
+      :show-plan-fallback-hint="true"
+      @delete-meal="onDeleteMeal"
+      @log-planned="onLogPlanned"
+    />
+
+    <!-- ── Today's workout ────────────────────────────────────────── -->
+    <JoshPersonalWorkoutPanel
+      v-if="hasProfile && today"
+      :workout="today.workout ?? null"
+      :exercises="todayPlannedExercises"
+    />
+
+    <!-- ════════════════════════════════════════════════════════════════
+         DEEPER CONTEXT (below the fold, collapsible)
+         Brief, patterns, experiments, weight trend, and targets all
+         live here. The daily loop above answers "what do I do now"; the
+         sections below answer "what does Sage think this week."
+         ════════════════════════════════════════════════════════════════ -->
+    <div v-if="hasProfile" class="border-t border-divider pt-4 mt-2">
+      <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted mb-3 flex items-center gap-2">
+        <AssistantMark class="h-3.5 w-3.5 text-brand" />
+        Sage's context
+      </div>
+    </div>
+
+    <!-- ── Weight trend (collapsible) ─────────────────────────────── -->
+    <template v-if="hasProfile && weightGoal">
+      <button
+        v-if="weightTrendCollapsed"
+        type="button"
+        class="card w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface-elevated transition-colors"
+        @click="toggleWeightTrend"
+        aria-expanded="false"
+      >
+        <div class="flex items-baseline gap-3 min-w-0 text-left flex-wrap">
+          <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Weight goal</span>
+          <span class="text-sm font-semibold text-ink tabular-nums">
+            {{ weightGoal.current.toFixed(1) }} lbs → {{ weightGoal.target }} lbs
+          </span>
+          <span
+            class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+            :class="weightGoalStatusBadge(weightGoal.status)"
+          >{{ weightGoal.statusLabel }}</span>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          class="text-ink-muted shrink-0"
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+      <div v-else class="relative">
+        <JoshPersonalWeightTrendCard
+          :current="weightGoal.current"
+          :target="weightGoal.target"
+          :series="dailyWeight"
+          :target-deadline="profile?.target_deadline ?? null"
+          :primary-goal="profile?.primary_goal"
+          :status-label="weightGoal.statusLabel"
+          :status-badge-class="weightGoalStatusBadge(weightGoal.status)"
+          :detail="weightGoal.detail"
+        />
+        <button
+          type="button"
+          class="absolute top-3 right-3 rounded-md text-ink-muted hover:text-ink hover:bg-surface-elevated p-1.5 rotate-180 transition-colors"
+          aria-label="Collapse weight trend"
+          @click="toggleWeightTrend"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+      </div>
+    </template>
+
     <!-- ── Sage's morning brief ───────────────────────────────────── -->
+    <!-- Default collapsed: headline always visible, full 4-quadrant
+         hides behind a chevron. Power users (Josh) get persistent
+         "expanded" state via localStorage. -->
     <section
       v-if="hasProfile && brief"
       class="rounded-card border-2 border-brand/40 bg-brand/5 overflow-hidden"
     >
-      <header class="flex items-start justify-between gap-3 px-5 py-4 border-b border-brand/20 bg-brand/10">
-        <div class="flex items-start gap-3 min-w-0">
+      <header class="flex items-start justify-between gap-3 px-5 py-4" :class="briefCollapsed ? '' : 'border-b border-brand/20 bg-brand/10'">
+        <button
+          type="button"
+          class="flex items-start gap-3 min-w-0 flex-1 text-left"
+          @click="toggleBrief"
+          :aria-expanded="!briefCollapsed"
+        >
           <AssistantMark class="h-6 w-6 text-brand mt-0.5 shrink-0" />
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap mb-1">
@@ -533,50 +665,63 @@ const mealPhotoOpen = ref(false)
               >stale · regenerate for today</span>
             </div>
             <p v-if="brief.headline" class="text-base font-semibold text-ink leading-snug">
-              {{ brief.headline }}
+              {{ scrubEmDashes(brief.headline) }}
             </p>
           </div>
-        </div>
-        <button
-          type="button"
-          class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50 inline-flex items-center gap-1.5 shrink-0"
-          :disabled="briefGenerating"
-          @click="onRegenerateBrief"
-        >
-          <AssistantMark class="h-3.5 w-3.5 text-brand" />
-          <span v-if="briefGenerating">Sage is writing…</span>
-          <span v-else>Regenerate</span>
         </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50 inline-flex items-center gap-1.5"
+            :disabled="briefGenerating"
+            @click="onRegenerateBrief"
+          >
+            <AssistantMark class="h-3.5 w-3.5 text-brand" />
+            <span v-if="briefGenerating">Sage is writing…</span>
+            <span v-else>Regenerate</span>
+          </button>
+          <button
+            type="button"
+            class="rounded-md text-brand hover:bg-brand/10 p-1.5 transition-transform duration-200"
+            :class="briefCollapsed ? '' : 'rotate-180'"
+            :aria-label="briefCollapsed ? 'Expand brief' : 'Collapse brief'"
+            @click="toggleBrief"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
       </header>
 
-      <div class="grid sm:grid-cols-2 gap-px bg-divider">
+      <div v-if="!briefCollapsed" class="grid sm:grid-cols-2 gap-px bg-divider">
         <div v-if="brief.todays_focus" class="bg-surface px-5 py-4">
           <div class="flex items-center gap-1.5 mb-2">
-            <span class="text-base">🟢</span>
+            <AdaIcon name="check-circle" class="h-3.5 w-3.5 text-success" />
             <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Today's focus</span>
           </div>
-          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.todays_focus }}</p>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ scrubEmDashes(brief.todays_focus) }}</p>
         </div>
         <div v-if="brief.watch_out_for" class="bg-surface px-5 py-4">
           <div class="flex items-center gap-1.5 mb-2">
-            <span class="text-base">⚠️</span>
+            <AdaIcon name="alert-triangle" class="h-3.5 w-3.5 text-warn" />
             <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Watch out for</span>
           </div>
-          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.watch_out_for }}</p>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ scrubEmDashes(brief.watch_out_for) }}</p>
         </div>
         <div v-if="brief.patterns_noticed" class="bg-surface px-5 py-4">
           <div class="flex items-center gap-1.5 mb-2">
-            <span class="text-base">📈</span>
+            <AdaIcon name="trending-up" class="h-3.5 w-3.5 text-brand" />
             <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Pattern Sage noticed</span>
           </div>
-          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.patterns_noticed }}</p>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ scrubEmDashes(brief.patterns_noticed) }}</p>
         </div>
         <div v-if="brief.goal_check" class="bg-surface px-5 py-4">
           <div class="flex items-center gap-1.5 mb-2">
-            <span class="text-base">💪</span>
+            <AdaIcon name="quote_followup" class="h-3.5 w-3.5 text-brand" />
             <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Goal check</span>
           </div>
-          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ brief.goal_check }}</p>
+          <p class="text-sm text-ink leading-relaxed whitespace-pre-line">{{ scrubEmDashes(brief.goal_check) }}</p>
         </div>
       </div>
     </section>
@@ -641,62 +786,34 @@ const mealPhotoOpen = ref(false)
       @reload="reloadExperiments"
     />
 
-    <!-- ── Today header + Quick log button ────────────────────────── -->
-    <div class="flex items-end justify-between gap-3 flex-wrap">
-      <div>
-        <h2 class="text-xl font-semibold text-ink">Today · {{ TODAY_LABEL }}</h2>
-        <p class="text-xs text-ink-muted mt-0.5">Apple Watch + Apple Health, synced this morning.</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="card p-2 px-3 flex items-center gap-2">
-          <span class="text-[10px] uppercase tracking-wider text-ink-muted">Streak</span>
-          <span class="text-sm font-bold tabular-nums text-ink">{{ snapshot.streak.value }}<span class="text-[10px] font-normal text-ink-muted ml-0.5">{{ snapshot.streak.unit }}</span></span>
+    <!-- ── Targets summary (reference info, demoted to bottom) ────── -->
+    <section v-if="hasProfile && targets" class="card p-3">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="min-w-0">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Targets · calculated from your profile</div>
+          <div class="text-sm font-semibold text-ink mt-0.5 tabular-nums">
+            {{ targets.daily_cal_target.toLocaleString() }} kcal · {{ targets.protein_g }}g protein · ≤ {{ targets.sat_fat_g_ceiling }}g sat fat
+            <span class="text-ink-muted text-xs font-normal ml-1">·
+              {{ targets.deficit_or_surplus_kcal !== 0
+                ? `${targets.deficit_or_surplus_kcal > 0 ? '+' : ''}${targets.deficit_or_surplus_kcal} vs TDEE`
+                : 'maintenance' }}
+            </span>
+          </div>
+          <div
+            v-if="targets.computed_from.bloodwork_adjustments.length > 0"
+            class="text-[11px] text-warn mt-1"
+          >
+            <strong class="font-semibold">Sage's blood-work guardrails:</strong>
+            {{ targets.computed_from.bloodwork_adjustments.join(' · ') }}
+          </div>
         </div>
         <button
           type="button"
-          class="rounded-md bg-brand text-white px-3 py-1.5 text-sm font-semibold hover:opacity-90"
-          @click="openQuickLog"
-        >+ Quick log</button>
+          class="text-xs text-brand font-medium hover:underline shrink-0"
+          @click="onboardingOpen = true"
+        >Edit profile</button>
       </div>
-    </div>
-
-    <!-- ── Goal-aware daily rings + micro-insights ──────────────── -->
-    <JoshPersonalDailyRings
-      :calories-value="todayTotals.cal"
-      :calories-target="safeTargets.daily_cal_target"
-      :protein-value="todayTotals.protein_g"
-      :protein-target="safeTargets.protein_g"
-      :steps-value="todayStepsNumeric"
-      :steps-target="STEPS_DAILY_TARGET"
-      :water-value="todayWaterOz"
-      :water-target="safeTargets.water_oz ?? 96"
-      :sleep-value="lastNightSleep"
-      :sleep-target="sleepTargetHours"
-      :micro-insights="microInsights"
-    />
-
-    <!-- ── Hydration tap-log ──────────────────────────────────────── -->
-    <JoshPersonalHydrationCard
-      :today-oz="todayWaterOz"
-      :target-oz="safeTargets.water_oz ?? 96"
-      @logged="reloadAfterMetricWrite"
-    />
-
-    <!-- ── Today: plan vs actual (merged) ─────────────────────────── -->
-    <JoshPersonalDaySchedule
-      :planned-meals="plannedTodayMeals"
-      :logged-meals="todayMeals"
-      :show-plan-fallback-hint="true"
-      @delete-meal="onDeleteMeal"
-      @log-planned="onLogPlanned"
-    />
-
-    <!-- ── Today's workout ────────────────────────────────────────── -->
-    <JoshPersonalWorkoutPanel
-      v-if="today"
-      :workout="today.workout ?? null"
-      :exercises="todayPlannedExercises"
-    />
+    </section>
 
     <!-- ── Snap meal + recent days expander ───────────────────────── -->
     <section class="card p-3">
@@ -707,9 +824,12 @@ const mealPhotoOpen = ref(false)
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1"
+            class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
             @click="mealPhotoOpen = true"
-          >📷 Snap meal</button>
+          >
+            <AdaIcon name="flask" class="h-3 w-3" />
+            Snap meal
+          </button>
           <button
             v-if="totalLogged > todayMeals.length"
             type="button"

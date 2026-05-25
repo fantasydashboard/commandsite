@@ -214,7 +214,13 @@ Deno.serve(async (req: Request) => {
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       apikey: SERVICE_ROLE_KEY,
     },
-    body: JSON.stringify({ to: recipient.email, subject: draft.subject, body: draft.body }),
+    body: JSON.stringify({
+      to: recipient.email,
+      subject: draft.subject,
+      body: draft.body,
+      // Transactional 1:1 email — not subject to the cold-outreach send window.
+      bypass_send_window: true,
+    }),
   })
 
   if (!sendRes.ok) {

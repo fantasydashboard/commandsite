@@ -267,7 +267,7 @@ defineExpose({ resetSaving: () => { saving.value = false } })
             >Cancel</button>
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
+              class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
               :disabled="saving"
               @click="save"
             >

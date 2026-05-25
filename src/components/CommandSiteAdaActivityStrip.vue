@@ -7,6 +7,7 @@
 import { computed } from 'vue'
 import { rolesOnTab } from '@/lib/clients/commandsite/roles'
 import AssistantMark from '@/components/AssistantMark.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 interface ActivityItem { icon: string; label: string; detail?: string; ago?: string }
 
@@ -30,7 +31,7 @@ const roles = computed(() => rolesOnTab(props.tabKey))
           <span class="text-sm font-semibold text-ink">Ada's role on this page</span>
           <template v-for="role in roles" :key="role.key">
             <span class="rounded-full bg-brand/15 text-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
-              <span>{{ role.icon }}</span>
+              <AdaIcon :name="role.icon" class="h-3 w-3" />
               <span>{{ role.name }}</span>
             </span>
           </template>
@@ -49,7 +50,7 @@ const roles = computed(() => rolesOnTab(props.tabKey))
           :key="i"
           class="flex items-center gap-2 text-xs"
         >
-          <span class="text-base flex-shrink-0">{{ a.icon }}</span>
+          <AdaIcon :name="a.icon" class="h-4 w-4 flex-shrink-0 text-ink-muted" />
           <span class="font-medium text-ink">{{ a.label }}</span>
           <span v-if="a.detail" class="text-ink-muted truncate flex-1">{{ a.detail }}</span>
           <span v-if="a.ago" class="text-[10px] text-ink-disabled flex-shrink-0">{{ a.ago }}</span>

@@ -31,10 +31,25 @@ const emit = defineEmits<{
   (e: 'saved'): void
 }>()
 
-const { savePanel } = useBloodwork()
+const { savePanel, recomputeTargetsAfterBloodwork } = useBloodwork()
 
-type Stage = 'pick' | 'extracting' | 'review'
+type Stage = 'pick' | 'extracting' | 'review' | 'targets-updated'
 const stage = ref<Stage>('pick')
+
+// Diff returned by recomputeTargetsAfterBloodwork — shown to the user on
+// the 'targets-updated' stage so they SEE what Sage changed before
+// closing. This is the closed-loop moment the whole product hinges on.
+interface TargetChange {
+  key: string
+  label: string
+  before: number | string | null
+  after: number | string | null
+  unit: string
+  direction: 'tighter' | 'looser' | 'changed' | 'neutral'
+}
+const targetChanges = ref<TargetChange[]>([])
+const regeneratingPlan = ref(false)
+const planRegenStatus = ref<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
 const file = ref<File | null>(null)
 const dragOver = ref(false)
@@ -68,6 +83,8 @@ watch(() => props.open, (isOpen) => {
     canonicalValues.value = {}
     additionalMarkers.value = []
     extractionNotes.value = null
+    targetChanges.value = []
+    planRegenStatus.value = null
   }
 })
 
@@ -191,13 +208,56 @@ async function onSave() {
     notes: notes.value || null,
     markers: allMarkers,
   })
-  submitting.value = false
 
   if (!result.ok) {
+    submitting.value = false
     errorMsg.value = result.error ?? 'Failed to save panel'
     return
   }
+
+  // Closed-loop: recompute targets against the new bloodwork. If
+  // anything changed, transition to the 'targets-updated' stage so
+  // the user sees what Sage moved (sat fat ceiling, cal target, etc.)
+  // and can optionally fire a fresh meal plan. If nothing material
+  // changed, close as before.
+  const recompute = await recomputeTargetsAfterBloodwork()
+  submitting.value = false
+
+  if (recompute.ok && recompute.changes.length > 0) {
+    targetChanges.value = recompute.changes as TargetChange[]
+    stage.value = 'targets-updated'
+    emit('saved')  // emit early so parent reloads the underlying bloodwork list
+    return
+  }
+
+  // No material change OR recompute failed silently — close normally.
   emit('saved')
+  emit('close')
+}
+
+async function regeneratePlan() {
+  regeneratingPlan.value = true
+  planRegenStatus.value = null
+  const { data, error: fnErr } = await supabase.functions.invoke('generate-weekly-plan', {
+    body: { reason: 'bloodwork_updated' },
+  })
+  regeneratingPlan.value = false
+  type GenResult = { ok?: boolean; error?: string }
+  const result = data as GenResult | null
+  if (fnErr || !result?.ok) {
+    planRegenStatus.value = {
+      kind: 'err',
+      text: fnErr?.message ?? result?.error ?? 'Plan regeneration failed',
+    }
+    return
+  }
+  planRegenStatus.value = {
+    kind: 'ok',
+    text: 'New weekly plan generated. Open the Plan tab to see it.',
+  }
+}
+
+function finishAndClose() {
   emit('close')
 }
 
@@ -300,6 +360,7 @@ function humanizeKey(key: string): string {
                 <h2 class="text-lg font-semibold text-ink">
                   <span v-if="stage === 'pick'">Drop your lab report</span>
                   <span v-else-if="stage === 'extracting'">Sage is reading your panel</span>
+                  <span v-else-if="stage === 'targets-updated'">Sage updated your targets</span>
                   <span v-else>Review what Sage extracted</span>
                 </h2>
                 <p v-if="stage === 'pick'" class="text-xs text-ink-muted mt-0.5">
@@ -307,6 +368,9 @@ function humanizeKey(key: string): string {
                 </p>
                 <p v-else-if="stage === 'review'" class="text-xs text-ink-muted mt-0.5">
                   Edit any value if Sage misread it. Save when it looks right.
+                </p>
+                <p v-else-if="stage === 'targets-updated'" class="text-xs text-ink-muted mt-0.5">
+                  Here's what moved based on your new bloodwork. Your meal plan can regenerate against the new ceilings.
                 </p>
               </div>
               <button
@@ -364,7 +428,7 @@ function humanizeKey(key: string): string {
             </div>
 
             <!-- STAGE 3: review extracted -->
-            <div v-else class="space-y-5">
+            <div v-else-if="stage === 'review'" class="space-y-5">
               <!-- Panel meta -->
               <div class="grid sm:grid-cols-3 gap-4">
                 <div>
@@ -457,6 +521,80 @@ function humanizeKey(key: string): string {
 
               <p v-if="errorMsg" class="text-sm text-danger">{{ errorMsg }}</p>
             </div>
+
+            <!-- STAGE 4: targets updated — closed-loop reveal -->
+            <!-- The pitch-defining moment. Sage just read new bloodwork
+                 and the user sees WHAT she changed: sat fat ceiling moved,
+                 cal target adjusted, guardrails updated. One click to push
+                 those changes into a regenerated meal plan. -->
+            <div v-else-if="stage === 'targets-updated'" class="space-y-4">
+              <div class="rounded-card border border-success/40 bg-success/5 px-4 py-3 flex items-start gap-3">
+                <AssistantMark class="h-5 w-5 text-success mt-0.5 shrink-0" />
+                <div>
+                  <div class="text-sm font-semibold text-ink">Panel saved. Your targets moved.</div>
+                  <p class="text-xs text-ink-muted mt-0.5 leading-snug">
+                    Sage recomputed your daily targets against the new markers. Below is what changed. Your meal plan can regenerate against the new ceilings whenever you're ready.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Diff list -->
+              <ul class="rounded-card border border-divider divide-y divide-divider overflow-hidden">
+                <li
+                  v-for="change in targetChanges"
+                  :key="String(change.key)"
+                  class="px-4 py-3 flex items-baseline justify-between gap-3 flex-wrap"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{{ change.label }}</div>
+                    <div class="text-sm text-ink mt-0.5">
+                      <template v-if="typeof change.before === 'number' && typeof change.after === 'number'">
+                        <span class="text-ink-muted line-through tabular-nums">{{ change.before }}{{ change.unit }}</span>
+                        <span class="text-ink-muted mx-1.5">→</span>
+                        <span class="font-semibold tabular-nums">{{ change.after }}{{ change.unit }}</span>
+                      </template>
+                      <template v-else>
+                        <span class="text-ink-muted italic block">Was: {{ change.before || 'none' }}</span>
+                        <span class="font-semibold block mt-0.5">Now: {{ change.after || 'none' }}</span>
+                      </template>
+                    </div>
+                  </div>
+                  <span
+                    v-if="change.direction !== 'neutral'"
+                    class="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0"
+                    :class="{
+                      'bg-warn/15 text-warn':    change.direction === 'tighter',
+                      'bg-success/15 text-success': change.direction === 'looser',
+                      'bg-brand/15 text-brand':  change.direction === 'changed',
+                    }"
+                  >{{ change.direction }}</span>
+                </li>
+              </ul>
+
+              <!-- Regenerate meal plan CTA -->
+              <div class="rounded-card border border-brand/30 bg-brand/5 px-4 py-3">
+                <div class="text-sm font-semibold text-ink mb-1">Want Sage to redraft this week's meal plan?</div>
+                <p class="text-xs text-ink-muted mb-2 leading-snug">
+                  She'll rebuild the next 7 days against your new sat fat ceiling, protein target, and calorie window. Takes about 30 seconds.
+                </p>
+                <p
+                  v-if="planRegenStatus"
+                  class="text-xs mb-2"
+                  :class="planRegenStatus.kind === 'ok' ? 'text-success' : 'text-danger'"
+                >{{ planRegenStatus.text }}</p>
+                <button
+                  type="button"
+                  class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5"
+                  :disabled="regeneratingPlan || planRegenStatus?.kind === 'ok'"
+                  @click="regeneratePlan"
+                >
+                  <AssistantMark class="h-3.5 w-3.5 text-white" />
+                  <span v-if="regeneratingPlan">Sage is drafting…</span>
+                  <span v-else-if="planRegenStatus?.kind === 'ok'">Plan regenerated</span>
+                  <span v-else>Regenerate this week's plan</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- ── Footer ────────────────────────────────────────────── -->
@@ -475,6 +613,7 @@ function humanizeKey(key: string): string {
                 {{ extractedCount }} markers ready to save
               </span>
               <button
+                v-if="stage !== 'targets-updated'"
                 type="button"
                 class="btn-secondary !text-sm"
                 :disabled="submitting || stage === 'extracting'"
@@ -490,6 +629,12 @@ function humanizeKey(key: string): string {
                 <span v-if="submitting">Saving…</span>
                 <span v-else>Save panel</span>
               </button>
+              <button
+                v-if="stage === 'targets-updated'"
+                type="button"
+                class="btn-primary !text-sm"
+                @click="finishAndClose"
+              >Done</button>
             </div>
           </div>
         </div>

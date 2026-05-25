@@ -23,6 +23,7 @@ import ApexMetricsModule from './ApexMetricsModule.vue'
 import CommandSiteTodayModule from './CommandSiteTodayModule.vue'
 import CommandSitePipelineModule from './CommandSitePipelineModule.vue'
 import CommandSiteLeadsModule from './CommandSiteLeadsModule.vue'
+import CommandSiteConversationsModule from './CommandSiteConversationsModule.vue'
 import CommandSiteCustomersModule from './CommandSiteCustomersModule.vue'
 import CommandSiteOutreachModule from './CommandSiteOutreachModule.vue'
 import CommandSiteRevenueModule from './CommandSiteRevenueModule.vue'
@@ -105,6 +106,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'metrics', label: 'Metrics' },
   { key: 'pipeline', label: 'Pipeline' },
   { key: 'leads', label: 'Leads' },
+  { key: 'conversations', label: 'Conversations' },
   { key: 'outreach', label: 'Outreach' },
   { key: 'revenue', label: 'Revenue' },
   { key: 'social', label: 'Social' },
@@ -405,6 +407,25 @@ export const moduleRegistry: ModuleDefinition[] = [
     component: CommandSiteLeadsModule,
     fullWidth: true,
     tab: 'leads',
+  },
+  {
+    key: 'commandsite-conversations',
+    label: 'CommandSite Conversations',
+    description: 'Per-lead conversation inbox — all outbound sends + inbound replies in one place, with in-thread reply composer.',
+    component: CommandSiteConversationsModule,
+    fullWidth: true,
+    tab: 'conversations',
+    // Live badge: how many threads need a human response right now.
+    // Counts replied + active leads where the most recent activity is
+    // an inbound reply. The conversations module recomputes this
+    // server-side on load; here we approximate with the cs_replies
+    // import already pulled for the outreach badge.
+    badge: () => {
+      const actionable = csReplies.filter((r) =>
+        r.classification === 'positive' || r.classification === 'objection',
+      ).length
+      return actionable > 0 ? { count: actionable, tone: 'info' } : null
+    },
   },
   {
     key: 'commandsite-customers',

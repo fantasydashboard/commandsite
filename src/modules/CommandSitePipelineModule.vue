@@ -149,7 +149,7 @@ const staleQueue = computed<ApprovalQueueItem[]>(() => {
     const stageMeta = STAGE_META[d.stage as PipelineStage]
     items.push({
       id: `pipe-stale-${d.id}`,
-      icon: '⏰',
+      icon: 'clock',
       badge: 'Stale deal',
       badgeClass: 'bg-warn/15 text-warn',
       title: `${d.company_name} — ${days}d in ${stageMeta?.label ?? d.stage}`,
@@ -185,32 +185,43 @@ const tickerSeed = computed(() => {
     const days = d.days_in_stage ?? 0
     const ageSec = days * 86400
     const stageMap: Record<string, string> = {
-      cold: '❄️ Added to pipeline',
-      researched: '🔍 Researched',
-      contacted: '📤 First touch sent',
-      replied: '💬 Replied',
-      demo_booked: '📅 Demo booked',
-      demo_done: '🎤 Demo complete',
-      proposal: '📨 Proposal sent',
-      closed_won: '🎉 Closed won',
-      closed_lost: '❌ Closed lost',
+      cold:        'Added to pipeline',
+      researched:  'Researched',
+      contacted:   'First touch sent',
+      replied:     'Replied',
+      demo_booked: 'Demo booked',
+      demo_done:   'Demo complete',
+      proposal:    'Proposal sent',
+      closed_won:  'Closed won',
+      closed_lost: 'Closed lost',
     }
     const label = stageMap[d.stage] ?? d.stage
-    events.push({ icon: label.split(' ')[0], text: `${d.company_name} — ${label.split(' ').slice(1).join(' ')}`, ageSec })
+    const stageIcon =
+      d.stage === 'cold'        ? 'referral_hunter' :
+      d.stage === 'researched'  ? 'flask' :
+      d.stage === 'contacted'   ? 'email_marketing' :
+      d.stage === 'replied'     ? 'qa_assistant' :
+      d.stage === 'demo_booked' ? 'calendar' :
+      d.stage === 'demo_done'   ? 'check-circle' :
+      d.stage === 'proposal'    ? 'quote_followup' :
+      d.stage === 'closed_won'  ? 'trending-up' :
+      d.stage === 'closed_lost' ? 'alert-triangle' :
+      'shuffle'
+    events.push({ icon: stageIcon, text: `${d.company_name} · ${label}`, ageSec })
   }
   if (events.length === 0) {
-    return [{ icon: '⚙️', text: 'Pipeline ready — promote leads from Outreach replies, or add deals manually', ageSec: 0 }]
+    return [{ icon: 'flask', text: 'Pipeline ready · promote leads from Outreach replies, or add deals manually', ageSec: 0 }]
   }
   return events.sort((a, b) => a.ageSec - b.ageSec).slice(0, 5)
 })
 
 const tickerPool = [
-  { icon: '📅', text: 'Calendly fired — deal auto-promoted to demo_booked' },
-  { icon: '🎤', text: 'Demo complete — stage advanced to demo_done' },
-  { icon: '📨', text: 'Proposal sent — stage advanced to proposal' },
-  { icon: '🎉', text: 'Deal closed won — first MRR pending' },
-  { icon: '⏰', text: 'Stale-deal sweep — N deals flagged for action' },
-  { icon: '💬', text: 'Reply landed on a pipeline deal — surfaced to top' },
+  { icon: 'calendar',        text: 'Calendly fired · deal auto-promoted to demo_booked' },
+  { icon: 'check-circle',    text: 'Demo complete · stage advanced to demo_done' },
+  { icon: 'email_marketing', text: 'Proposal sent · stage advanced to proposal' },
+  { icon: 'trending-up',     text: 'Deal closed won · first MRR pending' },
+  { icon: 'clock',           text: 'Stale-deal sweep · N deals flagged for action' },
+  { icon: 'qa_assistant',    text: 'Reply landed on a pipeline deal · surfaced to top' },
 ]
 
 const pipelineTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
@@ -268,7 +279,7 @@ function onPipelineApproved(item: ApprovalQueueItem) {
         </span>
         <button
           type="button"
-          class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+          class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90"
           @click="modalOpen = true"
         >+ Add deal</button>
       </div>
@@ -318,7 +329,7 @@ function onPipelineApproved(item: ApprovalQueueItem) {
         >
           <!-- Column header -->
           <div
-            class="rounded-t-card px-3 py-2.5 flex items-center justify-between gap-2 text-white"
+            class="rounded-t-card px-3 py-2.5 flex items-center justify-between gap-2 text-ink-inverse"
             :style="{ backgroundColor: STAGE_META[stage].color }"
           >
             <div class="min-w-0">

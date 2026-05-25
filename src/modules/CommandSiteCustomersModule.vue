@@ -175,10 +175,10 @@ function healthTrendColor(t: Company['health_trend']): string {
   <div class="space-y-4">
     <CommandSiteAdaActivityStrip
       tab-key="customers"
-      summary="Ada watches every paying customer for early churn signals — MRR drops, product-usage cliffs, support ticket spikes — and triages inbound support tickets with drafted replies."
+      summary="Ada watches every paying customer for early churn signals (MRR drops, product-usage cliffs, support ticket spikes) and triages inbound support tickets with drafted replies."
       :activity="[
-        { icon: '💚', label: 'No customers yet', detail: 'roles activate once you onboard your first paying customer', ago: 'live' },
-        { icon: '🤝', label: 'Support Triage standing by', detail: 'will classify + draft replies to inbound tickets when they start', ago: '—' },
+        { icon: 'customer_health', label: 'No customers yet', detail: 'roles activate once you onboard your first paying customer', ago: 'live' },
+        { icon: 'qa_assistant', label: 'Support Triage standing by', detail: 'will classify + draft replies to inbound tickets when they start', ago: '—' },
       ]"
     />
 
@@ -192,7 +192,7 @@ function healthTrendColor(t: Company['health_trend']): string {
       </div>
       <button
         type="button"
-        class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+        class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90"
         @click="openWizardBlank"
       >+ Onboard customer</button>
     </div>
@@ -224,7 +224,7 @@ function healthTrendColor(t: Company['health_trend']): string {
             </div>
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
+              class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
               @click="openWizardFromDeal(d)"
             >Start onboarding →</button>
           </li>
@@ -330,14 +330,14 @@ function healthTrendColor(t: Company['health_trend']): string {
         <button
           type="button"
           class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-          :class="stageFilter === 'all' ? 'bg-brand text-white' : 'bg-surface-elevated text-ink-muted hover:bg-surface-elevated/80'"
+          :class="stageFilter === 'all' ? 'bg-brand text-ink-inverse' : 'bg-surface-elevated text-ink-muted hover:bg-surface-elevated/80'"
           @click="stageFilter = 'all'"
         >All</button>
         <button
           v-for="s in stageOrder"
           :key="s"
           type="button"
-          class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-white"
+          class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-ink-inverse"
           :style="stageFilter === s
             ? { backgroundColor: STAGE_META[s].color }
             : { backgroundColor: STAGE_META[s].color + '22', color: STAGE_META[s].color }"
@@ -399,13 +399,13 @@ function healthTrendColor(t: Company['health_trend']): string {
                 </td>
                 <td class="px-3 py-2.5">
                   <span
-                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white whitespace-nowrap"
+                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse whitespace-nowrap"
                     :style="{ backgroundColor: STAGE_META[c.stage].color }"
                   >{{ STAGE_META[c.stage].label }}</span>
                 </td>
                 <td class="px-3 py-2.5">
                   <span
-                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white whitespace-nowrap"
+                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse whitespace-nowrap"
                     :style="{ backgroundColor: PLAN_META[c.plan].color }"
                   >{{ PLAN_META[c.plan].label }}</span>
                 </td>

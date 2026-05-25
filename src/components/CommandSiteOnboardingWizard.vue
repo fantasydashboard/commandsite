@@ -421,13 +421,13 @@ const totalYear1 = computed(() => setupFee.value + monthlyRate.value * 12)
                   </div>
                   <!-- Preview -->
                   <div class="mt-4 rounded-lg border border-divider overflow-hidden">
-                    <div class="px-4 py-3 text-white text-sm font-bold" :style="{ backgroundColor: primaryColor }">
+                    <div class="px-4 py-3 text-ink-inverse text-sm font-bold" :style="{ backgroundColor: primaryColor }">
                       {{ wordmarkText || orgName || 'Preview' }}
                     </div>
                     <div class="px-4 py-3 bg-surface">
                       <button
                         type="button"
-                        class="rounded px-3 py-1.5 text-xs font-semibold text-white"
+                        class="rounded px-3 py-1.5 text-xs font-semibold text-ink-inverse"
                         :style="{ backgroundColor: primaryColor }"
                       >Sample button</button>
                     </div>
@@ -449,7 +449,7 @@ const totalYear1 = computed(() => setupFee.value + monthlyRate.value * 12)
                     v-for="(c, i) in contacts"
                     :key="i"
                     class="rounded-lg border border-divider p-3 space-y-2"
-                    :class="c.primary ? 'bg-brand/5 border-brand/30' : 'bg-canvas/40'"
+                    :class="c.primary ? 'bg-brand/5 border-brand/30' : 'bg-surface-elevated/40'"
                   >
                     <div class="flex items-center justify-between mb-1">
                       <label class="flex items-center gap-2 text-xs">
@@ -549,7 +549,7 @@ const totalYear1 = computed(() => setupFee.value + monthlyRate.value * 12)
               <section>
                 <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-3">Ready to activate</div>
                 <div class="space-y-3 text-sm">
-                  <div class="rounded-lg bg-canvas/40 border border-divider p-3">
+                  <div class="rounded-lg bg-surface-elevated/40 border border-divider p-3">
                     <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-2">Organization</div>
                     <div class="text-ink font-semibold">{{ orgName }}</div>
                     <div class="text-[11px] text-ink-muted">
@@ -557,14 +557,14 @@ const totalYear1 = computed(() => setupFee.value + monthlyRate.value * 12)
                       <template v-if="city && state"> · {{ city }}, {{ state }}</template>
                     </div>
                   </div>
-                  <div class="rounded-lg bg-canvas/40 border border-divider p-3">
+                  <div class="rounded-lg bg-surface-elevated/40 border border-divider p-3">
                     <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-2">Plan</div>
                     <div class="text-ink">{{ tier }} tier · {{ billingPeriod }}{{ foundingPartner ? ' · founding partner' : '' }}</div>
                     <div class="text-[11px] text-ink-muted">
                       ${{ setupFee.toLocaleString() }} setup + ${{ monthlyRate.toLocaleString() }}/mo · year-one total ${{ totalYear1.toLocaleString() }}
                     </div>
                   </div>
-                  <div class="rounded-lg bg-canvas/40 border border-divider p-3">
+                  <div class="rounded-lg bg-surface-elevated/40 border border-divider p-3">
                     <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-2">Contacts ({{ contacts.length }})</div>
                     <ul class="space-y-1">
                       <li v-for="c in contacts" :key="c.email" class="text-[12px] text-ink">
@@ -574,7 +574,7 @@ const totalYear1 = computed(() => setupFee.value + monthlyRate.value * 12)
                       </li>
                     </ul>
                   </div>
-                  <div class="rounded-lg bg-canvas/40 border border-divider p-3">
+                  <div class="rounded-lg bg-surface-elevated/40 border border-divider p-3">
                     <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-2">{{ personaName }}'s active roles ({{ enabledRoles.length }})</div>
                     <div class="text-[12px] text-ink-muted">
                       {{ enabledRoles.map((r) => ROLES_BY_PERSONA[personaType].find((rr) => rr.key === r)?.label).filter(Boolean).join(', ') || 'none yet' }}
@@ -590,7 +590,7 @@ const totalYear1 = computed(() => setupFee.value + monthlyRate.value * 12)
           </div>
 
           <!-- Footer -->
-          <footer class="px-6 py-3 border-t border-divider bg-canvas/30 flex items-center justify-between flex-shrink-0">
+          <footer class="px-6 py-3 border-t border-divider bg-surface-elevated/30 flex items-center justify-between flex-shrink-0">
             <button
               v-if="stepIdx > 0"
               type="button"
@@ -604,14 +604,14 @@ const totalYear1 = computed(() => setupFee.value + monthlyRate.value * 12)
               <button
                 v-if="stepIdx < STEPS.length - 1"
                 type="button"
-                class="rounded-md bg-brand text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
+                class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
                 :disabled="!stepValid"
                 @click="next"
               >Next →</button>
               <button
                 v-else
                 type="button"
-                class="rounded-md bg-success text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90"
+                class="rounded-md bg-success text-ink-inverse px-4 py-1.5 text-xs font-semibold hover:opacity-90"
                 @click="onActivate"
               >🎉 Activate customer</button>
             </div>

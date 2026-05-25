@@ -271,10 +271,10 @@ function dotClass(color: SlotRow['dot']['color']): string {
                 </li>
               </ul>
             </div>
-            <div v-else class="mt-1 text-[11px] text-ink-disabled italic">
-              <template v-if="row.dot.color === 'red'">Not logged for {{ row.label.toLowerCase() }} today.</template>
-              <template v-else>Nothing logged yet.</template>
-            </div>
+            <!-- Empty-state footer intentionally removed — the status pill
+                 (Missed / Upcoming / Logged) already communicates this on
+                 the right side of the row, so the "Nothing logged yet" line
+                 was just restating the header. -->
           </div>
         </div>
       </li>

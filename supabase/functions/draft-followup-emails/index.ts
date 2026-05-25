@@ -361,6 +361,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const productDemoLink = (settingsRow as { product_demo_link?: string | null } | null)?.product_demo_link ?? null
 
   // ── 1. Auto-archive: send_count >= 3 AND last_contacted >= 14 days ago AND status = contacted
+  // Paused leads (replies received) are NOT auto-archived — we keep them in 'replied'
+  // status so the operator's conversation history stays intact.
   const archiveCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
   let archivedCount = 0
   if (!explicitIds.length) {
@@ -368,6 +370,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .from('cs_leads')
       .select('id, tags')
       .eq('status', 'contacted')
+      .eq('outreach_paused', false)
       .gte('send_count', 3)
       .lt('last_contacted_at', archiveCutoff)
     for (const l of (toArchive ?? []) as { id: string; tags: string[] | null }[]) {
@@ -407,22 +410,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let candidatesT3: CandidateRow[] = []
 
   if (explicitIds.length > 0) {
-    // Manual mode: take whatever was passed and figure out the touch from send_count
+    // Manual mode: take whatever was passed and figure out the touch from send_count.
+    // Operator might have un-paused a lead before invoking manually, so we still
+    // respect the paused flag here.
     const { data } = await admin
       .from('cs_leads')
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
       .in('id', explicitIds)
       .not('contact_email', 'is', null)
       .eq('status', 'contacted')
+      .eq('outreach_paused', false)
     const rows = (data ?? []) as CandidateRow[]
     candidatesT2 = rows.filter((r) => r.send_count === 1)
     candidatesT3 = rows.filter((r) => r.send_count === 2)
   } else {
-    // Cron mode: window-based query
+    // Cron mode: window-based query. Paused leads (replies received) drop out
+    // automatically — once paused, they stay paused unless the operator un-flags.
     const t2 = await admin
       .from('cs_leads')
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
       .eq('status', 'contacted')
+      .eq('outreach_paused', false)
       .eq('send_count', 1)
       .gte('last_contacted_at', touch2WindowStart)
       .lte('last_contacted_at', touch2WindowEnd)
@@ -433,6 +441,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .from('cs_leads')
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
       .eq('status', 'contacted')
+      .eq('outreach_paused', false)
       .eq('send_count', 2)
       .gte('last_contacted_at', touch3WindowStart)
       .lte('last_contacted_at', touch3WindowEnd)

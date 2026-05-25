@@ -18,6 +18,9 @@ import { adaRoles, ROLE_STATUS_META } from '@/lib/clients/commandsite/roles'
 import { useCommandSiteToday } from '@/lib/clients/commandsite/todayApi'
 import GraceLiveTicker from '@/components/grace/GraceLiveTicker.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
+import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
+import type { EmployeeRole } from '@/lib/types/employeeRole'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -34,6 +37,9 @@ function routeForItem(item: ApprovalQueueItem) {
   }
   if (item.id.startsWith('today-brief-') || item.id.startsWith('today-stale-')) {
     return { name: 'dashboard.tab' as const, params: { slug: 'commandsite', tab: 'outreach', subtab: 'demos' } }
+  }
+  if (item.id.startsWith('today-onboarding-')) {
+    return { name: 'admin.clients' as const }
   }
   return null
 }
@@ -69,7 +75,7 @@ const greeting = computed(() => {
 // load completes we show a minimal "warming up" seed; once data lands,
 // the ticker re-seeds with real events.
 const fallbackSeed = [
-  { icon: '⚙️', text: 'Loading recent activity from your CommandSite stack…', ageSec: 0 },
+  { icon: 'flask', text: 'Loading recent activity from your CommandSite stack…', ageSec: 0 },
 ]
 
 const tickerSeed = computed(() => {
@@ -82,19 +88,19 @@ const tickerSeed = computed(() => {
 const tickerPool = computed(() => {
   if (today.draftsReady.value.length === 0 && today.positiveReplies.value.length === 0) {
     return [
-      { icon: '⚙️', text: 'Background sweep: enrichment running on Apollo lead pull' },
-      { icon: '🤖', text: 'Daily-followup cron next run scheduled for 7 AM ET' },
-      { icon: '📨', text: 'Email-engine ready — draft cold emails from the Leads page' },
+      { icon: 'flask',           text: 'Background sweep · enrichment running on Apollo lead pull' },
+      { icon: 'calendar',        text: 'Daily-followup cron next run scheduled for 7 AM ET' },
+      { icon: 'email_marketing', text: 'Email engine ready · draft cold emails from the Leads page' },
     ]
   }
   return [
-    { icon: '📤', text: 'Cold-email send logged — cs_outreach_sends row inserted' },
-    { icon: '📥', text: 'Reply received — Ada classifying' },
-    { icon: '🎯', text: 'Lead scored ICP 80+ — flagged for drafting' },
-    { icon: '📅', text: 'Calendly webhook fired — new cs_deal row created' },
-    { icon: '🤖', text: 'Followup cron fired — drafted Touch 2/3 for eligible leads' },
-    { icon: '🧠', text: 'Pre-call brief generated — Sage drafted' },
-    { icon: '📨', text: 'Post-call follow-up draft saved' },
+    { icon: 'email_marketing',   text: 'Cold-email send logged · cs_outreach_sends row inserted' },
+    { icon: 'qa_assistant',      text: 'Reply received · Ada classifying' },
+    { icon: 'referral_hunter',   text: 'Lead scored ICP 80+ · flagged for drafting' },
+    { icon: 'calendar',          text: 'Calendly webhook fired · new cs_deal row created' },
+    { icon: 'shuffle',           text: 'Followup cron fired · drafted Touch 2/3 for eligible leads' },
+    { icon: 'flask',             text: 'Pre-call brief generated · Sage drafted' },
+    { icon: 'email_marketing',   text: 'Post-call follow-up draft saved' },
   ]
 })
 
@@ -103,15 +109,34 @@ const tickerRef = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
 function goToTab(tab: string, subtab?: string) {
   router.push({ name: 'dashboard.tab', params: { slug: 'commandsite', tab, subtab } })
 }
+
+// Hub role click → deep-link to the role's tab + scroll to its section.
+function onHubRoleClick(role: EmployeeRole) {
+  router.push({
+    name: 'dashboard.tab',
+    params: { slug: 'commandsite', tab: role.tab },
+    hash: `#${role.key}`,
+  }).catch(() => { /* ignore duplicate-navigation errors */ })
+}
 </script>
 
 <template>
   <div class="space-y-4 pb-32 relative">
+    <!-- Ada at Work — same hub the Apex/Cornerstone demos use, configured for
+         CommandSite's solo-founder role inventory. Click any tile to drill
+         into that role's tab. -->
+    <AdaAtWorkHub
+      :roles="adaRoles"
+      owner-name="Josh"
+      assistant-name="Ada"
+      @role-click="onHubRoleClick"
+    />
+
     <GraceLiveTicker
       ref="tickerRef"
       :seed="tickerSeed"
       :pool="tickerPool"
-      subtitle="Real events from cs_outreach_sends · cs_replies · cs_deals — auto-updates"
+      subtitle="Real events from cs_outreach_sends · cs_replies · cs_deals · auto-updating"
     />
 
     <!-- Loading shimmer -->
@@ -126,7 +151,7 @@ function goToTab(tab: string, subtab?: string) {
     >
       <header class="flex items-start justify-between gap-3 px-5 py-4 bg-brand/10 border-b border-brand/20 flex-wrap">
         <div class="flex items-start gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white text-lg font-bold flex-shrink-0">A</div>
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-ink-inverse text-lg font-bold flex-shrink-0">A</div>
           <div>
             <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-0.5">All clear</div>
             <h2 class="text-lg font-bold text-ink leading-tight">{{ greeting }}. Nothing's waiting on you right now.</h2>
@@ -174,8 +199,9 @@ function goToTab(tab: string, subtab?: string) {
       v-else
       :items="today.queueItems.value"
       :initial-resolved="today.resolvedThisWeek.value"
-      :subtitle="`${greeting}. Each item routes to where you can act on it. Real data — no demo fluff.`"
+      :subtitle="`${greeting}. Each card routes to where you can act on it. Real data, not demo fluff.`"
       resolved-label="Logged this week"
+      :push-approved-to-chat="false"
       @approved="onApproved"
       @edited="onEdited"
       @skipped="onSkipped"
@@ -183,7 +209,7 @@ function goToTab(tab: string, subtab?: string) {
 
     <!-- Live counters strip -->
     <section v-if="!today.loading.value" class="rounded-card overflow-hidden border border-divider bg-surface-raised">
-      <header class="px-4 py-3 border-b border-divider bg-canvas/50 flex items-baseline justify-between flex-wrap gap-2">
+      <header class="px-4 py-3 border-b border-divider bg-surface-elevated/50 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">CommandSite pulse</span>
           <span class="text-xs text-ink-muted">— last 7 days, real numbers</span>
@@ -227,7 +253,7 @@ function goToTab(tab: string, subtab?: string) {
           class="inline-flex items-center gap-1.5 rounded-full border border-divider bg-surface px-2.5 py-1 text-[11px] hover:border-brand hover:bg-brand/5 transition-colors"
           @click="goToTab(role.tab)"
         >
-          <span>{{ role.icon }}</span>
+          <AdaIcon :name="role.icon" class="h-3 w-3" />
           <span class="font-semibold text-ink">{{ role.name }}</span>
           <span
             class="rounded-full px-1 text-[8px] font-bold uppercase tracking-wider"

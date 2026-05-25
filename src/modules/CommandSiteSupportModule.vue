@@ -129,7 +129,7 @@ function num(n: number): string {
         @click="view = 'tickets'"
       >
         Tickets ({{ stats.open_tickets }})
-        <span v-if="stats.urgent_tickets > 0" class="ml-1 rounded-full bg-danger text-white px-1.5 text-[10px] font-bold">{{ stats.urgent_tickets }}</span>
+        <span v-if="stats.urgent_tickets > 0" class="ml-1 rounded-full bg-danger text-ink-inverse px-1.5 text-[10px] font-bold">{{ stats.urgent_tickets }}</span>
       </button>
       <button
         type="button"
@@ -160,7 +160,7 @@ function num(n: number): string {
             v-for="(meta, k) in STATUS_META"
             :key="k"
             type="button"
-            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-white"
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors text-ink-inverse"
             :style="statusFilter === k
               ? { backgroundColor: meta.color }
               : { backgroundColor: meta.color + '22', color: meta.color }"
@@ -184,11 +184,11 @@ function num(n: number): string {
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 mb-1">
               <span
-                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse"
                 :style="{ backgroundColor: SEVERITY_META[t.severity].color }"
               >{{ SEVERITY_META[t.severity].label }}</span>
               <span
-                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse"
                 :style="{ backgroundColor: STATUS_META[t.status].color }"
               >{{ STATUS_META[t.status].label }}</span>
               <h3 class="text-sm font-semibold text-ink">{{ t.subject }}</h3>
@@ -212,7 +212,7 @@ function num(n: number): string {
             </div>
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
+              class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
             >Reply</button>
             <button
               type="button"
@@ -242,7 +242,7 @@ function num(n: number): string {
             <div class="flex flex-wrap items-center gap-2 mb-1">
               <h3 class="text-base font-semibold text-ink">{{ o.customer_company }}</h3>
               <span
-                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-inverse"
                 :style="{ backgroundColor: ONBOARDING_STATUS_META[o.status].color }"
               >{{ ONBOARDING_STATUS_META[o.status].label }}</span>
               <span class="rounded-full bg-surface-elevated text-ink-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
@@ -271,7 +271,7 @@ function num(n: number): string {
         <!-- Progress bar -->
         <div class="h-2 rounded-full bg-surface-elevated/60 overflow-hidden mb-3">
           <div
-            class="h-full rounded-full transition-all"
+            class="h-full rounded-full transition-[width] duration-300 ease-out-quart"
             :style="{
               width: (obProgress(o.checklist) * 100) + '%',
               backgroundColor: ONBOARDING_STATUS_META[o.status].color,

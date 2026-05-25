@@ -402,6 +402,12 @@ export type CsLead = {
   // as clickable buttons in Lead Detail so the operator can copy emails that
   // owners list on social but hide behind contact forms on their website.
   social_urls: Record<string, string> | null
+  // Outreach pause (mig 0067) — when true, auto-draft + followup crons skip
+  // this lead. Set automatically by the cs_replies_pause_lead trigger on
+  // reply receipt. Operator can manually unpause to resume the sequence.
+  outreach_paused: boolean
+  outreach_paused_reason: string | null
+  outreach_paused_at: string | null
   created_at: string
   updated_at: string
 }
@@ -417,6 +423,10 @@ export type CsOutreachSend = {
   external_message_id: string | null
   sequence_step_number: number | null
   sequence_id: string | null
+  // Which touch this send was: 1=cold, 2=first follow-up, 3=breakup. Set by
+  // gmail-send + the followup cron (migration 0071). Used by the reserve
+  // gate to count cold vs follow-up sends separately for the daily budget.
+  touch_number: number | null
   sent_at: string
   sent_by: string | null
   created_at: string

@@ -309,7 +309,7 @@ async function submit() {
             >Cancel</button>
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90"
+              class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90"
               :disabled="!canSubmit || submitting"
               @click="submit"
             >{{ submitting ? 'Adding…' : 'Add deal' }}</button>

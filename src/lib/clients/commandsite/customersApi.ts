@@ -92,6 +92,32 @@ export interface Customer {
   welcome_email_subject: string | null
   welcome_email_body: string | null
   welcome_send_error: string | null
+  // Contract tracking (mig 0073) — per-stage signoff data
+  contract_status: 'pending' | 'sent' | 'signed' | 'rejected'
+  contract_sent_at: string | null
+  contract_signed_at: string | null
+  contract_url: string | null
+  contract_template_version: string | null
+  // Payment tracking (mig 0073) — Stripe webhook will fill these eventually
+  payment_received_at: string | null
+  payment_method: 'stripe' | 'invoice' | 'wire' | 'check' | 'other' | null
+  payment_reference: string | null
+  // Kickoff call tracking (mig 0073)
+  kickoff_call_scheduled_at: string | null
+  kickoff_call_completed_at: string | null
+  kickoff_call_calendly_url: string | null
+  // Discovery brief (mig 0073) — token gates the public form URL
+  discovery_brief_token: string | null
+  discovery_brief_sent_at: string | null
+  discovery_brief_returned_at: string | null
+  discovery_brief_data: Record<string, unknown> | null
+  // Provisioning + shadow + live (mig 0073)
+  voice_profile_built_at: string | null
+  tenant_provisioned_at: string | null
+  shadow_started_at: string | null
+  shadow_drafts_approved_count: number
+  shadow_drafts_total_count: number
+  live_started_at: string | null
   notes: string | null
 
   created_at: string
@@ -203,12 +229,36 @@ export function useCustomers() {
   }
 
   /** Re-send (or first-send) the welcome email for an existing customer.
-   *  Used when activation auto-send failed, or to manually re-trigger. */
+   *  Used when activation auto-send failed, or to manually re-trigger.
+   *
+   *  Error surfacing: supabase.functions.invoke wraps any non-2xx
+   *  response in a generic "non-2xx status code" message and stashes
+   *  the actual Response on err.context. We unwrap that to surface the
+   *  real reason (missing env var, missing Gmail token, etc.) instead
+   *  of the useless wrapper text. */
   async function sendWelcome(id: string, opts: { force?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
     const { data, error: fnErr } = await supabase.functions.invoke('customer-welcome-send', {
       body: { customer_id: id, force: opts.force ?? false },
     })
-    if (fnErr) return { ok: false, error: fnErr.message }
+    if (fnErr) {
+      // Extract the real error body from the Response stashed on context.
+      // Falls back to fnErr.message if the body isn't readable JSON.
+      const ctx = (fnErr as { context?: Response }).context
+      if (ctx && typeof ctx.json === 'function') {
+        try {
+          const body = await ctx.json() as { error?: string }
+          return { ok: false, error: body.error ?? `${ctx.status} ${fnErr.message}` }
+        } catch {
+          try {
+            const text = await ctx.text()
+            return { ok: false, error: text || fnErr.message }
+          } catch {
+            return { ok: false, error: fnErr.message }
+          }
+        }
+      }
+      return { ok: false, error: fnErr.message }
+    }
     const result = data as { ok?: boolean; error?: string } | null
     if (!result?.ok) return { ok: false, error: result?.error ?? 'Welcome send returned no ok' }
     await load()
@@ -274,6 +324,92 @@ export function useCustomers() {
     return { ok: true }
   }
 
+  // ── Onboarding task actions ──────────────────────────────────────
+  // One-shot updates the Onboarding Drawer fires when the operator
+  // marks a step done. Each sets the relevant timestamp + (where
+  // applicable) the status enum. update() handles the reload.
+
+  async function markContractSent(id: string, url?: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      contract_status: 'sent',
+      contract_sent_at: new Date().toISOString(),
+      ...(url ? { contract_url: url } : {}),
+    } as never)
+  }
+
+  async function markContractSigned(id: string, url?: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      contract_status: 'signed',
+      contract_signed_at: new Date().toISOString(),
+      ...(url ? { contract_url: url } : {}),
+    } as never)
+  }
+
+  async function markPaymentReceived(
+    id: string,
+    method: 'stripe' | 'invoice' | 'wire' | 'check' | 'other',
+    reference?: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      payment_received_at: new Date().toISOString(),
+      payment_method: method,
+      ...(reference ? { payment_reference: reference } : {}),
+    } as never)
+  }
+
+  async function scheduleKickoff(id: string, when: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      kickoff_call_scheduled_at: when,
+    } as never)
+  }
+
+  async function markKickoffComplete(id: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      kickoff_call_completed_at: new Date().toISOString(),
+    } as never)
+  }
+
+  /** Generate a random token + write it. The discovery brief URL is
+   *  /onboarding/discovery/:token; we use a random slug instead of the
+   *  customer id so it's unguessable + revocable (clear the token to
+   *  invalidate the link). */
+  async function sendDiscoveryBrief(id: string): Promise<{ ok: boolean; token?: string; error?: string }> {
+    // 16-char base36 token — ~83 bits of entropy, plenty for a single-use form
+    const token = Array.from({ length: 16 }, () =>
+      Math.floor(Math.random() * 36).toString(36),
+    ).join('')
+    const res = await updateCustomer(id, {
+      discovery_brief_token: token,
+      discovery_brief_sent_at: new Date().toISOString(),
+    } as never)
+    if (!res.ok) return { ok: false, error: res.error }
+    return { ok: true, token }
+  }
+
+  async function markVoiceProfileBuilt(id: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      voice_profile_built_at: new Date().toISOString(),
+    } as never)
+  }
+
+  async function markTenantProvisioned(id: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      tenant_provisioned_at: new Date().toISOString(),
+    } as never)
+  }
+
+  async function startShadowMode(id: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      shadow_started_at: new Date().toISOString(),
+    } as never)
+  }
+
+  async function startLiveMode(id: string): Promise<{ ok: boolean; error?: string }> {
+    return updateCustomer(id, {
+      live_started_at: new Date().toISOString(),
+    } as never)
+  }
+
   const activeCustomers = computed(() => customers.value.filter((c) => c.status === 'active'))
   const onboardingCustomers = computed(() => customers.value.filter((c) => c.status === 'onboarding'))
 
@@ -293,6 +429,17 @@ export function useCustomers() {
     advanceStage,
     revertStage,
     sendWelcome,
+    // Onboarding task actions
+    markContractSent,
+    markContractSigned,
+    markPaymentReceived,
+    scheduleKickoff,
+    markKickoffComplete,
+    sendDiscoveryBrief,
+    markVoiceProfileBuilt,
+    markTenantProvisioned,
+    startShadowMode,
+    startLiveMode,
   }
 }
 

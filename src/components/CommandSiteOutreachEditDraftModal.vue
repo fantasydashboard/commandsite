@@ -140,7 +140,7 @@ function saveAndApprove() {
             >Save (stay in queue)</button>
             <button
               type="button"
-              class="rounded-md bg-success text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-all hover:scale-105"
+              class="rounded-md bg-success text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
               @click="saveAndApprove"
             >Save & approve →</button>
           </footer>

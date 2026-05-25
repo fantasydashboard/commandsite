@@ -166,7 +166,7 @@ const isStageShowingPostCall = computed(() => stage.value === 'demo_done' || sta
         @click.self="emit('close')"
       >
         <Transition
-          enter-active-class="transition-transform duration-250 ease-out"
+          enter-active-class="transition-transform duration-[250ms] ease-out-quart"
           enter-from-class="translate-x-full"
           enter-to-class="translate-x-0"
         >
@@ -301,17 +301,17 @@ const isStageShowingPostCall = computed(() => stage.value === 'demo_done' || sta
                 >Delete this deal</button>
                 <div v-else class="flex items-center gap-2">
                   <span class="text-xs text-danger font-semibold">Are you sure? This can't be undone.</span>
-                  <button type="button" class="rounded-md bg-danger text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90" @click="onDeleteConfirm">Yes, delete</button>
+                  <button type="button" class="rounded-md bg-danger text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90" @click="onDeleteConfirm">Yes, delete</button>
                   <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand" @click="showDeleteConfirm = false">Cancel</button>
                 </div>
               </section>
             </div>
 
-            <footer class="px-6 py-3 border-t border-divider bg-canvas/30 flex items-center justify-end gap-2 flex-shrink-0">
+            <footer class="px-6 py-3 border-t border-divider bg-surface-elevated/30 flex items-center justify-end gap-2 flex-shrink-0">
               <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand" @click="emit('close')">Close</button>
               <button
                 type="button"
-                class="rounded-md bg-brand text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
+                class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
                 :disabled="saving"
                 @click="save"
               >{{ saving ? 'Saving…' : 'Save' }}</button>

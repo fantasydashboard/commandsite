@@ -94,7 +94,7 @@ function daysAsCustomer(c: Customer): string {
 
     <div v-else class="overflow-x-auto">
       <table class="w-full text-sm">
-        <thead class="bg-canvas text-[10px] font-medium text-ink-muted uppercase tracking-wide">
+        <thead class="bg-surface-elevated text-[10px] font-medium text-ink-muted uppercase tracking-wide">
           <tr>
             <th class="px-3 py-2 text-left">Customer</th>
             <th class="px-3 py-2 text-right">MRR</th>
@@ -161,7 +161,7 @@ function daysAsCustomer(c: Customer): string {
 
     <footer
       v-if="customers.length > 0"
-      class="border-t border-divider px-3 py-2 text-[11px] text-ink-muted bg-canvas"
+      class="border-t border-divider px-3 py-2 text-[11px] text-ink-muted bg-surface-elevated"
     >
       Time saved + Tasks done are placeholders — they'll populate as per-customer telemetry comes online.
     </footer>

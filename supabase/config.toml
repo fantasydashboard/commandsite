@@ -1,0 +1,42 @@
+# CommandSite · Supabase project config
+# ----------------------------------------------------------------------------
+# Per-function overrides. The Supabase Edge Functions gateway defaults to
+# verify_jwt = true, which means every request is JWT-validated at the
+# gateway BEFORE it reaches the function code. That's the right default for
+# user-facing functions, but it blocks two patterns we use:
+#
+#   1. Inter-function calls. e.g. customer-welcome-send → gmail-send via
+#      a server-side fetch. We send the service-role token, but since
+#      Supabase migrated to the new asymmetric key system, that token is
+#      no longer a JWT and the gateway rejects it with
+#      UNAUTHORIZED_INVALID_JWT_FORMAT.
+#
+#   2. Cron-triggered calls. pg_cron + pg_net send an X-Cron-Secret header,
+#      no Bearer token at all. The gateway returns 401 before the function's
+#      own cron-secret check can run.
+#
+# Setting verify_jwt = false here moves the auth check from the gateway
+# into the function body, where each function already has its own logic
+# (service-role string equality, X-Cron-Secret header, or admin JWT
+# verification via supabase.auth.getUser). The auth check still runs — it
+# just runs in the function, not at the edge.
+#
+# Functions NOT listed here keep the default verify_jwt = true.
+
+[functions.gmail-send]
+verify_jwt = false
+
+[functions.customer-welcome-send]
+verify_jwt = false
+
+[functions.draft-cold-email]
+verify_jwt = false
+
+[functions.draft-followup-emails]
+verify_jwt = false
+
+[functions.auto-outreach-send]
+verify_jwt = false
+
+[functions.lead-sourcing-cron]
+verify_jwt = false

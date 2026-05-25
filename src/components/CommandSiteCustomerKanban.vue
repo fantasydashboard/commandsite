@@ -19,6 +19,7 @@ import {
   STAGE_META,
   daysSince,
 } from '@/lib/clients/commandsite/customersApi'
+import { computeProgress, canAdvance } from '@/lib/clients/commandsite/onboarding'
 
 const props = defineProps<{
   customers: Customer[]
@@ -30,6 +31,13 @@ const emit = defineEmits<{
   (e: 'revert', id: string): void
   (e: 'open', id: string): void
 }>()
+
+function progressFor(c: Customer) {
+  return computeProgress(c)
+}
+function advanceAllowed(c: Customer): boolean {
+  return canAdvance(c).ok
+}
 
 const byStage = computed(() => {
   const map: Record<OnboardingStage, Customer[]> = {
@@ -80,7 +88,7 @@ function personaIcon(c: Customer): string {
         <div
           v-for="stage in ONBOARDING_STAGES"
           :key="stage"
-          class="flex flex-col w-64 flex-shrink-0 rounded-card border border-divider bg-canvas"
+          class="flex flex-col w-64 flex-shrink-0 rounded-card border border-divider bg-surface-elevated"
         >
           <div class="px-3 py-2 border-b border-divider bg-surface-raised">
             <div class="flex items-center justify-between mb-0.5">
@@ -121,6 +129,25 @@ function personaIcon(c: Customer): string {
                 >{{ ageLabel(customer.stage_entered_at) }}</span>
               </div>
 
+              <!-- Checklist progress strip — visible at-a-glance progress -->
+              <div v-if="progressFor(customer)" class="mt-1.5 mb-2">
+                <div class="flex items-center justify-between text-[9.5px] text-ink-muted mb-1">
+                  <span class="font-semibold tabular-nums">
+                    {{ progressFor(customer)!.done }}/{{ progressFor(customer)!.total }} done
+                  </span>
+                  <span v-if="progressFor(customer)!.blockers.length > 0" class="italic text-warn">
+                    {{ progressFor(customer)!.blockers.length }} blocking
+                  </span>
+                </div>
+                <div class="h-1 rounded-full bg-divider/50 overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-[width] duration-300 ease-out"
+                    :class="advanceAllowed(customer) ? 'bg-success' : 'bg-brand/70'"
+                    :style="{ width: `${progressFor(customer)!.total === 0 ? 100 : (progressFor(customer)!.done / progressFor(customer)!.total) * 100}%` }"
+                  ></div>
+                </div>
+              </div>
+
               <div class="flex items-center gap-1 mt-2" @click.stop>
                 <button
                   type="button"
@@ -131,9 +158,11 @@ function personaIcon(c: Customer): string {
                 >⟵ Back</button>
                 <button
                   type="button"
-                  class="rounded text-[10px] font-semibold text-brand hover:bg-brand/10 px-1.5 py-0.5 disabled:opacity-50"
-                  :disabled="busy"
-                  :title="stage === 'live' ? 'Activate this customer (fires welcome email)' : 'Move forward one stage'"
+                  class="rounded text-[10px] font-semibold text-brand hover:bg-brand/10 px-1.5 py-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  :disabled="busy || !advanceAllowed(customer)"
+                  :title="!advanceAllowed(customer)
+                    ? 'Blocked: ' + (progressFor(customer)?.blockers.map((b) => b.label).join(', ') ?? 'unmet requirements')
+                    : (stage === 'live' ? 'Activate this customer (fires welcome email)' : 'Move forward one stage')"
                   @click="emit('advance', customer.id)"
                 >{{ stage === 'live' ? 'Activate ✓' : 'Advance ⟶' }}</button>
               </div>

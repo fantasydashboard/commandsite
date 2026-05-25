@@ -8,7 +8,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
-import type { BloodworkContext } from './targets'
+import { computeTargets, type BloodworkContext, type ComputedTargets, type ProfileInputs } from './targets'
 
 export interface BloodworkPanel {
   id: string
@@ -211,6 +211,152 @@ export function useBloodwork() {
     return { ok: true }
   }
 
+  // ── Closed-loop: when bloodwork changes, recompute targets + diff ──
+  //
+  // Without this, uploading new bloodwork doesn't actually move any
+  // numbers — the calorie / sat-fat / protein targets stored on the
+  // profile stay frozen until the operator opens the onboarding wizard
+  // and re-saves. That breaks the pitch ("Sage adjusts your targets
+  // when your bloodwork moves") in the literal sense.
+  //
+  // What this does, in order:
+  //   1. Read the latest panel (just-saved) + current profile.
+  //   2. Pull a current-weight reading from snapshot.weight (today's
+  //      reading, or the most recent personal_metrics row).
+  //   3. Call computeTargets() with the fresh bloodwork context.
+  //   4. Diff against profile.computed_targets (what was stored).
+  //   5. Persist the new targets back to the profile.
+  //   6. Return a structured diff so the UI can show "sat fat ceiling
+  //      moved from 12g to 14g, daily cal moved from 1,837 to 1,852".
+  //
+  // No-ops gracefully when profile is missing or no bloodwork exists.
+
+  interface TargetChange {
+    key: keyof ComputedTargets | 'bloodwork_adjustments'
+    label: string
+    before: number | string | null
+    after: number | string | null
+    unit: string
+    direction: 'tighter' | 'looser' | 'changed' | 'neutral'
+  }
+
+  interface RecomputeResult {
+    ok: boolean
+    error?: string
+    changes: TargetChange[]
+    newTargets?: ComputedTargets
+  }
+
+  async function recomputeTargetsAfterBloodwork(): Promise<RecomputeResult> {
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) return { ok: false, error: 'Not signed in', changes: [] }
+
+    // 1. Profile (need it for body inputs + the old targets to diff against).
+    const { data: profile, error: profErr } = await supabase
+      .from('personal_profile')
+      .select('*')
+      .eq('user_id', userData.user.id)
+      .maybeSingle()
+    if (profErr) return { ok: false, error: `Profile read failed: ${profErr.message}`, changes: [] }
+    if (!profile) {
+      // No profile yet → can't compute. Not an error; just nothing to do.
+      return { ok: true, changes: [] }
+    }
+    const p = profile as Record<string, unknown>
+
+    // 2. Current weight — pull the most recent weight metric.
+    const { data: weightRows } = await supabase
+      .from('personal_metrics')
+      .select('value, recorded_at')
+      .eq('user_id', userData.user.id)
+      .eq('metric_type', 'weight')
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+    const weightVal = ((weightRows ?? []) as { value: number | string }[])[0]?.value
+    const currentWeightLbs = typeof weightVal === 'number'
+      ? weightVal
+      : (typeof weightVal === 'string' ? parseFloat(weightVal) : NaN)
+    if (isNaN(currentWeightLbs)) {
+      return { ok: true, changes: [] }  // no weight, can't compute
+    }
+
+    // 3. Bloodwork context from the latest panel.
+    const latest = panels.value[0] ?? null
+    const bw = panelToTargetsContext(latest)
+
+    // 4. Compute new targets.
+    const inputs: ProfileInputs = {
+      height_cm: Number(p.height_cm ?? 0),
+      age: Number(p.age ?? 0),
+      sex_at_birth: (p.sex_at_birth as 'male' | 'female') ?? 'male',
+      primary_goal: (p.primary_goal as ProfileInputs['primary_goal']) ?? 'maintain',
+      activity_level: (p.activity_level as ProfileInputs['activity_level']) ?? 'moderately_active',
+      weekly_loss_rate_lbs: (p.weekly_loss_rate_lbs as number | null) ?? null,
+      body_fat_pct: (p.body_fat_pct as number | null) ?? null,
+    }
+    const newTargets = computeTargets(inputs, { weight_lbs: currentWeightLbs }, bw)
+
+    // 5. Diff against what was stored.
+    const old = (p.computed_targets ?? null) as ComputedTargets | null
+    const changes = diffTargets(old, newTargets)
+
+    // 6. Persist.
+    const { error: updErr } = await supabase
+      .from('personal_profile')
+      .update({ computed_targets: newTargets } as never)
+      .eq('user_id', userData.user.id)
+    if (updErr) return { ok: false, error: `Profile update failed: ${updErr.message}`, changes }
+
+    return { ok: true, changes, newTargets }
+  }
+
+  /** Build a clean diff of the meaningful target fields. Skips fields
+   *  that didn't change (or changed by < 1 unit — rounding noise). */
+  function diffTargets(
+    before: ComputedTargets | null,
+    after: ComputedTargets,
+  ): TargetChange[] {
+    const out: TargetChange[] = []
+    const fields: Array<{ key: keyof ComputedTargets; label: string; unit: string; tightenIsLower?: boolean }> = [
+      { key: 'daily_cal_target',   label: 'Daily calorie target', unit: 'kcal' },
+      { key: 'protein_g',          label: 'Protein target',       unit: 'g' },
+      { key: 'sat_fat_g_ceiling',  label: 'Sat fat ceiling',      unit: 'g', tightenIsLower: true },
+      { key: 'fat_g_target',       label: 'Fat target',           unit: 'g' },
+      { key: 'carbs_g',            label: 'Carbs',                unit: 'g' },
+      { key: 'fiber_g',            label: 'Fiber',                unit: 'g' },
+      { key: 'water_oz',           label: 'Water',                unit: 'oz' },
+    ]
+    for (const f of fields) {
+      const b = before ? Number(before[f.key]) : null
+      const a = Number(after[f.key])
+      if (b === null) {
+        out.push({ key: f.key, label: f.label, before: null, after: a, unit: f.unit, direction: 'neutral' })
+        continue
+      }
+      if (Math.abs(a - b) < 1) continue
+      const direction: TargetChange['direction'] = f.tightenIsLower
+        ? (a < b ? 'tighter' : 'looser')
+        : (a > b ? 'changed' : 'changed')
+      out.push({ key: f.key, label: f.label, before: b, after: a, unit: f.unit, direction })
+    }
+
+    // Bloodwork adjustments list — show which guardrails changed.
+    const beforeAdj = (before?.computed_from?.bloodwork_adjustments ?? []).join(' · ')
+    const afterAdj  = after.computed_from.bloodwork_adjustments.join(' · ')
+    if (beforeAdj !== afterAdj) {
+      out.push({
+        key: 'bloodwork_adjustments',
+        label: 'Sage\'s blood-work guardrails',
+        before: beforeAdj || 'none',
+        after: afterAdj || 'none',
+        unit: '',
+        direction: 'changed',
+      })
+    }
+
+    return out
+  }
+
   async function deletePanel(id: string): Promise<{ ok: boolean; error?: string }> {
     const { error: e } = await supabase
       .from('personal_bloodwork_panels')
@@ -237,5 +383,6 @@ export function useBloodwork() {
     load,
     savePanel,
     deletePanel,
+    recomputeTargetsAfterBloodwork,
   }
 }

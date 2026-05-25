@@ -26,6 +26,8 @@ import {
   fullWebhookUrl,
   type WebhookEndpointSpec,
 } from '@/lib/clients/commandsite/settingsApi'
+import CommandSiteSendWindowSettings from '@/components/CommandSiteSendWindowSettings.vue'
+import CommandSiteCampaignsSettings from '@/components/CommandSiteCampaignsSettings.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -220,7 +222,7 @@ const intsByCategory = computed(() => {
         <span v-if="dirty" class="text-xs text-warn">Unsaved changes</span>
         <button
           type="button"
-          class="rounded-md bg-brand text-white px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90"
+          class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90"
           :disabled="!dirty"
           @click="saveAll"
         >Save changes</button>
@@ -273,6 +275,12 @@ const intsByCategory = computed(() => {
         <span v-else>Auto-saves on change</span>
       </div>
     </div>
+
+    <!-- Outreach automation: send window + daily cap -->
+    <CommandSiteSendWindowSettings />
+
+    <!-- Lead automation: campaigns queue -->
+    <CommandSiteCampaignsSettings />
 
     <!-- Founder profile + public links -->
     <section class="card">
@@ -378,7 +386,7 @@ const intsByCategory = computed(() => {
         </p>
         <button
           type="button"
-          class="rounded-md bg-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-all hover:scale-105"
+          class="rounded-md bg-brand text-ink-inverse px-4 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
           :disabled="gmailConnecting"
           @click="connectGmail"
         >
@@ -678,7 +686,7 @@ const intsByCategory = computed(() => {
               <div class="flex items-center gap-2 mb-0.5">
                 <span class="text-sm font-semibold text-ink">{{ spec.label }}</span>
                 <span
-                  class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-inverse"
                   :style="{ backgroundColor: webhookStatusMeta(spec.status).color }"
                 >{{ webhookStatusMeta(spec.status).label }}</span>
               </div>
@@ -690,7 +698,7 @@ const intsByCategory = computed(() => {
             <code class="flex-1 font-mono text-[11px] text-ink bg-surface-elevated px-2 py-1.5 rounded truncate">{{ fullWebhookUrl(spec) }}</code>
             <button
               type="button"
-              class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
+              class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 whitespace-nowrap"
               @click="copyWebhook(spec)"
             >
               {{ copiedWebhook === spec.label ? '✓ Copied' : 'Copy' }}
@@ -731,7 +739,7 @@ const intsByCategory = computed(() => {
           </div>
           <span
             class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-            :class="m.role === 'owner' ? 'bg-brand text-white' : 'bg-surface-elevated text-ink-muted'"
+            :class="m.role === 'owner' ? 'bg-brand text-ink-inverse' : 'bg-surface-elevated text-ink-muted'"
           >{{ roleLabel(m.role) }}</span>
           <input
             type="checkbox"
@@ -815,19 +823,19 @@ const intsByCategory = computed(() => {
               <td class="px-3 py-2.5 text-xs text-ink-muted">{{ DOMAIN_PURPOSE_LABEL[d.purpose] }}</td>
               <td class="px-3 py-2.5 text-center">
                 <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-inverse"
                   :style="{ backgroundColor: authStatusColor(d.spf) }"
                 >{{ d.spf }}</span>
               </td>
               <td class="px-3 py-2.5 text-center">
                 <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-inverse"
                   :style="{ backgroundColor: authStatusColor(d.dkim) }"
                 >{{ d.dkim }}</span>
               </td>
               <td class="px-3 py-2.5 text-center">
                 <span
-                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-inverse"
                   :style="{ backgroundColor: authStatusColor(d.dmarc) }"
                 >{{ d.dmarc }}</span>
               </td>

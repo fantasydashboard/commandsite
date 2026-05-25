@@ -68,6 +68,20 @@ const CornerstoneTheme: ClientTheme = {
 }
 
 /**
+ * Focal Point (TEST) — pre-pitch test client. Same default palette
+ * as Cornerstone so the visual feels consistent during the walkthrough.
+ * The (TEST) suffix on the wordmark prevents confusion with a real
+ * customer if this slug ever leaks into a screenshot.
+ */
+const FocalPointTestTheme: ClientTheme = {
+  vars: {},
+  wordmark: {
+    text: 'Focal Point',
+    suffix: 'Church · TEST',
+  },
+}
+
+/**
  * Josh Personal — fresh teal-green (matches the "ON TRACK" success
  * accent) instead of the original muted hunter green. Brighter,
  * more "alive" feel for a wellness dashboard. Distinct from Ada/Grace
@@ -80,7 +94,7 @@ const JoshPersonalTheme: ClientTheme = {
     '--color-brand-active': '10 125 120',  // pressed
   },
   wordmark: {
-    text: 'Josh',
+    text: 'Sage',
     suffix: 'Personal',
   },
 }
@@ -89,6 +103,7 @@ export const clientThemes: Record<string, ClientTheme> = {
   'apex-heating-and-air': ApexTheme,
   'ultimate-fantasy-dashboard': UfdRedesignTheme,
   'cornerstone-church': CornerstoneTheme,
+  'focal-point-test': FocalPointTestTheme,
   'josh-personal': JoshPersonalTheme,
 }
 

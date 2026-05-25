@@ -169,7 +169,7 @@ When we hop on the 15 min, I'll show you what your version would catch in the fi
             </div>
 
             <!-- Template badge -->
-            <div class="rounded-card bg-canvas border border-divider p-3 flex items-center gap-2">
+            <div class="rounded-card bg-surface-elevated border border-divider p-3 flex items-center gap-2">
               <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Template:</span>
               <span class="text-xs font-medium text-ink">
                 {{ template === 'apex-heating-and-air' ? 'Apex Heating & Air (service business)' : 'Cornerstone Community Church (ministry)' }}
@@ -180,7 +180,7 @@ When we hop on the 15 min, I'll show you what your version would catch in the fi
             <!-- The URL -->
             <div>
               <label class="block text-xs font-semibold text-ink mb-1.5">Demo URL — share this with the prospect</label>
-              <div class="rounded-card border border-divider bg-canvas p-3 break-all font-mono text-[11px] text-ink leading-snug select-all">
+              <div class="rounded-card border border-divider bg-surface-elevated p-3 break-all font-mono text-[11px] text-ink leading-snug select-all">
                 {{ demoUrl }}
               </div>
             </div>

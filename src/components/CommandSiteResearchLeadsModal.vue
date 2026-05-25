@@ -855,7 +855,7 @@ const isWorking = computed(() => phase.value === 'searching' || phase.value === 
               >
                 <span v-if="phase === 'searching'">Searching…</span>
                 <span v-else-if="phase === 'ada-reading'" class="inline-flex items-center gap-1">
-                  <AssistantMark class="h-3.5 w-3.5 text-white" />
+                  <AssistantMark class="h-3.5 w-3.5 text-ink-inverse" />
                   Ada is reviewing…
                 </span>
                 <span v-else>Find prospects</span>

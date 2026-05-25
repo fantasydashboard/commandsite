@@ -332,7 +332,7 @@ function bodyWordCount(lead: CsLead): number {
                   <button
                     v-if="!isApproved(lead)"
                     type="button"
-                    class="rounded-md bg-brand text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+                    class="rounded-md bg-brand text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90"
                     @click="approve(lead)"
                   >Approve</button>
                   <span

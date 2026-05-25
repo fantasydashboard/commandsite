@@ -169,7 +169,7 @@ const isDirty = computed(() => {
         @click.self="emit('close')"
       >
         <Transition
-          enter-active-class="transition-transform duration-250 ease-out"
+          enter-active-class="transition-transform duration-[250ms] ease-out-quart"
           enter-from-class="translate-x-full"
           enter-to-class="translate-x-0"
         >
@@ -254,7 +254,7 @@ const isDirty = computed(() => {
                     v-for="t in SUGGESTED_TAGS.filter((s) => !tags.includes(s))"
                     :key="t"
                     type="button"
-                    class="rounded-full border border-divider bg-canvas text-ink-muted text-[10px] font-medium px-2 py-0.5 hover:text-brand hover:border-brand"
+                    class="rounded-full border border-divider bg-surface-elevated text-ink-muted text-[10px] font-medium px-2 py-0.5 hover:text-brand hover:border-brand"
                     @click="addTag(t)"
                   >+ {{ t }}</button>
                 </div>
@@ -284,7 +284,7 @@ const isDirty = computed(() => {
                   <div
                     v-for="(r, idx) in reviews"
                     :key="idx"
-                    class="rounded-lg border border-divider bg-canvas/40 p-3"
+                    class="rounded-lg border border-divider bg-surface-elevated/40 p-3"
                   >
                     <div class="flex items-start gap-2 mb-2">
                       <span class="text-[10px] font-semibold text-ink-muted mt-1">#{{ idx + 1 }}</span>
@@ -322,13 +322,13 @@ const isDirty = computed(() => {
                 >Delete this lead</button>
                 <div v-else class="flex items-center gap-2">
                   <span class="text-xs text-danger font-semibold">Are you sure? This can't be undone.</span>
-                  <button type="button" class="rounded-md bg-danger text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90" @click="onDeleteConfirm">Yes, delete</button>
+                  <button type="button" class="rounded-md bg-danger text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90" @click="onDeleteConfirm">Yes, delete</button>
                   <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand" @click="showDeleteConfirm = false">Cancel</button>
                 </div>
               </section>
             </div>
 
-            <footer class="px-6 py-3 border-t border-divider bg-canvas/30 flex items-center justify-between flex-shrink-0">
+            <footer class="px-6 py-3 border-t border-divider bg-surface-elevated/30 flex items-center justify-between flex-shrink-0">
               <span class="text-[11px] text-ink-disabled">
                 <span v-if="isDirty" class="text-warn font-semibold">Unsaved changes</span>
                 <span v-else>Up to date</span>
@@ -337,7 +337,7 @@ const isDirty = computed(() => {
                 <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand" @click="emit('close')">Close</button>
                 <button
                   type="button"
-                  class="rounded-md bg-brand text-white px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
+                  class="rounded-md bg-brand text-ink-inverse px-4 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-40"
                   :disabled="!isDirty || saving"
                   @click="save"
                 >{{ saving ? 'Saving…' : 'Save' }}</button>

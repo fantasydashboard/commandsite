@@ -46,6 +46,21 @@ function clampPct(v: number, t: number): number {
   return Math.max(0, Math.min(100, (v / t) * 100))
 }
 
+// Compute a "gap score" — how far each metric is from its target, in
+// the direction that matters. The biggest-gap ring gets visually
+// promoted as today's FOCUS metric so the operator's eye lands on the
+// one thing that needs attention. Per impeccable: identical card grids
+// of the same visual weight are the lazy answer. Vary by what matters.
+function gapScore(pct: number, kind: 'cal_cap' | 'goal'): number {
+  if (kind === 'cal_cap') {
+    // For calories, over-target is bad; near-zero is bad too
+    // (user hasn't logged anything yet). 100% = good. Distance from 100.
+    return Math.abs(100 - pct)
+  }
+  // For protein/steps/water/sleep, lower than target = bad.
+  return Math.max(0, 100 - pct)
+}
+
 const rings = computed<Ring[]>(() => {
   const cal = clampPct(props.caloriesValue, props.caloriesTarget)
   const protein = clampPct(props.proteinValue, props.proteinTarget)
@@ -99,6 +114,36 @@ const rings = computed<Ring[]>(() => {
   ]
 })
 
+// Sort rings by how far off-target they are. The biggest-gap ring
+// renders as today's FOCUS (visually dominant); the rest sit in a
+// secondary compact row. Sleep is excluded from focus because it's
+// retrospective — already happened last night, can't act on it today.
+const sortedRings = computed<Ring[]>(() => {
+  const out = [...rings.value]
+  out.sort((a, b) => {
+    const akind = a.key === 'cal' ? 'cal_cap' : 'goal'
+    const bkind = b.key === 'cal' ? 'cal_cap' : 'goal'
+    return gapScore(b.pct, bkind) - gapScore(a.pct, akind)
+  })
+  return out
+})
+
+const focusRing = computed<Ring | null>(() => {
+  const list = sortedRings.value
+  if (list.length === 0) return null
+  // Skip sleep as focus (retrospective, can't fix today).
+  const candidate = list[0].key === 'sleep' ? list[1] ?? list[0] : list[0]
+  // Don't bother promoting if the gap is tiny — all metrics on track.
+  const kind = candidate.key === 'cal' ? 'cal_cap' : 'goal'
+  if (gapScore(candidate.pct, kind) < 25) return null
+  return candidate
+})
+
+const secondaryRings = computed<Ring[]>(() => {
+  const focus = focusRing.value
+  return rings.value.filter((r) => !focus || r.key !== focus.key)
+})
+
 // Ring geometry
 const RING_SIZE = 72
 const STROKE = 6
@@ -144,8 +189,46 @@ function valueInlineColor(color: Ring['color']): string | undefined {
 
 <template>
   <section class="card p-4">
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      <div v-for="r in rings" :key="r.key" class="flex items-center gap-3">
+    <!-- Focus ring (the metric most off-target) gets visual dominance.
+         When all metrics are on track, this section hides and everything
+         sits in the compact row below. -->
+    <div
+      v-if="focusRing"
+      class="rounded-card border border-brand/30 bg-brand/5 px-4 py-3 flex items-center gap-4 mb-3"
+    >
+      <div class="relative shrink-0" style="width: 96px; height: 96px;">
+        <svg width="96" height="96" class="-rotate-90">
+          <circle cx="48" cy="48" :r="(96 - STROKE) / 2"
+            fill="none" class="stroke-canvas" :stroke-width="STROKE" />
+          <circle cx="48" cy="48" :r="(96 - STROKE) / 2"
+            fill="none"
+            :class="ringStrokeClass(focusRing.color)"
+            :stroke="ringStrokeAttr(focusRing.color)"
+            :stroke-width="STROKE"
+            stroke-linecap="round"
+            :stroke-dasharray="2 * Math.PI * ((96 - STROKE) / 2)"
+            :stroke-dashoffset="(2 * Math.PI * ((96 - STROKE) / 2)) * (1 - Math.min(100, focusRing.pct) / 100)" />
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center leading-none">
+          <span
+            class="text-base font-bold tabular-nums"
+            :class="valueColorClass(focusRing.color)"
+            :style="valueInlineColor(focusRing.color) ? { color: valueInlineColor(focusRing.color) } : {}"
+          >{{ Math.round(focusRing.pct) }}%</span>
+        </div>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-0.5">Today's focus</div>
+        <div class="text-base font-bold text-ink leading-tight">{{ focusRing.label }} · {{ focusRing.display }}</div>
+        <div class="text-[11px] text-ink-muted leading-snug">{{ focusRing.helper }}</div>
+      </div>
+    </div>
+
+    <!-- Secondary rings — compact, demoted. Same data, less visual weight.
+         If a focus is showing, this row covers the other 4. If not, all
+         5 render here (everything on track, no anchor needed). -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div v-for="r in secondaryRings" :key="r.key" class="flex items-center gap-2">
         <div class="relative shrink-0" :style="{ width: `${RING_SIZE}px`, height: `${RING_SIZE}px` }">
           <svg :width="RING_SIZE" :height="RING_SIZE" class="-rotate-90">
             <circle
@@ -175,11 +258,11 @@ function valueInlineColor(color: Ring['color']): string | undefined {
         </div>
         <div class="min-w-0">
           <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{{ r.label }}</div>
-          <div class="text-base font-bold text-ink tabular-nums leading-tight">{{ r.display }}</div>
-          <div class="text-[10px] text-ink-muted leading-tight">{{ r.helper }}</div>
+          <div class="text-sm font-semibold text-ink tabular-nums leading-tight">{{ r.display }}</div>
         </div>
       </div>
     </div>
+
     <ul v-if="microInsights.length > 0" class="mt-3 pt-3 border-t border-divider space-y-1">
       <li v-for="(line, i) in microInsights" :key="i" class="text-[11px] text-ink-muted leading-snug">
         <span class="text-brand mr-1">·</span>{{ line }}
