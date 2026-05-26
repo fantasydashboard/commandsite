@@ -4,7 +4,7 @@
  *
  * Mirrors the Apex Today pattern:
  *   1. Grace at Work hub              ← value-prop hero (11 roles + time saved)
- *   2. Approval queue                 ← Grace's drafts waiting on Pastor Mark
+ *   2. Approval queue                 ← Grace's drafts awaiting pastoral sign-off
  *   3. Today snapshot + Live feed     ← merged: Sunday/giving/at-risk pulse +
  *                                       auto-updating activity feed below
  *
@@ -48,24 +48,31 @@ const attendanceTrend = computed(() => {
 
 const greeting = computed(() => {
   const hr = new Date().getHours()
-  if (hr < 12) return 'Good morning, Pastor Mark'
-  if (hr < 17) return 'Good afternoon, Pastor Mark'
-  return 'Good evening, Pastor Mark'
+  // Generic greeting — the demo is for any visiting pastor, not "Pastor Mark"
+  // specifically. Keeps the warmth without assuming the viewer's identity.
+  if (hr < 12) return 'Good morning, Cornerstone'
+  if (hr < 17) return 'Good afternoon, Cornerstone'
+  return 'Good evening, Cornerstone'
 })
 
-// ── Approval queue: Grace's drafts waiting on Pastor Mark ─────────────
+// ── Approval queue: Grace's drafts awaiting sign-off ──────────────────
+// Ordered by URGENCY, not by chronological order. The pastor opening
+// this in the morning sees the most-pressing items first: grief
+// support, then escalated care, then time-sensitive guest follow-up.
+// Birth congrats + giving notes + volunteer coordination sit at the
+// bottom — they're real work but can wait a day if needed.
 const queueItems: ApprovalQueueItem[] = [
   {
-    id: 'q-ellison',
-    role: 'communications',
-    icon: 'check-circle',
-    badge: 'Communications',
-    badgeClass: 'bg-brand/15 text-brand',
-    title: 'Birth congrats note — Ellison Family',
-    recipient: 'Marc & Hannah Ellison · baby Ellison born Tue',
-    preview: '"Marc and Hannah — saw the news from your small group, congratulations on baby Ellison. Hope the first nights are going as well as they can. Pastor Mark and the whole team are praying for you. We mailed a meal-train signup link to the group so they can rally around you this week. — Grace, on behalf of Pastor Mark"',
-    approved_response: 'Done — note printed, posting tomorrow with a hand-signed signature from Pastor Mark. The Ellisons should have it by Friday.',
-    ticker_after_approval: 'Mailed congrats note to the Ellisons',
+    id: 'q-foster-grief',
+    role: 'care_triage',
+    icon: 'alert-triangle',
+    badge: 'Grief Support',
+    badgeClass: 'bg-danger/15 text-danger',
+    title: 'Funeral-week check-in — Foster Family',
+    recipient: 'Amanda Foster · James\'s father passed Sunday · funeral Friday',
+    preview: '"Amanda — thinking of you, James, and the kids constantly this week. I\'ll be at the funeral Friday and will plan to be there early. In the meantime: meals are covered through next Sunday via your small group, and the Cornerstone benevolence fund covered the casket flowers. No need to respond. Just know we\'re carrying you. — Pastor"',
+    approved_response: 'Sent. I\'ll keep an eye out for any reply but won\'t prompt. I\'ll surface a 30-day follow-up reminder mid-June so you can check in once the immediate flurry settles.',
+    ticker_after_approval: 'Funeral-week note sent to the Foster Family',
   },
   {
     id: 'q-sullivan',
@@ -75,7 +82,7 @@ const queueItems: ApprovalQueueItem[] = [
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Pastoral check-in — Sullivan Family',
     recipient: 'Drew & Ana Sullivan · 3 red flags · escalated 4d ago',
-    preview: '"Drew, Ana — was thinking about you both this week. I know the last few months have been a lot. No agenda here, just wanted to see if a coffee or a call would be helpful. I\'ve got Tuesday afternoon or Friday morning open. — Pastor Mark"',
+    preview: '"Drew, Ana, was thinking about you both this week. I know the last few months have been a lot. No agenda here, just wanted to see if a coffee or a call would be helpful. I\'ve got Tuesday afternoon or Friday morning open. — Pastor"',
     approved_response: "Sent. I'll watch for a reply for 48 hrs and let you know either way. If they don't respond, I'll surface it again Wednesday.",
     ticker_after_approval: 'Pastoral check-in sent to the Sullivans',
   },
@@ -87,21 +94,9 @@ const queueItems: ApprovalQueueItem[] = [
     badgeClass: 'bg-success/15 text-success',
     title: 'Welcome card — Maddux Family',
     recipient: '4th visit Sunday · daughter loves the kids program',
-    preview: '"The Maddux Family — thanks so much for joining us again Sunday. Lila told her teacher she can\'t wait to come back, which made everyone\'s day. If you\'re open to it, we\'d love to chat about Newcomers Lunch next month — no pressure either way. — Pastor Mark"',
-    approved_response: 'Sent. The Madduxes are now in the day-7 nudge sequence — if no reply by then I\'ll draft another soft touch.',
+    preview: '"The Maddux Family, thanks so much for joining us again Sunday. Lila told her teacher she can\'t wait to come back, which made everyone\'s day. If you\'re open to it, we\'d love to chat about Newcomers Lunch next month, no pressure either way. — Pastor"',
+    approved_response: 'Sent. The Madduxes are now in the day-7 nudge sequence. If no reply by then I\'ll draft another soft touch.',
     ticker_after_approval: 'Welcome card sent to the Maddux Family',
-  },
-  {
-    id: 'q-nursery',
-    role: 'volunteer_coord',
-    icon: 'calendar',
-    badge: 'Volunteer Coord',
-    badgeClass: 'bg-accent/15 text-accent',
-    title: 'Fill ask — Nursery Sunday 9 AM',
-    recipient: '2 spots open · suggesting Mia Pham + Amanda Foster',
-    preview: '"Hey Mia — Linda and Aanya are both off this Sunday and we\'re short for the 9 AM nursery slot. You\'ve filled in last-minute before and I really appreciated it. Any chance you\'re free? Totally understand if not. — Pastor Mark (via Grace)"',
-    approved_response: 'Pinged both. Planning Center will auto-confirm if either says yes. I\'ll surface the result to you Saturday morning if no one bites.',
-    ticker_after_approval: 'Volunteer ask sent — Mia + Amanda for 9 AM nursery',
   },
   {
     id: 'q-hawthorne',
@@ -111,9 +106,33 @@ const queueItems: ApprovalQueueItem[] = [
     badgeClass: 'bg-brand/15 text-brand',
     title: 'Card-update reminder — Hawthorne Family',
     recipient: 'Recurring gift card expired 22d ago · 3-yr giving streak',
-    preview: '"The Hawthorne Family — your monthly gift didn\'t process this month because the card on file expired. Whenever you have a moment, here\'s the link to update it. Zero pressure, just wanted to flag it before another cycle slips. Thank you for your faithfulness. — Grace, for Cornerstone"',
+    preview: '"The Hawthorne Family, your monthly gift didn\'t process this month because the card on file expired. Whenever you have a moment, here\'s the link to update it. Zero pressure, just wanted to flag it before another cycle slips. Thank you for your faithfulness. — Grace, for Cornerstone"',
     approved_response: 'Sent. I\'ll watch for the card update for 5 days. If they update, I\'ll quietly retry the gift. If not, I\'ll surface it again next Monday.',
     ticker_after_approval: 'Card-update reminder sent to the Hawthornes',
+  },
+  {
+    id: 'q-ellison',
+    role: 'communications',
+    icon: 'check-circle',
+    badge: 'Communications',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Birth congrats note — Ellison Family',
+    recipient: 'Marc & Hannah Ellison · baby Ellison born Tue',
+    preview: '"Marc and Hannah, saw the news from your small group, congratulations on baby Ellison. Hope the first nights are going as well as they can. The whole team is praying for you. We mailed a meal-train signup link to the group so they can rally around you this week. — Grace, on behalf of the pastoral team"',
+    approved_response: 'Done. Note printed, posting tomorrow with a hand-signed signature. The Ellisons should have it by Friday.',
+    ticker_after_approval: 'Mailed congrats note to the Ellisons',
+  },
+  {
+    id: 'q-nursery',
+    role: 'volunteer_coord',
+    icon: 'calendar',
+    badge: 'Volunteer Coord',
+    badgeClass: 'bg-accent/15 text-accent',
+    title: 'Fill ask — Nursery Sunday 9 AM',
+    recipient: '2 spots open · suggesting Mia Pham + Amanda Foster',
+    preview: '"Hey Mia, Linda and Aanya are both off this Sunday and we\'re short for the 9 AM nursery slot. You\'ve filled in last-minute before and I really appreciated it. Any chance you\'re free? Totally understand if not. — Pastor (via Grace)"',
+    approved_response: 'Pinged both. Planning Center will auto-confirm if either says yes. I\'ll surface the result to you Saturday morning if no one bites.',
+    ticker_after_approval: 'Volunteer ask sent — Mia + Amanda for 9 AM nursery',
   },
 ]
 
@@ -166,12 +185,11 @@ onBeforeUnmount(() => {
     <!-- ── 1. Grace at Work hub — value-prop hero ─────────────────── -->
     <AdaAtWorkHub
       :roles="graceRoles"
-      owner-name="Pastor Mark"
       assistant-name="Grace"
       @role-click="onRoleClick"
     />
 
-    <!-- ── 2. Approval queue — Grace's drafts waiting on Pastor Mark ─ -->
+    <!-- ── 2. Approval queue — Grace's drafts awaiting pastoral sign-off ─ -->
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="8"

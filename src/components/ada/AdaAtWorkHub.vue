@@ -33,6 +33,17 @@ const emit = defineEmits<{ 'role-click': [role: AdaRole] }>()
 
 const activeRoles = computed(() => props.roles.filter((r) => r.status === 'active'))
 
+// Hours-saved is the ROI translation a buyer uses to decide "is this
+// worth it?" — but on its own it reads as fabricated marketing math.
+// Anchor it to the underlying actions count (observable + verifiable)
+// and show BOTH: hours as the hero, actions as the evidence beneath.
+// The minutes_saved_per_event values per role are auditable — operator
+// can ask "why is a first-time visitor text worth 8 minutes" and we
+// have a real answer.
+
+const totalActions = computed(() =>
+  activeRoles.value.reduce((sum, r) => sum + r.this_week_count, 0),
+)
 const totalMinutesSaved = computed(() =>
   activeRoles.value.reduce(
     (sum, r) => sum + r.this_week_count * r.minutes_saved_per_event,
@@ -40,7 +51,6 @@ const totalMinutesSaved = computed(() =>
   ),
 )
 const totalHoursSaved = computed(() => totalMinutesSaved.value / 60)
-const workingDaysSaved = computed(() => totalHoursSaved.value / 8)
 
 function minutesForRole(role: AdaRole): number {
   return role.this_week_count * role.minutes_saved_per_event
@@ -61,12 +71,6 @@ function formatHours(h: number): string {
 const headlineTarget = computed(() => totalHoursSaved.value)
 const displayedHours = ref(0)
 const headlineHours = computed(() => formatHours(displayedHours.value))
-
-const daysPhrase = computed(() => {
-  const d = workingDaysSaved.value
-  if (d < 1) return 'most of a working day'
-  return `~${d.toFixed(1)} working days`
-})
 
 // ── Count-up animation on the headline number ──────────────────────────────
 //
@@ -144,7 +148,8 @@ onBeforeUnmount(() => {
       </span>
     </header>
 
-    <!-- Headline strip: aggregated hours saved -->
+    <!-- Headline strip: hours saved as the ROI hero + actions count
+         as the supporting evidence the math isn't fabricated. -->
     <div
       ref="headlineEl"
       class="rounded-card bg-brand text-ink-inverse px-5 py-4 mb-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2"
@@ -152,15 +157,19 @@ onBeforeUnmount(() => {
       <div>
         <div class="flex items-baseline gap-1.5">
           <span class="text-4xl font-bold tabular-nums leading-none">{{ headlineHours }}</span>
-          <span class="text-base font-semibold opacity-90">hours</span>
+          <span class="text-base font-semibold opacity-90">hours saved</span>
         </div>
-        <div class="text-xs uppercase tracking-wide opacity-80 mt-1.5">
-          {{ assistantName }} saved {{ ownerName ?? 'you' }} this week
+        <div class="text-xs uppercase tracking-wide opacity-80 mt-1.5 tabular-nums">
+          across {{ totalActions }} actions {{ assistantName }} handled{{ ownerName ? ` for ${ownerName}` : '' }} this week
         </div>
       </div>
       <div class="text-right">
-        <div class="text-lg font-semibold leading-tight">≈ {{ daysPhrase }}</div>
-        <div class="text-xs uppercase tracking-wide opacity-80 mt-1">of work she handled</div>
+        <div class="text-lg font-semibold leading-tight tabular-nums">
+          {{ activeRoles.length }} of {{ roles.length }}
+        </div>
+        <div class="text-xs uppercase tracking-wide opacity-80 mt-1">
+          roles active
+        </div>
       </div>
     </div>
 

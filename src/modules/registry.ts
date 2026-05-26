@@ -26,6 +26,7 @@ import CommandSiteLeadsModule from './CommandSiteLeadsModule.vue'
 import CommandSiteConversationsModule from './CommandSiteConversationsModule.vue'
 import CommandSiteCustomersModule from './CommandSiteCustomersModule.vue'
 import CommandSiteOutreachModule from './CommandSiteOutreachModule.vue'
+import CommandSiteLinkedInModule from './CommandSiteLinkedInModule.vue'
 import CommandSiteRevenueModule from './CommandSiteRevenueModule.vue'
 import CommandSiteSocialModule from './CommandSiteSocialModule.vue'
 import CommandSiteUsageModule from './CommandSiteUsageModule.vue'
@@ -107,6 +108,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'pipeline', label: 'Pipeline' },
   { key: 'leads', label: 'Leads' },
   { key: 'conversations', label: 'Conversations' },
+  { key: 'linkedin', label: 'LinkedIn' },
   { key: 'outreach', label: 'Outreach' },
   { key: 'revenue', label: 'Revenue' },
   { key: 'social', label: 'Social' },
@@ -407,6 +409,14 @@ export const moduleRegistry: ModuleDefinition[] = [
     component: CommandSiteLeadsModule,
     fullWidth: true,
     tab: 'leads',
+  },
+  {
+    key: 'commandsite-linkedin',
+    label: 'CommandSite LinkedIn',
+    description: 'Daily LinkedIn warm-call queue — top-ICP leads with Touch 1 connection requests pre-drafted. Operator copies + sends manually (LinkedIn bans automated sends).',
+    component: CommandSiteLinkedInModule,
+    fullWidth: true,
+    tab: 'linkedin',
   },
   {
     key: 'commandsite-conversations',

@@ -32,6 +32,7 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'commandsite-today' },
     { key: 'commandsite-leads' },
     { key: 'commandsite-conversations' },
+    { key: 'commandsite-linkedin' },
     { key: 'commandsite-outreach' },
     { key: 'commandsite-pipeline' },
     { key: 'commandsite-customers' },

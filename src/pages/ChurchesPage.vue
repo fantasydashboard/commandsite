@@ -16,6 +16,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
 import AssistantMark from '@/components/AssistantMark.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 const CTA_URL = 'https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough'
 const CTA_LABEL = 'Book a no-pressure walkthrough'
@@ -64,31 +65,31 @@ const pains: Pain[] = [
 interface Module { icon: string; title: string; tagline: string; detail: string }
 const modules: Module[] = [
   {
-    icon: '📞',
+    icon: 'phone-off',
     title: 'Grace at the front desk',
     tagline: 'Catches every call, every form, every connect card.',
-    detail: 'Trained on your ministries, service times, and team. Routes pastoral emergencies straight to your cell, captures first-time visitor info, handles general questions warmly — 24/7. Sounds like a thoughtful volunteer, not a chatbot.',
+    detail: 'Trained on your ministries, service times, and team. Routes pastoral emergencies straight to your cell, captures first-time visitor info, handles general questions warmly, 24/7. Sounds like a thoughtful volunteer, not a chatbot.',
   },
   {
-    icon: '👋',
+    icon: 'qa_assistant',
     title: 'Grace welcomes every first-timer',
     tagline: 'Within hours, not weeks.',
-    detail: 'Drafts a personal text or email in your pastor\'s voice within 2 hours of a Sunday visit. Day 3, 7, 14, 30 — gentle, mission-aligned next-step invitations. Always personal, never spammy.',
+    detail: 'Drafts a personal text or email in your pastor\'s voice within 2 hours of a Sunday visit. Day 3, 7, 14, 30. Gentle, mission-aligned next-step invitations. Always personal, never spammy.',
   },
   {
-    icon: '🌱',
+    icon: 'flask',
     title: 'Grace captures the stories',
     tagline: 'The testimonies you never have time to gather.',
     detail: 'After a baptism, a small group milestone, or a notable life moment, Grace asks for the story (with permission) and drafts share-ready quotes for Sunday slides, your website, and social.',
   },
   {
-    icon: '🔁',
+    icon: 'referral_hunter',
     title: 'Grace notices when someone drifts',
     tagline: 'Before they\'re gone for good.',
-    detail: 'Members who haven\'t attended in 60-90 days get a personal "we miss you, can we pray for anything?" outreach. Drafts always go through your pastoral team for review — never fully automated for pastoral care.',
+    detail: 'Members who haven\'t attended in 60-90 days get a personal "we miss you, can we pray for anything?" outreach. Drafts always go through your pastoral team for review. Never fully automated for pastoral care.',
   },
   {
-    icon: '📊',
+    icon: 'trending-up',
     title: 'Grace\'s weekly report',
     tagline: 'One screen. The numbers your team cares about.',
     detail: 'Weekly attendance trends, first-time visitors, follow-up completion, dormant members reached, prayer requests received, volunteer pipeline. Open Monday morning over coffee.',
@@ -97,8 +98,8 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; grace: string }
 const compare: CompareRow[] = [
-  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'A fraction of the cost — quoted on your discovery call' },
-  { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7 — answers calls Sunday morning, Wednesday night, anytime' },
+  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'A fraction of the cost, quoted on your discovery call' },
+  { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7. Answers calls Sunday morning, Wednesday night, anytime' },
   { dimension: 'Visitor follow-up',     hire: 'When she has time',           grace: 'Every first-timer within 2 hours, every time' },
   { dimension: 'Dormant member alerts', hire: 'Catches the obvious ones',    grace: 'Notices everyone who drifts past 60 days' },
   { dimension: 'Story / testimony collection', hire: 'Rarely happens',       grace: 'Asks after every milestone, drafts share-ready quotes' },
@@ -177,16 +178,19 @@ const faqs: Faq[] = [
         <div>
           <AssistantMark class="h-16 w-16 mb-6 text-brand" />
           <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
-            For small-to-mid churches
+            Grace · AI ministry assistant · for churches 50–1,500 weekly
           </div>
           <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
-            Meet Grace —<br />
-            your AI ministry assistant.
+            Every first-time family welcomed.
+            <span class="text-brand">Every drift noticed.</span>
           </h1>
           <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
-            <strong class="text-ink font-semibold">CommandSite</strong> builds Grace custom for your church — trained on your ministries, your services, your team's voice. She welcomes first-time visitors, drafts gentle pastoral check-ins, and notices when someone drifts past 60 days. Your team stays in the relationships; Grace handles the systems work.
+            <strong class="text-ink font-semibold">CommandSite</strong> builds Grace custom for your church: trained on your ministries, your services, your team's voice. First-time visitors get a personal text within 2 hours. Pastoral check-ins are drafted for your team to review and send. Members who drift past 60 days get noticed before they're gone for good. Your team stays in the relationships. Grace handles the systems work.
           </p>
-          <p class="mt-2 text-sm text-ink-muted italic">
+          <p class="mt-3 text-sm text-ink-muted">
+            <strong class="text-ink font-medium">Works with</strong> Planning Center, Tithe.ly, MailChimp, and Twilio. Plugs into your existing stack instead of replacing it.
+          </p>
+          <p class="mt-3 text-sm text-ink-muted italic">
             (Named "Grace" because grace is what every church needs more of, quietly.)
           </p>
           <div class="mt-10 flex flex-wrap gap-3">
@@ -208,15 +212,17 @@ const faqs: Faq[] = [
             <!-- Card 1: First-time family welcomed -->
             <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider">
               <div class="flex items-center gap-2 mb-2">
-                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">👋</span>
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
+                  <AdaIcon name="qa_assistant" class="h-3.5 w-3.5" />
+                </span>
                 <p class="text-sm font-semibold text-ink">Welcomed a first-time family</p>
                 <span class="ml-auto text-[10px] text-ink-disabled">Sun 1:14 PM</span>
               </div>
               <p class="text-xs text-ink-muted leading-relaxed">
-                The Maddux family — <span class="italic">"Loved the kids program."</span>
+                The Maddux family. <span class="italic">"Loved the kids program."</span>
               </p>
               <div class="mt-2.5 flex items-center gap-1.5 text-xs">
-                <span class="text-success font-bold">✓</span>
+                <AdaIcon name="check-circle" class="h-3 w-3 text-success shrink-0" />
                 <span class="text-ink font-medium">Welcome text sent · opened in 11 min</span>
               </div>
             </div>
@@ -224,15 +230,17 @@ const faqs: Faq[] = [
             <!-- Card 2: Pastoral check-in drafted -->
             <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-6">
               <div class="flex items-center gap-2 mb-2">
-                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">🕊️</span>
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
+                  <AdaIcon name="referral_hunter" class="h-3.5 w-3.5" />
+                </span>
                 <p class="text-sm font-semibold text-ink">Drafted a pastoral check-in</p>
                 <span class="ml-auto text-[10px] text-ink-disabled">Tue 9:02 AM</span>
               </div>
               <p class="text-xs text-ink-muted leading-relaxed">
-                The Whitakers — quiet 4 weeks · ready for Pastor Mark's eyes
+                The Whitakers, quiet 4 weeks · ready for your pastor's eyes
               </p>
               <div class="mt-2.5 flex items-center gap-1.5 text-xs">
-                <span class="text-success font-bold">✓</span>
+                <AdaIcon name="check-circle" class="h-3 w-3 text-success shrink-0" />
                 <span class="text-ink font-medium">Queued for review</span>
               </div>
             </div>
@@ -240,7 +248,9 @@ const faqs: Faq[] = [
             <!-- Card 3: Story captured -->
             <div class="rounded-card bg-surface-raised p-4 shadow-raised border border-divider translate-x-2">
               <div class="flex items-center gap-2 mb-2">
-                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand text-sm">🌱</span>
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
+                  <AdaIcon name="flask" class="h-3.5 w-3.5" />
+                </span>
                 <p class="text-sm font-semibold text-ink">Captured a baptism story</p>
                 <span class="ml-auto text-[10px] text-ink-disabled">Wed 4:31 PM</span>
               </div>
@@ -248,7 +258,7 @@ const faqs: Faq[] = [
                 Riley B. · drafted a share-ready quote for Sunday slides
               </p>
               <div class="mt-2.5 flex items-center gap-1.5 text-xs">
-                <span class="text-success font-bold">✓</span>
+                <AdaIcon name="check-circle" class="h-3 w-3 text-success shrink-0" />
                 <span class="text-ink font-medium">Permission confirmed · ready to use</span>
               </div>
             </div>
@@ -294,6 +304,47 @@ const faqs: Faq[] = [
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ── Integrations strip ───────────────────────────────────────── -->
+    <!-- High-trust signal: pastors recognize Planning Center / Tithe.ly /
+         MailChimp / Twilio as the tools they already pay for. Grace plugs
+         into them instead of replacing them. This anchors the "doesn't
+         disrupt your stack" promise before pastors hit the modules. -->
+    <section class="border-y border-divider bg-surface-elevated py-10">
+      <div class="mx-auto max-w-5xl px-4 sm:px-8">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand text-center mb-5">
+          Grace plugs into your existing stack
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-base font-medium text-ink-muted">
+          <span class="inline-flex items-center gap-2">
+            <AdaIcon name="check-circle" class="h-4 w-4 text-success" />
+            Planning Center
+          </span>
+          <span class="text-ink-disabled">·</span>
+          <span class="inline-flex items-center gap-2">
+            <AdaIcon name="check-circle" class="h-4 w-4 text-success" />
+            Tithe.ly
+          </span>
+          <span class="text-ink-disabled">·</span>
+          <span class="inline-flex items-center gap-2">
+            <AdaIcon name="check-circle" class="h-4 w-4 text-success" />
+            MailChimp
+          </span>
+          <span class="text-ink-disabled">·</span>
+          <span class="inline-flex items-center gap-2">
+            <AdaIcon name="check-circle" class="h-4 w-4 text-success" />
+            Twilio
+          </span>
+          <span class="text-ink-disabled">·</span>
+          <span class="inline-flex items-center gap-2 text-ink-disabled italic">
+            ChurchTeams, Breeze coming
+          </span>
+        </div>
+        <p class="text-center text-xs text-ink-muted mt-4 max-w-2xl mx-auto">
+          Your ChMS, giving platform, email tool, and texting service stay exactly as they are. Grace is the missing layer that catches connections + drafts follow-ups + notices when someone drifts.
+        </p>
       </div>
     </section>
 
@@ -350,17 +401,19 @@ const faqs: Faq[] = [
         <!-- Real-feeling first-time-visitor inquiry on the right -->
         <div class="w-full lg:flex-1 rounded-xl bg-surface-elevated p-4 sm:p-5 border border-divider">
           <div class="flex items-center gap-2 mb-3 pb-3 border-b border-divider">
-            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand text-[11px]" aria-hidden="true">👋</span>
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand">
+              <AdaIcon name="qa_assistant" class="h-3 w-3" />
+            </span>
             <span class="text-xs text-ink font-semibold">Connect card · Sun 12:08 PM</span>
             <span class="ml-auto text-[11px] text-ink-disabled">first-time</span>
           </div>
           <div class="space-y-2.5 text-xs leading-relaxed">
             <p><span class="font-semibold text-ink-muted uppercase tracking-wider text-[10px]">Visitor</span><br /><span class="text-ink-data">"The Maddux family. Visited today with our 6-year-old. She loved the kids program. Would love to know more."</span></p>
-            <p><span class="font-semibold text-brand uppercase tracking-wider text-[10px]">Grace · drafted for Pastor Mark</span><br /><span class="text-ink-data">"Hi Maddux family — so glad you visited Cornerstone today, and even more glad your daughter had fun in the kids program. If you'd like, I can introduce you to Sarah who runs that ministry — she'd love to answer any questions. Either way, no pressure: hope to see you again Sunday."</span></p>
+            <p><span class="font-semibold text-brand uppercase tracking-wider text-[10px]">Grace · drafted for your pastor</span><br /><span class="text-ink-data">"Hi Maddux family, so glad you visited Cornerstone today, and even more glad your daughter had fun in the kids program. If you'd like, I can introduce you to Sarah who runs that ministry. She'd love to answer any questions. Either way, no pressure: hope to see you again Sunday."</span></p>
           </div>
           <div class="mt-3 pt-3 border-t border-divider flex items-center gap-1.5 text-[11px]">
             <span class="text-success font-bold" aria-hidden="true">✓</span>
-            <span class="text-ink font-medium">Queued for Pastor Mark · sends after his review · target window: Sun 6 PM</span>
+            <span class="text-ink font-medium">Queued for your pastor · sends after review · target window: Sun 6 PM</span>
           </div>
         </div>
       </article>
@@ -372,7 +425,9 @@ const faqs: Faq[] = [
           :key="m.title"
           class="rounded-card bg-surface-raised border border-divider p-5 flex items-start gap-4"
         >
-          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand text-lg flex-shrink-0" aria-hidden="true">{{ m.icon }}</div>
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand flex-shrink-0">
+            <AdaIcon :name="m.icon" class="h-5 w-5" />
+          </div>
           <div class="flex-1 min-w-0">
             <h3 class="text-base font-semibold text-ink leading-snug">{{ m.title }}</h3>
             <p class="text-xs font-medium text-brand mt-0.5">{{ m.tagline }}</p>
@@ -424,11 +479,11 @@ const faqs: Faq[] = [
         <ul class="space-y-4 text-sm text-ink leading-relaxed">
           <li class="flex items-start gap-3">
             <span class="text-brand font-bold flex-shrink-0">•</span>
-            <span><strong>For pastoral care, Grace never replaces a human.</strong> She drafts, she queues, she routes — but a real person on your team reads, edits, and sends. Your team stays in the relationship.</span>
+            <span><strong>For pastoral care, Grace never replaces a human.</strong> She drafts, she queues, she routes. A real person on your team reads, edits, and sends. Your team stays in the relationship.</span>
           </li>
           <li class="flex items-start gap-3">
             <span class="text-brand font-bold flex-shrink-0">•</span>
-            <span><strong>For systems work — first-time visitor texts, dormant-member check-ins, story collection — Grace just handles it.</strong> These are the touches that already aren't happening because nobody has time. The choice isn't "AI does it vs. a human does it." It's "Grace does it vs. nobody does it."</span>
+            <span><strong>For systems work (first-time visitor texts, dormant-member check-ins, story collection), Grace just handles it.</strong> These are the touches that already aren't happening because nobody has time. The choice isn't "AI does it vs. a human does it." It's "Grace does it vs. nobody does it."</span>
           </li>
           <li class="flex items-start gap-3">
             <span class="text-brand font-bold flex-shrink-0">•</span>
