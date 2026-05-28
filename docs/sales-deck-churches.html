@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grace, for churches — CommandSite</title>
+<style>
+  :root {
+    /* Brand stays Builder's Blue (CommandSite parent identity) */
+    --brand: #1e40af;
+    --brand-hover: #1d4ed8;
+    --brand-deep: #1e3a8a;
+    /* Accent shifts to warm sage for the pastoral register */
+    --accent: #7a9070;
+    --accent-deep: #5d7556;
+    /* Off-whites tinted slightly warm */
+    --chrome: #0c1322;
+    --chrome-ink: #f5f2ea;
+    --ink: #1a1d2b;
+    --ink-muted: #4a5060;
+    --ink-disabled: #8a8f9e;
+    --surface: #fbfaf6;
+    --surface-soft: #f5f3ec;
+    --surface-elev: #ece8dc;
+    --divider: #e0dcce;
+    --success: #5d7556;
+    --warn: #c79a4a;
+    --danger: #b8534a;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--surface-elev); font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+  /* ── Slide layout ─────────────────────────────────────────── */
+  .slide {
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 56px 88px;
+    overflow: hidden;
+    position: relative;
+    background: var(--surface-soft);
+  }
+  .slide.active { display: flex; }
+  .slide.dark { background: var(--chrome); color: var(--chrome-ink); }
+  .slide.dark .ink-muted { color: rgba(245,242,234,0.65); }
+  .slide.dark .ink { color: var(--chrome-ink); }
+
+  .slide-num {
+    position: absolute;
+    bottom: 24px; right: 32px;
+    font-size: 11px;
+    color: var(--ink-disabled);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+  }
+  .slide.dark .slide-num { color: rgba(245,242,234,0.4); }
+
+  /* ── Brand mark ───────────────────────────────────────────── */
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .brand-mark .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--brand));
+    border-radius: 6px;
+    color: var(--surface);
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .brand-mark .name { color: var(--ink); }
+  .slide.dark .brand-mark .name { color: var(--chrome-ink); }
+
+  .corner-brand {
+    position: absolute;
+    top: 32px; left: 56px;
+  }
+
+  /* ── Typography ───────────────────────────────────────────── */
+  h1.title {
+    font-size: 64px;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin: 0 0 24px;
+    color: var(--ink);
+  }
+  h1.hero {
+    font-size: 84px;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    font-weight: 900;
+    margin: 0 0 32px;
+    color: var(--ink);
+  }
+  .slide.dark h1.title, .slide.dark h1.hero { color: var(--chrome-ink); }
+  h2.section {
+    font-size: 48px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    margin: 0 0 20px;
+    color: var(--ink);
+  }
+  .slide.dark h2.section { color: var(--chrome-ink); }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 16px;
+  }
+  .slide.dark .eyebrow { color: var(--accent); }
+  .lede {
+    font-size: 22px;
+    line-height: 1.5;
+    color: var(--ink-muted);
+    max-width: 880px;
+    margin: 0 0 32px;
+  }
+  .slide.dark .lede { color: rgba(245,242,234,0.78); }
+  p.body { font-size: 18px; line-height: 1.55; color: var(--ink-muted); margin: 0 0 16px; }
+  .slide.dark p.body { color: rgba(245,242,234,0.7); }
+
+  /* ── Cards / KPIs ─────────────────────────────────────────── */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(26,29,43,0.06), 0 1px 2px rgba(26,29,43,0.04);
+    border: 1px solid var(--divider);
+  }
+  .card.success { border-color: rgba(93,117,86,0.4); background: rgba(93,117,86,0.06); }
+  .card.danger  { border-color: rgba(184,83,74,0.35); background: rgba(184,83,74,0.05); }
+  .card.brand   { border-color: rgba(30,64,175,0.3); background: rgba(30,64,175,0.04); }
+  .card.accent  { border-color: rgba(122,144,112,0.4); background: rgba(122,144,112,0.07); }
+
+  .kpi-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-value.success { color: var(--success); }
+  .kpi-value.brand   { color: var(--brand); }
+  .kpi-value.accent  { color: var(--accent-deep); }
+  .kpi-value.danger  { color: var(--danger); }
+  .kpi-hint { font-size: 12px; color: var(--ink-disabled); margin-top: 6px; }
+  .kpi-cite { font-size: 11px; color: var(--ink-disabled); margin-top: 8px; font-style: italic; }
+
+  /* ── Pill / chips ─────────────────────────────────────────── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .pill.success { background: rgba(93,117,86,0.15); color: var(--success); }
+  .pill.brand   { background: rgba(30,64,175,0.12); color: var(--brand); }
+  .pill.accent  { background: rgba(122,144,112,0.18); color: var(--accent-deep); }
+  .pill.warn    { background: rgba(199,154,74,0.15); color: var(--warn); }
+  .pill.danger  { background: rgba(184,83,74,0.15); color: var(--danger); }
+  .pill.dot::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ── Pillar cards ─────────────────────────────────────────── */
+  .pillar {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 32px;
+    border: 1px solid var(--divider);
+    box-shadow: 0 4px 12px rgba(26,29,43,0.05);
+  }
+  .pillar .pillar-num {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--brand));
+    color: var(--surface);
+    font-weight: 800;
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+  }
+  .pillar h3 { margin: 0 0 10px; font-size: 24px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .pillar p { font-size: 15px; color: var(--ink-muted); line-height: 1.5; margin: 0 0 14px; }
+  .pillar ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-muted); line-height: 1.7; }
+
+  /* ── Leak list (full border, no side-stripe per design system) ─── */
+  .leak {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 18px 22px;
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--divider);
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(26,29,43,0.04);
+  }
+  .leak-num {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(184,83,74,0.12);
+    color: var(--danger);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .leak-body { flex: 1; }
+  .leak-title { font-weight: 700; font-size: 17px; color: var(--ink); margin-bottom: 4px; }
+  .leak-detail { font-size: 13px; color: var(--ink-muted); }
+  .leak-amt {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    font-size: 17px;
+    color: var(--danger);
+    white-space: nowrap;
+  }
+
+  /* ── Compare table ────────────────────────────────────────── */
+  .compare {
+    background: var(--surface);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--divider);
+  }
+  .compare-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    align-items: center;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 15px;
+  }
+  .compare-row:last-child { border-bottom: 0; }
+  .compare-row.head {
+    background: var(--surface-elev);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+  .compare-row .yes { color: var(--success); font-weight: 700; }
+  .compare-row .no  { color: var(--ink-disabled); }
+  .compare-row .partial { color: var(--warn); font-weight: 600; }
+
+  /* ── Timeline (setup story) ───────────────────────────────── */
+  .timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .timeline .day {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 22px;
+    border: 1px solid var(--divider);
+  }
+  .timeline .day-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent-deep);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .timeline .day-title { font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 8px; letter-spacing: -0.01em; }
+  .timeline .day-body { font-size: 13px; color: var(--ink-muted); line-height: 1.5; }
+
+  /* ── Closing ──────────────────────────────────────────────── */
+  .closing {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+  }
+  .cta {
+    display: inline-block;
+    background: var(--brand);
+    color: var(--surface);
+    padding: 16px 36px;
+    border-radius: 99px;
+    font-weight: 700;
+    font-size: 18px;
+    margin-top: 24px;
+    text-decoration: none;
+  }
+
+  /* ── Nav bar ──────────────────────────────────────────────── */
+  .nav {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    background: rgba(12,19,34,0.85);
+    backdrop-filter: blur(8px);
+    padding: 8px 14px;
+    border-radius: 99px;
+    z-index: 100;
+    align-items: center;
+  }
+  .nav button {
+    background: transparent;
+    border: 0;
+    color: var(--chrome-ink);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .nav button:hover { background: rgba(245,242,234,0.1); }
+  .nav .nav-current { color: rgba(245,242,234,0.7); font-size: 13px; padding: 0 8px; font-variant-numeric: tabular-nums; }
+
+  @media print {
+    body { background: var(--surface); }
+    .slide { display: flex !important; page-break-after: always; height: 100vh; }
+    .slide:last-child { page-break-after: auto; }
+    .nav { display: none !important; }
+  }
+
+  /* Helper utilities */
+  .row { display: flex; gap: 16px; align-items: center; }
+  .row.between { justify-content: space-between; }
+  .row.wrap { flex-wrap: wrap; }
+  .gap-sm { gap: 8px; }
+  .mt-sm { margin-top: 12px; }
+  .mt-md { margin-top: 24px; }
+  .mt-lg { margin-top: 40px; }
+  .text-success { color: var(--success); }
+  .text-danger  { color: var(--danger); }
+  .text-brand   { color: var(--brand); }
+  .text-accent  { color: var(--accent-deep); }
+  .text-muted   { color: var(--ink-muted); }
+  .font-bold    { font-weight: 700; }
+  .font-mono    { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .big-num {
+    font-size: 144px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--brand);
+    font-variant-numeric: tabular-nums;
+  }
+  .big-num small { font-size: 48px; color: var(--ink-muted); font-weight: 700; }
+
+  .cite {
+    font-size: 12px;
+    color: var(--ink-disabled);
+    font-style: italic;
+    margin-top: 16px;
+  }
+  .slide.dark .cite { color: rgba(245,242,234,0.5); }
+</style>
+</head>
+<body>
+
+<!-- ═════════════════ SLIDE 1 · COVER ═════════════════ -->
+<section class="slide dark active">
+  <div class="brand-mark" style="margin-bottom: 64px;">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <h1 class="hero">Every first-time<br>family welcomed.<br><span style="color: var(--accent);">Every drift noticed.</span></h1>
+  <p class="lede" style="font-size: 24px;">
+    Grace is the AI ministry assistant for small-to-mid churches. She watches your visitors, drafts the pastoral follow-up, and surfaces the people slipping through the cracks. So your team can focus on the conversations.
+  </p>
+  <div class="row mt-md">
+    <span class="pill brand" style="background: rgba(122,144,112,0.22); color: var(--accent); padding: 6px 14px; font-size: 12px;">For churches · 50 to 1,500 weekly attendance</span>
+  </div>
+  <div class="slide-num">1 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 2 · THE HOOK ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">The painful question</div>
+  <h1 class="title">A first-time family visited<br>your church <span style="color: var(--brand);">last Sunday.</span></h1>
+  <p class="lede" style="font-size: 26px; max-width: 1000px;">
+    They loved the worship. They left their info on the connect card. <strong style="color: var(--ink);">By Friday, they had heard nothing.</strong>
+  </p>
+  <p class="lede" style="font-size: 26px; color: var(--danger); font-weight: 600; max-width: 1000px;">
+    By next Sunday, they were at the bigger church down the road that texted them the same afternoon.
+  </p>
+  <div class="card accent mt-md" style="display: inline-flex; align-items: center; gap: 20px; max-width: 760px; padding: 20px 24px;">
+    <div style="font-size: 56px; font-weight: 900; color: var(--accent-deep); line-height: 1; font-variant-numeric: tabular-nums;">80%</div>
+    <div>
+      <div style="font-weight: 700; color: var(--ink); font-size: 16px;">of first-time visitors at small-to-mid churches never come back.</div>
+      <div style="font-size: 13px; color: var(--ink-muted); margin-top: 4px;">Not because of the sermon. Not because of the music. Because nobody followed up.</div>
+    </div>
+  </div>
+  <p class="cite">Source: VisiConnect church retention research, 2024</p>
+  <div class="slide-num">2 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 3 · THE DIAGNOSIS ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">The diagnosis</div>
+  <h2 class="section">Pastors and admins<br>aren't the problem.</h2>
+  <p class="lede">Every church we've talked to <em>knows</em> visitor follow-up matters. They care deeply about the people who walk through the door. The gap isn't intent. The gap is bandwidth.</p>
+
+  <div class="grid grid-3 mt-md">
+    <div class="card">
+      <div class="kpi-label">Sunday morning</div>
+      <p style="font-size: 16px; color: var(--ink); margin: 0 0 8px; font-weight: 600;">5-15 connect cards.</p>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.5;">The pastor is greeting people. The admin is helping with kids check-in. Nobody is logging the visitors in real time.</p>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Monday</div>
+      <p style="font-size: 16px; color: var(--ink); margin: 0 0 8px; font-weight: 600;">Pastor's day off.</p>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.5;">Most pastors take Monday to recover. The connect cards sit in a stack. The window is closing.</p>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Tuesday – Friday</div>
+      <p style="font-size: 16px; color: var(--ink); margin: 0 0 8px; font-weight: 600;">Sermon prep. Counseling. Funerals. Boards.</p>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.5;">By the time anyone gets to the connect cards, it's been six days. The window has closed.</p>
+    </div>
+  </div>
+  <div class="slide-num">3 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 4 · THE MATH ═════════════════ -->
+<section class="slide" style="background: var(--surface);">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div style="margin: 0 auto; max-width: 1100px; width: 100%;">
+    <div class="eyebrow">The math</div>
+    <h2 class="section">Follow-up within 48 hours<br>is a <span style="color: var(--accent-deep);">4 to 5 times</span> multiplier.</h2>
+
+    <div class="grid grid-3 mt-lg" style="gap: 24px;">
+      <div class="card">
+        <div class="kpi-label">Status quo</div>
+        <div class="kpi-value danger">10 to 20%</div>
+        <div class="kpi-hint">National baseline return rate for first-time visitors when no system is in place.</div>
+      </div>
+      <div class="card accent">
+        <div class="kpi-label">With 48h follow-up</div>
+        <div class="kpi-value accent">50 to 70%</div>
+        <div class="kpi-hint">Churches with a documented 48-hour follow-up system convert visitors to returners at this rate.</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Multiplier</div>
+        <div class="kpi-value brand">4 to 5x</div>
+        <div class="kpi-hint">The ROI of the system itself, applied to people who already wanted to come back.</div>
+      </div>
+    </div>
+
+    <p class="cite" style="margin-top: 32px;">Sources: The Effective Church Group; Faith Communities Today 2023 study (n=15,278 congregations)</p>
+  </div>
+  <div class="slide-num">4 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 5 · WHERE MINISTRY ENERGY LEAKS ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">It is not just visitors</div>
+  <h2 class="section">Six places ministry energy leaks every week.</h2>
+  <p class="lede" style="margin-bottom: 24px;">Each of these is a job the pastor or admin is supposed to do. None of them are happening because there's no time.</p>
+
+  <div>
+    <div class="leak">
+      <div class="leak-num">1</div>
+      <div class="leak-body">
+        <div class="leak-title">First-time visitors who never hear back</div>
+        <div class="leak-detail">Connect card on Sunday. Silence by Friday. 80% never return.</div>
+      </div>
+      <div class="leak-amt">Highest cost</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">2</div>
+      <div class="leak-body">
+        <div class="leak-title">Members drifting before anyone notices</div>
+        <div class="leak-detail">Three weeks missed. Four weeks. By week six, they've quietly joined another church. You find out at the grocery store.</div>
+      </div>
+      <div class="leak-amt">~2-3 families/qtr</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">3</div>
+      <div class="leak-body">
+        <div class="leak-title">Care needs the pastor learns about too late</div>
+        <div class="leak-detail">Grief, job loss, health diagnosis. The first time you hear about it is from someone else, three weeks in.</div>
+      </div>
+      <div class="leak-amt">Trust cost</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">4</div>
+      <div class="leak-body">
+        <div class="leak-title">Volunteer follow-up that just doesn't happen</div>
+        <div class="leak-detail">Someone says "I'd love to help with kids." It goes in a Google doc. Eight weeks later, they wonder if anyone heard them.</div>
+      </div>
+      <div class="leak-amt">Engagement cost</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">5</div>
+      <div class="leak-body">
+        <div class="leak-title">Giving dips that surface as a budget surprise</div>
+        <div class="leak-detail">A regular giver stops. The treasurer notices in the next monthly report. The pastor is the last to know.</div>
+      </div>
+      <div class="leak-amt">Budget cost</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">6</div>
+      <div class="leak-body">
+        <div class="leak-title">Hours staff spend re-typing things between tools</div>
+        <div class="leak-detail">Connect cards into Planning Center, into MailChimp, into the prayer list, into the kids ministry roster. Same names. Five times.</div>
+      </div>
+      <div class="leak-amt">~10 hrs/wk</div>
+    </div>
+  </div>
+
+  <div class="slide-num">5 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 6 · MEET GRACE ═════════════════ -->
+<section class="slide dark">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div style="margin: 0 auto; max-width: 1100px;">
+    <div class="eyebrow">Meet Grace</div>
+    <h1 class="title">She is the ministry assistant<br>you've been wishing for.</h1>
+    <p class="lede" style="font-size: 24px;">
+      Grace is one AI ministry assistant who watches your visitors, your members, your care list, and your weekly cadence. She drafts the gentle follow-ups your pastor would write. Your team reviews and sends. She handles the systems work so your people can do the people work.
+    </p>
+
+    <div class="row gap-sm mt-md" style="flex-wrap: wrap;">
+      <span class="pill" style="background: rgba(122,144,112,0.22); color: var(--accent);">One employee, many roles</span>
+      <span class="pill" style="background: rgba(122,144,112,0.22); color: var(--accent);">Sounds like your pastor</span>
+      <span class="pill" style="background: rgba(122,144,112,0.22); color: var(--accent);">Your team always approves first</span>
+      <span class="pill" style="background: rgba(122,144,112,0.22); color: var(--accent);">Integrates with Planning Center</span>
+    </div>
+  </div>
+  <div class="slide-num">6 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 7 · HER ROLES ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">One Grace, many jobs</div>
+  <h2 class="section">The eight roles she covers.</h2>
+  <p class="lede" style="margin-bottom: 28px;">Each role is a system that runs every week without your team having to remember it. Each one drafts; your team approves.</p>
+
+  <div class="grid grid-4" style="gap: 14px;">
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 1</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Front Desk</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Drafts the first-time visitor reply within 2 hours of Sunday service.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 2</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Care Drift</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Surfaces members who have missed 3+ Sundays before they're gone for good.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 3</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Sunday Comms</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Drafts the weekly email, the announcement slides, and the text reminders for upcoming events.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 4</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Care Triage</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Routes new care needs to the right pastor or deacon with full context.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 5</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Volunteer Coord</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Catches every "I'd love to help" and routes it to the team lead within 24 hours.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 6</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Giving Watch</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Flags giving pattern changes so the pastor can reach out as a person, not a treasurer.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 7</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Milestone Watch</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Surfaces baptism anniversaries, baby dedications, new-membership milestones.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role 8</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0 6px;">Weekly Brief</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">A Monday-morning summary of what happened Sunday and what the team needs to do this week.</div>
+    </div>
+  </div>
+  <div class="slide-num">7 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 8 · A WEEK IN GRACE'S WORLD ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">What a week looks like</div>
+  <h2 class="section">A week with Grace.</h2>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 32px;">
+    <div class="card">
+      <div class="pill accent" style="margin-bottom: 12px;">Sunday afternoon</div>
+      <div style="font-size: 18px; color: var(--ink); font-weight: 700; margin-bottom: 8px;">Service ends. Grace gets to work.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); line-height: 1.6; margin: 0;">She pulls every connect card and first-time-visitor entry from Planning Center. By 4pm she has drafted a personal text or email for each visitor, in your pastor's voice. The drafts sit in your sign-off queue waiting for review.</p>
+    </div>
+    <div class="card">
+      <div class="pill accent" style="margin-bottom: 12px;">Monday morning</div>
+      <div style="font-size: 18px; color: var(--ink); font-weight: 700; margin-bottom: 8px;">Brief in your inbox at 7am.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); line-height: 1.6; margin: 0;">Sunday attendance. First-time visitors. New volunteers raised hands. Care needs surfaced. Members who missed their third Sunday. The whole week framed in three minutes of reading.</p>
+    </div>
+    <div class="card">
+      <div class="pill accent" style="margin-bottom: 12px;">Tuesday – Friday</div>
+      <div style="font-size: 18px; color: var(--ink); font-weight: 700; margin-bottom: 8px;">Drafts surface as situations arise.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); line-height: 1.6; margin: 0;">Volunteer signups, prayer requests, milestone reminders, sermon follow-ups. Each one drafted in your church's voice, queued for someone on the team to send. You spend 15 minutes a day, not 5 hours.</p>
+    </div>
+    <div class="card">
+      <div class="pill accent" style="margin-bottom: 12px;">Saturday</div>
+      <div style="font-size: 18px; color: var(--ink); font-weight: 700; margin-bottom: 8px;">Sermon-prep peace.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); line-height: 1.6; margin: 0;">Grace has handled the followups, the reminders, the routine comms. Your pastor's Saturday is for the sermon, not for digging through a backlog of names.</p>
+    </div>
+  </div>
+  <div class="slide-num">8 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 9 · WHAT SHE IS NOT ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">An honest boundary</div>
+  <h2 class="section">What Grace is not.</h2>
+  <p class="lede">We've been in church ministry too long to pretend AI replaces pastoral care. Here's what Grace doesn't do:</p>
+
+  <div class="grid grid-2 mt-md">
+    <div class="card danger">
+      <div style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">Not a replacement for your pastoral team.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Grace drafts. Your team sends. Every message that leaves your church is a message a human on your staff approved. Period.</p>
+    </div>
+    <div class="card danger">
+      <div style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">Not an autonomous AI.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">She doesn't decide when to act on her own. She runs on a predictable schedule you can set, with full transparency on every draft.</p>
+    </div>
+    <div class="card danger">
+      <div style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">Not a chat bot for your congregation.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Your members never talk to Grace. Grace works internally for your staff. The texts and emails that go out come from your pastor's number, your church's email.</p>
+    </div>
+    <div class="card danger">
+      <div style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">Not a way to fake care.</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Grace surfaces who needs care. She doesn't pretend to care for them. The relational work is still yours, and that's the point.</p>
+    </div>
+  </div>
+  <div class="slide-num">9 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 10 · COMPARE ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Where she fits</div>
+  <h2 class="section">Grace vs. the alternatives.</h2>
+  <p class="lede" style="margin-bottom: 20px;">Most churches are choosing between three options. Here's how Grace stacks up.</p>
+
+  <div class="compare">
+    <div class="compare-row head">
+      <div></div>
+      <div>Status quo</div>
+      <div>Planning Center alone</div>
+      <div>Grace</div>
+    </div>
+    <div class="compare-row">
+      <div>Tracks visitors</div>
+      <div class="partial">Manual</div>
+      <div class="yes">Yes</div>
+      <div class="yes">Yes</div>
+    </div>
+    <div class="compare-row">
+      <div>Drafts the follow-up message</div>
+      <div class="no">No</div>
+      <div class="no">No</div>
+      <div class="yes">In your voice</div>
+    </div>
+    <div class="compare-row">
+      <div>Sends within 48 hours, every week</div>
+      <div class="no">Rarely</div>
+      <div class="no">If you remember</div>
+      <div class="yes">Always queued</div>
+    </div>
+    <div class="compare-row">
+      <div>Flags member drift before they're gone</div>
+      <div class="no">No</div>
+      <div class="partial">Reports exist</div>
+      <div class="yes">Surfaced weekly</div>
+    </div>
+    <div class="compare-row">
+      <div>Routes new care needs to the right pastor</div>
+      <div class="partial">Whoever sees it first</div>
+      <div class="no">No</div>
+      <div class="yes">Triaged with context</div>
+    </div>
+    <div class="compare-row">
+      <div>Drafts the weekly email and announcements</div>
+      <div class="no">Someone's Sunday-night job</div>
+      <div class="no">No</div>
+      <div class="yes">Drafted by Monday</div>
+    </div>
+    <div class="compare-row">
+      <div>Costs less than hiring a part-time admin</div>
+      <div class="yes">Yes</div>
+      <div class="yes">Yes</div>
+      <div class="yes">Yes</div>
+    </div>
+  </div>
+  <p class="cite">Grace integrates with Planning Center. We don't replace your ChMS, we make it work harder.</p>
+  <div class="slide-num">10 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 11 · SETUP STORY ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">From conversation to live</div>
+  <h2 class="section">Seven days to a working system.</h2>
+  <p class="lede" style="margin-bottom: 28px;">No multi-month implementation. No consultant engagement. You're live before the next Sunday after kickoff.</p>
+
+  <div class="timeline">
+    <div class="day">
+      <div class="day-label">Day 1</div>
+      <div class="day-title">Kickoff call</div>
+      <div class="day-body">30 minutes with the pastor and admin. We walk through what your week looks like and where the leaks are.</div>
+    </div>
+    <div class="day">
+      <div class="day-label">Day 2 – 3</div>
+      <div class="day-title">Planning Center connection</div>
+      <div class="day-body">We connect Grace to your existing tools. No data migration. No re-typing your member list.</div>
+    </div>
+    <div class="day">
+      <div class="day-label">Day 4 – 5</div>
+      <div class="day-title">Voice training</div>
+      <div class="day-body">We pull samples of how your pastor writes. Grace's drafts start sounding like your church within one round of edits.</div>
+    </div>
+    <div class="day">
+      <div class="day-label">Day 6 – 7</div>
+      <div class="day-title">Shadow week, then live</div>
+      <div class="day-body">First Sunday, Grace runs in shadow mode. You see every draft, send nothing. Second Sunday, she's live.</div>
+    </div>
+  </div>
+  <div class="slide-num">11 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 12 · WHAT IT TAKES TO BRING HER IN ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">The investment</div>
+  <h2 class="section">What it takes to bring her in.</h2>
+  <p class="lede">We'll walk through the specific investment on our call. Here's what's involved before then.</p>
+
+  <div class="grid grid-3 mt-md">
+    <div class="pillar">
+      <div class="pillar-num">1</div>
+      <h3>The decision-makers</h3>
+      <p>Most churches involve the pastor, the admin, and the board or finance committee. We can build a one-page brief for your board if it helps.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-num">2</div>
+      <h3>The investment</h3>
+      <p>Less than a part-time admin hire. We'll share specific numbers on our call, calibrated to your size and tier.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-num">3</div>
+      <h3>The commitment</h3>
+      <p>Month-to-month. No annual contract required. Cancel any time, we'll export your data clean.</p>
+    </div>
+  </div>
+
+  <div class="card accent mt-lg" style="display: inline-flex; align-items: center; gap: 16px; padding: 16px 22px;">
+    <span class="pill accent">Founding partner pricing</span>
+    <div style="font-size: 14px; color: var(--ink-muted);">For our first 10 churches, the pricing is set lower and locked in for 2 years. Ask us about it.</div>
+  </div>
+  <div class="slide-num">12 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 13 · WHO BUILT THIS ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Who built this</div>
+  <h2 class="section">A note from the founder.</h2>
+
+  <div style="max-width: 760px;">
+    <p class="body" style="font-size: 19px; color: var(--ink);">Honestly? I built this because I watched it happen too many times.</p>
+    <p class="body" style="font-size: 17px;">A first-time family visits a church on a Sunday. They love it. They leave their info on the connect card. By Friday, they've heard nothing. By next Sunday, they're at the bigger church down the road that texted them the same afternoon.</p>
+    <p class="body" style="font-size: 17px;">I've spent nearly 20 years serving in church ministry, and sat with dozens of pastors and admins along the way. Every one of them cares deeply about the people who walk through the door. None of them have time to do what their hearts know needs to happen, because they're already drowning in the rest of the work.</p>
+    <p class="body" style="font-size: 17px;">So I built Grace. She's the ministry assistant I wished every small-to-mid church already had. She catches every visitor inquiry, drafts the gentle pastoral follow-ups, captures the stories you never have time to gather, and notices when a member's been gone a few weeks before they're gone for good.</p>
+    <p class="body" style="font-size: 17px; color: var(--ink); font-weight: 600;">She's not here to replace your team. She's here to free your team for the conversations that actually matter.</p>
+  </div>
+  <div class="slide-num">13 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 14 · FAQ ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <div class="eyebrow">Common questions</div>
+  <h2 class="section">What pastors ask first.</h2>
+
+  <div class="grid grid-2 mt-md" style="gap: 18px;">
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"Will this feel impersonal to our visitors?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Every message is reviewed by a human on your team before it sends. Grace drafts in your pastor's voice using your church's language. Visitors never know AI was involved.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"We already use Planning Center. Why do we need this?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Planning Center holds the data. It doesn't draft the follow-ups, surface the drift, or send the Sunday brief. Grace is the layer that makes Planning Center actually do something on your behalf.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"What does the board need to see?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">We'll prepare a one-page summary for your board meeting. Investment, expected outcomes, what data Grace sees, and how to roll back if it doesn't work.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"What about data privacy?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Grace only sees what you give her access to. No data is shared with other churches or used to train external models. Full data export on request. SOC 2 controls in progress.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"Do we need to write an AI policy first?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">73% of churches don't have one yet. We can help you draft a starter policy specifically for how Grace is used. It's part of onboarding, not a prerequisite.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"Who runs our discovery call?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Josh, the founder. Not a sales rep. Every discovery call is run by the person who built the product and the person who's served in church ministry for nearly 20 years.</p>
+    </div>
+  </div>
+  <div class="slide-num">14 / 15</div>
+</section>
+
+<!-- ═════════════════ SLIDE 15 · CLOSING ═════════════════ -->
+<section class="slide dark closing">
+  <div class="brand-mark" style="margin-bottom: 64px;">
+    <span class="icon">C</span>
+    <span class="name">CommandSite</span>
+  </div>
+  <h1 class="hero" style="font-size: 72px; max-width: 1000px;">If you've read this far,<br><span style="color: var(--accent);">let's talk.</span></h1>
+  <p class="lede" style="font-size: 22px; max-width: 720px; margin: 0 auto 32px;">
+    The walkthrough is 30 minutes. We talk through how your church actually does ministry, what's slipping through the cracks, and whether Grace is a fit. No pressure, no script.
+  </p>
+  <a href="https://commandsite.io/churches" class="cta">Book a walkthrough →</a>
+  <p style="margin-top: 24px; font-size: 14px; color: rgba(245,242,234,0.65);">
+    Or email Josh directly: <a href="mailto:josh@commandsite.io" style="color: var(--accent); text-decoration: underline;">josh@commandsite.io</a>
+  </p>
+  <div class="slide-num">15 / 15</div>
+</section>
+
+<!-- ═════════════════ NAV ═════════════════ -->
+<div class="nav">
+  <button onclick="prev()">‹ Prev</button>
+  <span class="nav-current"><span id="navCurrent">1</span> / 15</span>
+  <button onclick="next()">Next ›</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let idx = 0;
+  function show(i) {
+    slides.forEach((s, n) => s.classList.toggle('active', n === i));
+    document.getElementById('navCurrent').textContent = (i + 1).toString();
+    idx = i;
+  }
+  function next() { if (idx < slides.length - 1) show(idx + 1); }
+  function prev() { if (idx > 0) show(idx - 1); }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  });
+</script>
+
+</body>
+</html>

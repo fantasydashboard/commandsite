@@ -551,7 +551,7 @@ const faqs: Faq[] = [
                 A first-time family visits a small church on a Sunday. They love it. They leave their info on the connect card. By Friday, they've heard nothing. By next Sunday, they're at the bigger church down the road that texted them the same afternoon.
               </p>
               <p>
-                I write kids' ministry curriculum every week and I've sat with dozens of pastors and admins over the years. Every one of them cares deeply about the people who walk through the door. None of them have time to do what their hearts know needs to happen — because they're already drowning in the rest of the work.
+                I've spent nearly 20 years serving in church ministry, and sat with dozens of pastors and admins along the way. Every one of them cares deeply about the people who walk through the door. None of them have time to do what their hearts know needs to happen, because they're already drowning in the rest of the work.
               </p>
               <p>
                 So I built Grace. Grace is the ministry assistant I wished every small-to-mid church already had: she catches every visitor inquiry, drafts the gentle pastoral follow-ups, captures the stories you never have time to gather, and notices when a member's been gone a few weeks before they're gone for good. She's not here to replace your team. She's here to free your team for the conversations that actually matter.
@@ -574,8 +574,8 @@ const faqs: Faq[] = [
             <p class="text-sm text-ink-muted">Founder, CommandSite</p>
             <hr class="my-4 border-divider max-w-[160px]" />
             <ul class="space-y-2 text-xs text-ink-muted leading-relaxed">
-              <li>Kids' ministry curriculum writer · weekly</li>
-              <li>Sat with dozens of pastors over a decade</li>
+              <li>Nearly 20 years serving in church ministry</li>
+              <li>Sat with dozens of pastors and admins</li>
               <li>Runs every discovery call himself</li>
             </ul>
           </aside>

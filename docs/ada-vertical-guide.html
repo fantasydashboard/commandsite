@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ada — Vertical Fit Guide</title>
+<style>
+  :root {
+    --brand: #1e40af;
+    --brand-deep: #1e3a8a;
+    --accent: #0ea5e9;
+    --ink: #0f172a;
+    --ink-muted: #475569;
+    --ink-disabled: #94a3b8;
+    --surface: #ffffff;
+    --surface-soft: #f8fafc;
+    --surface-elev: #f1f5f9;
+    --divider: #e2e8f0;
+    --success: #10b981;
+    --danger: #ef4444;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--surface-soft);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 64px 72px;
+    background: var(--surface);
+  }
+
+  .page + .page {
+    margin-top: 24px;
+  }
+
+  /* Page break for printing */
+  .page-break {
+    page-break-before: always;
+  }
+
+  h1 {
+    font-size: 36px;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin: 0 0 16px;
+    color: var(--ink);
+  }
+
+  h1.cover-title {
+    font-size: 56px;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    margin-bottom: 24px;
+  }
+
+  h2 {
+    font-size: 26px;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    font-weight: 800;
+    margin: 40px 0 14px;
+    color: var(--ink);
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--divider);
+  }
+
+  h3 {
+    font-size: 18px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    margin: 28px 0 10px;
+    color: var(--ink);
+  }
+
+  h4 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: var(--brand);
+    margin: 20px 0 8px;
+  }
+
+  p {
+    margin: 0 0 12px;
+    color: var(--ink);
+  }
+
+  p.muted {
+    color: var(--ink-muted);
+  }
+
+  ul, ol {
+    margin: 8px 0 16px;
+    padding-left: 22px;
+  }
+
+  ul li, ol li {
+    margin: 4px 0;
+    color: var(--ink);
+  }
+
+  strong { font-weight: 700; color: var(--ink); }
+
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+
+  .brand-mark .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: linear-gradient(135deg, var(--accent), var(--brand));
+    border-radius: 6px;
+    color: white;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 12px;
+  }
+
+  .lede {
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink-muted);
+    max-width: 640px;
+    margin: 0 0 28px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink-muted);
+    padding: 10px 12px;
+    background: var(--surface-elev);
+    border-bottom: 1px solid var(--divider);
+    vertical-align: top;
+  }
+
+  td {
+    padding: 12px;
+    border-bottom: 1px solid var(--divider);
+    vertical-align: top;
+    color: var(--ink);
+  }
+
+  td.muted {
+    color: var(--ink-muted);
+  }
+
+  td strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .callout {
+    background: var(--surface-elev);
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+
+  .callout.brand {
+    background: rgba(30, 64, 175, 0.04);
+    border-color: rgba(30, 64, 175, 0.2);
+  }
+
+  .callout.success {
+    background: rgba(16, 185, 129, 0.06);
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+
+  .callout h4 {
+    margin-top: 0;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 20px 0 28px;
+  }
+
+  .stat {
+    background: var(--surface-soft);
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .stat .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .stat .stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--brand);
+    line-height: 1.1;
+  }
+
+  .stat .stat-hint {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 4px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .pill.success {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+  }
+
+  .pill.brand {
+    background: rgba(30, 64, 175, 0.1);
+    color: var(--brand);
+  }
+
+  blockquote {
+    margin: 16px 0;
+    padding: 14px 18px;
+    border-left: 3px solid var(--brand);
+    background: var(--surface-soft);
+    font-style: italic;
+    color: var(--ink);
+    border-radius: 0 8px 8px 0;
+  }
+
+  blockquote.script {
+    font-style: normal;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    background: rgba(30, 64, 175, 0.04);
+  }
+
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    background: var(--surface-elev);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  .meta {
+    font-size: 11px;
+    color: var(--ink-disabled);
+    margin-top: 32px;
+  }
+
+  /* Print-specific styling */
+  @media print {
+    html, body {
+      background: white;
+    }
+    .page {
+      max-width: none;
+      margin: 0;
+      padding: 0.6in 0.75in;
+      background: white;
+      page-break-after: always;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    h2 {
+      page-break-after: avoid;
+    }
+    h3 {
+      page-break-after: avoid;
+    }
+    .callout, .stat-grid, table {
+      page-break-inside: avoid;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════ COVER + INTRO ════════════════════ -->
+<section class="page">
+  <div class="brand-mark">
+    <span class="icon">C</span>
+    <span>CommandSite</span>
+  </div>
+  <div class="eyebrow">Vertical Fit Guide · Ada</div>
+  <h1 class="cover-title">Three verticals worth winning before the rest.</h1>
+  <p class="lede">A reference for evaluating, pitching, and pricing Ada in three under-served local-service verticals. Built for a solo founder who needs vertical depth, not breadth.</p>
+
+  <h2>Why these three</h2>
+  <p>HVAC, plumbing, and electrical are crowded — six or more AI competitors already targeting them. The opportunity for a solo founder is not in those markets. It's in the verticals that share HVAC's economic shape (owner-operator, quote-driven, call-driven, follow-up-starved) but have <strong>nobody serious targeting them with AI yet.</strong></p>
+
+  <p>Three verticals fit that profile and have additional structural advantages:</p>
+
+  <ul>
+    <li><strong>Bath/kitchen remodelers (1–5 person)</strong> — highest-ticket of the three. Single closed job pays for 18+ months of Ada.</li>
+    <li><strong>Tree care / arborists</strong> — zero AI competition. Simple pitch. Faster sales cycle than remodelers.</li>
+    <li><strong>Custom fencing / decking contractors</strong> — universal owner-operator profile. Ghost quotes are the daily pain.</li>
+  </ul>
+
+  <p>This guide covers each: why it fits, the pitch, the numbers, where to find them, and how to test the market with five cheap conversations before committing.</p>
+
+  <h2>The three-dimension fit framework</h2>
+  <p>A vertical needs to score well on all three.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 30%;">Dimension</th>
+        <th style="width: 40%;">What to measure</th>
+        <th>Why it matters</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Ticket size × margin</strong></td>
+        <td>Average job revenue multiplied by typical gross margin</td>
+        <td>Determines whether the owner can plausibly afford $400–1,500/mo for Ada</td>
+      </tr>
+      <tr>
+        <td><strong>Sales-cycle gap</strong></td>
+        <td>Days between quote and decision</td>
+        <td>Longer cycle = more follow-up value = bigger ROI on Ada's drafting</td>
+      </tr>
+      <tr>
+        <td><strong>AI competition density</strong></td>
+        <td>Count of AI tools already targeting this vertical</td>
+        <td>Crowded markets force feature/price competition. Underserved markets reward relationship + first-mover advantage.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout brand">
+    <h4>The strategic insight</h4>
+    <p>Vertical depth beats vertical breadth for a solo founder. Better to be the only AI for tree care than one of seven AI tools for HVAC. Three verticals is the right number — diversifies risk without spreading you thin.</p>
+  </div>
+
+  <p class="meta">CommandSite · josh@commandsite.io · commandsite.io</p>
+</section>
+
+<!-- ════════════════════ COMPARISON TABLE ════════════════════ -->
+<section class="page page-break">
+  <div class="eyebrow">Side by side</div>
+  <h1>The three verticals at a glance</h1>
+  <p class="lede">Quick comparison before the deep-dives. Each has a different shape; each rewards a different angle.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        <th>Bath / Kitchen Remodelers</th>
+        <th>Tree Care / Arborists</th>
+        <th>Custom Fencing / Decking</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Avg ticket</strong></td>
+        <td>$15K – $80K</td>
+        <td>$500 – $15K</td>
+        <td>$2K – $25K</td>
+      </tr>
+      <tr>
+        <td><strong>Sales cycle</strong></td>
+        <td>30 – 90 days</td>
+        <td>1 – 14 days</td>
+        <td>14 – 45 days</td>
+      </tr>
+      <tr>
+        <td><strong>Typical team size</strong></td>
+        <td>1 – 5 people</td>
+        <td>2 – 8 people</td>
+        <td>1 – 5 people</td>
+      </tr>
+      <tr>
+        <td><strong>AI competition</strong></td>
+        <td><span class="pill success">Very low</span></td>
+        <td><span class="pill success">None</span></td>
+        <td><span class="pill success">Very low</span></td>
+      </tr>
+      <tr>
+        <td><strong>Killer Ada role</strong></td>
+        <td>Quote Chaser</td>
+        <td>Front Desk (missed calls)</td>
+        <td>Quote Chaser</td>
+      </tr>
+      <tr>
+        <td><strong>Starter price (standard)</strong></td>
+        <td>$599/mo + $499 setup</td>
+        <td>$449/mo + $399 setup</td>
+        <td>$499/mo + $399 setup</td>
+      </tr>
+      <tr>
+        <td><strong>Pro price (standard) ⭐</strong></td>
+        <td>$1,099/mo + $999 setup</td>
+        <td>$899/mo + $799 setup</td>
+        <td>$899/mo + $799 setup</td>
+      </tr>
+      <tr>
+        <td><strong>Pro + Coaching (standard)</strong></td>
+        <td>$1,899/mo + $1,499 setup</td>
+        <td>$1,499/mo + $1,199 setup</td>
+        <td>$1,599/mo + $1,199 setup</td>
+      </tr>
+      <tr>
+        <td><strong>Founding Partner Pro (first 10/vertical)</strong></td>
+        <td>$899/mo, setup waived</td>
+        <td>$699/mo, setup waived</td>
+        <td>$699/mo, setup waived</td>
+      </tr>
+      <tr>
+        <td><strong>Coaching tier fit</strong></td>
+        <td>High — owners stuck between tradesperson and businessperson</td>
+        <td>Medium — many are technical craftspeople wanting business systems</td>
+        <td>Medium — solo operators wanting growth advice</td>
+      </tr>
+      <tr>
+        <td><strong>ROI math for buyer</strong></td>
+        <td>1 closed ghost-quote = $20K+ = covers Ada for 18+ months</td>
+        <td>2 new emergency calls/month = covers Ada</td>
+        <td>1 reactivated quote/quarter = covers Ada</td>
+      </tr>
+      <tr>
+        <td><strong>Where to find prospects</strong></td>
+        <td>Houzz Pro, NARI, NKBA, Google Maps</td>
+        <td>ISA directory, TCIA, Google Maps</td>
+        <td>AFA, NADRA, Google Maps</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>How to pick which one to chase first</h2>
+
+  <p>Personal network beats theoretical fit at this stage. The right answer for you depends on which of these you already have warm contacts in:</p>
+
+  <ul>
+    <li><strong>Know contractors or remodelers personally?</strong> Start with bath/kitchen remodelers. Highest ticket, best margins on Ada.</li>
+    <li><strong>Know any tree-service owners?</strong> Start there. Simplest pitch, fastest close cycle.</li>
+    <li><strong>Know fence/deck builders?</strong> Start there. Quote-follow-up pain is brutal and universal.</li>
+    <li><strong>No warm contacts in any of them?</strong> Start with bath/kitchen remodelers. Even cold, the math is most compelling.</li>
+  </ul>
+
+  <div class="callout">
+    <h4>Realistic target</h4>
+    <p>Three verticals × 5 customers each = 15 customers, ~$12K–18K MRR. Achievable for a solo founder within 6 months if you commit to one at a time, with overlap.</p>
+  </div>
+</section>
+
+<!-- ════════════════════ TIER STRUCTURE & PRICING ════════════════════ -->
+<section class="page page-break">
+  <div class="eyebrow">Pricing architecture</div>
+  <h1>Three tiers. Same names across all verticals. Different roles inside.</h1>
+  <p class="lede">Tier names stay consistent (Starter / Pro / Coaching) because that's the buyer brand. What's INSIDE each tier varies by vertical because what's valuable varies by vertical.</p>
+
+  <h2>The three tiers, defined</h2>
+
+  <h3>Starter — the 2 killer roles for your vertical</h3>
+  <p>The lowest-friction entry-point. Two Ada roles tuned to the vertical's highest-ROI need. For cautious buyers, smaller shops, or owners who want to test before going all-in.</p>
+  <ul>
+    <li><strong>Bath/Kitchen Starter:</strong> Quote Chaser + Review Hunter</li>
+    <li><strong>Tree Care Starter:</strong> Front Desk + Review Hunter</li>
+    <li><strong>Fencing/Decking Starter:</strong> Quote Chaser + Front Desk</li>
+  </ul>
+
+  <h3>Pro — the full Ada platform ⭐ recommended</h3>
+  <p>All 9 Ada roles, plus the Lead Sources dashboard. Where 60% of customers should land. The default offer.</p>
+  <ul>
+    <li><strong>Front Desk</strong> — missed-call follow-up</li>
+    <li><strong>Quote Chaser</strong> — day 1/3/7 follow-up on quotes you've sent</li>
+    <li><strong>Review Hunter</strong> — post-job review collection</li>
+    <li><strong>Reactivation</strong> — dormant-customer outreach</li>
+    <li><strong>Customer Care</strong> — reschedule, confirm, retention</li>
+    <li><strong>Schedule</strong> — calendar coordination + routing</li>
+    <li><strong>Reputation Marketing</strong> — review responses + social posts</li>
+    <li><strong>Metrics + Daily Brief</strong> — operator dashboard</li>
+    <li><strong>Referral Engine</strong> — active referral asks at the right moments (NEW)</li>
+    <li><strong>Lead Sources dashboard</strong> — see CAC by source: LSA, referrals, reviews, etc.</li>
+  </ul>
+
+  <h3>Pro + Coaching — Pro plus Josh as your strategic operator</h3>
+  <p>Everything in Pro PLUS Josh's ongoing engagement: weekly or monthly strategy calls, Voxer access during business hours, quarterly business review, and active LSA optimization (Josh tunes your Google Local Services Ads strategy).</p>
+  <p>This tier is for owners who want a thought partner, not just a tool. Typically 15–30% of customers self-select here.</p>
+
+  <h2>Setup fees — yes, charge them</h2>
+  <p>Every tier includes Josh-led custom onboarding: voice training, workflow design, integration setup, 90-day intensive support. That's 8–15 hours of real labor per customer. The setup fee captures that work upfront and protects margin during the customer's first 90 days.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Setup fee</th>
+        <th>What it covers</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Starter</strong></td>
+        <td>$399 – $499</td>
+        <td>90-day intensive: kickoff call, voice training (2 rounds), workflow design for the 2 active roles, first-week support</td>
+      </tr>
+      <tr>
+        <td><strong>Pro</strong></td>
+        <td>$799 – $999</td>
+        <td>90-day intensive: 2 kickoff calls, voice training (3 rounds), workflow design for all 9 roles, integration setup (LSA email forwarding, calendar, Twilio), 2-week intensive support</td>
+      </tr>
+      <tr>
+        <td><strong>Coaching</strong></td>
+        <td>$1,199 – $1,499</td>
+        <td>Everything in Pro + Voxer onboarding + custom strategic-planning template + quarterly review structure setup</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout brand">
+    <h4>Setup fee waivers — the strategic move</h4>
+    <p>Setup fees are waived in two cases:</p>
+    <ul>
+      <li><strong>Annual prepay.</strong> Customer pays 12 months upfront; setup is on the house. Effective savings of $500–$1,500 plus the annual prepay discount (~16% off monthly).</li>
+      <li><strong>Founding Partner pricing.</strong> First 10 customers per vertical get setup waived AND locked-in monthly pricing for 2 years.</li>
+    </ul>
+    <p>Both waivers function as commitment incentives — they reward customers who commit early or commit annually with real cash value.</p>
+  </div>
+
+  <h2>The full pricing matrix</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Bath/Kitchen</th>
+        <th>Tree Care</th>
+        <th>Fencing/Decking</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Starter — standard</strong></td>
+        <td>$599/mo + $499 setup</td>
+        <td>$449/mo + $399 setup</td>
+        <td>$499/mo + $399 setup</td>
+      </tr>
+      <tr>
+        <td><strong>Starter — annual prepay</strong></td>
+        <td>$5,990/yr (setup waived)</td>
+        <td>$4,490/yr (setup waived)</td>
+        <td>$4,990/yr (setup waived)</td>
+      </tr>
+      <tr>
+        <td><strong>Pro — standard ⭐</strong></td>
+        <td>$1,099/mo + $999 setup</td>
+        <td>$899/mo + $799 setup</td>
+        <td>$899/mo + $799 setup</td>
+      </tr>
+      <tr>
+        <td><strong>Pro — annual prepay</strong></td>
+        <td>$10,990/yr (setup waived)</td>
+        <td>$8,990/yr (setup waived)</td>
+        <td>$8,990/yr (setup waived)</td>
+      </tr>
+      <tr>
+        <td><strong>Pro — Founding Partner (first 10)</strong></td>
+        <td>$899/mo, setup waived, locked 2 years</td>
+        <td>$699/mo, setup waived, locked 2 years</td>
+        <td>$699/mo, setup waived, locked 2 years</td>
+      </tr>
+      <tr>
+        <td><strong>Coaching — standard</strong></td>
+        <td>$1,899/mo + $1,499 setup</td>
+        <td>$1,499/mo + $1,199 setup</td>
+        <td>$1,599/mo + $1,199 setup</td>
+      </tr>
+      <tr>
+        <td><strong>Coaching — Founding Partner</strong></td>
+        <td>$1,499/mo, setup waived</td>
+        <td>$1,199/mo, setup waived</td>
+        <td>$1,299/mo, setup waived</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Why these specific prices</h2>
+
+  <p><strong>Bath/Kitchen carries the premium</strong> because tickets are highest ($15K–80K) and owners are accustomed to higher software budgets (Buildertrend, CoConstruct). Single closed bath remodel covers 18+ months of Pro.</p>
+
+  <p><strong>Tree Care is priced lowest</strong> because solo arborists are cash-tight and the killer pitch (missed-call recovery) plays harder than the broader feature set. Two recovered emergency calls per month covers Pro.</p>
+
+  <p><strong>Fencing/Decking sits in the middle</strong> with one wrinkle: a seasonal pause option drops the customer to $99/mo during winter slow months. Mitigates the "I can't pay year-round for a 7-month business" objection.</p>
+
+  <p><strong>The +$200 standard-to-founding-partner gap</strong> on Pro is intentional. Founding Partner customers see real value in locking in today's prices for 2 years, creating commitment urgency without feeling like a fire sale.</p>
+
+  <h2>The unit economics still work</h2>
+
+  <p>Pro at $1,099/mo (Bath/Kitchen) breakdown:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cost line</th>
+        <th>Per customer/mo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Anthropic API (with Referral Engine drafts)</td>
+        <td>~$60–100</td>
+      </tr>
+      <tr>
+        <td>Infrastructure (Supabase + Vercel + Twilio)</td>
+        <td>~$15</td>
+      </tr>
+      <tr>
+        <td>Email parsing (LSA forwarded emails)</td>
+        <td>~$5</td>
+      </tr>
+      <tr>
+        <td>Josh's ongoing time (post-onboarding)</td>
+        <td>~$130 equivalent</td>
+      </tr>
+      <tr>
+        <td><strong>Total cost</strong></td>
+        <td><strong>~$210–250</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Net margin</strong></td>
+        <td><strong>~$849–889 (77–81%)</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout success">
+    <h4>Why Coaching tier is the most profitable</h4>
+    <p>At $1,899/mo, with ~$300 of Josh's time per month (3–4 hours of calls + Voxer + LSA tuning) + ~$150 infrastructure costs, Coaching nets ~$1,449/mo per customer at 76% margin. 15 Coaching customers = $21K MRR + the deepest customer relationships in the business.</p>
+  </div>
+
+  <p class="meta">All prices in USD. Founding Partner program limited to first 10 customers per vertical. Standard pricing applies after the program closes for each vertical.</p>
+</section>
+
+<!-- ════════════════════ BATH/KITCHEN REMODELERS ════════════════════ -->
+<section class="page page-break">
+  <div class="eyebrow">Vertical 1 · Top recommendation</div>
+  <h1>Bath / kitchen remodelers (1–5 person)</h1>
+  <p class="lede">The highest-ROI vertical of the three. A single closed bath remodel covers two years of Ada. Almost no AI competition in this market because the industry-wide tools (Buildertrend, CoConstruct) are enterprise-tier and the small operators are completely unserved.</p>
+
+  <h2>The numbers</h2>
+
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="stat-label">Avg ticket size</div>
+      <div class="stat-value">$15K – $80K</div>
+      <div class="stat-hint">Bath remodel typical $15K–35K. Kitchen $25K–80K.</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Sales cycle</div>
+      <div class="stat-value">30 – 90 days</div>
+      <div class="stat-hint">Homeowners get 3 quotes, deliberate.</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Quote-to-close rate</div>
+      <div class="stat-value">15 – 30%</div>
+      <div class="stat-hint">Most ghost quotes are recoverable with follow-up.</div>
+    </div>
+  </div>
+
+  <h2>Why Ada fits this vertical</h2>
+
+  <ul>
+    <li><strong>Owner-operator profile is universal.</strong> Quoting requires expertise (measurement, design, materials selection). Owner can't delegate. Owner is the bottleneck.</li>
+    <li><strong>Sales cycle is long enough that follow-up matters enormously.</strong> A homeowner sitting on a quote for 45 days WILL choose someone else if they hear nothing. Day 3, 7, 14, 21, 30 follow-ups are pure ROI.</li>
+    <li><strong>Reviews are everything.</strong> Remodelers live and die on Google reviews + Houzz portfolios. Ada's review-collection role is critical here.</li>
+    <li><strong>Reactivation has real value.</strong> Bath customer in 2024 might want a kitchen in 2026. Dormant outreach works.</li>
+    <li><strong>The economic argument is overwhelming.</strong> One closed $25K bath remodel that would have ghost-quoted = Ada paid for itself for 24+ months.</li>
+  </ul>
+
+  <h2>The pitch</h2>
+
+  <blockquote>
+    "You measure, design, quote a $25K bath remodel. You send the quote Friday. By next Wednesday you've been on three more job sites and haven't touched the inbox. The homeowner sat on it, got two more quotes, picked someone else. That's not a sales problem, it's a follow-up problem. Ada texts them on day 3, day 7, day 14, in your voice, queued for you to review. The ones who were going to ghost reactivate. The ones who were genuinely shopping appreciate the touch. Either way, you close more of what you've already bid."
+  </blockquote>
+
+  <h2>Cold email opener for this vertical</h2>
+
+  <blockquote class="script">
+    <strong>Subject:</strong> quick one about quote follow-up at [Company]<br><br>
+    Hey, I'm looking for whoever follows up on bath/kitchen quotes at [Company].<br><br>
+    Honest question: when you bid a $25K bath remodel and send the quote, how long until your team reaches back out? I'm guessing it's "longer than I'd like" — that's what most of the remodelers I've talked to say.<br><br>
+    I built something for that gap. Drafts a personal text or email on day 3, day 7, day 14 in your voice, queued for you to review. Half of the quotes that would have ghosted reactivate.<br><br>
+    Worth a 15-min call this week? I'd love to show you what it'd look like for [Company] specifically.<br><br>
+    — Josh<br><br>
+    P.S. If a call's too much this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
+  </blockquote>
+
+  <h2>Discovery call questions</h2>
+
+  <ol>
+    <li>About how many quotes do you send out in a typical month?</li>
+    <li>What's your rough close rate on quotes you send?</li>
+    <li>Walk me through what happens after you send a quote. Who follows up, on what timeline?</li>
+    <li>How often does a homeowner ghost and you find out later they went with a competitor?</li>
+    <li>If you could close 10% more of your quotes without changing anything else, what would that be worth annually?</li>
+  </ol>
+
+  <h2>Common objections + responses</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40%;">Objection</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>"I follow up religiously, every quote."</td>
+        <td>"That's rare. Move on — they're either telling the truth (and don't need Ada) or they're a poor fit because they won't see the value."</td>
+      </tr>
+      <tr>
+        <td>"My office manager / partner handles that."</td>
+        <td>"Great — can I talk to them? They're the actual buyer. The owner isn't."</td>
+      </tr>
+      <tr>
+        <td>"We use Buildertrend / CoConstruct."</td>
+        <td>"Good. Those are project management. Ada is what happens BEFORE the project — the quote follow-up gap they don't fill."</td>
+      </tr>
+      <tr>
+        <td>"What does it cost?"</td>
+        <td>"$1,099/mo for the full Pro tier with all 9 roles plus the Lead Sources dashboard. Setup is $999. Less than what you'd lose closing 1 fewer bath remodel per year. For our first 10 bath/kitchen customers we're at Founding Partner pricing: $899/mo, setup waived, locked for 2 years."</td>
+      </tr>
+      <tr>
+        <td>"How do I know it sounds like me?"</td>
+        <td>"Voice tuning in onboarding. I pull samples of how you write, calibrate Ada's drafts to sound like you. First few weeks you tune the voice as you approve drafts."</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Pricing for this vertical</h2>
+
+  <p><strong>Standard Pro: $1,099/mo + $999 setup. Founding Partner Pro: $899/mo, setup waived, locked 2 years.</strong> Pricing toward the higher end of the three verticals is justifiable for remodelers because:</p>
+
+  <ul>
+    <li>Their average ticket is so high that 0.5 closed jobs per year covers it</li>
+    <li>They're accustomed to project management software at $200-500/mo, so $1,099 reads as "Ada plus the value of a part-time admin"</li>
+    <li>The Coaching tier ($1,899/mo standard, $1,499 Founding Partner) lands well — owners stuck between "tradesperson" and "business owner" want a thinking partner</li>
+    <li>Lead Sources dashboard is especially valuable here because remodelers often run LSA at $40-80/lead and have no clarity on ROI by source</li>
+  </ul>
+
+  <p>See the <em>Tier Structure &amp; Pricing</em> page for the full pricing matrix including annual prepay options.</p>
+
+  <h2>Where to find prospects</h2>
+
+  <ul>
+    <li><strong>Houzz Pro directory</strong> — filter by location, focus on 1–5 employee firms (exclude the corporate-feeling profiles)</li>
+    <li><strong>NARI (National Association of the Remodeling Industry)</strong> directory</li>
+    <li><strong>NKBA (National Kitchen and Bath Association)</strong> certified members</li>
+    <li><strong>Google Maps</strong> "bath remodeling [city]" or "kitchen remodeling [city]"</li>
+    <li><strong>Local Home & Garden Shows</strong> — small remodelers exhibit, you can do warm intros in person</li>
+  </ul>
+</section>
+
+<!-- ════════════════════ TREE CARE / ARBORISTS ════════════════════ -->
+<section class="page page-break">
+  <div class="eyebrow">Vertical 2 · Zero-competition play</div>
+  <h1>Tree care / arborists</h1>
+  <p class="lede">Zero AI competition in this market. ArborGold has basic scheduling, and that's it. Owner is the certified arborist climbing trees most of the day — the office work happens at night and weekends, when nothing actually gets done. Ada's pitch lands viscerally.</p>
+
+  <h2>The numbers</h2>
+
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="stat-label">Avg ticket size</div>
+      <div class="stat-value">$500 – $15K</div>
+      <div class="stat-hint">Emergency removal $1.5K–5K. Full property service $5K–15K.</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Sales cycle</div>
+      <div class="stat-value">1 – 14 days</div>
+      <div class="stat-hint">Faster than remodelers. Emergencies same-day.</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Missed-call rate</div>
+      <div class="stat-value">25 – 40%</div>
+      <div class="stat-hint">Owner is climbing during business hours. Phone goes to voicemail.</div>
+    </div>
+  </div>
+
+  <h2>Why Ada fits this vertical</h2>
+
+  <ul>
+    <li><strong>Owner is the certified arborist.</strong> Most days they're 40-60 feet up a tree. The phone rings. They can't answer. The customer calls the next arborist on Google.</li>
+    <li><strong>Reviews drive everything.</strong> Storm damage = customer Googles "tree service near me" and picks the first 4.7+ rating result. Ada's review-collection role is critical.</li>
+    <li><strong>Quote follow-up still matters.</strong> Smaller tickets, but property-clearing jobs ($5K+) often get quoted and shopped before commit.</li>
+    <li><strong>The pitch is visceral.</strong> Owners VIVIDLY know the pain of missed calls — they've literally watched a phone ring while strapped into a harness 50 feet up.</li>
+    <li><strong>Reactivation has real value.</strong> Annual or biannual property pruning is recurring revenue most tree services aren't capturing systematically.</li>
+  </ul>
+
+  <h2>The pitch</h2>
+
+  <blockquote>
+    "You're 60 feet up a tree, harnessed in, mid-cut. Your phone rings on the ground. Storm just hit, homeowner wants someone out today. You can't answer. By the time you're down, they've called three other arborists. Ada answers your missed calls, books the consultation, sends the customer a confirmation text with your contact info — in your voice, while you're still in the canopy. By the time you're back on the ground, the job's on your calendar."
+  </blockquote>
+
+  <h2>Cold email opener for this vertical</h2>
+
+  <blockquote class="script">
+    <strong>Subject:</strong> from one tree-guy to another<br><br>
+    Hey, I'm looking for the owner at [Company].<br><br>
+    Honest question: how many calls does [Company] miss in a typical week because you're up a tree or on a job site? I'm guessing it's not zero.<br><br>
+    I built something for that. Ada answers your missed calls, books the consultation, and texts the customer your contact info — in your voice, while you're still in the canopy.<br><br>
+    For most tree services, two recovered emergency calls a month covers it. After that it's pure profit.<br><br>
+    Worth a 15-min call this week? Happy to show you what it'd look like for [Company] specifically.<br><br>
+    — Josh<br><br>
+    P.S. If a call's too much this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
+  </blockquote>
+
+  <h2>Discovery call questions</h2>
+
+  <ol>
+    <li>About how many calls do you typically miss in a week — best guess?</li>
+    <li>Of those missed calls, how many do you think turn into business for a competitor?</li>
+    <li>Who answers the phone when you're climbing? A spouse? An office? Voicemail?</li>
+    <li>Are you ISA-certified? How long have you been doing this?</li>
+    <li>What does an average emergency call (tree down after a storm) pay?</li>
+  </ol>
+
+  <h2>Common objections + responses</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40%;">Objection</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>"I'm too small — it's just me."</td>
+        <td>"That's exactly why Ada fits. If it was just you AND an office manager, you wouldn't need this. As a solo arborist you ARE the office, and you can't be both."</td>
+      </tr>
+      <tr>
+        <td>"My wife / spouse answers when I'm out."</td>
+        <td>"Then Ada drafts the response and your spouse approves. Same workflow, just better coverage and less mental load."</td>
+      </tr>
+      <tr>
+        <td>"I don't quote big jobs — mostly small emergency calls."</td>
+        <td>"Perfect — that means the missed-call problem hits you hardest. Each missed emergency = $1.5K–3K of lost work. Two a month covers Ada."</td>
+      </tr>
+      <tr>
+        <td>"What does it cost?"</td>
+        <td>"$899/mo for the full Pro tier with all 9 roles plus the Lead Sources dashboard. Setup is $799. Two recovered missed emergency calls per month pays for it. For our first 10 tree care customers we're at Founding Partner pricing: $699/mo, setup waived, locked for 2 years."</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Pricing for this vertical</h2>
+
+  <p><strong>Standard Pro: $899/mo + $799 setup. Founding Partner Pro: $699/mo, setup waived, locked 2 years.</strong> Lower than remodelers because:</p>
+
+  <ul>
+    <li>Smaller average ticket size — owners are tighter on monthly software budget</li>
+    <li>Often solo or 2-person operations; less financial cushion</li>
+    <li>The pitch lands more on lost-revenue recovery than on owner-luxury</li>
+  </ul>
+
+  <p>Coaching tier ($1,499/mo standard, $1,199 Founding Partner) viable for growing tree services that want help with business systems — moving from "arborist with a truck" to "real company." Coaching includes active LSA management since tree care's LSA cost-per-lead is typically $25-50, manageable with focused attention.</p>
+
+  <p>See the <em>Tier Structure &amp; Pricing</em> page for the full pricing matrix including annual prepay options.</p>
+
+  <h2>Where to find prospects</h2>
+
+  <ul>
+    <li><strong>ISA (International Society of Arboriculture)</strong> certified arborist directory</li>
+    <li><strong>TCIA (Tree Care Industry Association)</strong> member directory</li>
+    <li><strong>Google Maps</strong> "tree service [city]" or "arborist [city]"</li>
+    <li><strong>Arborist Facebook groups</strong> — niche but engaged communities, ~5K-15K members each. Useful for warm intros, NOT for direct outreach.</li>
+    <li><strong>Local arborist meetups</strong> — many cities have annual gatherings</li>
+  </ul>
+</section>
+
+<!-- ════════════════════ FENCING / DECKING ════════════════════ -->
+<section class="page page-break">
+  <div class="eyebrow">Vertical 3 · Quote-follow-up specialist</div>
+  <h1>Custom fencing / decking</h1>
+  <p class="lede">Universal owner-operator profile. Quoting is the daily activity, ghost-quotes are the daily pain. ArcSite serves the CAD/design side. Nobody serves the follow-up side. Both fence and deck contractors have nearly identical economics and respond to the same pitch.</p>
+
+  <h2>The numbers</h2>
+
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="stat-label">Avg ticket size</div>
+      <div class="stat-value">$2K – $25K</div>
+      <div class="stat-hint">Fence $2K–10K. Custom deck $8K–25K.</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Sales cycle</div>
+      <div class="stat-value">14 – 45 days</div>
+      <div class="stat-hint">Homeowner gets bid, "shops around," half ghost.</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Quote ghost rate</div>
+      <div class="stat-value">40 – 60%</div>
+      <div class="stat-hint">Highest ghost rate of the three verticals.</div>
+    </div>
+  </div>
+
+  <h2>Why Ada fits this vertical</h2>
+
+  <ul>
+    <li><strong>Quote-driven economics.</strong> Owners spend most of their week measuring, bidding, and sending quotes. Owner does the bid, owner does the (rare) follow-up.</li>
+    <li><strong>Massive ghost rate.</strong> A fence/deck contractor who bids 20 jobs a month closes about 7-8. The other 12-13 sit and rot. Many were genuinely interested, just shopping around.</li>
+    <li><strong>Seasonal pressure.</strong> Spring through summer is the season. Missing a quote follow-up in May means losing the work to a competitor who follows up. Pressure compounds.</li>
+    <li><strong>Reviews critical.</strong> Same as remodelers — homeowners read reviews before deciding which contractor to call back. Review-collection role pays.</li>
+    <li><strong>The recovery math is undeniable.</strong> One reactivated ghost quote per month at $5K-15K covers Ada for 6-12 months.</li>
+  </ul>
+
+  <h2>The pitch</h2>
+
+  <blockquote>
+    "You bid a deck on Monday. Homeowner says they'll think about it. By Friday you've bid four more jobs and haven't followed up. Three weeks later you find out they hired the guy who texted them on day 3. Ada drafts the day-3, day-7, day-14 follow-ups in your voice — you review and send. Half the ghost quotes come back. That's $5K-15K per recovered job. Two recoveries a year covers Ada."
+  </blockquote>
+
+  <h2>Cold email opener for this vertical</h2>
+
+  <blockquote class="script">
+    <strong>Subject:</strong> ghost-quote question for [Company]<br><br>
+    Hey, I'm looking for the owner at [Company].<br><br>
+    Honest question: when you bid a deck or fence on Monday, what percentage of those homeowners ghost vs. actually sign? I'm guessing somewhere around half ghost.<br><br>
+    I built something for that. Ada texts each homeowner on day 3, day 7, day 14 in your voice, queued for you to review. Half of the ones who would have ghosted reactivate.<br><br>
+    Two recoveries a year covers it. After that, it's the cheapest sales hire you'll ever make.<br><br>
+    Worth a 15-min call this week? Happy to show you what it'd look like for [Company] specifically.<br><br>
+    — Josh<br><br>
+    P.S. If a call's too much this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
+  </blockquote>
+
+  <h2>Discovery call questions</h2>
+
+  <ol>
+    <li>About how many quotes does [Company] send in a typical month during the season?</li>
+    <li>What's your close rate — best guess?</li>
+    <li>Of the quotes that DON'T close, how many do you actively follow up on?</li>
+    <li>Have you ever found out a customer who ghosted you ended up hiring a competitor — and if so, what was different about that competitor's process?</li>
+    <li>What's your seasonality look like? Are you booked in May and slow in November?</li>
+  </ol>
+
+  <h2>Common objections + responses</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40%;">Objection</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>"Most of our work is referrals."</td>
+        <td>"Even better — referrals close at 80%, but the ones that ghost still cost you. Recovering even one a quarter pays for Ada."</td>
+      </tr>
+      <tr>
+        <td>"I'm too small for software."</td>
+        <td>"You're exactly the right size. The reason your competitors close at higher rates isn't quality — it's that they have someone following up. Ada is that someone for the price of one closed deck per year."</td>
+      </tr>
+      <tr>
+        <td>"Seasonal businesses can't afford monthly software year-round."</td>
+        <td>"Fair concern. Ada has a seasonal pause — we'll throttle to $99/mo during your slow months if that helps."</td>
+      </tr>
+      <tr>
+        <td>"What does it cost?"</td>
+        <td>"$899/mo for Pro tier with all 9 roles plus the Lead Sources dashboard plus a seasonal pause option. Setup is $799. One reactivated quote a quarter covers it. For our first 10 fence/deck customers we're at Founding Partner pricing: $699/mo, setup waived, locked for 2 years."</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Pricing for this vertical</h2>
+
+  <p><strong>Standard Pro: $899/mo + $799 setup. Founding Partner Pro: $699/mo, setup waived, locked 2 years.</strong> Mid-range pricing because:</p>
+
+  <ul>
+    <li>Ticket sizes are mid-range — bigger than tree care, smaller than remodelers</li>
+    <li>Seasonal businesses are tighter on cash year-round</li>
+    <li>Pro tier includes a <strong>seasonal pause option</strong> that drops to $99/mo during winter slow months — the differentiator for this vertical</li>
+  </ul>
+
+  <p>Coaching tier ($1,599/mo standard, $1,299 Founding Partner) includes peak-season capacity planning support — many fence/deck owners burn out every July. Coaching addresses that specifically.</p>
+
+  <p>See the <em>Tier Structure &amp; Pricing</em> page for the full pricing matrix including annual prepay options.</p>
+
+  <h2>Where to find prospects</h2>
+
+  <ul>
+    <li><strong>AFA (American Fence Association)</strong> member directory</li>
+    <li><strong>NADRA (North American Deck and Railing Association)</strong> certified contractors</li>
+    <li><strong>Google Maps</strong> "fence contractor [city]" or "deck builder [city]"</li>
+    <li><strong>Trex Pro / TimberTech Gold Partners</strong> — composite decking manufacturer programs filter for quality builders</li>
+    <li><strong>Local home shows</strong> — small fence/deck builders exhibit, easy warm intros</li>
+  </ul>
+</section>
+
+<!-- ════════════════════ HOW TO TEST ════════════════════ -->
+<section class="page page-break">
+  <div class="eyebrow">Validation playbook</div>
+  <h1>How to test fit before committing</h1>
+  <p class="lede">Don't invest 3 months building vertical-specific marketing for any of these without proof the pain resonates. Five conversations per vertical is enough to find out.</p>
+
+  <h2>The five-conversation test</h2>
+
+  <p>For each vertical you want to evaluate, schedule 5 conversations. Each is 20-30 minutes. Total investment: 2-3 hours per vertical. Decision quality improvement: enormous.</p>
+
+  <h3>Where to source the 5</h3>
+
+  <ol>
+    <li><strong>Warm contacts first.</strong> Anyone in your personal network in the vertical = call them. The warmer the better.</li>
+    <li><strong>LinkedIn second-degree connections.</strong> Search "deck builder" or "arborist" in your city, filter for 2nd-degree, ask for intros.</li>
+    <li><strong>Local trade associations.</strong> NARI / TCIA / AFA chapter meetings. One conversation in person = 3 cold emails of value.</li>
+    <li><strong>Cold outreach only if all else fails.</strong> Use the vertical-specific cold email templates above. Expect 5-10% reply rate.</li>
+  </ol>
+
+  <h3>What to ask in each conversation</h3>
+
+  <ol>
+    <li>Open with: "I'm researching how owners in [vertical] handle [specific pain — quote follow-up / missed calls / ghost quotes]. Would you mind sharing how it works at your company?"</li>
+    <li>Then the discovery questions from that vertical's section.</li>
+    <li>End with: "If I told you I built a tool that handled [specific role] for owners like you at $599-799/mo, what's your gut reaction?"</li>
+  </ol>
+
+  <h2>What "yes" sounds like</h2>
+
+  <ul>
+    <li><strong>"I should be better about that."</strong> Universal pastor language, applies here. They know the gap exists.</li>
+    <li><strong>"How would it know my voice?"</strong> They've already mentally bought it. Now they're asking implementation questions.</li>
+    <li><strong>"What's the contract look like?"</strong> Closer-than-they-realize question.</li>
+    <li><strong>"Can my partner see a demo?"</strong> Multi-person decision = real interest.</li>
+    <li><strong>"What's the implementation timeline?"</strong> They're imagining themselves using it.</li>
+  </ul>
+
+  <h2>What "no" sounds like</h2>
+
+  <ul>
+    <li><strong>"We follow up on every quote within 24 hours."</strong> Either true (they don't need it) or they're posturing. Either way, move on.</li>
+    <li><strong>"$799 is too much."</strong> If they say that and don't ask "what's the ROI," they're not buyer-ready.</li>
+    <li><strong>"I'd rather hire someone."</strong> Fair — but ask them what they've actually budgeted for hiring. Often nothing.</li>
+    <li><strong>Silence after the price.</strong> Means it's outside their mental budget. Move on.</li>
+  </ul>
+
+  <h2>The decision rule after 5 conversations</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Result</th>
+        <th>Decision</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>4 or 5 said "yes" or "tell me more"</strong></td>
+        <td>Commit. Build vertical-specific cold email campaigns, landing pages, deck variants.</td>
+      </tr>
+      <tr>
+        <td><strong>2 or 3 said yes</strong></td>
+        <td>Promising but not validated. Talk to 5 more before committing.</td>
+      </tr>
+      <tr>
+        <td><strong>0 or 1 said yes</strong></td>
+        <td>Move on. The pain isn't there OR your framing is wrong. Try one of the other two verticals.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout success">
+    <h4>The bigger insight</h4>
+    <p>5 conversations × 3 verticals = 15 hours of work. By the end you'll know with high confidence which of these three deserves the next 6 months of focus. Compare that to 6 months of building features for the wrong vertical.</p>
+  </div>
+
+  <h2>When to add a fourth vertical</h2>
+
+  <p>Don't add a fourth until you have:</p>
+
+  <ul>
+    <li>At least 5 paying customers in your first vertical</li>
+    <li>Repeatable inbound or outbound process generating 2+ qualified conversations per week</li>
+    <li>A specific reason to think a fourth vertical fits (e.g., a customer referred someone, you found a personal contact, an unexpected lead came in)</li>
+  </ul>
+
+  <p>Adding verticals before this is premature. Three is plenty. Three is enough to diversify risk while staying focused. Four is where solo founders start losing the thread.</p>
+
+  <p class="meta">CommandSite · josh@commandsite.io · commandsite.io · Generated 2026-05-27</p>
+</section>
+
+</body>
+</html>
