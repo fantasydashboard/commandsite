@@ -26,6 +26,23 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'apex-metrics' },
     { key: 'apex-settings' },
   ],
+  'heritage-bath': [
+    // Heritage Bath & Kitchen Co. — bath/kitchen remodeler vertical demo
+    // for Ada. Same module count as Apex but vertical-tuned: leads with
+    // Quote Chaser (the killer role for $15K-80K-ticket remodelers),
+    // includes Lead Sources dashboard (Pro tier addition), and bundles
+    // Referral Engine into Customer Care.
+    //
+    // Tab order intentionally puts Quotes & Inbound second after Today
+    // so the operator's eye lands on the highest-ROI role first.
+    { key: 'heritage-overview' },
+    { key: 'heritage-quotes-inbound' },
+    { key: 'heritage-customer-care' },
+    { key: 'heritage-reputation' },
+    { key: 'heritage-lead-sources' },
+    { key: 'heritage-metrics' },
+    { key: 'heritage-settings' },
+  ],
   'commandsite': [
     // CommandSite-as-a-business — solo-founder mode.
     // Premature tabs hidden until milestone reached (see comments below).

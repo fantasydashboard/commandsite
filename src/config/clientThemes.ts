@@ -43,6 +43,20 @@ const ApexTheme: ClientTheme = {
 }
 
 /**
+ * Heritage Bath & Kitchen Co. — bath/kitchen remodeler vertical demo.
+ * Keeps Ada's brand blue palette so the visual identity is consistent
+ * across all Ada-persona dashboards. Wordmark distinguishes this demo
+ * from Apex (HVAC) — both are Ada, different verticals.
+ */
+const HeritageBathTheme: ClientTheme = {
+  vars: {},
+  wordmark: {
+    text: 'Heritage',
+    suffix: 'Bath & Kitchen Co.',
+  },
+}
+
+/**
  * UFD Redesign — keeps the CommandSite blue palette so charts read
  * consistently with everything else; only the wordmark is overridden.
  */
@@ -101,6 +115,7 @@ const JoshPersonalTheme: ClientTheme = {
 
 export const clientThemes: Record<string, ClientTheme> = {
   'apex-heating-and-air': ApexTheme,
+  'heritage-bath': HeritageBathTheme,
   'ultimate-fantasy-dashboard': UfdRedesignTheme,
   'cornerstone-church': CornerstoneTheme,
   'focal-point-test': FocalPointTestTheme,

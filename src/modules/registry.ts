@@ -20,6 +20,15 @@ import ApexReputationMarketingModule from './ApexReputationMarketingModule.vue'
 import ApexSettingsModule from './ApexSettingsModule.vue'
 import ApexScheduleModule from './ApexScheduleModule.vue'
 import ApexMetricsModule from './ApexMetricsModule.vue'
+import HeritageOverviewModule from './HeritageOverviewModule.vue'
+import HeritageQuotesInboundModule from './HeritageQuotesInboundModule.vue'
+import HeritageCustomerCareModule from './HeritageCustomerCareModule.vue'
+import HeritageReputationModule from './HeritageReputationModule.vue'
+import HeritageLeadSourcesModule from './HeritageLeadSourcesModule.vue'
+import HeritageMetricsModule from './HeritageMetricsModule.vue'
+import HeritageSettingsModule from './HeritageSettingsModule.vue'
+import { agingQuoteCount as heritageAgingQuoteCount } from '@/lib/clients/heritage/quotes'
+import { referralsAtStage as heritageReferralsAtStage } from '@/lib/clients/heritage/referrals'
 import CommandSiteTodayModule from './CommandSiteTodayModule.vue'
 import CommandSitePipelineModule from './CommandSitePipelineModule.vue'
 import CommandSiteLeadsModule from './CommandSiteLeadsModule.vue'
@@ -121,6 +130,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'customer-care', label: 'Customer Care' },
   { key: 'sundays-comms', label: 'Sundays & Comms' },
   { key: 'reputation-marketing', label: 'Reputation & Marketing' },
+  { key: 'lead-sources', label: 'Lead Sources' },
   { key: 'insights', label: 'Insights' },
   { key: 'giving', label: 'Giving' },
   { key: 'support', label: 'Support' },
@@ -367,6 +377,75 @@ export const moduleRegistry: ModuleDefinition[] = [
     label: 'Apex Settings',
     description: 'Business hours, technician roster, Ada config, integrations, service area.',
     component: ApexSettingsModule,
+    fullWidth: true,
+    tab: 'settings',
+  },
+
+  // ── Heritage Bath & Kitchen Co. (bath/kitchen remodeler vertical) ────
+  // Vertical-tuned Ada demo. Leads with Quote Chaser (the killer role
+  // for $15K-80K-ticket remodelers), includes the NEW Lead Sources
+  // dashboard (Pro tier addition) and Referral Engine (in Customer Care).
+  {
+    key: 'heritage-overview',
+    label: 'Heritage Today',
+    description: 'Ada overview + approval queue (Marc Hatcher) + role grid + activity feed for the bath/kitchen vertical.',
+    component: HeritageOverviewModule,
+    fullWidth: true,
+    tab: 'overview',
+  },
+  {
+    key: 'heritage-quotes-inbound',
+    label: 'Heritage Quotes & Inbound',
+    description: "Quote Chaser (killer role for this vertical) + Front Desk. Kanban of quotes by stage with aging callouts.",
+    component: HeritageQuotesInboundModule,
+    fullWidth: true,
+    tab: 'front-desk-quotes',
+    badge: () => {
+      const aging = heritageAgingQuoteCount()
+      return aging > 0 ? { count: aging, tone: 'info' } : null
+    },
+  },
+  {
+    key: 'heritage-customer-care',
+    label: 'Heritage Customer Care',
+    description: 'Customer Health, Reactivation, and the new Referral Engine — Ada asks past 5★ customers for referrals at the right moment.',
+    component: HeritageCustomerCareModule,
+    fullWidth: true,
+    tab: 'customer-care',
+    badge: () => {
+      const awaiting = heritageReferralsAtStage('queued').length
+      return awaiting > 0 ? { count: awaiting, tone: 'warn' } : null
+    },
+  },
+  {
+    key: 'heritage-reputation',
+    label: 'Heritage Reputation & Marketing',
+    description: 'Review Engine (post-job ask + drafted replies) + Email Marketing (newsletters + before/after showcases).',
+    component: HeritageReputationModule,
+    fullWidth: true,
+    tab: 'reputation-marketing',
+  },
+  {
+    key: 'heritage-lead-sources',
+    label: 'Heritage Lead Sources',
+    description: 'NEW for Pro tier — see CAC by source (LSA, referrals, reviews, Houzz, organic). The "aha" view of where leads actually come from.',
+    component: HeritageLeadSourcesModule,
+    fullWidth: true,
+    tab: 'lead-sources',
+  },
+  {
+    key: 'heritage-metrics',
+    label: 'Heritage Insights',
+    description: "Performance Reporting — revenue trend, close rate by source, ticket size, lead-source ROI summary.",
+    component: HeritageMetricsModule,
+    fullWidth: true,
+    tab: 'insights',
+  },
+  {
+    key: 'heritage-settings',
+    label: 'Heritage Settings',
+    description: 'Business info, hours, team roster (Marc + Diego + Carmen), integrations (LSA, Houzz, Google, QuickBooks, Twilio).',
+    component: HeritageSettingsModule,
     fullWidth: true,
     tab: 'settings',
   },

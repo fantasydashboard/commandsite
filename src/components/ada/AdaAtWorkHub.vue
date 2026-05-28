@@ -25,6 +25,18 @@ const props = defineProps<{
   /** Display name of the assistant (Ada / Grace / etc.). Drives the
    *  eyebrow + headline copy. Defaults to "Ada" for back-compat. */
   assistantName?: string
+  /** When true, hides the section header (eyebrow + role-count line).
+   *  Use when the parent renders its own header above this component. */
+  hideHeader?: boolean
+  /** When true, hides the default hours-saved hero. Use when the parent
+   *  renders its own custom hero (e.g., Heritage uses a revenue-led hero
+   *  because remodelers think in revenue, not hours-saved). */
+  hideHero?: boolean
+  /** Optional role key for visual emphasis. The matching role's card
+   *  gets a slightly bolder border + accent ring, signaling "this is
+   *  THE killer role for this vertical." Pass the role.key string,
+   *  e.g., 'quote_followup' for bath/kitchen remodelers. */
+  killerRoleKey?: string
 }>()
 
 const assistantName = computed(() => props.assistantName ?? 'Ada')
@@ -137,8 +149,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="card overflow-hidden">
-    <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+  <section :class="props.hideHeader && props.hideHero ? '' : 'card overflow-hidden'">
+    <header
+      v-if="!props.hideHeader"
+      class="mb-4 flex items-baseline justify-between flex-wrap gap-2"
+    >
       <div class="flex items-baseline gap-2">
         <span class="eyebrow">{{ assistantName }} at Work</span>
         <span class="text-xs text-ink-muted">This week</span>
@@ -149,8 +164,10 @@ onBeforeUnmount(() => {
     </header>
 
     <!-- Headline strip: hours saved as the ROI hero + actions count
-         as the supporting evidence the math isn't fabricated. -->
+         as the supporting evidence the math isn't fabricated.
+         Hidden when parent provides its own hero via hideHero prop. -->
     <div
+      v-if="!props.hideHero"
       ref="headlineEl"
       class="rounded-card bg-brand text-ink-inverse px-5 py-4 mb-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2"
     >
@@ -173,14 +190,21 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Role grid -->
+    <!-- Role grid. Killer role (when killerRoleKey is provided) spans
+         2 columns on lg+ so the visually-prominent slot matches its
+         business-priority role for the vertical. -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
       <button
         v-for="(role, i) in roles"
         :key="role.key"
         type="button"
-        class="role-tile-enter text-left rounded-card border border-divider bg-surface-raised p-3.5 hover:border-brand hover:bg-brand/5 hover:shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out-quart focus:outline-none focus:ring-2 focus:ring-brand/40 active:scale-[0.98]"
-        :class="role.status !== 'active' ? 'opacity-60' : ''"
+        class="role-tile-enter text-left rounded-card border bg-surface-raised p-3.5 hover:bg-brand/5 hover:shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out-quart focus:outline-none focus:ring-2 focus:ring-brand/40 active:scale-[0.98]"
+        :class="[
+          role.status !== 'active' ? 'opacity-60' : '',
+          props.killerRoleKey === role.key
+            ? 'border-brand border-2 hover:border-brand sm:col-span-2 lg:col-span-2 bg-brand/[0.03]'
+            : 'border-divider hover:border-brand',
+        ]"
         :style="{ animationDelay: `${i * 30}ms` }"
         @click="emit('role-click', role)"
       >
@@ -197,15 +221,29 @@ onBeforeUnmount(() => {
           >{{ ROLE_STATUS_META[role.status].label }}</span>
         </div>
 
-        <!-- Time saved (active) or readiness state (other) -->
+        <!-- Headline number (active) or readiness state (other).
+             When role has business_outcome_headline, that takes priority
+             over the time-saved framing — used for "killer roles" of a
+             vertical so the most important role leads with the metric
+             the owner actually thinks in (revenue, jobs closed). -->
         <div class="mb-2">
           <template v-if="role.status === 'active'">
-            <div class="text-xl font-bold text-brand tabular-nums leading-none">
-              {{ fmtTimeSaved(minutesForRole(role)) }}
-            </div>
-            <div class="text-[10px] uppercase tracking-wide text-ink-muted mt-0.5">
-              saved this week
-            </div>
+            <template v-if="role.business_outcome_headline">
+              <div class="text-2xl font-bold text-brand tabular-nums leading-none">
+                {{ role.business_outcome_headline }}
+              </div>
+              <div class="text-[10px] uppercase tracking-wide text-ink-muted mt-0.5">
+                {{ role.business_outcome_label ?? 'this week' }}
+              </div>
+            </template>
+            <template v-else>
+              <div class="text-xl font-bold text-brand tabular-nums leading-none">
+                {{ fmtTimeSaved(minutesForRole(role)) }}
+              </div>
+              <div class="text-[10px] uppercase tracking-wide text-ink-muted mt-0.5">
+                saved this week
+              </div>
+            </template>
           </template>
           <template v-else>
             <div class="text-sm font-semibold text-ink-muted leading-none">

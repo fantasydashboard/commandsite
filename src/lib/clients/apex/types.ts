@@ -52,6 +52,8 @@ export interface QuoteRecord {
   /** What we last did (text/email/call) */
   last_touch: 'sms' | 'email' | 'call' | null
   job_type: string
+  /** Optional reason recorded when stage is `opted_out`. */
+  loss_reason?: string
 }
 
 export interface ReviewRecord {

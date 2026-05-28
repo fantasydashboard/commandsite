@@ -1,0 +1,315 @@
+<script setup lang="ts">
+/**
+ * Heritage Bath & Kitchen Co. — Today page.
+ *
+ * Page priority (post-impeccable critique):
+ *   1. Status strip — greeting + current business state (NO redundant branding)
+ *   2. Approvals queue — what needs Marc's eyes RIGHT NOW (was 3rd, moved to top)
+ *   3. Today's Pulse — at-a-glance business state with trends
+ *   4. Ada at Work — reassurance + role coverage (was 1st, moved to middle)
+ *   5. Recent activity — context (clickable to drill in)
+ *
+ * Reframing of Ada hero: business outcome ($112K revenue won) is the
+ * headline, not "hours saved." The owner thinks in revenue, not hours.
+ * Hours-saved framing was for the SALES pitch, not the daily tool.
+ */
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import type { Client } from '@/types/database'
+import { adaRoles, type AdaRole } from '@/lib/clients/heritage/roles'
+import { recentActivity } from '@/lib/clients/heritage/recentActivity'
+import type { RecentActivityEvent } from '@/lib/clients/heritage/types'
+import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
+import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import { fmtAgo } from '@/lib/format'
+import { fmtMoney } from '@/lib/clients/heritage/format'
+
+defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+const router = useRouter()
+const route = useRoute()
+
+const isCustomDemo = computed(() => typeof route.query.demo_company === 'string')
+
+function onRoleClick(role: AdaRole) {
+  router.push({
+    name: 'dashboard.tab',
+    params: { slug: 'heritage-bath', tab: role.tab },
+    hash: `#${role.key}`,
+  })
+}
+
+// Route an activity event to the relevant tab (clickable feed rows).
+function onActivityClick(event: RecentActivityEvent) {
+  const tabByKind: Record<string, string> = {
+    quote: 'front-desk-quotes',
+    call: 'front-desk-quotes',
+    review: 'reputation-marketing',
+    reactivation: 'customer-care',
+    dispatch: 'insights',
+  }
+  const tab = tabByKind[event.kind] ?? 'overview'
+  router.push({
+    name: 'dashboard.tab',
+    params: { slug: 'heritage-bath', tab },
+  })
+}
+
+const greeting = computed(() => {
+  const hr = new Date().getHours()
+  if (hr < 12) return `Good morning, Marc`
+  if (hr < 17) return `Good afternoon, Marc`
+  return `Good evening, Marc`
+})
+
+// ── Today's snapshot KPIs (with trend) ────────────────────────────────
+const todaySnapshot = computed(() => {
+  return {
+    activeQuotes: 9,
+    activeQuotesTrend: '2 vs last week',
+    bookedToday: 2,
+    bookedTodayTrend: 'next: Hendricks 2pm',
+    revenueThisWeek: 11200000, // $112K
+    revenueTrendPct: 17, // ↗ 17% vs prior week
+    avgTicket: 2800000, // $28K
+    avgTicketTrend: '8% trailing 30d',
+  }
+})
+
+// ── Approval queue items ──────────────────────────────────────────────
+const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'h-rodriguez-day7',
+    role: 'quote_followup',
+    icon: 'quote_followup',
+    badge: 'Quote nudge · day 7',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Quote follow-up — Rodriguez Estate ($54,400 master bath)',
+    recipient: 'Master bath + walk-in closet remodel · sent 7 days ago',
+    preview: `"Hey Maria — Marc here at Heritage. Wanted to check in on the proposal for the master bath redesign. Know you mentioned wanting to take a few weeks to think through the tile selections. Happy to swing by with samples if it'd help, or just answer any questions about the timeline or budget options. No pressure either way — just want to make sure it didn't get lost in the inbox. — Marc"`,
+    approved_response: "Sent. Day-7 has the highest reply rate for bath remodels in this price range. If she doesn't respond by Friday, I'll surface a softer day-14 nudge with a budget-tier option included.",
+    ticker_after_approval: 'Day-7 quote follow-up sent to Rodriguez Estate · $54K master bath',
+  },
+  {
+    id: 'h-bell-referral',
+    role: 'referral_engine',
+    icon: 'referral_hunter',
+    badge: 'Referral ask',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Referral ask — Marcus & Tia Bell (just closed kitchen reno)',
+    recipient: '5★ review posted yesterday · kitchen reno completed 9 days ago',
+    preview: `"Hey Marcus and Tia, this is Marc with Heritage. Hope the new kitchen's holding up. Honest question — anyone in your circle thinking about a bath or kitchen project this year? If you're comfortable making an intro, they'd get $500 off and you'd get the same as a thank-you. No pressure either way. — Marc"`,
+    approved_response: "Sent. Marcus + Tia's 5★ review specifically thanked you by name — high-affinity moment. Referrals from this customer profile close at 64% historically. If they refer, I'll auto-thank them when the friend books.",
+    ticker_after_approval: 'Referral ask sent to Marcus & Tia Bell — kitchen referral chain started',
+  },
+  {
+    id: 'h-castellanos-review',
+    role: 'review_engine',
+    icon: 'review_engine',
+    badge: '4★ review reply',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Review reply — Pat Owens 4★ ("install was clean but delivery slipped")',
+    recipient: 'Replying before this stays visible without acknowledgment',
+    preview: `"Pat — Marc here, owner at Heritage. You're absolutely right that the cabinet delivery slip set us back a week, and that's on us to manage tighter with our suppliers. Diego's installation work was clean and I'm glad that came through. We're switching our cabinet vendor for projects starting next month for exactly this reason. Thanks for the honest feedback — it helps. — Marc"`,
+    approved_response: 'Posted to Google. Owner-acknowledged 4★ reviews convert prospect-viewers at higher rates than ignored ones — the candor reads as honest.',
+    ticker_after_approval: 'Reply posted to Pat Owens 4★ review',
+  },
+  {
+    id: 'h-cole-reactivation',
+    role: 'reactivation',
+    icon: 'reactivation',
+    badge: 'Expansion outreach',
+    badgeClass: 'bg-brand/15 text-brand',
+    title: 'Reactivation — Heather Cole (bath remodel 18 mo ago, kitchen interest)',
+    recipient: 'Replied to last newsletter · "kitchen is next on the list"',
+    preview: `"Hi Heather — Marc at Heritage. Saw your reply to the kitchen-trends newsletter, glad it sparked something. Last time we were out we talked through what you might want eventually. If you want to grab 30 min for a no-commitment kitchen walkthrough — measurements, rough budget range, timeline — happy to set that up. Booked your bath last March, would love to do the kitchen too. — Marc"`,
+    approved_response: 'Sent. Past-bath customers becoming kitchen customers is the #1 expansion path for Heritage — 28% lifetime expansion rate. Heather is in the high-intent tier.',
+    ticker_after_approval: 'Kitchen expansion outreach sent to Heather Cole',
+  },
+  {
+    id: 'h-mendoza-review-ask',
+    role: 'review_engine',
+    icon: 'review_engine',
+    badge: 'Review request',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Review request — Olivia Reagan (powder room completed 5 days ago)',
+    recipient: 'Diego mentioned she was thrilled with the tile work',
+    preview: `"Hi Olivia — thanks for letting us redo the powder room. Diego mentioned how much you loved how the tile turned out and it made our week. If you're up for it, a quick Google review would mean a lot — two clicks: [link]. No pressure either way. — Marc, Heritage"`,
+    approved_response: "Sent. 5-day post-job timing has the highest review-conversion rate for residential remodel. Olivia's already shared photos in her NextDoor — she'll likely 5★.",
+    ticker_after_approval: 'Review request sent to Olivia Reagan',
+  },
+]
+
+// ── Live-updating activity feed ────────────────────────────────────────
+const liveFeed = ref<RecentActivityEvent[]>([...recentActivity].sort((a, b) =>
+  new Date(b.at).getTime() - new Date(a.at).getTime(),
+))
+
+const tickIntervalMs = 30_000
+let tickHandle: number | null = null
+const tickCounter = ref(0)
+
+// `feedRows` recomputes `ago` text every tick without remounting <li> nodes.
+const feedRows = computed(() => {
+  // Read tickCounter so the computed re-runs on each interval tick.
+  void tickCounter.value
+  return liveFeed.value.slice(0, 10).map((event) => ({
+    event,
+    ago: fmtAgo(event.at),
+  }))
+})
+
+onMounted(() => {
+  tickHandle = window.setInterval(() => {
+    tickCounter.value++
+  }, tickIntervalMs)
+})
+
+onBeforeUnmount(() => {
+  if (tickHandle !== null) clearInterval(tickHandle)
+})
+
+// Total revenue captured this week (for the Ada at Work hero)
+const totalRevenueThisWeek = computed(() => todaySnapshot.value.revenueThisWeek)
+const totalActions = computed(() =>
+  adaRoles.filter((r) => r.status === 'active').reduce((sum, r) => sum + r.this_week_count, 0),
+)
+const activeRoles = computed(() => adaRoles.filter((r) => r.status === 'active'))
+</script>
+
+<template>
+  <div class="space-y-6">
+    <!-- ─── 1. Status strip — greeting + current business state ─── -->
+    <header v-if="!isCustomDemo" class="flex items-baseline justify-between flex-wrap gap-2 pb-1">
+      <h2 class="text-2xl font-semibold text-ink">{{ greeting }}</h2>
+      <div class="flex items-baseline gap-3 text-sm text-ink-muted">
+        <span class="hidden sm:inline">Tampa, FL</span>
+        <span class="hidden sm:inline text-ink-disabled">·</span>
+        <span class="tabular-nums"><strong class="text-ink">{{ todaySnapshot.activeQuotes }}</strong> quotes in pipeline</span>
+        <span class="text-ink-disabled">·</span>
+        <span class="tabular-nums"><strong class="text-ink">{{ todaySnapshot.bookedToday }}</strong> consults today</span>
+      </div>
+    </header>
+
+    <!-- ─── 2. APPROVALS — what needs Marc's eyes RIGHT NOW ─── -->
+    <!-- No `heading` override: default ("Today's approvals") becomes the
+         eyebrow + queueLabel ("5 waiting on you") becomes the headline.
+         No copy duplication. -->
+    <GraceApprovalQueue
+      :items="queueItems"
+      :assistant-name="'Ada'"
+      :owner-name="'Marc'"
+      subtitle="Review · approve · or edit before it goes out. Every message sends from your number, in your voice."
+    />
+
+    <!-- ─── 3. Today's Pulse — at-a-glance state with trends ─── -->
+    <section class="card overflow-hidden">
+      <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow">This week</span>
+          <span class="text-[11px] text-ink-disabled flex items-center gap-1.5">
+            <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+            Live · updates every 30s
+          </span>
+        </div>
+      </header>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="rounded-card border border-divider bg-surface-elevated p-3">
+          <div class="text-[10px] uppercase tracking-wider text-ink-muted">Active quotes</div>
+          <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.activeQuotes }}</div>
+          <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.activeQuotesTrend }}</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated p-3">
+          <div class="text-[10px] uppercase tracking-wider text-ink-muted">Consults today</div>
+          <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.bookedToday }}</div>
+          <div class="text-[11px] text-ink-disabled mt-1">{{ todaySnapshot.bookedTodayTrend }}</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated p-3">
+          <div class="text-[10px] uppercase tracking-wider text-ink-muted">Revenue this week</div>
+          <div class="text-2xl font-bold text-success tabular-nums leading-none mt-1">{{ fmtMoney(todaySnapshot.revenueThisWeek) }}</div>
+          <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.revenueTrendPct }}% vs last week</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated p-3">
+          <div class="text-[10px] uppercase tracking-wider text-ink-muted">Avg ticket</div>
+          <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ fmtMoney(todaySnapshot.avgTicket) }}</div>
+          <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.avgTicketTrend }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── 4. Ada at Work — reassurance + role coverage (REFRAMED) ─── -->
+    <!-- Custom revenue-led hero replacing AdaAtWorkHub's default hours-saved
+         hero. The owner thinks in revenue, not in hours-saved math.
+         Role-count is shown ONLY in the hero strip (right side) — no
+         duplicate header label. -->
+    <section class="card overflow-hidden">
+      <header class="mb-4 flex items-baseline gap-2">
+        <span class="eyebrow">Ada at Work</span>
+        <span class="text-xs text-ink-muted">This week · click any role to drill in</span>
+      </header>
+
+      <!-- Revenue-led hero (replaces default hours-saved hero) -->
+      <div class="rounded-card bg-brand text-ink-inverse px-5 py-4 mb-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
+        <div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-4xl font-bold tabular-nums leading-none">{{ fmtMoney(totalRevenueThisWeek) }}</span>
+            <span class="text-base font-semibold opacity-90">revenue won</span>
+          </div>
+          <div class="text-xs uppercase tracking-wide opacity-80 mt-1.5 tabular-nums">
+            across {{ totalActions }} actions Ada handled for Marc this week
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-semibold leading-tight tabular-nums">
+            {{ activeRoles.length }} of {{ adaRoles.length }}
+          </div>
+          <div class="text-xs uppercase tracking-wide opacity-80 mt-1">
+            roles active
+          </div>
+        </div>
+      </div>
+
+      <!-- Role grid — pass killer role for visual emphasis -->
+      <AdaAtWorkHub
+        :roles="adaRoles"
+        :owner-name="'Marc'"
+        assistant-name="Ada"
+        :killer-role-key="'quote_followup'"
+        :hide-header="true"
+        :hide-hero="true"
+        @role-click="onRoleClick"
+      />
+    </section>
+
+    <!-- ─── 5. Recent activity — context, clickable ─── -->
+    <section class="card overflow-hidden">
+      <header class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
+        <div>
+          <h3 class="text-base font-semibold text-ink">Recent activity</h3>
+          <p class="text-[11px] text-ink-muted">Last 48 hours · click any event to drill in</p>
+        </div>
+      </header>
+      <ul class="space-y-0">
+        <li
+          v-for="row in feedRows"
+          :key="row.event.id"
+          class="flex items-start gap-3 py-2.5 border-b border-divider last:border-0 cursor-pointer hover:bg-surface-elevated/50 -mx-2 px-2 rounded transition-colors"
+          @click="onActivityClick(row.event)"
+        >
+          <span
+            class="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0"
+            :class="{
+              'bg-brand': row.event.kind === 'quote',
+              'bg-success': row.event.kind === 'review' || row.event.kind === 'reactivation',
+              'bg-warn': row.event.kind === 'call',
+              'bg-ink-muted': row.event.kind === 'dispatch',
+            }"
+          ></span>
+          <span class="text-[13px] text-ink leading-snug flex-1">{{ row.event.text }}</span>
+          <span class="text-[11px] text-ink-disabled tabular-nums flex-shrink-0">{{ row.ago }}</span>
+        </li>
+      </ul>
+    </section>
+  </div>
+</template>

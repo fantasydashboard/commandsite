@@ -30,7 +30,7 @@ export interface ApprovalQueueItem {
 
 const props = withDefaults(defineProps<{
   items: ApprovalQueueItem[]
-  /** Section title — defaults to "Today's sign-offs" */
+  /** Section title — defaults to "Today's approvals" */
   heading?: string
   /** Subtitle copy under the heading */
   subtitle?: string
@@ -62,19 +62,21 @@ const recentlyResolved = ref<string[]>([])
 const processingId = ref<string | null>(null)
 const resolvedCounter = ref<number>(props.initialResolved ?? 0)
 
-const heading = computed(() => props.heading ?? "Today's sign-offs")
+const heading = computed(() => props.heading ?? "Today's approvals")
 const assistantName = computed(() => props.assistantName ?? 'Grace')
 
 // Quietly leads with what Ada (or Grace) ALREADY did today, then notes what's
-// left for owner sign-off. Reframes the queue from "your TODO list" to
-// "her finished work waiting on a co-sign" — matches the persona promise.
+// left for owner approval. Reframes the queue from "your TODO list" to
+// "her finished work waiting on your approval" — matches the persona promise.
+// The verb is "approve" (not "sign off") because that's what the button does;
+// also disambiguates from the "Sign out" auth button in the page header.
 const queueLabel = computed(() => {
   const pending = queueItems.value.length
   const done = resolvedCounter.value
-  if (pending === 0 && done === 0) return `${assistantName.value} is on the lookout — nothing to sign off yet`
+  if (pending === 0 && done === 0) return `${assistantName.value} is on the lookout — nothing waiting yet`
   if (pending === 0) return `${done} handled today · all clear`
-  if (done === 0) return `${pending} ready for your sign-off`
-  return `${done} handled today · ${pending} ready for your sign-off`
+  if (done === 0) return `${pending} waiting on you`
+  return `${done} handled today · ${pending} waiting on you`
 })
 
 async function actOnItem(item: ApprovalQueueItem, action: 'approve' | 'edit' | 'skip') {
@@ -157,14 +159,14 @@ async function actOnItem(item: ApprovalQueueItem, action: 'approve' | 'edit' | '
             {{ item.preview }}
           </div>
         </div>
-        <div class="flex flex-col gap-1.5 flex-shrink-0 w-24">
+        <div class="flex flex-col gap-1.5 flex-shrink-0 w-32">
           <button
             type="button"
             class="rounded-md bg-brand-active text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:bg-brand disabled:opacity-50 transition-[transform,background-color,opacity] duration-150 ease-out-quart active:scale-[0.97]"
             :disabled="processingId === item.id"
             @click="actOnItem(item, 'approve')"
           >
-            {{ processingId === item.id ? 'Sending' : 'Sign off' }}
+            {{ processingId === item.id ? 'Sending' : 'Approve & send' }}
           </button>
           <button
             type="button"

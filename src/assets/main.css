@@ -80,6 +80,35 @@
   }
 }
 
+/* ── Chart bar reveal ────────────────────────────────────────────────
+   One-time entrance for bar charts. We animate transform (GPU) instead
+   of width/height (layout). Use `--bar-i` for stagger. */
+
+@keyframes barRevealY {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes barRevealX {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.bar-reveal-y {
+  transform-origin: bottom;
+  animation: barRevealY 500ms var(--ease-out-quart) backwards;
+  animation-delay: calc(var(--bar-i, 0) * 30ms);
+}
+.bar-reveal-x {
+  transform-origin: left;
+  animation: barRevealX 500ms var(--ease-out-quart) backwards;
+  animation-delay: calc(var(--bar-i, 0) * 30ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar-reveal-y,
+  .bar-reveal-x {
+    animation: none;
+  }
+}
+
 /* ── Hero stagger entrance ──────────────────────────────────────────
    The first 500ms of the page sets the craft tone. Each hero item
    fades + rises in sequence; the AssistantMark gets a soft scale-in
@@ -240,4 +269,16 @@
   .kpi-delta-down {
     @apply inline-flex items-center gap-1 text-danger text-sm font-semibold;
   }
+}
+
+/* Cross-browser scrollbar hide — used on overflowing horizontal nav
+ * strips (e.g., dashboard top tabs) where we want scroll behavior but
+ * the system scrollbar renders as a visible white/gray bar inside our
+ * dark chrome. Apply via the .no-scrollbar utility class. */
+.no-scrollbar {
+  scrollbar-width: none;     /* Firefox */
+  -ms-overflow-style: none;  /* IE/Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;             /* Chrome / Safari / Opera */
 }

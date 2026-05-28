@@ -30,6 +30,18 @@ export interface EmployeeRole {
   this_week_count: number
   /** Owner's minutes saved per event. Per-client/per-vertical rate. */
   minutes_saved_per_event: number
+
+  /** Optional: business outcome to feature INSTEAD of time-saved on this
+   *  role's tile. Use for the "killer role" of a vertical so the most
+   *  important role leads with the metric the owner thinks in (revenue,
+   *  jobs closed, etc.) rather than the marketing-math "hours saved."
+   *  Format examples: "$112K", "4 closed", "47 booked". */
+  business_outcome_headline?: string
+
+  /** Optional: label under business_outcome_headline. Format examples:
+   *  "revenue won", "this week", "jobs closed". Defaults to
+   *  "this week" if business_outcome_headline is set without it. */
+  business_outcome_label?: string
 }
 
 export const ROLE_STATUS_META: Record<RoleStatus, { label: string; pillClass: string }> = {

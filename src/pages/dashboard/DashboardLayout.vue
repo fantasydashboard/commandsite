@@ -76,6 +76,22 @@ const demoState = computed<string | null>(() => {
 })
 const isDemoMode = computed(() => demoCompany.value !== null)
 
+// Slugs whose modules render their own page header (greeting + status
+// strip) — for these we suppress the default `<h1>{{ client.name }}</h1>`
+// layout chrome to avoid the duplicate-title effect. Demo mode always
+// shows the layout header because that's how prospects know they're
+// looking at THEIR personalized version.
+//
+// New vertical demos (Canopy Tree, True Line Fencing, etc.) should add
+// their slug here as they're built.
+const SLUGS_WITH_SELF_RENDERED_HEADER = new Set([
+  'heritage-bath',
+])
+const suppressLayoutHeader = computed(() => {
+  if (isDemoMode.value) return false
+  return SLUGS_WITH_SELF_RENDERED_HEADER.has(props.slug)
+})
+
 // Demo banner persona + venue copy — adapts based on slug.
 // Church demos see Grace + ministry framing; service demos see Ada
 // + shop framing.
@@ -240,7 +256,7 @@ async function onLogout() {
         </RouterLink>
         <nav
           v-if="navTabs.length > 0"
-          class="flex gap-1 text-sm overflow-x-auto whitespace-nowrap min-w-0 flex-1 scrollbar-thin"
+          class="flex gap-1 text-sm overflow-x-auto whitespace-nowrap min-w-0 flex-1 no-scrollbar"
         >
           <RouterLink
             v-for="tab in navTabs"
@@ -262,6 +278,32 @@ async function onLogout() {
           </RouterLink>
         </nav>
         <div class="flex items-center gap-3 flex-shrink-0">
+          <!-- Settings cog — chrome-level access so it's always reachable
+               even when the settings tab gets pushed off-screen by nav
+               overflow, or when the layout's page-title header is
+               suppressed (Heritage Bath and other vertical demos). -->
+          <RouterLink
+            v-if="hasSettings"
+            :to="tabHref('settings')"
+            class="rounded-full p-1.5 text-chrome-ink/65 hover:text-chrome-ink hover:bg-chrome-ink/5 transition-colors"
+            :class="{ 'text-chrome-ink bg-chrome-ink/10': activeTabKey === 'settings' }"
+            title="Settings"
+            aria-label="Settings"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-4 w-4"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </RouterLink>
           <RouterLink
             v-if="auth.isAdmin"
             to="/admin"
@@ -340,7 +382,10 @@ async function onLogout() {
         Dashboard not found.
       </div>
       <template v-else>
-        <header class="mb-6 flex items-baseline justify-between gap-3 border-b border-divider pb-4">
+        <header
+          v-if="!suppressLayoutHeader"
+          class="mb-6 flex items-baseline justify-between gap-3 border-b border-divider pb-4"
+        >
           <h1 class="text-2xl font-semibold text-ink tracking-tight">
             <template v-if="isDemoMode">{{ demoCompany }}</template>
             <template v-else>{{ client.name }}</template>
