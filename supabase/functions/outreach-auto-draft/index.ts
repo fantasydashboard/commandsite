@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: candidates, error: fetchErr } = await admin
     .from('cs_leads')
-    .select('id, company_name, icp_score, contact_email, status, draft_state')
+    .select('id, company_name, icp_score, contact_email, status, draft_state, tags')
     .gte('icp_score', minScore)
     .is('draft_cold_email_subject', null)
     .is('draft_cold_email_body', null)
@@ -85,7 +85,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: `Candidate query failed: ${fetchErr.message}` }, 500)
   }
 
-  const picked = (candidates ?? []) as { id: string; company_name: string }[]
+  type Candidate = { id: string; company_name: string; tags: string[] | null }
+  const picked = (candidates ?? []) as Candidate[]
   if (picked.length === 0) {
     return json({ picked: 0, drafted: 0, failed: 0, message: 'No candidates this tick' })
   }
@@ -98,48 +99,62 @@ Deno.serve(async (req: Request) => {
     .update({ draft_state: 'drafting' })
     .in('id', leadIds)
 
-  // ── Hand off to draft-cold-email (it writes the draft + flips
-  // draft_state to 'ready_for_review' on its own).
-  const draftUrl = `${SUPABASE_URL}/functions/v1/draft-cold-email`
+  // ── Split candidates by persona tag. persona_grace → grace drafter,
+  // anything else (persona_ada or untagged legacy leads) → ada drafter.
+  // Both drafters share the same I/O contract: { lead_ids } → counts +
+  // errors. They write to cs_leads themselves and flip draft_state to
+  // 'ready_for_review' independently.
+  const graceIds = picked.filter((l) => (l.tags ?? []).includes('persona_grace')).map((l) => l.id)
+  const adaIds = picked.filter((l) => !(l.tags ?? []).includes('persona_grace')).map((l) => l.id)
+
   let drafted = 0
   let failed = 0
   const errors: string[] = []
 
-  try {
-    const resp = await fetch(draftUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        apikey: SERVICE_ROLE_KEY,
-      },
-      body: JSON.stringify({ lead_ids: leadIds }),
-    })
+  async function callDrafter(url: string, ids: string[], label: string): Promise<void> {
+    if (ids.length === 0) return
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          apikey: SERVICE_ROLE_KEY,
+        },
+        body: JSON.stringify({ lead_ids: ids }),
+      })
 
-    if (!resp.ok) {
-      throw new Error(`draft-cold-email returned ${resp.status}: ${await resp.text()}`)
+      if (!resp.ok) {
+        throw new Error(`${label} returned ${resp.status}: ${await resp.text()}`)
+      }
+
+      const body = await resp.json() as { counts?: { drafted?: number; failed?: number }; errors?: string[] }
+      drafted += body.counts?.drafted ?? 0
+      failed += body.counts?.failed ?? 0
+      if (body.errors?.length) errors.push(...body.errors.map((e) => `[${label}] ${e}`))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push(`[${label}] ${msg}`)
+      failed += ids.length
+      // Roll back drafting markers for just this drafter's slice so they retry next tick
+      await admin
+        .from('cs_leads')
+        .update({ draft_state: null })
+        .in('id', ids)
     }
-
-    const body = await resp.json() as { counts?: { drafted?: number; failed?: number }; errors?: string[] }
-    drafted = body.counts?.drafted ?? 0
-    failed = body.counts?.failed ?? 0
-    if (body.errors?.length) errors.push(...body.errors)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(msg)
-    failed = picked.length
-    // Roll back the drafting markers so they retry next tick
-    await admin
-      .from('cs_leads')
-      .update({ draft_state: null })
-      .in('id', leadIds)
   }
+
+  // Run sequentially so a draft burst on one persona doesn't bunch up the
+  // other one against the Anthropic rate limit.
+  await callDrafter(`${SUPABASE_URL}/functions/v1/draft-cold-email`, adaIds, 'draft-cold-email')
+  await callDrafter(`${SUPABASE_URL}/functions/v1/draft-cold-email-grace`, graceIds, 'draft-cold-email-grace')
 
   return json({
     picked: picked.length,
     drafted,
     failed,
     min_score: minScore,
+    by_persona: { ada: adaIds.length, grace: graceIds.length },
     errors: errors.length > 0 ? errors : undefined,
   })
 })

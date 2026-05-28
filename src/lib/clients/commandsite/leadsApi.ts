@@ -284,12 +284,18 @@ export function useLeads() {
 
   /** Bulk insert. Caller has already scored them locally. Returns the
    *  IDs of the actually-inserted rows so the caller can immediately
-   *  pipeline them into enrichment without a roundtrip. */
+   *  pipeline them into enrichment without a roundtrip.
+   *
+   *  Uses upsert with onConflict + ignoreDuplicates so a batch with some
+   *  already-imported leads (matching google_maps_place_id from migration
+   *  0026's unique index) doesn't atomically fail the whole batch. New
+   *  rows insert, duplicate rows silently skip, returned `failed` count
+   *  reflects how many were skipped. */
   async function importLeads(rows: CsLeadInsert[]): Promise<{ inserted: number; failed: number; insertedIds: string[] }> {
     if (!rows.length) return { inserted: 0, failed: 0, insertedIds: [] }
     const { data, error: e } = await supabase
       .from('cs_leads')
-      .insert(rows)
+      .upsert(rows, { onConflict: 'google_maps_place_id', ignoreDuplicates: true })
       .select('id')
     if (e) {
       error.value = e.message

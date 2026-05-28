@@ -35,11 +35,34 @@ type Phase = 'form' | 'searching' | 'ada-reading' | 'preview'
 const phase = ref<Phase>('form')
 
 // ── Form state
-const queriesRaw = ref('HVAC contractor\nplumber\nelectrician')
+type Persona = 'ada' | 'grace'
+const persona = ref<Persona>('ada')
+
+// Default queries flip with persona — HVAC/plumbing/electrician for Ada,
+// non-denominational + Baptist + Methodist church for Grace. The operator
+// edits freely after switching.
+const ADA_DEFAULT_QUERIES = 'HVAC contractor\nplumber\nelectrician'
+const GRACE_DEFAULT_QUERIES = 'community church\nbaptist church\nmethodist church'
+
+const queriesRaw = ref(ADA_DEFAULT_QUERIES)
 const location = ref('Orlando, FL')
 const maxPerQuery = ref(20)
 const minRating = ref(4.0)
 const error = ref<string | null>(null)
+
+const assistantName = computed(() => (persona.value === 'grace' ? 'Grace' : 'Ada'))
+
+function onPersonaChange(next: Persona) {
+  persona.value = next
+  // Reset the query block to the persona's default if it's still on the
+  // OTHER persona's default. If the operator has typed custom queries,
+  // leave them alone — flipping persona shouldn't blow away their work.
+  if (next === 'grace' && queriesRaw.value.trim() === ADA_DEFAULT_QUERIES) {
+    queriesRaw.value = GRACE_DEFAULT_QUERIES
+  } else if (next === 'ada' && queriesRaw.value.trim() === GRACE_DEFAULT_QUERIES) {
+    queriesRaw.value = ADA_DEFAULT_QUERIES
+  }
+}
 
 // ── Results state
 interface ResearchedLead {
@@ -104,8 +127,8 @@ const phaseMessage = computed(() => {
     return `Searching Google Maps · ${queryCount.value} ${queryCount.value === 1 ? 'query' : 'queries'}…`
   }
   if (phase.value === 'ada-reading') {
-    if (adaProgress.value.total === 0) return 'Ada is starting her review…'
-    return `Ada is reading reviews · ${adaProgress.value.completed} of ${adaProgress.value.total}`
+    if (adaProgress.value.total === 0) return `${assistantName.value} is starting her review…`
+    return `${assistantName.value} is reading reviews · ${adaProgress.value.completed} of ${adaProgress.value.total}`
   }
   return ''
 })
@@ -245,7 +268,11 @@ async function runAdaReview() {
     // UI update progressively as each chunk lands.
     for (let i = 0; i < placeIds.length; i += ADA_CHUNK_SIZE) {
       const chunk = placeIds.slice(i, i + ADA_CHUNK_SIZE)
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/score-leads-ada`, {
+      // Route to the persona-matched scorer. Both functions share the same
+      // request/response shape so the rest of the chunk handler doesn't
+      // need to know which one ran.
+      const scorerSlug = persona.value === 'grace' ? 'score-leads-grace' : 'score-leads-ada'
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/${scorerSlug}`, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -288,10 +315,15 @@ async function runAdaReview() {
 
     if (aggregateErrors.length > 0) adaErrors.value = aggregateErrors
 
-    // Auto-uncheck low-scored leads (< 40)
+    // Auto-uncheck low-scored leads. Persona-aware threshold because
+    // Grace's score distribution skews higher than Ada's — a 45 for
+    // Grace means "weak fit, probably not a Grace customer," whereas
+    // for Ada it could still be borderline-interesting. Tighter
+    // threshold for Grace removes noise from the import set.
+    const uncheckBelow = persona.value === 'grace' ? 50 : 40
     const next = new Set(excluded.value)
     for (const [pid, score] of Object.entries(aggregateScored)) {
-      if (score.score < 40) next.add(pid)
+      if (score.score < uncheckBelow) next.add(pid)
     }
     excluded.value = next
 
@@ -361,8 +393,18 @@ const stats = computed(() => {
   const willImport = visibleResults.value.filter((r) => !excluded.value.has(r.place_id)).length
   const withWebsite = visibleResults.value.filter((r) => r.website).length
   const withPhone = visibleResults.value.filter((r) => r.phone).length
+  // Prefer the LLM (Ada/Grace) score when present — the heuristic icp_score
+  // is a fast pre-filter that doesn't know about persona-specific scoring
+  // (e.g., it returns a constant 35 for any "church" industry result),
+  // which makes the avg look meaningless once Grace has actually reviewed
+  // the batch. Use LLM scores when we have them, fall back to heuristic.
   const avgScore = total > 0
-    ? Math.round(visibleResults.value.reduce((s, r) => s + (r.icp_score ?? 0), 0) / total)
+    ? Math.round(
+        visibleResults.value.reduce((s, r) => {
+          const llmScore = adaScores.value[r.place_id]?.score
+          return s + (llmScore ?? r.icp_score ?? 0)
+        }, 0) / total,
+      )
     : 0
   return { total, willImport, withWebsite, withPhone, avgScore }
 })
@@ -430,9 +472,14 @@ function buildInsertRows(): CsLeadInsert[] {
         )
       }
 
-      const tags = ['google_maps', r.inferredIndustry.toLowerCase()]
+      // Persona tag drives downstream routing — outreach-auto-draft reads
+      // this to decide draft-cold-email vs draft-cold-email-grace.
+      const personaTag = `persona_${persona.value}`
+      const tags = ['google_maps', personaTag, r.inferredIndustry.toLowerCase()]
       if (ada) {
-        tags.push('ada_reviewed')
+        // Keep the legacy 'ada_reviewed' tag for ada path so existing
+        // dashboards keep working; add 'grace_reviewed' for grace path.
+        tags.push(persona.value === 'grace' ? 'grace_reviewed' : 'ada_reviewed')
         for (const s of ada.signals) tags.push(s.kind)
       }
 
@@ -544,6 +591,39 @@ const isWorking = computed(() => phase.value === 'searching' || phase.value === 
             <!-- ── Form / working stage ──────────────────────────────────────── -->
             <div v-if="phase !== 'preview'" class="space-y-5">
               <fieldset :disabled="isWorking" class="space-y-5 disabled:opacity-60">
+                <!-- Persona toggle: drives which scorer runs (score-leads-ada
+                     vs score-leads-grace) and which persona tag goes on the
+                     imported leads (which then drives drafting downstream). -->
+                <div>
+                  <label class="block text-xs font-semibold text-ink mb-1.5">
+                    Who's reviewing
+                  </label>
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="flex-1 rounded-md border px-3 py-2 text-left transition-colors"
+                      :class="persona === 'ada'
+                        ? 'border-brand bg-brand/10 text-ink'
+                        : 'border-divider bg-surface-raised text-ink-muted hover:border-divider-bright'"
+                      @click="onPersonaChange('ada')"
+                    >
+                      <span class="block text-sm font-semibold">Ada</span>
+                      <span class="block text-[11px] mt-0.5 leading-snug">Home services (HVAC, plumbing, roofing)</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="flex-1 rounded-md border px-3 py-2 text-left transition-colors"
+                      :class="persona === 'grace'
+                        ? 'border-brand bg-brand/10 text-ink'
+                        : 'border-divider bg-surface-raised text-ink-muted hover:border-divider-bright'"
+                      @click="onPersonaChange('grace')"
+                    >
+                      <span class="block text-sm font-semibold">Grace</span>
+                      <span class="block text-[11px] mt-0.5 leading-snug">Churches (200 to 1,500 attendance)</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div>
                   <label class="block text-xs font-semibold text-ink mb-1.5">
                     Search queries <span class="text-ink-muted font-normal">(one per line)</span>
@@ -591,7 +671,7 @@ const isWorking = computed(() => phase.value === 'searching' || phase.value === 
                 <div class="rounded-card bg-surface-elevated border border-divider p-4">
                   <p class="text-xs text-ink-muted leading-relaxed">
                     <strong class="text-ink font-semibold">What happens:</strong>
-                    Search runs first (5-15s), then Ada reads each business's reviews and scores them against your ICP (~1.5s per result). You'll land on a preview where you can uncheck anything before saving.
+                    Search runs first (5-15s), then {{ assistantName }} reads each {{ persona === 'grace' ? 'church' : 'business' }}'s reviews and scores them against your ICP (~1.5s per result). You'll land on a preview where you can uncheck anything before saving.
                   </p>
                 </div>
               </fieldset>
@@ -613,7 +693,7 @@ const isWorking = computed(() => phase.value === 'searching' || phase.value === 
                       aria-hidden="true"
                     >🔍</div>
                     <span class="text-xs font-semibold text-ink">
-                      {{ phase === 'ada-reading' ? 'Ada is on it' : 'Searching' }}
+                      {{ phase === 'ada-reading' ? `${assistantName} is on it` : 'Searching' }}
                     </span>
                   </div>
                   <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">

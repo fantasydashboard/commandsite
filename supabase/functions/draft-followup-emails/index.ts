@@ -409,10 +409,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let candidatesT2: CandidateRow[] = []
   let candidatesT3: CandidateRow[] = []
 
+  // Persona filter: this function only drafts Ada (HVAC + home services)
+  // followups. Grace (church) followups go through draft-followup-emails-grace.
+  // We filter persona_grace OUT below in both manual and cron paths so a lead
+  // tagged for Grace never lands an Ada-voiced "Hey Tony, honestly not sure..."
+  // followup. Untagged legacy leads default to Ada (no persona_grace tag → not
+  // excluded → processed here).
+  // Implementation note: Supabase JS doesn't have a NOT CONTAINS shortcut, so
+  // we filter in memory after fetch. Cheap because each window is small.
+
   if (explicitIds.length > 0) {
-    // Manual mode: take whatever was passed and figure out the touch from send_count.
-    // Operator might have un-paused a lead before invoking manually, so we still
-    // respect the paused flag here.
     const { data } = await admin
       .from('cs_leads')
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
@@ -421,11 +427,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq('status', 'contacted')
       .eq('outreach_paused', false)
     const rows = (data ?? []) as CandidateRow[]
-    candidatesT2 = rows.filter((r) => r.send_count === 1)
-    candidatesT3 = rows.filter((r) => r.send_count === 2)
+    const adaRows = rows.filter((r) => !(r.tags ?? []).includes('persona_grace'))
+    candidatesT2 = adaRows.filter((r) => r.send_count === 1)
+    candidatesT3 = adaRows.filter((r) => r.send_count === 2)
   } else {
-    // Cron mode: window-based query. Paused leads (replies received) drop out
-    // automatically — once paused, they stay paused unless the operator un-flags.
     const t2 = await admin
       .from('cs_leads')
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
@@ -435,7 +440,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .gte('last_contacted_at', touch2WindowStart)
       .lte('last_contacted_at', touch2WindowEnd)
       .not('contact_email', 'is', null)
-    candidatesT2 = (t2.data ?? []) as CandidateRow[]
+    candidatesT2 = ((t2.data ?? []) as CandidateRow[])
+      .filter((r) => !(r.tags ?? []).includes('persona_grace'))
 
     const t3 = await admin
       .from('cs_leads')
@@ -446,7 +452,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .gte('last_contacted_at', touch3WindowStart)
       .lte('last_contacted_at', touch3WindowEnd)
       .not('contact_email', 'is', null)
-    candidatesT3 = (t3.data ?? []) as CandidateRow[]
+    candidatesT3 = ((t3.data ?? []) as CandidateRow[])
+      .filter((r) => !(r.tags ?? []).includes('persona_grace'))
   }
 
   // ── 3. For each candidate, pull the most recent send (so Ada knows what NOT to repeat)

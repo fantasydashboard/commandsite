@@ -27,7 +27,12 @@ interface Campaign {
   notes: string | null
   started_at: string | null
   ended_at: string | null
+  // 'ada' (HVAC + home services) or 'grace' (churches). Routes scoring
+  // and drafting through the right persona-specific edge functions.
+  persona: 'ada' | 'grace'
 }
+
+type Persona = 'ada' | 'grace'
 
 const campaigns = ref<Campaign[]>([])
 const loading = ref(false)
@@ -38,24 +43,43 @@ const showNewForm = ref(false)
 // (state + cities) themselves — keeps the door open for non-listed metros,
 // smaller markets, multi-county targets, etc.
 
-interface IndustryPreset { key: string; label: string; keywords: string }
+interface IndustryPreset { key: string; label: string; keywords: string; persona: Persona }
 const INDUSTRY_PRESETS: IndustryPreset[] = [
-  { key: 'hvac',                 label: 'HVAC',                       keywords: 'hvac, hvac contractor, heating and cooling, air conditioning, heat pump, hvac installation' },
-  { key: 'plumbing',             label: 'Plumbing',                   keywords: 'plumber, plumbing contractor, drain cleaning, water heater, leak detection, pipe repair' },
-  { key: 'electrical-res',       label: 'Electrical (residential)',   keywords: 'electrician, residential electrical, panel upgrade, generator installation' },
-  { key: 'electrical-com',       label: 'Electrical (commercial)',    keywords: 'electrical contractor, commercial electrical, EV charger installation' },
-  { key: 'roofing',              label: 'Roofing',                    keywords: 'roofer, roofing contractor, roof replacement, roof repair, storm damage, asphalt shingle' },
-  { key: 'landscaping',          label: 'Landscaping / Lawn care',    keywords: 'landscaping, lawn care, lawn maintenance, landscape design, lawn mowing, hardscape' },
-  { key: 'pest-control',         label: 'Pest control',               keywords: 'pest control, exterminator, termite control, rodent control, mosquito control, bed bug treatment' },
-  { key: 'garage-door',          label: 'Garage door',                keywords: 'garage door, garage door repair, garage door installation, garage door opener, garage door spring' },
-  { key: 'pool-service',         label: 'Pool (service)',             keywords: 'pool service, pool maintenance, pool cleaning, pool chemical' },
-  { key: 'pool-build',           label: 'Pool (build)',               keywords: 'pool builder, pool installation, pool construction, pool design' },
-  { key: 'painting-res',         label: 'Painting (residential)',     keywords: 'painter, residential painting, house painter, interior painting' },
-  { key: 'painting-com',         label: 'Painting (commercial)',      keywords: 'painting contractor, commercial painting, industrial painting' },
-  { key: 'cleaning',             label: 'Residential cleaning',       keywords: 'house cleaning, residential cleaning, maid service, cleaning service, deep cleaning' },
+  // ── Ada presets (HVAC + home services) ───────────────────────────
+  { key: 'hvac',                 label: 'HVAC',                       persona: 'ada',   keywords: 'hvac, hvac contractor, heating and cooling, air conditioning, heat pump, hvac installation' },
+  { key: 'plumbing',             label: 'Plumbing',                   persona: 'ada',   keywords: 'plumber, plumbing contractor, drain cleaning, water heater, leak detection, pipe repair' },
+  { key: 'electrical-res',       label: 'Electrical (residential)',   persona: 'ada',   keywords: 'electrician, residential electrical, panel upgrade, generator installation' },
+  { key: 'electrical-com',       label: 'Electrical (commercial)',    persona: 'ada',   keywords: 'electrical contractor, commercial electrical, EV charger installation' },
+  { key: 'roofing',              label: 'Roofing',                    persona: 'ada',   keywords: 'roofer, roofing contractor, roof replacement, roof repair, storm damage, asphalt shingle' },
+  { key: 'landscaping',          label: 'Landscaping / Lawn care',    persona: 'ada',   keywords: 'landscaping, lawn care, lawn maintenance, landscape design, lawn mowing, hardscape' },
+  { key: 'pest-control',         label: 'Pest control',               persona: 'ada',   keywords: 'pest control, exterminator, termite control, rodent control, mosquito control, bed bug treatment' },
+  { key: 'garage-door',          label: 'Garage door',                persona: 'ada',   keywords: 'garage door, garage door repair, garage door installation, garage door opener, garage door spring' },
+  { key: 'pool-service',         label: 'Pool (service)',             persona: 'ada',   keywords: 'pool service, pool maintenance, pool cleaning, pool chemical' },
+  { key: 'pool-build',           label: 'Pool (build)',               persona: 'ada',   keywords: 'pool builder, pool installation, pool construction, pool design' },
+  { key: 'painting-res',         label: 'Painting (residential)',     persona: 'ada',   keywords: 'painter, residential painting, house painter, interior painting' },
+  { key: 'painting-com',         label: 'Painting (commercial)',      persona: 'ada',   keywords: 'painting contractor, commercial painting, industrial painting' },
+  { key: 'cleaning',             label: 'Residential cleaning',       persona: 'ada',   keywords: 'house cleaning, residential cleaning, maid service, cleaning service, deep cleaning' },
+
+  // ── Grace presets (churches) ─────────────────────────────────────
+  // Two-axis decision: theology lane × congregation size. Keywords stay
+  // intentionally generic ("church") because Google Places categorizes
+  // most by name pattern, not denomination tag. We rely on the
+  // score-leads-grace scorer to detect denomination from the name.
+  { key: 'church-evangelical',   label: 'Churches — evangelical / non-denominational', persona: 'grace', keywords: 'community church, bible church, non-denominational church, evangelical church' },
+  { key: 'church-baptist',       label: 'Churches — Baptist',         persona: 'grace', keywords: 'baptist church, southern baptist church' },
+  { key: 'church-methodist',     label: 'Churches — Methodist',       persona: 'grace', keywords: 'methodist church, united methodist church, free methodist' },
+  { key: 'church-presbyterian',  label: 'Churches — Presbyterian',    persona: 'grace', keywords: 'presbyterian church, PCA church, EPC church' },
+  { key: 'church-pentecostal',   label: 'Churches — Pentecostal / AG',persona: 'grace', keywords: 'pentecostal church, assemblies of god church, foursquare church' },
+  { key: 'church-lutheran',      label: 'Churches — Lutheran',        persona: 'grace', keywords: 'lutheran church, ELCA church, LCMS church' },
+  { key: 'church-general',       label: 'Churches — general / mixed', persona: 'grace', keywords: 'church, christian church, protestant church' },
 ]
 
+const selectedPersona = ref<Persona>('ada')
 const selectedIndustry = ref<string>('')
+
+const presetsForPersona = computed(() =>
+  INDUSTRY_PRESETS.filter((p) => p.persona === selectedPersona.value),
+)
 
 const newCampaign = ref({
   name: '',
@@ -75,6 +99,14 @@ function applyIndustryPreset() {
   const ind = p.label.replace(/[()]/g, '').replace(/\s+/g, ' ').trim()
   const firstCity = newCampaign.value.geo_cities.split(/[,–—]/)[0]?.trim()
   newCampaign.value.name = firstCity ? `${firstCity} · ${ind}` : ind
+}
+
+function onPersonaChange() {
+  // Reset the industry pick when persona switches so the dropdown only
+  // shows the relevant set. Avoids the surprise of an ada preset staying
+  // selected after the operator flipped to grace.
+  selectedIndustry.value = ''
+  newCampaign.value.keywords = ''
 }
 
 async function load() {
@@ -128,6 +160,7 @@ async function createCampaign() {
     notes: newCampaign.value.notes.trim() || null,
     priority: 100, // bottom of the queue by default
     status: 'pending',
+    persona: selectedPersona.value,
   } as never)
   if (error) {
     message.value = { kind: 'err', text: `Create failed: ${error.message}` }
@@ -135,6 +168,7 @@ async function createCampaign() {
   }
   newCampaign.value = { name: '', geo_state: '', geo_cities: '', keywords: '', target_count: 100, notes: '' }
   selectedIndustry.value = ''
+  selectedPersona.value = 'ada'
   showNewForm.value = false
   message.value = { kind: 'ok', text: 'Campaign created. Lower priority numbers run first.' }
   setTimeout(() => { if (message.value?.kind === 'ok') message.value = null }, 4000)
@@ -220,6 +254,48 @@ onMounted(load)
 
     <!-- New campaign form -->
     <div v-if="showNewForm" class="rounded-card border border-brand/30 bg-brand/5 p-4 mb-4 space-y-3">
+      <!-- Persona toggle — drives the scoring + drafting brain that gets
+           used downstream. Ada for home services, Grace for churches. -->
+      <div>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-brand">
+          Persona <span class="text-danger">*</span>
+        </span>
+        <div class="mt-1 flex gap-2">
+          <label
+            class="flex-1 cursor-pointer rounded-md border px-3 py-2 transition-colors"
+            :class="selectedPersona === 'ada'
+              ? 'border-brand bg-brand/10 text-ink'
+              : 'border-divider bg-surface-raised text-ink-muted hover:border-divider-bright'"
+          >
+            <input
+              v-model="selectedPersona"
+              type="radio"
+              value="ada"
+              class="sr-only"
+              @change="onPersonaChange"
+            />
+            <span class="block text-sm font-semibold">Ada</span>
+            <span class="block text-[11px] mt-0.5 leading-snug">Home services (HVAC, plumbing, roofing, etc.)</span>
+          </label>
+          <label
+            class="flex-1 cursor-pointer rounded-md border px-3 py-2 transition-colors"
+            :class="selectedPersona === 'grace'
+              ? 'border-brand bg-brand/10 text-ink'
+              : 'border-divider bg-surface-raised text-ink-muted hover:border-divider-bright'"
+          >
+            <input
+              v-model="selectedPersona"
+              type="radio"
+              value="grace"
+              class="sr-only"
+              @change="onPersonaChange"
+            />
+            <span class="block text-sm font-semibold">Grace</span>
+            <span class="block text-[11px] mt-0.5 leading-snug">Churches (200 to 1,500 weekly attendance)</span>
+          </label>
+        </div>
+      </div>
+
       <!-- Industry preset — auto-fills keywords + name. Metro is free-text below. -->
       <label class="block">
         <span class="text-[10px] font-semibold uppercase tracking-wider text-brand">
@@ -231,7 +307,7 @@ onMounted(load)
           @change="applyIndustryPreset"
         >
           <option value="">— Pick an industry —</option>
-          <option v-for="p in INDUSTRY_PRESETS" :key="p.key" :value="p.key">
+          <option v-for="p in presetsForPersona" :key="p.key" :value="p.key">
             {{ p.label }}
           </option>
         </select>
@@ -343,7 +419,13 @@ onMounted(load)
             class="rounded-card border border-divider bg-surface-raised p-3"
           >
             <div class="flex items-baseline justify-between gap-2 mb-1">
-              <h4 class="text-sm font-semibold text-ink truncate">{{ c.name }}</h4>
+              <div class="flex items-baseline gap-1.5 min-w-0">
+                <h4 class="text-sm font-semibold text-ink truncate">{{ c.name }}</h4>
+                <span
+                  class="text-[9px] font-bold uppercase tracking-wider rounded-full px-1.5 py-0.5 flex-shrink-0"
+                  :class="c.persona === 'grace' ? 'bg-accent/20 text-accent' : 'bg-brand/15 text-brand'"
+                >{{ c.persona }}</span>
+              </div>
               <input
                 v-model.number="c.priority"
                 type="number"
@@ -386,7 +468,13 @@ onMounted(load)
             class="rounded-card border-2 border-brand/40 bg-brand/5 p-3"
           >
             <div class="flex items-baseline justify-between gap-2 mb-1">
-              <h4 class="text-sm font-semibold text-ink truncate">{{ c.name }}</h4>
+              <div class="flex items-baseline gap-1.5 min-w-0">
+                <h4 class="text-sm font-semibold text-ink truncate">{{ c.name }}</h4>
+                <span
+                  class="text-[9px] font-bold uppercase tracking-wider rounded-full px-1.5 py-0.5 flex-shrink-0"
+                  :class="c.persona === 'grace' ? 'bg-accent/20 text-accent' : 'bg-brand/15 text-brand'"
+                >{{ c.persona }}</span>
+              </div>
               <span class="text-[10px] font-bold text-brand tabular-nums">
                 {{ c.pulled_count }}/{{ c.target_count }}
               </span>
@@ -436,7 +524,13 @@ onMounted(load)
             class="rounded-card border border-divider bg-surface-raised p-3 opacity-70"
           >
             <div class="flex items-baseline justify-between gap-2 mb-1">
-              <h4 class="text-sm font-semibold text-ink truncate">{{ c.name }}</h4>
+              <div class="flex items-baseline gap-1.5 min-w-0">
+                <h4 class="text-sm font-semibold text-ink truncate">{{ c.name }}</h4>
+                <span
+                  class="text-[9px] font-bold uppercase tracking-wider rounded-full px-1.5 py-0.5 flex-shrink-0"
+                  :class="c.persona === 'grace' ? 'bg-accent/20 text-accent' : 'bg-brand/15 text-brand'"
+                >{{ c.persona }}</span>
+              </div>
               <span
                 class="text-[9px] font-bold uppercase tracking-wider rounded-full px-1.5 py-0.5"
                 :class="c.status === 'done' ? 'bg-success/15 text-success' : 'bg-warn/15 text-warn'"

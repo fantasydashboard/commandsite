@@ -32,11 +32,20 @@ verify_jwt = false
 [functions.draft-cold-email]
 verify_jwt = false
 
+[functions.draft-cold-email-grace]
+verify_jwt = false
+
 [functions.draft-followup-emails]
+verify_jwt = false
+
+[functions.draft-followup-emails-grace]
 verify_jwt = false
 
 [functions.auto-outreach-send]
 verify_jwt = false
 
 [functions.lead-sourcing-cron]
+verify_jwt = false
+
+[functions.outreach-auto-draft]
 verify_jwt = false

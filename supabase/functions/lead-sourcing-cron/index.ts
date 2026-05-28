@@ -76,6 +76,10 @@ interface Campaign {
   target_count: number
   priority: number
   pulled_count: number
+  // 'ada' (home-services) or 'grace' (churches). Defaults to 'ada' for
+  // legacy campaigns created before migration 0075. Drives lead tagging,
+  // which drives downstream scoring + drafting routing.
+  persona: 'ada' | 'grace'
 }
 
 interface PlacesLead {
@@ -383,6 +387,15 @@ Deno.serve(async (req: Request) => {
       place.rating !== null ? `Google rating: ${place.rating}★ (${place.rating_count ?? 0} reviews)` : null,
     ].filter(Boolean)
 
+    // Persona tag is the routing key for downstream auto-drafting:
+    // persona_grace → draft-cold-email-grace, otherwise default to
+    // draft-cold-email. Keep it on every lead (including ada) so the
+    // tag space is symmetric and queries can branch on its presence.
+    const personaTag = campaign.persona === 'grace' ? 'persona_grace' : 'persona_ada'
+    const closedTag = place.business_status === 'CLOSED_TEMPORARILY' || place.business_status === 'CLOSED_PERMANENTLY'
+      ? ['needs_review_closed']
+      : []
+
     inserts.push({
       source: 'google_maps',
       source_campaign_id: campaign.id,
@@ -393,10 +406,14 @@ Deno.serve(async (req: Request) => {
       state: place.state,
       status: 'new',
       notes: noteLines.join(' · '),
-      tags: place.business_status === 'CLOSED_TEMPORARILY' || place.business_status === 'CLOSED_PERMANENTLY'
-        ? ['needs_review_closed']
-        : [],
+      tags: [personaTag, ...closedTag],
       // contact_email left null — enrichment cron picks it up on the next tick
+      // Write place_id + enrichment timestamp so cron-imported leads are
+      // covered by migration 0026's unique index. Without this, the Research
+      // modal could later re-insert the same business as a "new" lead because
+      // the modal looks up by place_id and the cron path leaves it null.
+      google_maps_place_id: place.place_id,
+      google_maps_enriched_at: new Date().toISOString(),
     })
   }
 
