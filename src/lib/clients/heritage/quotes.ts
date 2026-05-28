@@ -144,6 +144,28 @@ export const quotes: QuoteRecord[] = [
     last_touch: 'sms',
     job_type: 'Powder room + half-bath refresh',
   },
+  {
+    id: 'q-013',
+    customer: 'Theo & Renata Diaz',
+    phone: '(813) 555-6620',
+    amount_cents: 1950000, // $19,500
+    created_at: daysAgo(9),
+    stage: 'booked',
+    days_in_stage: 0,
+    last_touch: 'call',
+    job_type: 'Guest bath full remodel',
+  },
+  {
+    id: 'q-014',
+    customer: 'The Greenwald Family',
+    phone: '(727) 555-3050',
+    amount_cents: 1120000, // $11,200
+    created_at: daysAgo(4),
+    stage: 'booked',
+    days_in_stage: 0,
+    last_touch: 'sms',
+    job_type: 'Powder room refresh',
+  },
 
   // ── Opted out ────────────────────────────────────────────────────
   {
