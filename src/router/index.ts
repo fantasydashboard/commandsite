@@ -125,6 +125,7 @@ const PUBLIC_DEMO_SLUGS = new Set([
   'apex-heating-and-air',
   'cornerstone-church',
   'commandsite-demo',
+  'heritage-bath',
 ])
 
 router.beforeEach(async (to: RouteLocationNormalized) => {
