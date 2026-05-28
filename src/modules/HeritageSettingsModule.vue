@@ -158,7 +158,7 @@ const plan = {
   monthlyPrice: 89900, // cents — Founding Partner pricing
   status: 'Active',
   isFoundingPartner: true,
-  lockedThrough: '2028-04',
+  lockedThrough: '2027',
   nextBilling: '2026-06-15',
   paymentMethod: 'Card ending in 4444',
   usageThisPeriod: {
