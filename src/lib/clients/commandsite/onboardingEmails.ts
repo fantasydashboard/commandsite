@@ -114,7 +114,7 @@ Confirming our kickoff call for ${c.org_name}:
 
 When: ${dateLabel} at ${timeLabel}
 Length: ~45 minutes
-Where: I'll send a Zoom link the morning of.
+Where: I'll send a Google Meet link the morning of.
 
 Here's what we'll cover:
 
