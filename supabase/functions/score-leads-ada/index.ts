@@ -470,12 +470,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (!result) {
           throw new Error(`Scoring failed for "${details.name}": ${error ?? 'unknown'}`)
         }
-        return { placeId, result }
+        // Bubble up the verbatim review excerpts so the frontend can persist
+        // them to cs_leads.review_excerpts. The cold-email drafter pulls
+        // from this field as its highest-priority source of "boring
+        // specifics" for the evidence line.
+        const review_excerpts = (details.reviews ?? []).slice(0, 5)
+        return { placeId, result, review_excerpts }
       }),
     )
     for (const s of settled) {
       if (s.status === 'fulfilled') {
-        scored[s.value.placeId] = s.value.result
+        scored[s.value.placeId] = {
+          ...s.value.result,
+          review_excerpts: s.value.review_excerpts,
+        }
       } else {
         errors.push(s.reason instanceof Error ? s.reason.message : String(s.reason))
       }
