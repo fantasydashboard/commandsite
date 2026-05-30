@@ -452,8 +452,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     unverifiable: 0,
   }
   const BATCH_SIZE = 5
+  // Overall wall-clock budget. Each lead can take 2-5s (website fetch +
+  // fallback fetch + NeverBounce). With chunks of 50 at the old default,
+  // total runtime easily exceeded the platform's ~150s function cap,
+  // killing the function mid-flight and leaving the client hanging.
+  // Returning cleanly within the budget with whatever we processed lets
+  // the frontend resume from the remainder on the next chunk.
+  const DEADLINE_MS = 50_000
+  const startedAt = Date.now()
+  let stoppedEarly = false
 
   for (let i = 0; i < leads.length; i += BATCH_SIZE) {
+    if (Date.now() - startedAt > DEADLINE_MS) { stoppedEarly = true; break }
     const batch = leads.slice(i, i + BATCH_SIZE)
     const settled = await Promise.allSettled(
       batch.map(async (lead) => {
@@ -555,7 +565,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   return json({
     results,
     counts,
-    processed: leads.length,
+    processed: Object.keys(results).length,
+    requested: leads.length,
+    stopped_early: stoppedEarly,
+    note: stoppedEarly
+      ? `Stopped at the ${DEADLINE_MS / 1000}s time budget with ${Object.keys(results).length} of ${leads.length} processed. The remaining leads stay eligible; click Find emails again to pick them up.`
+      : undefined,
     verifier: neverBounceKey ? 'neverbounce' : 'unavailable',
   })
 })

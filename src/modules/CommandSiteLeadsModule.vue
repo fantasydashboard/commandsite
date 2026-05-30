@@ -142,7 +142,13 @@ async function onDetailSaved() {
 // and the auto-chained post-import flow ("Save & enrich N leads").
 // Multi-stage so the LoadingBar can show what's happening + give Ada
 // credit by name during the steps where she's working.
-const ENRICH_CHUNK_SIZE = 50
+// Each lead requires a homepage fetch, often a fallback /contact fetch,
+// and a NeverBounce verification. At 2-5 seconds per lead, the old
+// chunk size of 50 routinely exceeded the function's wall-clock cap and
+// the client saw a permanent "0 of N" spinner. Smaller chunks return
+// promptly and update progress as we go; the function also has its own
+// 50s time budget as a backstop.
+const ENRICH_CHUNK_SIZE = 10
 // Ada-scoring chunk size matches the research modal's pattern: small batches
 // keep Anthropic burst pressure low and let the UI update progressively.
 const ADA_SCORE_CHUNK_SIZE = 8
