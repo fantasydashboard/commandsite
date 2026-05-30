@@ -32,6 +32,7 @@
 declare const Deno: any
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { calendlyLinkForIndustry } from '../_shared/calendly-links.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -62,7 +63,7 @@ Classify each inbound reply into ONE category:
 
 For each, also output a confidence (0-1) and a one-line reasoning. If positive or interested, draft a short suggested_reply (~30-60 words) that:
 - Directly addresses what they said
-- Includes the right Calendly link: services prospects → "https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough", churches/ministry → "https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough"
+- Includes the exact Calendly link given in the BOOKING LINK section below. Use it verbatim. Do not invent, shorten, or swap it.
 - Is conversational, no buzzwords, no em dashes inside sentences
 - Sounds like Josh (founder of CommandSite) wrote it
 
@@ -131,6 +132,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Build prompt with the lead's prior outreach context if available
   const contextLines: string[] = []
+  let leadIndustry: string | null = null
   if (body.lead_id) {
     const { data: lead } = await admin
       .from('cs_leads')
@@ -142,14 +144,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
         company_name: string; industry: string | null; city: string | null; state: string | null
         draft_cold_email_subject: string | null; draft_cold_email_body: string | null
       }
+      leadIndustry = l.industry
       contextLines.push(`Lead: ${l.company_name}${l.industry ? ` (${l.industry})` : ''}${l.city && l.state ? `, ${l.city} ${l.state}` : ''}`)
       if (l.draft_cold_email_subject) contextLines.push(`Original cold email subject: ${l.draft_cold_email_subject}`)
       if (l.draft_cold_email_body) contextLines.push(`Original cold email body (excerpt): ${l.draft_cold_email_body.slice(0, 400)}...`)
     }
   }
 
+  // Resolve the correct booking link for this prospect (industry-aware,
+  // settings-driven). Injected into the user turn so the system prompt
+  // stays static and cacheable.
+  const { data: linkSettings } = await admin
+    .from('cs_settings')
+    .select('calendly_link, calendly_link_grace')
+    .eq('id', 1)
+    .maybeSingle()
+  const bookingLink = calendlyLinkForIndustry(
+    leadIndustry,
+    linkSettings as { calendly_link?: string | null; calendly_link_grace?: string | null } | null,
+  )
+
   const userMessage = [
     contextLines.length > 0 ? `# CONTEXT\n${contextLines.join('\n')}` : '',
+    '',
+    `# BOOKING LINK`,
+    `If you propose a meeting, use this exact Calendly link: ${bookingLink}`,
     '',
     `# REPLY RECEIVED`,
     `From: ${body.from_name ?? body.from_email} <${body.from_email}>`,

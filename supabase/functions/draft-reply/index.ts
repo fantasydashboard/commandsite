@@ -33,6 +33,7 @@ declare const Deno: any
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { COMMANDSITE_KB } from '../_shared/commandsite-kb.ts'
+import { calendlyLinkForIndustry } from '../_shared/calendly-links.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +62,7 @@ Your job: read the new reply IN CONTEXT of the full conversation history + the l
 
 3. **Match their tone + length.** Short reply → short response. Long detailed reply → match the depth.
 
-4. **Pricing: never quote a number.** Use the framing in the KB. Always pivot to the Calendry link.
+4. **Pricing: never quote a number.** Use the framing in the KB. Always pivot to the exact booking link in the BOOKING LINK section (use it verbatim, ignore any other Calendly URLs in the knowledge base examples).
 
 5. **Sign off "— Josh"** (Ada drafts as Josh, not as a separate AI).
 
@@ -188,6 +189,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     classification: string | null
   }[]
 
+  // ── Resolve the correct booking link (industry-aware, settings-driven) ─
+  const { data: linkSettings } = await admin
+    .from('cs_settings')
+    .select('calendly_link, calendly_link_grace')
+    .eq('id', 1)
+    .maybeSingle()
+  const bookingLink = calendlyLinkForIndustry(
+    (l.industry as string | null) ?? null,
+    linkSettings as { calendly_link?: string | null; calendly_link_grace?: string | null } | null,
+  )
+
   // ── Build conversation history for prompt ──────────────────────────
   const history: string[] = []
   history.push(`# LEAD CONTEXT`)
@@ -198,6 +210,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (l.icp_score != null) history.push(`ICP score: ${l.icp_score}`)
   if (l.icp_score_reason) history.push(`Why this lead: ${l.icp_score_reason}`)
   if (l.notes) history.push(`Notes: ${l.notes}`)
+  history.push('')
+  history.push(`# BOOKING LINK`)
+  history.push(`If you propose a meeting, use this exact Calendly link: ${bookingLink}`)
   history.push('')
   history.push(`# CONVERSATION HISTORY`)
   history.push('')

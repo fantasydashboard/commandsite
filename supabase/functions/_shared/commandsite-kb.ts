@@ -47,19 +47,22 @@ Ada is an AI employee for service businesses (HVAC, plumbing, electrical, roofin
 
 The discovery call is where pricing happens. The cold-email reply is where you earn the call.
 
-## Calendly links — TWO of them, pick by prospect type
+## Calendly links — use the one the system gives you
 
-There are **two** Calendly event types. Pick the right one based on the prospect's business:
+When a function drafts a reply, it injects a "BOOKING LINK" line with the exact Calendly URL for that prospect. Always use that injected link verbatim. The URLs below are reference only; do not pick from them yourself or paste them when an injected link is present.
 
-- **Service businesses** (HVAC, plumbing, electrical, roofing, landscaping, pool, pest, remodeling, anything else with calls + quotes + service techs):
+Event types by prospect:
+
+- **Bath / kitchen remodelers** (the current active Ada vertical):
+  \`https://calendly.com/josh-commandsite/bath-kitchen-walkthrough\`
+
+- **Other service businesses** (HVAC, plumbing, electrical, roofing, landscaping, pool, pest, anything else with calls + quotes + service techs):
   \`https://calendly.com/josh-commandsite/30-min-discovery-services-walkthrough\`
 
 - **Churches / ministry orgs** (anywhere "Grace" is the relevant persona, not "Ada"):
   \`https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough\`
 
-Both are **30 min** (NOT 15 — older drafts may say 15, that's wrong; correct is 30).
-
-Use the right one whenever proposing a meeting. If unsure, default to the services link — Josh will reroute internally.
+All are **30 min** (NOT 15 — older drafts may say 15, that's wrong; correct is 30).
 
 ## Top objection responses
 
