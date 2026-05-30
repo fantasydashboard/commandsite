@@ -91,21 +91,21 @@ EXAMPLE — HVAC lead (Tony's HVAC, owner Tony):
 >
 > Hey Tony, honestly not sure if Tony's HVAC is the right size for what I do. If you're missing 5+ after-hours calls a week, or quotes keep going cold without follow-up, worth a 15-min chat. If neither's bothering you, I'd be wasting your time.
 >
-> — Josh
+> Josh
 
 EXAMPLE — Roofing lead (Acme Roofing, contact Mike):
 > Re: quick question for mike
 >
 > Hey Mike, honestly not sure if Acme Roofing is the right size for what I do. If you're sending 10+ quotes a month and most go cold without a follow-up, or your happy customers walk away without leaving a review, worth a 15-min chat. If neither's true, ignore me.
 >
-> — Josh
+> Josh
 
 EXAMPLE — Church lead (Cornerstone Community Church, contact Pastor Jeff):
 > Re: quick question for pastor jeff
 >
 > Hey Pastor, honestly not sure if Cornerstone is the right size for what I do. If guest visitors keep slipping past follow-up, or volunteer coordination is eating up your Mondays, worth a 15-min chat. If neither's a real issue, no worries.
 >
-> — Josh
+> Josh
 
 # TOUCH 3 (honest stop + video drop + specific future triggers, sent ~7 days after the first cold email)
 
@@ -119,7 +119,7 @@ Hard constraints:
   (a) The release ("I'll stop after this one. No reply needed.")
   (b) The video drop — IF a product_demo_link is provided in context, include it with framing like "Made this 90-second walkthrough for shops your size, sending it in case it's useful even if we never talk: <link>". If NO product_demo_link, SKIP this paragraph entirely (do not write a placeholder).
   (c) Two specific industry-aware future triggers — concrete moments when the recipient would think of you. Use the same industry pain knowledge from Touch 2's pain menu. Pair: one operational + one growth-related.
-- Sign off with "— Josh"
+- Sign off with "Josh" (just the name on its own line, no leading dash of any kind)
 
 Touch 3 future-trigger menu (pick 2 per lead based on industry):
 
@@ -152,14 +152,14 @@ Example shape (HVAC, with video link):
 >
 > Door's open if your call volume spikes this summer and after-hours starts eating you alive, or you hire a new tech and need help training them on the phones.
 >
-> — Josh
+> Josh
 
 Example shape (Roofing, no video link in context — skip the middle paragraph):
 > Hey Mike, I'll stop after this one. No reply needed.
 >
 > Door's open if a storm hits and quote volume triples, or you bring on a new estimator and want them following up religiously.
 >
-> — Josh
+> Josh
 
 Example shape (Church, with video link):
 > Hey Pastor, I'll stop after this one. No reply needed.
@@ -168,7 +168,7 @@ Example shape (Church, with video link):
 >
 > Door's open if Christmas brings in fifty new visitors and you can't follow up with them all, or you go through a staff transition.
 >
-> — Josh
+> Josh
 
 # SUBJECT LINES
 
@@ -185,9 +185,9 @@ For Touch 3: New subject, lowercase, max 33 chars.
 # JOSH'S VOICE — same as the first touch
 
 - Conversational opener: "Hey, I'm..." (comma after Hey, always include "I'm" — don't drop the subject)
-- Casual sign-off "— Josh"
+- Casual signoff: just "Josh" on its own line, no leading dash of any kind
 - Run-on sentences with "and"/"but" connectors are fine
-- NO em dashes inside body prose (only "— Josh" signoff)
+- NO em dashes ANYWHERE in the email (body, subject, signoff). Use commas, periods, or parens instead. NO exceptions.
 - NEVER use the name "Ada" — say "my AI employee" or "this". The prospect hasn't been introduced to Ada by name yet (that happens on the discovery call).
 - NO buzzwords, NO emoji, NO "I hope this helps", NO "looking forward to hearing"
 - Match the tone of the original cold email's voice — read it before drafting
@@ -208,7 +208,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         subject: { type: 'string', description: 'Touch 2: "Re: <original subject>". Touch 3: new lowercase subject ≤33 chars.' },
-        body: { type: 'string', description: 'Touch 2: 35-55 words, honest takeaway + 2 specific pains. Touch 3: 40-65 words, honest stop + (optional) video drop + 2 industry-aware future triggers. Match Josh\'s voice. No em dashes inside prose. NO ASKS in Touch 3.' },
+        body: { type: 'string', description: 'Touch 2: 35-55 words, honest takeaway + 2 specific pains. Touch 3: 40-65 words, honest stop + (optional) video drop + 2 industry-aware future triggers. Match Josh\'s voice. NO em dashes ANYWHERE (body, subject, signoff). Signoff is just "Josh" on its own line, no leading dash. NO ASKS in Touch 3.' },
         touch_number: { type: 'integer', enum: [2, 3] },
         rationale: { type: 'string', description: 'One sentence: why this specific framing.' },
       },

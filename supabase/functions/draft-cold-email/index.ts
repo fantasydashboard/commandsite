@@ -79,6 +79,7 @@ type DraftResult = {
   body: string
   rationale: string
   personalization_signal: string
+  personalization_quality: 'high' | 'medium' | 'low' | 'none'
 }
 
 const MODEL = 'claude-sonnet-4-6'
@@ -101,13 +102,13 @@ This is Josh's polished cold email template:
 
 > Hey, I'm looking for whoever answers the phones at Premium Electric.
 >
-> I saw a review on your Google listing from Sarah K. last month — she tried calling three times with no answer back. That's exactly what I built this for.
+> I saw a review on your Google listing from Sarah K. last month. She tried calling three times with no answer back. That's exactly what I built this for.
 >
 > I build AI employees for shops your size. Mine catches every after-hours call, books it into your calendar, and texts the caller a confirmation. Costs a fraction of what an office manager would.
 >
 > Worth a 15-min call this week? I can pull up a sample dashboard and show you what my AI employee would catch for Premium Electric specifically.
 >
-> — Josh
+> Josh
 >
 > P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
 
@@ -118,7 +119,7 @@ Voice characteristics to match:
 - Pain → product → cost anchor → CTA → PS structure
 - Run-on sentences with "and" / "but" connectors are fine — that's how Josh talks
 - "Shops your size" / "for [Company] specifically"
-- Casual sign-off: "— Josh" (em dash here is permitted because it's a sig pattern, not in body prose)
+- Casual sign-off: just "Josh" on its own line. NO em dash, NO hyphen, NO dash of any kind before the name.
 - NEVER use buzzwords like: leverage, synergy, transformative, groundbreaking, cutting-edge, robust, scalable, seamless
 - NEVER name "Ada" in the body — they don't know who that is yet. Say "AI employee" or "my AI employee" until they're on the discovery call
 
@@ -148,7 +149,7 @@ Pick one that fits the rhythm. Skip the pivot ENTIRELY if going straight from ev
 
 # PS LINE — REQUIRED
 
-After "— Josh", always add a PS that gives a lower-friction reply path. Use this exact phrasing:
+After the "Josh" signoff line, always add a PS that gives a lower-friction reply path. Use this exact phrasing:
 
 > P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
 
@@ -171,7 +172,7 @@ The PS is consistent across leads. Don't try to vary it. Reason: PS reads at ~70
 
 6. **CTA** (1 line): "Worth a 15-min call this week? I can pull up a sample dashboard and show you what my AI employee would catch for [Company] specifically."
 
-7. **Sign-off** (1 line): "— Josh"
+7. **Sign-off** (1 line): "Josh" (just the name, no leading dash or em dash of any kind)
 
 8. **PS** (1 line, REQUIRED): 'P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.'
 
@@ -186,7 +187,7 @@ Count your body words before submitting. If you're over 90, cut the evidence to 
 # HARD BANS (these are the AI tells that get this email deleted on sight)
 
 NEVER use:
-- Em dashes (—) inside body prose. The signoff "— Josh" is the ONLY allowed use. The opener uses a comma ("Hey, I'm looking for..."), not an em-dash.
+- Em dashes (—) ANYWHERE in the email: not in body prose, not in subject, not in signoff. Use commas, periods, or parentheses instead. The signoff is just "Josh" on its own line, no leading dash of any kind. This rule has NO exceptions.
 - The name "Ada" in the body. The recipient doesn't know who Ada is yet — use "AI employee" or "my AI employee" instead. (Ada gets introduced on the discovery call.)
 - Dropped subjects ("Saw a review", "Noticed something") — always include "I" so it reads like a human typing, not a chatbot summary.
 - "I hope this helps" / "Let me know if..." / "Looking forward to hearing from you" / "Please don't hesitate"
@@ -310,9 +311,20 @@ After thinking through the lead's specific data, call save_cold_email_draft with
 - subject: the subject line
 - body: the full email body (no subject inside the body)
 - rationale: ONE sentence on why you chose this opener for this lead (for Josh's QA)
-- personalization_signal: the EXACT data point you used (a review excerpt, a website claim, a signal tag) — Josh will skim this to confirm Ada didn't make something up
+- personalization_signal: the EXACT data point you used (a review excerpt, a website claim, a signal tag), so Josh can confirm Ada didn't make something up. If no verifiable specific exists, write the literal word "none" here.
+- personalization_quality: self-rate the personalization strength. high = verbatim review quote or named owner/team member from this lead's real reviews/website. medium = specific-to-this-lead signal but not a quote or person name (review count, service mix, geography). low = generic industry/geo framing. none = no verifiable specific available.
 
-If the lead has NO usable specific data (no reviews, no website extract, generic notes), still draft an email but use a softer evidence line like "Saw your shop has been around since [year if available]" or focus on the industry-specific pain Ada solves. Flag in rationale that personalization was thin.`
+# DATA SOURCE PRIORITY for the evidence line
+
+When picking the specific to lead with, pull in this order:
+1. review_excerpts (jsonb of real review {text, rating, relative_time}) — VERBATIM QUOTE wins every time. If a review names the owner ("Mike came out same day") use that name.
+2. website_extract (text scraped from their site) — a named project, a team member, a featured testimonial, a specific service.
+3. icp_score_reason (Ada's notes from scoring) — pull a named person or specific detail Ada flagged.
+4. notes / tags / contact_name / geography — last resort.
+
+NEVER pull from your training data or general knowledge about the company. Only what's in the lead row counts as "verifiable."
+
+If the lead has NO usable specific data (no reviews, no website extract, generic notes), still draft an email but use a softer industry-specific evidence line, set personalization_quality to "none", and set personalization_signal to "none". Josh would rather see an honest "thin personalization" flag than an invented specific.`
 
 const TOOLS = [
   {
@@ -327,7 +339,7 @@ const TOOLS = [
         },
         body: {
           type: 'string',
-          description: 'Email body + PS, plain text. MAIN BODY (opener through "— Josh") capped at 90 words; PS is fixed phrasing not counted. Total 95-110 words. Opener: "Hey, I\'m looking for [industry-aware whoever-clause OR known first name] at [Company]." (comma after Hey, always include "I\'m"). Evidence line: "I saw..." or "I noticed..." (always include the subject pronoun). Confident pivot ("That\'s exactly what I built this for.") or skip the pivot. End with REQUIRED PS: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER use the name "Ada" in the body — say "AI employee" or "my AI employee". No em dashes inside body prose (only allowed in "— Josh" signoff).',
+          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 90 words; PS is fixed phrasing not counted. Total 95-110 words. Opener: "Hey, I\'m looking for [industry-aware whoever-clause OR known first name] at [Company]." (comma after Hey, always include "I\'m"). Evidence line: "I saw..." or "I noticed..." (always include the subject pronoun). Confident pivot ("That\'s exactly what I built this for.") or skip the pivot. Signoff: "Josh" on its own line, no leading dash. End with REQUIRED PS: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER use the name "Ada" in the body; say "AI employee" or "my AI employee". NO em dashes anywhere in the email (body, subject, or signoff). Use commas, periods, or parens instead.',
         },
         rationale: {
           type: 'string',
@@ -335,10 +347,15 @@ const TOOLS = [
         },
         personalization_signal: {
           type: 'string',
-          description: 'The exact data point used to make this email specific (a review excerpt verbatim, a website claim, a signal tag).',
+          description: 'The EXACT data point used (a review excerpt verbatim, a website claim, a named owner, a named team member). Must be traceable to review_excerpts, website_extract, icp_score_reason, or notes. If you couldn\'t find a verifiable specific, write "none" here, never invent one.',
+        },
+        personalization_quality: {
+          type: 'string',
+          enum: ['high', 'medium', 'low', 'none'],
+          description: 'Self-rated personalization strength. high = verbatim review quote OR named owner/team member from the lead\'s actual reviews/website. medium = a specific signal that\'s clearly about this lead (e.g., review count, named geography, service mix) but not a quote or person name. low = generic industry/geo framing only. none = no verifiable specific available, draft uses pure industry pain framing. Josh filters on this in the queue to skip "low" or "none" sends or rewrite them manually.',
         },
       },
-      required: ['subject', 'body', 'rationale', 'personalization_signal'],
+      required: ['subject', 'body', 'rationale', 'personalization_signal', 'personalization_quality'],
     },
   },
 ]
@@ -560,8 +577,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     counts.drafted++
 
     // Persist to cs_leads + tag the lead so the UI knows there's a draft.
+    // Personalization quality is stored as a tag (no schema change needed)
+    // so the approval queue can filter on 'personalization_low' or
+    // 'personalization_none' to skip/review weakly-personalized drafts.
+    // Strip any prior personalization_* tag so the latest draft wins.
     const existingTags = (lead.tags ?? []) as string[]
-    const tags = [...new Set([...existingTags, 'cold_email_drafted'])]
+    const tagsFiltered = existingTags.filter((t) => !t.startsWith('personalization_'))
+    const tags = [
+      ...new Set([
+        ...tagsFiltered,
+        'cold_email_drafted',
+        `personalization_${result.personalization_quality}`,
+      ]),
+    ]
     const { error: updErr } = await admin
       .from('cs_leads')
       .update({

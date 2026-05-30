@@ -64,7 +64,7 @@ Hard constraints:
 - NEVER re-pitch visitor follow-up (that was Touch 1).
 - NEVER use "AI employee," "AI ministry assistant," or name Grace.
 - NEVER use buzzwords (leverage, robust, scalable, transformative).
-- NO em dashes in body prose.
+- NO em dashes ANYWHERE in the email (body, subject, signoff). NEVER. Use commas, periods, or parens instead. No exceptions.
 
 ## Touch 2 canonical template:
 
@@ -99,7 +99,7 @@ Hard constraints:
 - Signoff: "Josh" then "Founder, CommandSite" on the next line.
 - NEVER use "AI employee," "AI ministry assistant," or name Grace.
 - NEVER ask for a meeting, calendar booking, or click-through.
-- NO em dashes in body prose.
+- NO em dashes ANYWHERE in the email (body, subject, signoff). NEVER. Use commas, periods, or parens instead. No exceptions.
 
 ## Touch 3 canonical template (with both links):
 
@@ -156,7 +156,7 @@ const TOOLS = [
         },
         body: {
           type: 'string',
-          description: 'Touch 2: 95-125 words, drift-detection wedge using "moment that always gets me" pastoral hook, escalation pattern ("Three Sundays missed becomes four..."), feature description, social proof, soft calendar offer. Touch 3: 90-115 words, "Last note. I\'ll stop popping in after this." opener, research citation + link, video-on-reply ask, keystone "There are others" line VERBATIM, "Wishing you a strong Sunday." close. Both touches signoff as "Josh" + "Founder, CommandSite". No em dashes, no buzzwords, no name "Grace" in body.',
+          description: 'Touch 2: 95-125 words, drift-detection wedge using "moment that always gets me" pastoral hook, escalation pattern ("Three Sundays missed becomes four..."), feature description, social proof, soft calendar offer. Touch 3: 90-115 words, "Last note. I\'ll stop popping in after this." opener, research citation + link, video-on-reply ask, keystone "There are others" line VERBATIM, "Wishing you a strong Sunday." close. Both touches signoff as "Josh" + "Founder, CommandSite" on separate lines (no leading dash). NO em dashes ANYWHERE in the email. No buzzwords. No name "Grace" in body.',
         },
         touch_number: { type: 'integer', enum: [2, 3] },
         rationale: { type: 'string', description: 'One sentence: why this specific draft for this specific pastor.' },

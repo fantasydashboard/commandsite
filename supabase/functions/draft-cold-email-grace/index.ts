@@ -200,7 +200,7 @@ If you DO add a personalization line, keep the email under 130 words total (the 
 # HARD BANS
 
 NEVER use:
-- Em dashes (—) anywhere except the line break in signoff (which is just a newline anyway)
+- Em dashes (—) ANYWHERE in the email. NEVER. No exceptions. Use commas, periods, or parens instead. The signoff is just "Josh" then "Founder, CommandSite" on the next line, joined by a newline only, no dash of any kind.
 - The name "Grace" in the body. They don't know who Grace is yet. Refer to "something I built" or "this thing" or "the system I built" — Grace gets introduced on the discovery call.
 - "Pastor Mark" or any specific pastor name as a generic placeholder — always fill it in.
 - "Hey" as opener (wrong register for pastor outreach)
