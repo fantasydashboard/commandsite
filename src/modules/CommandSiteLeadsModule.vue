@@ -146,12 +146,17 @@ const ENRICH_CHUNK_SIZE = 50
 // Ada-scoring chunk size matches the research modal's pattern: small batches
 // keep Anthropic burst pressure low and let the UI update progressively.
 const ADA_SCORE_CHUNK_SIZE = 8
+// Website enrichment is slower per lead (fetch + Claude extract), keep
+// chunks small so the UI updates frequently and one slow site doesn't
+// stall a large group.
+const WEBSITE_ENRICH_CHUNK_SIZE = 10
 
-type PipelinePhase = 'idle' | 'saving' | 'scoring' | 'enriching' | 'done'
+type PipelinePhase = 'idle' | 'saving' | 'scoring' | 'enriching_website' | 'enriching' | 'done'
 const pipelinePhase = ref<PipelinePhase>('idle')
 const pipelineMsg = ref<string | null>(null)
 const enrichProgress = ref({ completed: 0, total: 0 })
 const scoringProgress = ref({ completed: 0, total: 0 })
+const websiteEnrichProgress = ref({ completed: 0, total: 0 })
 const savingCount = ref(0)
 // Aggregated totals from the most recent enrichment run, used to render
 // the success banner once everything settles.
@@ -167,6 +172,7 @@ const enrichTotals = ref({
 const isPipelineWorking = computed(
   () => pipelinePhase.value === 'saving'
     || pipelinePhase.value === 'scoring'
+    || pipelinePhase.value === 'enriching_website'
     || pipelinePhase.value === 'enriching',
 )
 
@@ -179,6 +185,10 @@ const pipelineMessage = computed(() => {
   if (pipelinePhase.value === 'scoring') {
     if (scoringProgress.value.total === 0) return 'Ada is starting to score…'
     return `Ada is scoring leads · ${scoringProgress.value.completed} of ${scoringProgress.value.total}`
+  }
+  if (pipelinePhase.value === 'enriching_website') {
+    if (websiteEnrichProgress.value.total === 0) return 'Ada is starting website extracts…'
+    return `Ada is reading websites · ${websiteEnrichProgress.value.completed} of ${websiteEnrichProgress.value.total}`
   }
   if (pipelinePhase.value === 'enriching') {
     if (enrichProgress.value.total === 0) return 'Ada is starting the email hunt…'
@@ -194,6 +204,11 @@ const pipelineHint = computed(() => {
     if (remaining <= 0) return 'Wrapping up.'
     return 'Reading reviews and scoring each shop against your ICP. Safe to leave; resumable on retry.'
   }
+  if (pipelinePhase.value === 'enriching_website') {
+    const remaining = websiteEnrichProgress.value.total - websiteEnrichProgress.value.completed
+    if (remaining <= 0) return 'Wrapping up.'
+    return 'Fetching each site and pulling named owners, team, projects, services, testimonials. Resumable.'
+  }
   if (pipelinePhase.value === 'enriching') {
     const remaining = enrichProgress.value.total - enrichProgress.value.completed
     if (remaining <= 0) return 'Wrapping up.'
@@ -206,12 +221,15 @@ const pipelineStepLabel = computed(() => {
   // Each action is its own step now; no fixed multi-step chain.
   if (pipelinePhase.value === 'saving') return 'Saving'
   if (pipelinePhase.value === 'scoring') return 'Scoring'
+  if (pipelinePhase.value === 'enriching_website') return 'Reading websites'
   if (pipelinePhase.value === 'enriching') return 'Finding emails'
   return ''
 })
 
 const showAdaInPipeline = computed(
-  () => pipelinePhase.value === 'scoring' || pipelinePhase.value === 'enriching',
+  () => pipelinePhase.value === 'scoring'
+    || pipelinePhase.value === 'enriching_website'
+    || pipelinePhase.value === 'enriching',
 )
 
 // Leads that need Ada scoring: have a Google place_id (so score-leads-ada
@@ -222,6 +240,20 @@ const scorableCount = computed(() => {
     (l) =>
       !!l.google_maps_place_id
       && !(l.tags ?? []).includes('ada_reviewed')
+      && l.status !== 'archived'
+      && l.status !== 'disqualified',
+  ).length
+})
+
+// Leads that need website enrichment: have a company_url and website_extract
+// is null. Treat empty string ('') as already-checked (came back empty)
+// so we don't refetch sites with no usable specifics. Excludes archived/
+// disqualified.
+const websiteEnrichableCount = computed(() => {
+  return leads.value.filter(
+    (l) =>
+      !!l.company_url
+      && (l.website_extract === null || typeof l.website_extract === 'undefined')
       && l.status !== 'archived'
       && l.status !== 'disqualified',
   ).length
@@ -382,12 +414,18 @@ async function runAdaScoringOver(
 
     const data = await res.json()
     const scored = (data?.scored ?? {}) as Record<string, {
-      score: number; reasoning: string; signals?: Array<{ kind: string; note: string }>
+      score: number
+      reasoning: string
+      signals?: Array<{ kind: string; note: string }>
+      review_excerpts?: Array<{ text: string; rating: number | null; relative_time: string | null }>
     }>
 
     // Persist each score immediately so a failure later in the run still
     // banks what we already scored. Merge 'ada_reviewed' into the lead's
     // existing tags so we don't lose google_maps/persona/industry tags.
+    // Also persist review_excerpts so the cold-email drafter has the
+    // verbatim review text to pull a specific opener from (Tier 3 of the
+    // personalization plan: review hooks as the highest-confidence source).
     for (const lead of chunk) {
       const placeId = lead.google_maps_place_id as string
       const result = scored[placeId]
@@ -407,13 +445,20 @@ async function runAdaScoringOver(
       const signalsSuffix = result.signals && result.signals.length > 0
         ? ` · Signals: ${result.signals.map((s) => s.kind).join(', ')}`
         : ''
+      const updatePayload: Record<string, unknown> = {
+        icp_score: result.score,
+        icp_score_reason: `Ada: ${result.reasoning}${signalsSuffix}`,
+        tags,
+      }
+      // Only overwrite review_excerpts if we actually got fresh ones back,
+      // so re-running scoring with a different chunk size doesn't clear
+      // previously-saved excerpts.
+      if (result.review_excerpts && result.review_excerpts.length > 0) {
+        updatePayload.review_excerpts = result.review_excerpts
+      }
       const { error: updErr } = await supabase
         .from('cs_leads')
-        .update({
-          icp_score: result.score,
-          icp_score_reason: `Ada: ${result.reasoning}${signalsSuffix}`,
-          tags,
-        } as never)
+        .update(updatePayload as never)
         .eq('id', lead.id)
       if (updErr) {
         totals.errors += 1
@@ -449,6 +494,123 @@ async function runScoreWithAda() {
   try {
     const totals = await runAdaScoringOver(null)
     pipelineMsg.value = `Ada scored ${totals.scored} lead${totals.scored === 1 ? '' : 's'}${totals.errors > 0 ? ` · ${totals.errors} failed (click again to retry)` : ''}.`
+    setTimeout(() => { pipelineMsg.value = null }, 12_000)
+    await load()
+  } catch (err) {
+    pipelineMsg.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    pipelinePhase.value = 'idle'
+  }
+}
+
+/**
+ * Run website-context enrichment over the given lead IDs (or all eligible
+ * if leadIds=null). Calls enrich-lead-website which fetches each site,
+ * extracts named people/projects/services/testimonials, and writes the
+ * brief to cs_leads.website_extract. Resumable: an unprocessed lead is
+ * one whose website_extract is null; clicking again picks them up.
+ */
+async function runWebsiteEnrichmentOver(
+  leadIds: string[] | null,
+): Promise<{ extracted: number; empty: number; errors: number }> {
+  const totals = { extracted: 0, empty: 0, errors: 0 }
+
+  const eligible = leadIds
+    ? leads.value.filter(
+        (l) => leadIds.includes(l.id) && !!l.company_url,
+      )
+    : leads.value.filter(
+        (l) =>
+          !!l.company_url
+          && (l.website_extract === null || typeof l.website_extract === 'undefined')
+          && l.status !== 'archived'
+          && l.status !== 'disqualified',
+      )
+  if (eligible.length === 0) return totals
+
+  pipelinePhase.value = 'enriching_website'
+  websiteEnrichProgress.value = { completed: 0, total: eligible.length }
+
+  const session = (await supabase.auth.getSession()).data.session
+  if (!session) {
+    pipelineMsg.value = 'Not signed in. Refresh and try again.'
+    return totals
+  }
+
+  for (let i = 0; i < eligible.length; i += WEBSITE_ENRICH_CHUNK_SIZE) {
+    const chunk = eligible.slice(i, i + WEBSITE_ENRICH_CHUNK_SIZE)
+    const ids = chunk.map((l) => l.id)
+
+    let res: Response
+    try {
+      res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/enrich-lead-website`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'authorization': `Bearer ${session.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ lead_ids: ids }),
+      }, 180_000, 'Website enrichment')
+    } catch (err) {
+      // A stalled chunk records errors and is skipped; the rest of the run
+      // proceeds rather than hanging the whole batch.
+      totals.errors += chunk.length
+      websiteEnrichProgress.value = {
+        completed: Math.min(i + chunk.length, eligible.length),
+        total: eligible.length,
+      }
+      pipelineMsg.value = `Chunk ${Math.floor(i / WEBSITE_ENRICH_CHUNK_SIZE) + 1} ${err instanceof Error ? err.message : 'failed'}. Other chunks continuing.`
+      continue
+    }
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      totals.errors += chunk.length
+      pipelineMsg.value = `Chunk ${Math.floor(i / WEBSITE_ENRICH_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
+      websiteEnrichProgress.value = {
+        completed: Math.min(i + chunk.length, eligible.length),
+        total: eligible.length,
+      }
+      continue
+    }
+
+    const data = await res.json()
+    const counts = (data?.counts ?? {}) as { extracted?: number; empty?: number; errors?: number }
+    totals.extracted += counts.extracted ?? 0
+    totals.empty += counts.empty ?? 0
+    totals.errors += counts.errors ?? 0
+    websiteEnrichProgress.value = {
+      completed: Math.min(i + chunk.length, eligible.length),
+      total: eligible.length,
+    }
+  }
+
+  return totals
+}
+
+/** Standalone "Read websites" button on the Leads table header. */
+async function runEnrichWebsite() {
+  if (isPipelineWorking.value) return
+  if (usingFixture.value) {
+    pipelineMsg.value = 'Demo mode — connect to a real cs_leads table to read websites.'
+    setTimeout(() => { pipelineMsg.value = null }, 5000)
+    return
+  }
+  if (websiteEnrichableCount.value === 0) {
+    pipelineMsg.value = 'No websites need reading right now.'
+    setTimeout(() => { pipelineMsg.value = null }, 4000)
+    return
+  }
+
+  pipelineMsg.value = null
+  try {
+    const totals = await runWebsiteEnrichmentOver(null)
+    const parts: string[] = []
+    if (totals.extracted > 0) parts.push(`pulled specifics from ${totals.extracted}`)
+    if (totals.empty > 0) parts.push(`${totals.empty} had nothing usable`)
+    if (totals.errors > 0) parts.push(`${totals.errors} errored (click again to retry)`)
+    pipelineMsg.value = `Ada ${parts.join(', ')}.`
     setTimeout(() => { pipelineMsg.value = null }, 12_000)
     await load()
   } catch (err) {
@@ -655,6 +817,23 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
           <span v-else class="inline-flex items-center gap-1.5">
             <AssistantMark class="h-3.5 w-3.5 text-brand" />
             Score with Ada ({{ scorableCount }})
+          </span>
+        </button>
+        <button
+          v-if="!usingFixture && websiteEnrichableCount > 0"
+          type="button"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand disabled:opacity-50 inline-flex items-center gap-1.5 transition-[border-color,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:active:scale-100"
+          :disabled="isPipelineWorking"
+          :title="`Ada fetches each lead's website and pulls named owners, team, projects, services, and testimonials into a personalization brief. Used by the cold-email drafter. Resumable.`"
+          @click="runEnrichWebsite"
+        >
+          <span v-if="isPipelineWorking" class="inline-flex items-center gap-1">
+            <AssistantMark class="h-3.5 w-3.5 text-brand" />
+            Ada is working…
+          </span>
+          <span v-else class="inline-flex items-center gap-1.5">
+            <AssistantMark class="h-3.5 w-3.5 text-brand" />
+            Read websites ({{ websiteEnrichableCount }})
           </span>
         </button>
         <button
