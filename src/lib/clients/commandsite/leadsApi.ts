@@ -287,19 +287,57 @@ export function useLeads() {
    *  IDs of the actually-inserted rows so the caller can immediately
    *  pipeline them into enrichment without a roundtrip.
    *
-   *  Uses upsert with onConflict + ignoreDuplicates so a batch with some
-   *  already-imported leads (matching google_maps_place_id from migration
-   *  0026's unique index) doesn't atomically fail the whole batch. New
-   *  rows insert, duplicate rows silently skip, returned `failed` count
-   *  reflects how many were skipped. */
+   *  Dedup by google_maps_place_id is done client-side (select existing,
+   *  filter, plain insert) because the unique index from migration 0026
+   *  is PARTIAL (WHERE google_maps_place_id IS NOT NULL), and
+   *  supabase-js's .upsert({onConflict}) can't target a partial index —
+   *  Postgres rejects it with "no unique or exclusion constraint
+   *  matching the ON CONFLICT specification". The partial index is still
+   *  enforced at the DB layer as a backstop. */
   async function importLeads(rows: CsLeadInsert[]): Promise<{ inserted: number; failed: number; insertedIds: string[] }> {
     if (!rows.length) return { inserted: 0, failed: 0, insertedIds: [] }
+
+    // ── Filter out place_ids that are already saved
+    const placeIds = rows
+      .map((r) => r.google_maps_place_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+    let existingPlaceIds = new Set<string>()
+    if (placeIds.length > 0) {
+      const { data: existing, error: selErr } = await withTimeout(
+        supabase
+          .from('cs_leads')
+          .select('google_maps_place_id')
+          .in('google_maps_place_id', placeIds),
+        30_000,
+        'Checking existing leads',
+      )
+      if (selErr) {
+        error.value = selErr.message
+        return { inserted: 0, failed: rows.length, insertedIds: [] }
+      }
+      existingPlaceIds = new Set(
+        ((existing ?? []) as { google_maps_place_id: string | null }[])
+          .map((r) => r.google_maps_place_id)
+          .filter((id): id is string => !!id),
+      )
+    }
+
+    const newRows = rows.filter(
+      (r) => !r.google_maps_place_id || !existingPlaceIds.has(r.google_maps_place_id),
+    )
+    const skipped = rows.length - newRows.length
+
+    if (newRows.length === 0) {
+      return { inserted: 0, failed: skipped, insertedIds: [] }
+    }
+
     // Timeout the insert so a stalled connection surfaces as a retryable
     // error instead of hanging the "Saving…" UI forever.
     const { data, error: e } = await withTimeout(
       supabase
         .from('cs_leads')
-        .upsert(rows, { onConflict: 'google_maps_place_id', ignoreDuplicates: true })
+        .insert(newRows as never)
         .select('id'),
       30_000,
       'Saving leads',
