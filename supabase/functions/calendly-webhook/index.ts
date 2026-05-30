@@ -152,6 +152,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   function templateForIndustry(industry: string | null): string {
     const i = (industry ?? '').toLowerCase()
     if (i.includes('church') || i.includes('ministry')) return 'cornerstone-church'
+    if (i.includes('bath') || i.includes('kitchen') || i.includes('remodel')) return 'heritage-bath'
     return 'apex-heating-and-air'
   }
 

@@ -52,3 +52,9 @@ verify_jwt = false
 
 [functions.customer-stripe-webhook]
 verify_jwt = false
+
+[functions.calendly-webhook]
+verify_jwt = false
+
+[functions.smartlead-reply]
+verify_jwt = false
