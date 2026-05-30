@@ -71,6 +71,8 @@ const FIELD_MASK = [
   'places.types',
   'places.businessStatus',
   'places.regularOpeningHours.openNow',
+  // Top-level (not places.*) — required to get the pagination token back.
+  'nextPageToken',
 ].join(',')
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -133,65 +135,110 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const queriesRun: string[] = []
   const errors: string[] = []
 
+  // Google Places text search returns 20 per page and up to 3 pages
+  // (~60 total) via nextPageToken. We follow the token so each query pulls
+  // up to ~60 instead of only the first 20.
+  const MAX_PAGES = 3
+  const PAGE_DELAY_MS = 1000 // nextPageToken isn't valid the instant it's issued
+  // Overall budget: many queries × 3 pages can run long enough that the
+  // platform kills the function mid-flight (leaving the client hanging).
+  // Return cleanly with whatever we've gathered before that happens.
+  const DEADLINE_MS = 45_000
+  const startedAt = Date.now()
+  let stoppedEarly = false
+
   for (const rawQuery of queries) {
+    if (Date.now() - startedAt > DEADLINE_MS) { stoppedEarly = true; break }
     const textQuery = `${rawQuery} in ${location}`
     queriesRun.push(textQuery)
 
-    let res: Response
-    try {
-      res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': FIELD_MASK,
-        },
-        body: JSON.stringify({
-          textQuery,
-          maxResultCount: maxPerQuery,
-        }),
-      })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      errors.push(`Network error on "${textQuery}": ${msg}`)
-      continue
-    }
+    let pageToken: string | undefined
+    let page = 0
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      errors.push(`Places API ${res.status} on "${textQuery}": ${text.slice(0, 200)}`)
-      continue
-    }
+    do {
+      // Brief wait before re-querying with the token, or Google rejects it.
+      if (pageToken) await new Promise((r) => setTimeout(r, PAGE_DELAY_MS))
+      if (Date.now() - startedAt > DEADLINE_MS) { stoppedEarly = true; break }
 
-    let data: { places?: unknown[] }
-    try {
-      data = await res.json()
-    } catch {
-      errors.push(`Bad JSON from Places API on "${textQuery}"`)
-      continue
-    }
+      let res: Response
+      // Bound each call so a stalled connection can't hang the whole function
+      // (which would leave the client's fetch pending forever — no
+      // browser-side fetch timeout). 10s is well above a healthy ~1-2s call.
+      const controller = new AbortController()
+      const placesTimer = setTimeout(() => controller.abort(), 10_000)
+      try {
+        res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': FIELD_MASK,
+          },
+          // pageToken paginates; all other params must match across pages.
+          body: JSON.stringify({
+            textQuery,
+            pageSize: maxPerQuery,
+            ...(pageToken ? { pageToken } : {}),
+          }),
+          signal: controller.signal,
+        })
+      } catch (err) {
+        const msg = err instanceof Error && err.name === 'AbortError'
+          ? 'timed out after 20s (Google Places did not respond)'
+          : err instanceof Error ? err.message : String(err)
+        errors.push(`Network error on "${textQuery}" (page ${page + 1}): ${msg}`)
+        break
+      } finally {
+        clearTimeout(placesTimer)
+      }
 
-    const places = Array.isArray(data.places) ? data.places : []
-    for (const raw of places) {
-      // deno-lint-ignore no-explicit-any
-      const p = raw as any
-      const placeId = typeof p.id === 'string' ? p.id : null
-      if (!placeId || seen.has(placeId)) continue
-      seen.add(placeId)
-      results.push({
-        place_id: placeId,
-        company_name: p.displayName?.text ?? 'Unknown',
-        address: typeof p.formattedAddress === 'string' ? p.formattedAddress : '',
-        phone: typeof p.nationalPhoneNumber === 'string' ? p.nationalPhoneNumber : null,
-        website: typeof p.websiteUri === 'string' ? p.websiteUri : null,
-        google_rating: typeof p.rating === 'number' ? p.rating : null,
-        rating_count: typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
-        types: Array.isArray(p.types) ? p.types.filter((t: unknown) => typeof t === 'string') : [],
-        open_now: p.regularOpeningHours?.openNow ?? null,
-        business_status: typeof p.businessStatus === 'string' ? p.businessStatus : null,
-        matched_query: rawQuery,
-      })
-    }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        errors.push(`Places API ${res.status} on "${textQuery}" (page ${page + 1}): ${text.slice(0, 200)}`)
+        break
+      }
+
+      let data: { places?: unknown[]; nextPageToken?: string }
+      try {
+        data = await res.json()
+      } catch {
+        errors.push(`Bad JSON from Places API on "${textQuery}" (page ${page + 1})`)
+        break
+      }
+
+      const places = Array.isArray(data.places) ? data.places : []
+      for (const raw of places) {
+        // deno-lint-ignore no-explicit-any
+        const p = raw as any
+        const placeId = typeof p.id === 'string' ? p.id : null
+        if (!placeId || seen.has(placeId)) continue
+        seen.add(placeId)
+        results.push({
+          place_id: placeId,
+          company_name: p.displayName?.text ?? 'Unknown',
+          address: typeof p.formattedAddress === 'string' ? p.formattedAddress : '',
+          phone: typeof p.nationalPhoneNumber === 'string' ? p.nationalPhoneNumber : null,
+          website: typeof p.websiteUri === 'string' ? p.websiteUri : null,
+          google_rating: typeof p.rating === 'number' ? p.rating : null,
+          rating_count: typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
+          types: Array.isArray(p.types) ? p.types.filter((t: unknown) => typeof t === 'string') : [],
+          open_now: p.regularOpeningHours?.openNow ?? null,
+          business_status: typeof p.businessStatus === 'string' ? p.businessStatus : null,
+          matched_query: rawQuery,
+        })
+      }
+
+      pageToken = data.nextPageToken
+      page++
+    } while (pageToken && page < MAX_PAGES)
+
+    if (stoppedEarly) break
+  }
+
+  if (stoppedEarly) {
+    errors.push(
+      `Stopped at the ${DEADLINE_MS / 1000}s time budget with ${results.length} results so far. Re-run with fewer queries (or one city at a time) to pull the rest.`,
+    )
   }
 
   return json({
