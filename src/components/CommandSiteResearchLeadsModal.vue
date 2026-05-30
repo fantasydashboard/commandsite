@@ -21,6 +21,7 @@ import { ref, computed, watch } from 'vue'
 import type { CsLeadInsert, CsSettings } from '@/types/database'
 import { scoreLead } from '@/lib/clients/commandsite/leadsApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
+import { fetchWithTimeout } from '@/lib/withTimeout'
 import LoadingBar from '@/components/LoadingBar.vue'
 import AssistantMark from '@/components/AssistantMark.vue'
 
@@ -199,12 +200,12 @@ async function runFindProspects() {
     return
   }
 
-  // Stage 2: Ada review (auto-chained)
-  phase.value = 'ada-reading'
-  await runAdaReview()
-  // Even if Ada partially failed, drop into preview so the user can see
-  // the scored ones + retry from the preview-stage button.
-  phase.value = 'preview'
+  // Stage 2: persist immediately. We deliberately skip in-modal Ada review
+  // and the preview step here — they coupled search to scoring + saving in
+  // one fragile chain. Now: search results land in cs_leads unscored, the
+  // modal closes, and the user clicks "Score with Ada" on the Leads page
+  // to score them in a separate, resumable action. Reliability >> magic.
+  confirmImport()
 }
 
 async function runSearch(queries: string[]): Promise<boolean> {
@@ -215,7 +216,7 @@ async function runSearch(queries: string[]): Promise<boolean> {
       return false
     }
 
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/research-leads`, {
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/research-leads`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -227,7 +228,7 @@ async function runSearch(queries: string[]): Promise<boolean> {
         location: location.value.trim(),
         max_per_query: maxPerQuery.value,
       }),
-    })
+    }, 90_000, 'Search')
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
@@ -272,18 +273,32 @@ async function runAdaReview() {
       // request/response shape so the rest of the chunk handler doesn't
       // need to know which one ran.
       const scorerSlug = persona.value === 'grace' ? 'score-leads-grace' : 'score-leads-ada'
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/${scorerSlug}`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'authorization': `Bearer ${session.access_token}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          place_ids: chunk,
-          location_label: location.value.trim(),
-        }),
-      })
+      let res: Response
+      try {
+        res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/${scorerSlug}`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'authorization': `Bearer ${session.access_token}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            place_ids: chunk,
+            location_label: location.value.trim(),
+          }),
+        }, 60_000, 'Ada review')
+      } catch (err) {
+        // A stalled chunk records an error and is skipped; the rest of the
+        // review still proceeds rather than hanging the whole run.
+        aggregateErrors.push(
+          `Chunk ${Math.floor(i / ADA_CHUNK_SIZE) + 1}: ${err instanceof Error ? err.message : 'failed'}`,
+        )
+        adaProgress.value = {
+          completed: Math.min(i + chunk.length, placeIds.length),
+          total: placeIds.length,
+        }
+        continue
+      }
 
       if (!res.ok) {
         let detail = ''
@@ -663,7 +678,7 @@ const isWorking = computed(() => phase.value === 'searching' || phase.value === 
                       class="input"
                     />
                     <p class="mt-1 text-xs text-ink-muted">
-                      Max 20 (Google's per-page limit). Three queries × 20 = up to 60 results per run.
+                      Page size (max 20). Each query now paginates up to 3 pages, so it pulls up to ~60 per query line.
                     </p>
                   </div>
                 </div>

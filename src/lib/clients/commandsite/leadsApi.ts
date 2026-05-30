@@ -11,6 +11,7 @@
  */
 import { ref, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
+import { withTimeout } from '@/lib/withTimeout'
 import type { CsLead, CsLeadInsert, CsLeadStatus, CsSettings } from '@/types/database'
 import type { CreateDealInput } from './dealsApi'
 
@@ -293,16 +294,24 @@ export function useLeads() {
    *  reflects how many were skipped. */
   async function importLeads(rows: CsLeadInsert[]): Promise<{ inserted: number; failed: number; insertedIds: string[] }> {
     if (!rows.length) return { inserted: 0, failed: 0, insertedIds: [] }
-    const { data, error: e } = await supabase
-      .from('cs_leads')
-      .upsert(rows, { onConflict: 'google_maps_place_id', ignoreDuplicates: true })
-      .select('id')
+    // Timeout the insert so a stalled connection surfaces as a retryable
+    // error instead of hanging the "Saving…" UI forever.
+    const { data, error: e } = await withTimeout(
+      supabase
+        .from('cs_leads')
+        .upsert(rows, { onConflict: 'google_maps_place_id', ignoreDuplicates: true })
+        .select('id'),
+      30_000,
+      'Saving leads',
+    )
     if (e) {
       error.value = e.message
       return { inserted: 0, failed: rows.length, insertedIds: [] }
     }
     const insertedIds = ((data ?? []) as { id: string }[]).map((r) => r.id)
-    await load()
+    // Reload is best-effort: the insert already succeeded, so a slow reload
+    // shouldn't fail the import or block the enrichment hand-off.
+    try { await withTimeout(load(), 30_000, 'Reloading leads') } catch { /* non-fatal */ }
     return {
       inserted: insertedIds.length,
       failed: rows.length - insertedIds.length,

@@ -12,6 +12,7 @@ import type { Client, CsLead, CsLeadStatus, CsLeadInsert } from '@/types/databas
 import { useLeads } from '@/lib/clients/commandsite/leadsApi'
 import { useSettings } from '@/lib/clients/commandsite/settingsApi'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase'
+import { fetchWithTimeout } from '@/lib/withTimeout'
 import CommandSiteImportLeadsModal from '@/components/CommandSiteImportLeadsModal.vue'
 import CommandSiteResearchLeadsModal from '@/components/CommandSiteResearchLeadsModal.vue'
 import CommandSiteLeadDetailModal from '@/components/CommandSiteLeadDetailModal.vue'
@@ -142,11 +143,15 @@ async function onDetailSaved() {
 // Multi-stage so the LoadingBar can show what's happening + give Ada
 // credit by name during the steps where she's working.
 const ENRICH_CHUNK_SIZE = 50
+// Ada-scoring chunk size matches the research modal's pattern: small batches
+// keep Anthropic burst pressure low and let the UI update progressively.
+const ADA_SCORE_CHUNK_SIZE = 8
 
-type PipelinePhase = 'idle' | 'saving' | 'enriching' | 'done'
+type PipelinePhase = 'idle' | 'saving' | 'scoring' | 'enriching' | 'done'
 const pipelinePhase = ref<PipelinePhase>('idle')
 const pipelineMsg = ref<string | null>(null)
 const enrichProgress = ref({ completed: 0, total: 0 })
+const scoringProgress = ref({ completed: 0, total: 0 })
 const savingCount = ref(0)
 // Aggregated totals from the most recent enrichment run, used to render
 // the success banner once everything settles.
@@ -160,7 +165,9 @@ const enrichTotals = ref({
 })
 
 const isPipelineWorking = computed(
-  () => pipelinePhase.value === 'saving' || pipelinePhase.value === 'enriching',
+  () => pipelinePhase.value === 'saving'
+    || pipelinePhase.value === 'scoring'
+    || pipelinePhase.value === 'enriching',
 )
 
 const pipelineMessage = computed(() => {
@@ -168,6 +175,10 @@ const pipelineMessage = computed(() => {
     return savingCount.value > 0
       ? `Saving ${savingCount.value} ${savingCount.value === 1 ? 'lead' : 'leads'} to your pipeline…`
       : 'Saving to your pipeline…'
+  }
+  if (pipelinePhase.value === 'scoring') {
+    if (scoringProgress.value.total === 0) return 'Ada is starting to score…'
+    return `Ada is scoring leads · ${scoringProgress.value.completed} of ${scoringProgress.value.total}`
   }
   if (pipelinePhase.value === 'enriching') {
     if (enrichProgress.value.total === 0) return 'Ada is starting the email hunt…'
@@ -178,6 +189,11 @@ const pipelineMessage = computed(() => {
 
 const pipelineHint = computed(() => {
   if (pipelinePhase.value === 'saving') return 'Quick — usually under a second.'
+  if (pipelinePhase.value === 'scoring') {
+    const remaining = scoringProgress.value.total - scoringProgress.value.completed
+    if (remaining <= 0) return 'Wrapping up.'
+    return 'Reading reviews and scoring each shop against your ICP. Safe to leave; resumable on retry.'
+  }
   if (pipelinePhase.value === 'enriching') {
     const remaining = enrichProgress.value.total - enrichProgress.value.completed
     if (remaining <= 0) return 'Wrapping up.'
@@ -187,12 +203,29 @@ const pipelineHint = computed(() => {
 })
 
 const pipelineStepLabel = computed(() => {
-  if (pipelinePhase.value === 'saving') return 'Step 1 of 2'
-  if (pipelinePhase.value === 'enriching') return 'Step 2 of 2'
+  // Each action is its own step now; no fixed multi-step chain.
+  if (pipelinePhase.value === 'saving') return 'Saving'
+  if (pipelinePhase.value === 'scoring') return 'Scoring'
+  if (pipelinePhase.value === 'enriching') return 'Finding emails'
   return ''
 })
 
-const showAdaInPipeline = computed(() => pipelinePhase.value === 'enriching')
+const showAdaInPipeline = computed(
+  () => pipelinePhase.value === 'scoring' || pipelinePhase.value === 'enriching',
+)
+
+// Leads that need Ada scoring: have a Google place_id (so score-leads-ada
+// can fetch reviews) and haven't been Ada-reviewed yet. Excludes archived
+// and disqualified so we don't burn Claude cost on rejected leads.
+const scorableCount = computed(() => {
+  return leads.value.filter(
+    (l) =>
+      !!l.google_maps_place_id
+      && !(l.tags ?? []).includes('ada_reviewed')
+      && l.status !== 'archived'
+      && l.status !== 'disqualified',
+  ).length
+})
 
 const enrichableCount = computed(() => {
   return leads.value.filter(
@@ -243,7 +276,7 @@ async function runEnrichmentOver(
 
   for (let i = 0; i < eligible.length; i += ENRICH_CHUNK_SIZE) {
     const chunk = eligible.slice(i, i + ENRICH_CHUNK_SIZE)
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/enrich-lead-emails`, {
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/enrich-lead-emails`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -251,7 +284,7 @@ async function runEnrichmentOver(
         'content-type': 'application/json',
       },
       body: JSON.stringify({ lead_ids: chunk }),
-    })
+    }, 120_000, 'Finding emails')
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
       pipelineMsg.value = `Chunk ${Math.floor(i / ENRICH_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
@@ -272,6 +305,157 @@ async function runEnrichmentOver(
   }
 
   return totals
+}
+
+/**
+ * Run Ada scoring over the given lead IDs (or all eligible if leadIds=null).
+ * Updates pipeline phase + progress. Persists each score immediately so a
+ * crash mid-run loses at most one chunk; clicking the button again resumes.
+ */
+async function runAdaScoringOver(
+  leadIds: string[] | null,
+): Promise<{ scored: number; errors: number }> {
+  const totals = { scored: 0, errors: 0 }
+
+  const eligible = leadIds
+    ? leads.value.filter((l) => leadIds.includes(l.id) && !!l.google_maps_place_id)
+    : leads.value.filter(
+        (l) =>
+          !!l.google_maps_place_id
+          && !(l.tags ?? []).includes('ada_reviewed')
+          && l.status !== 'archived'
+          && l.status !== 'disqualified',
+      )
+
+  if (eligible.length === 0) return totals
+
+  pipelinePhase.value = 'scoring'
+  scoringProgress.value = { completed: 0, total: eligible.length }
+
+  const session = (await supabase.auth.getSession()).data.session
+  if (!session) {
+    pipelineMsg.value = 'Not signed in. Refresh and try again.'
+    return totals
+  }
+
+  for (let i = 0; i < eligible.length; i += ADA_SCORE_CHUNK_SIZE) {
+    const chunk = eligible.slice(i, i + ADA_SCORE_CHUNK_SIZE)
+    const placeIds = chunk.map((l) => l.google_maps_place_id as string)
+    // Best-effort location label: first lead's city/state. Ada uses the
+    // place_id for the actual review fetch, so this is just prompt context.
+    const head = chunk[0]
+    const locationLabel = [head.city, head.state].filter(Boolean).join(', ') || ''
+
+    let res: Response
+    try {
+      res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/score-leads-ada`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'authorization': `Bearer ${session.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ place_ids: placeIds, location_label: locationLabel }),
+      }, 60_000, 'Ada scoring')
+    } catch (err) {
+      // A stalled chunk records errors and is skipped; the rest of the run
+      // still proceeds rather than hanging the whole batch.
+      totals.errors += chunk.length
+      scoringProgress.value = {
+        completed: Math.min(i + chunk.length, eligible.length),
+        total: eligible.length,
+      }
+      pipelineMsg.value = `Chunk ${Math.floor(i / ADA_SCORE_CHUNK_SIZE) + 1} ${err instanceof Error ? err.message : 'failed'}. Other chunks continuing.`
+      continue
+    }
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      totals.errors += chunk.length
+      pipelineMsg.value = `Chunk ${Math.floor(i / ADA_SCORE_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
+      scoringProgress.value = {
+        completed: Math.min(i + chunk.length, eligible.length),
+        total: eligible.length,
+      }
+      continue
+    }
+
+    const data = await res.json()
+    const scored = (data?.scored ?? {}) as Record<string, {
+      score: number; reasoning: string; signals?: Array<{ kind: string; note: string }>
+    }>
+
+    // Persist each score immediately so a failure later in the run still
+    // banks what we already scored. Merge 'ada_reviewed' into the lead's
+    // existing tags so we don't lose google_maps/persona/industry tags.
+    for (const lead of chunk) {
+      const placeId = lead.google_maps_place_id as string
+      const result = scored[placeId]
+      if (!result) {
+        totals.errors += 1
+        continue
+      }
+      const existingTags = (lead.tags ?? []) as string[]
+      const tags = existingTags.includes('ada_reviewed')
+        ? [...existingTags]
+        : [...existingTags, 'ada_reviewed']
+      if (result.signals) {
+        for (const s of result.signals) {
+          if (!tags.includes(s.kind)) tags.push(s.kind)
+        }
+      }
+      const signalsSuffix = result.signals && result.signals.length > 0
+        ? ` · Signals: ${result.signals.map((s) => s.kind).join(', ')}`
+        : ''
+      const { error: updErr } = await supabase
+        .from('cs_leads')
+        .update({
+          icp_score: result.score,
+          icp_score_reason: `Ada: ${result.reasoning}${signalsSuffix}`,
+          tags,
+        } as never)
+        .eq('id', lead.id)
+      if (updErr) {
+        totals.errors += 1
+      } else {
+        totals.scored += 1
+      }
+    }
+
+    scoringProgress.value = {
+      completed: Math.min(i + chunk.length, eligible.length),
+      total: eligible.length,
+    }
+  }
+
+  return totals
+}
+
+/** Standalone "Score with Ada" button on the Leads table header. */
+async function runScoreWithAda() {
+  if (isPipelineWorking.value) return
+  if (usingFixture.value) {
+    pipelineMsg.value = 'Demo mode — connect to a real cs_leads table to score with Ada.'
+    setTimeout(() => { pipelineMsg.value = null }, 5000)
+    return
+  }
+  if (scorableCount.value === 0) {
+    pipelineMsg.value = 'No leads need scoring right now.'
+    setTimeout(() => { pipelineMsg.value = null }, 4000)
+    return
+  }
+
+  pipelineMsg.value = null
+  try {
+    const totals = await runAdaScoringOver(null)
+    pipelineMsg.value = `Ada scored ${totals.scored} lead${totals.scored === 1 ? '' : 's'}${totals.errors > 0 ? ` · ${totals.errors} failed (click again to retry)` : ''}.`
+    setTimeout(() => { pipelineMsg.value = null }, 12_000)
+    await load()
+  } catch (err) {
+    pipelineMsg.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    pipelinePhase.value = 'idle'
+  }
 }
 
 /** Standalone manual "Find emails" button on the table header. */
@@ -315,42 +499,38 @@ async function handleImported({ rows, batchLabel }: { rows: CsLeadInsert[]; batc
     return
   }
 
-  // Stage 1: save to DB
+  // Stage 1: save to DB. Wrapped so a stalled/failed save resets the
+  // spinner and shows why, instead of hanging on "Saving…" forever.
   pipelinePhase.value = 'saving'
   savingCount.value = rows.length
-  const result = await importLeads(rows)
+  let result: { inserted: number; failed: number; insertedIds: string[] }
+  try {
+    result = await importLeads(rows)
+  } catch (err) {
+    pipelinePhase.value = 'idle'
+    savingCount.value = 0
+    submitMsg.value = `Save failed: ${err instanceof Error ? err.message : String(err)}`
+    setTimeout(() => { submitMsg.value = null }, 10_000)
+    return
+  }
 
   if (result.inserted === 0) {
     pipelinePhase.value = 'idle'
+    savingCount.value = 0
     submitMsg.value = `No leads imported. ${result.failed > 0 ? `${result.failed} skipped (likely duplicate place IDs).` : ''}`
     setTimeout(() => { submitMsg.value = null }, 8000)
     return
   }
 
-  // Stage 2: auto-enrich the just-imported set
-  try {
-    const totals = await runEnrichmentOver(result.insertedIds)
-    enrichTotals.value = totals
-    const dupePart = result.failed > 0 ? ` ${result.failed} skipped as duplicates.` : ''
-    const verifiedPart =
-      totals.verified > 0
-        ? `Ada verified ${totals.verified} deliverable email${totals.verified === 1 ? '' : 's'}.`
-        : totals.found > 0
-          ? `Ada found ${totals.found} email${totals.found === 1 ? '' : 's'} (none passed verification).`
-          : 'No public emails found on the imported sites.'
-    const invalidPart =
-      totals.invalid + totals.unverifiable > 0
-        ? ` (${totals.invalid + totals.unverifiable} couldn't be verified — kept as leads but skipped for outreach.)`
-        : ''
-    submitMsg.value = `Imported ${result.inserted} ${result.inserted === 1 ? 'lead' : 'leads'} as "${batchLabel}".${dupePart} ${verifiedPart}${invalidPart}`
-    setTimeout(() => { submitMsg.value = null }, 14_000)
-    await load()
-  } catch (err) {
-    submitMsg.value = `Imported ${result.inserted} leads but enrichment failed: ${err instanceof Error ? err.message : String(err)}`
-  } finally {
-    pipelinePhase.value = 'idle'
-    savingCount.value = 0
-  }
+  // Save is its own action now. Score-with-Ada and Find Emails are
+  // separate buttons on the Leads page so a slow/failed scorer or
+  // enrichment can't undo the save or chain a failure onto another step.
+  pipelinePhase.value = 'idle'
+  savingCount.value = 0
+  const dupePart = result.failed > 0 ? ` (${result.failed} skipped as duplicates)` : ''
+  submitMsg.value = `Imported ${result.inserted} ${result.inserted === 1 ? 'lead' : 'leads'} as "${batchLabel}"${dupePart}. Click "Score with Ada" to score them, then "Find Emails" to enrich.`
+  setTimeout(() => { submitMsg.value = null }, 14_000)
+  await load()
 }
 
 async function onPromote(lead: CsLead) {
@@ -460,6 +640,23 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
           <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
           Live · {{ leads.length }} leads
         </span>
+        <button
+          v-if="!usingFixture && scorableCount > 0"
+          type="button"
+          class="rounded-md bg-surface-raised border border-divider text-ink px-3 py-1.5 text-sm font-semibold hover:border-brand disabled:opacity-50 inline-flex items-center gap-1.5 transition-[border-color,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:active:scale-100"
+          :disabled="isPipelineWorking"
+          :title="`Ada reads each shop's Google reviews and scores them against your ICP. Resumable — if it stops, click again to pick up where it left off.`"
+          @click="runScoreWithAda"
+        >
+          <span v-if="isPipelineWorking" class="inline-flex items-center gap-1">
+            <AssistantMark class="h-3.5 w-3.5 text-brand" />
+            Ada is working…
+          </span>
+          <span v-else class="inline-flex items-center gap-1.5">
+            <AssistantMark class="h-3.5 w-3.5 text-brand" />
+            Score with Ada ({{ scorableCount }})
+          </span>
+        </button>
         <button
           v-if="!usingFixture && enrichableCount > 0"
           type="button"
