@@ -25,6 +25,7 @@
  */
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { supabase } from '@/lib/supabase'
+import { withTimeout } from '@/lib/withTimeout'
 import type { CsLead, CsOutreachSendInsert } from '@/types/database'
 import { useSettings } from './settingsApi'
 
@@ -266,10 +267,18 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
     let externalMessageId: string | null = null
 
     if (gmailConnected) {
-      // Path 1: API direct send
-      const { data: sendResp, error: fnErr } = await supabase.functions.invoke('gmail-send', {
-        body: { to: lead.contact_email, subject, body, lead_id: lead.id, touch_number: touchNumber },
-      })
+      // Path 1: API direct send. supabase.functions.invoke has no built-in
+      // timeout; without this wrapper a stalled gmail-send call hangs the
+      // approve button forever with no UI feedback. 30s is generous for a
+      // healthy send (~1-2s) and short enough that a real stall surfaces
+      // as an actionable error instead of a permanent spinner.
+      const { data: sendResp, error: fnErr } = await withTimeout(
+        supabase.functions.invoke('gmail-send', {
+          body: { to: lead.contact_email, subject, body, lead_id: lead.id, touch_number: touchNumber },
+        }),
+        30_000,
+        'Gmail send',
+      )
       if (fnErr) {
         // Supabase wraps non-2xx as `fnErr`. Pull the actual payload (429 deferral, etc.)
         // out of fnErr.context if present so the operator sees the real reason.

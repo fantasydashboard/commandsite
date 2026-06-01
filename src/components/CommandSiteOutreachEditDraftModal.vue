@@ -13,6 +13,9 @@ import type { CsLead } from '@/types/database'
 const props = defineProps<{
   open: boolean
   lead: CsLead | null
+  // Parent sets this true while the save/approve async work is in flight,
+  // so the button shows progress and stops looking like a dead click.
+  sending?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -130,19 +133,22 @@ function saveAndApprove() {
           <footer class="flex items-center justify-end gap-2 px-5 py-3 border-t border-divider bg-surface-raised">
             <button
               type="button"
-              class="rounded-md px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink"
+              class="rounded-md px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink disabled:opacity-50"
+              :disabled="props.sending"
               @click="close"
             >Cancel</button>
             <button
               type="button"
-              class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10"
+              class="rounded-md border border-brand/40 text-brand bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-brand/10 disabled:opacity-50"
+              :disabled="props.sending"
               @click="save"
             >Save (stay in queue)</button>
             <button
               type="button"
-              class="rounded-md bg-success text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
+              class="rounded-md bg-success text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:opacity-60 disabled:active:scale-100"
+              :disabled="props.sending"
               @click="saveAndApprove"
-            >Save & approve →</button>
+            >{{ props.sending ? 'Sending…' : 'Save & approve →' }}</button>
           </footer>
         </div>
       </div>

@@ -347,28 +347,46 @@ async function onDraftSave(payload: { id: string; subject: string; body: string 
     errorMsg.value = r.error ?? 'Failed to save draft'
   }
 }
+// Tracks whether onDraftSaveAndApprove is in flight, so the modal can
+// disable buttons + show "Sending…" instead of looking like a dead click.
+const draftSending = ref(false)
+
 async function onDraftSaveAndApprove(payload: { id: string; subject: string; body: string }) {
-  const saveRes = await auto.saveEdit(payload.id, payload.subject, payload.body)
-  if (!saveRes.ok) {
-    errorMsg.value = saveRes.error ?? 'Failed to save draft'
-    return
-  }
-  // Find the fresh lead from the composable's state so we pass the
-  // updated subject/body to approve()
-  const fresh = auto.leads.value.find((l) => l.id === payload.id)
-  if (!fresh) return
-  const approveRes = await auto.approve(fresh)
-  if (approveRes.ok) {
-    outreachToasts.push(`✓ Sent to ${fresh.contact_name || fresh.company_name}`, 'success')
-    closeDraftEditor()
-    // Also reload useLeads() so the inline Pipeline kanban reflects
-    // the new 'contacted' status without a hard refresh.
-    await reloadLeads()
-  } else if (approveRes.deferred) {
-    outreachToasts.push(`Send deferred · ${approveRes.error ?? 'outside send window'}`, 'info')
-    closeDraftEditor()
-  } else {
-    errorMsg.value = approveRes.error ?? 'Failed to send'
+  if (draftSending.value) return // double-click guard
+  draftSending.value = true
+  try {
+    const saveRes = await auto.saveEdit(payload.id, payload.subject, payload.body)
+    if (!saveRes.ok) {
+      errorMsg.value = saveRes.error ?? 'Failed to save draft'
+      return
+    }
+    // Find the fresh lead from the composable's state so we pass the
+    // updated subject/body to approve()
+    const fresh = auto.leads.value.find((l) => l.id === payload.id)
+    if (!fresh) {
+      errorMsg.value = 'Lead not found after save. Refresh the queue and try the row Approve button.'
+      return
+    }
+    const approveRes = await auto.approve(fresh)
+    if (approveRes.ok) {
+      outreachToasts.push(`✓ Sent to ${fresh.contact_name || fresh.company_name}`, 'success')
+      closeDraftEditor()
+      // Also reload useLeads() so the inline Pipeline kanban reflects
+      // the new 'contacted' status without a hard refresh.
+      await reloadLeads()
+    } else if (approveRes.deferred) {
+      outreachToasts.push(`Send deferred · ${approveRes.error ?? 'outside send window'}`, 'info')
+      closeDraftEditor()
+    } else {
+      errorMsg.value = approveRes.error ?? 'Failed to send'
+    }
+  } catch (err) {
+    // Any thrown exception (network blip, supabase invoke rejected, etc)
+    // used to be swallowed silently. Surface it so the button stops
+    // looking dead.
+    errorMsg.value = `Send failed: ${err instanceof Error ? err.message : String(err)}`
+  } finally {
+    draftSending.value = false
   }
 }
 async function onApprove(lead: CsLead) {
@@ -2183,6 +2201,7 @@ function leadForReply(r: CsReply): CsLead | null {
     <CommandSiteOutreachEditDraftModal
       :open="editingDraftLead !== null"
       :lead="editingDraftLead"
+      :sending="draftSending"
       @close="closeDraftEditor"
       @save="onDraftSave"
       @save-and-approve="onDraftSaveAndApprove"
