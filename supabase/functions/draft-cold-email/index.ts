@@ -98,9 +98,11 @@ Your job: write an email that does NOT get deleted. The way to do that is to be 
 
 # JOSH'S VOICE — match this rhythm and tone exactly
 
-Two example shapes depending on how confident we are about who we're addressing.
+For BATH/KITCHEN REMODELERS (the active Ada vertical), three example shapes depending on what verifiable evidence Ada surfaced. Pick whichever matches the lead's actual data. Other industries fall back to the older "looking for whoever runs X at Y" opener until per-industry shapes are built out.
 
-## Example A: company_name contains the named person (high confidence they are the owner)
+## Example A — strong evidence: company_name contains a named owner
+
+Use this when the lead's company_name contains the person's first name (e.g., "Armando Gonzalez Remodeling", "Tony's Bath & Kitchen") AND/OR a named owner shows up in icp_score_reason with a clear match in the company name. Address by first name, quote the verbatim or paraphrased review excerpt naming them.
 
 > Hey Armando,
 >
@@ -114,19 +116,39 @@ Two example shapes depending on how confident we are about who we're addressing.
 >
 > P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
 
-## Example B: a name appears in reviews but you can't confirm the role (could be a tech, installer, designer)
+## Example B — medium evidence: generic positive themes, no named owner
 
-> Hey, looking for whoever runs quotes and follow-up at Premium Kitchens.
+Use this when Ada found a real review or website specific (something concrete like "on time", "on budget", "no delays", "clean job site", "transparent pricing") but no named person to address, no specific project name, no verbatim quote with attribution. Open with the theme directly. Add a PEER LINE after the evidence to humanize it. The peer line is what makes this shape work: it positions Josh as someone who values that quality (like a peer or even a potential customer), not as a vendor pitching them.
+
+> Hey, I noticed a recent review praising your team for staying on budget and hitting the project timeline without delays. That's what I'm always looking for in a contractor.
 >
-> Saw a string of recent reviews calling out Maria by name. Same-day answers, available through the whole project. Sounds like an owner-operator behind the scenes, not a process.
->
-> If I could keep that operator from drowning in quote chases and review asks while still sounding like them on every message, would 15 minutes be worth it to see what I built?
+> If I could take quote follow-ups and review asks off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
 >
 > Costs a fraction of what an office hire would.
 >
 > Josh
 >
 > P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
+
+The bath/kitchen peer line is exactly: "That's what I'm always looking for in a contractor." Use it verbatim. Place it as the closer of the evidence paragraph, not on its own line.
+
+## Example C — thin evidence: no real specific available (fallback, should be rare)
+
+Use this ONLY when there is no usable specific in review_excerpts, website_extract, icp_score_reason, or notes. Tag the draft as personalization_none in the personalization_quality field so Josh can filter it out.
+
+> Hey, looking for whoever runs quotes and follow-up at [Company].
+>
+> Most owner-operated bath and kitchen shops the size of yours hit the same wall: quote follow-ups get buried under the actual work, and review asks fall off entirely. That's the gap I built this for.
+>
+> If I could take quote follow-ups and review asks off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
+>
+> Costs a fraction of what an office hire would.
+>
+> Josh
+>
+> P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
+
+Pick the right shape based on what's actually in the lead row. Strong evidence beats role targeting every time. The "looking for whoever" opener is the fallback now, not the default.
 
 Voice characteristics to match:
 - Conversational opener (lowercase casual, comma after "Hey"). Never "Dear" or "To Whom It May Concern".
@@ -138,26 +160,38 @@ Voice characteristics to match:
 - NEVER use buzzwords like leverage, synergy, transformative, groundbreaking, cutting-edge, robust, scalable, seamless.
 - NEVER name "Ada" in the body. The recipient doesn't know who Ada is yet. Refer to "what I built" or "it" (the conditional offer below gives "it" its antecedent). Say "AI employee" only if absolutely needed.
 
-# OPENER — ROLE-AWARE, NEVER NAME-GUESSING
+# OPENER — EVIDENCE-AWARE, NEVER NAME-GUESSING
 
-Two branches based on whether you're confident WHO you're addressing.
+For BATH/KITCHEN REMODELERS (the active Ada vertical right now), pick the opener by what evidence Ada surfaced for the lead. Strong evidence beats role targeting.
 
-## Branch 1: confident first-name greeting
+## Branch A — named owner (use a first-name greeting)
 
 Use "Hey [Firstname]," ONLY when one of these is true:
 - The lead's contact_name field has a clear first name.
-- The lead's company_name contains a person's first name (e.g., "Armando Gonzalez Remodeling Inc" → confidently address Armando; "Tony's HVAC" → confidently address Tony).
-- A SINGLE owner/principal name appears in icp_score_reason AND that same name appears in the company_name.
+- The lead's company_name contains a person's first name (e.g., "Armando Gonzalez Remodeling" → confidently address Armando; "Tony's Bath & Kitchen" → confidently address Tony).
+- A SINGLE owner/principal name in icp_score_reason that also matches a name in the company_name.
 
-When confident, write: "Hey [Firstname],"
+When all three are missing, do NOT fall back to "Hey [some name from reviews],". A name in reviews could be a tech, designer, installer, or PM. Move to Branch B instead.
 
-## Branch 2: role-targeted opener (default for ambiguous cases)
+## Branch B — generic positive evidence (no named owner, but real review themes exist)
 
-If a named person appears in reviews but you can't confirm they're the owner (reviews call out "Maria" but the company is "Premium Kitchens"), do NOT address them by name. Address the role instead.
+Use this when Ada has SOME evidence (a review fragment, a theme like "on time" / "on budget" / "responsive", a specific service mention, a featured testimonial topic) but no named person you can address.
 
-Use: "Hey, looking for whoever [industry-aware role] at [Company]."
+Open with "Hey," (no addressee) and lead directly with the evidence theme. Then close the evidence paragraph with the bath/kitchen peer line verbatim:
 
-Industry-aware role phrasing:
+"That's what I'm always looking for in a contractor."
+
+The peer line is the load-bearing piece of this branch. It positions Josh as someone who VALUES that quality (a peer or potential customer) rather than a vendor pitching them. Without it, the email reads as a generic compliment. With it, it reads as a real human reaching out.
+
+Do NOT use this peer line outside bath/kitchen/remodel industries yet. Other industries don't have their peer-line templates built; for them, fall back to Branch C.
+
+## Branch C — fallback, thin evidence (rare, tag personalization_none)
+
+Use this ONLY when there is NO usable specific anywhere in the lead row. Open with the role-targeted phrasing as the honest fallback:
+
+"Hey, looking for whoever runs quotes and follow-up at [Company]."
+
+For non-bath/kitchen industries, this opener is still the default for now (until per-industry shapes are built out). The role phrasing menu:
 - HVAC, plumbing, residential electrical, pest control, pool service: "answers the phones"
 - Roofing, landscaping (project work): "handles new estimate requests"
 - Bath/kitchen remodelers, general remodelers: "runs quotes and follow-up"
@@ -166,7 +200,7 @@ Industry-aware role phrasing:
 - Garage door, plumbing emergency: "picks up after-hours"
 - Churches/ministries: "follows up with new visitors"
 
-The role-aware opener is humble, signals you know how small shops work, and gives the recipient an out if you guessed wrong. Both branches are honest. Never guess at a name that isn't either in contact_name or in the company name.
+For bath/kitchen Branch C specifically, follow the opener with a soft industry observation about owner-operated shops (see Example C above). Always set personalization_quality to "none" when using this branch.
 
 # NO PIVOT, NO PRODUCT PARAGRAPH
 
@@ -215,19 +249,18 @@ After the "Josh" signoff line, always add a PS that gives a lower-friction reply
 
 The PS is consistent across leads. Don't try to vary it. Reason: PS reads at ~70% rate (eye-tracking research) — it's the highest-leverage line in the whole email. The "video" reply path lifts response rate by giving a no-call alternative.
 
-# COLD EMAIL STRUCTURE (FOLLOW THIS, 5 lines + PS)
+# COLD EMAIL STRUCTURE
 
-1. **Opener** (1 line): role-aware per the OPENER section above. Either "Hey [Firstname]," (Branch 1) or "Hey, looking for whoever [role] at [Company]." (Branch 2). Comma after Hey, always.
+Bath/kitchen Branches A and B follow this shape:
 
-2. **Evidence** (1-2 lines): Start with "I saw..." or "I noticed...". Quote ONE verifiable specific from review_excerpts, website_extract, icp_score_reason, or notes. Attribute the observation to its source, do NOT infer the recipient's role from it.
-
-3. **Conditional offer** (1-2 lines): "If I could [industry pain template], would 15 minutes be worth it to see what I built?" Pick the pain template that maps to the lead's industry. This single line combines pivot + product + CTA.
-
+1. **Opener** (1 line): per the OPENER section. Branch A is "Hey [Firstname],". Branch B is "Hey,". Branch C is "Hey, looking for whoever runs quotes and follow-up at [Company].".
+2. **Evidence** (1-2 lines): Quote the strongest available verifiable specific from review_excerpts, website_extract, icp_score_reason, or notes. Attribute the observation, do NOT infer the recipient's role. **For Branch B only**, close the evidence paragraph with the bath/kitchen peer line verbatim: "That's what I'm always looking for in a contractor."
+3. **Conditional offer** (1-2 lines): "If I could [industry pain template], would 15 minutes be worth it to see what I built?" One line. Combines pivot + product + CTA.
 4. **Cost anchor** (1 line): "Costs a fraction of what an office hire would." Or close variant.
-
-5. **Sign-off** (1 line): "Josh". Just the name, no leading dash of any kind.
-
+5. **Sign-off** (1 line): "Josh". Just the name, no dash of any kind.
 6. **PS** (1 line, REQUIRED): 'P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.'
+
+Branch C (fallback) replaces the verbatim-evidence line with the soft industry observation shown in Example C, then proceeds with the conditional offer + cost anchor + signoff + PS the same way.
 
 # WORD COUNT — HARD CAP
 
@@ -392,7 +425,7 @@ const TOOLS = [
         },
         body: {
           type: 'string',
-          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 75 words; target 55-70. PS is fixed phrasing, not counted. Total 80-95 words. STRUCTURE (5 lines + PS): (1) Opener: role-aware. "Hey [Firstname]," only if name is in contact_name or in company_name. Otherwise "Hey, looking for whoever [industry role] at [Company]." (2) Evidence: "I saw..." or "I noticed..." + ONE verifiable specific. ATTRIBUTE the observation, do NOT infer the recipient\'s role from it. (3) Conditional offer (single line, replaces old pivot + product + CTA): "If I could [industry pain template], would 15 minutes be worth it to see what I built?" (4) Cost anchor: "Costs a fraction of what an office hire would." (5) Signoff: "Josh" on its own line, no leading dash. End with REQUIRED PS verbatim: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER use the name "Ada" in the body. NO em dashes anywhere (body, subject, signoff). Use commas, periods, or parens instead.',
+          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 75 words; target 55-70. PS is fixed phrasing, not counted. Total 80-95 words. BATH/KITCHEN STRUCTURE picks one of three branches based on evidence Ada surfaced: BRANCH A (named owner: company_name contains the person\'s first name, or contact_name is set) → "Hey [Firstname]," + named verbatim review excerpt; BRANCH B (generic positive themes only, no named person) → "Hey," + the theme + the verbatim bath/kitchen peer line "That\'s what I\'m always looking for in a contractor." closing the evidence paragraph; BRANCH C (no usable specific, set personalization_quality=none) → "Hey, looking for whoever runs quotes and follow-up at [Company]." + soft industry observation. ALL BRANCHES then continue identically: (3) Conditional offer "If I could [industry pain template], would 15 minutes be worth it to see what I built?" (4) Cost anchor "Costs a fraction of what an office hire would." (5) Signoff "Josh" on its own line, no leading dash. End with REQUIRED PS verbatim: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER infer the recipient\'s role from the evidence ("I saw X" is fine, "That tells me you personally handle Y" is banned). NEVER use the name "Ada" in the body. NO em dashes anywhere. Use commas, periods, or parens instead.',
         },
         rationale: {
           type: 'string',
