@@ -136,14 +136,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const errors: string[] = []
 
   // Google Places text search returns 20 per page and up to 3 pages
-  // (~60 total) via nextPageToken. We follow the token so each query pulls
-  // up to ~60 instead of only the first 20.
-  const MAX_PAGES = 3
-  const PAGE_DELAY_MS = 1000 // nextPageToken isn't valid the instant it's issued
-  // Overall budget: many queries × 3 pages can run long enough that the
+  // (~60 total) via nextPageToken. Scale max pages to the query count so
+  // a many-query run still fits inside the function's wall-clock budget:
+  //   1-2 queries → 3 pages each (up to ~60/query, ~120 total)
+  //   3-5 queries → 2 pages each (up to ~40/query, ~200 total)
+  //   6-10 queries → 1 page each (~20/query, ~200 total)
+  // Without this scaling, 5 queries × 3 pages × ~3s/page sat right at the
+  // 45s deadline and the function frequently returned only partial results.
+  const MAX_PAGES = queries.length <= 2 ? 3 : queries.length <= 5 ? 2 : 1
+  const PAGE_DELAY_MS = 700 // nextPageToken isn't valid the instant it's issued
+  // Overall budget: many queries × pages can run long enough that the
   // platform kills the function mid-flight (leaving the client hanging).
   // Return cleanly with whatever we've gathered before that happens.
-  const DEADLINE_MS = 45_000
+  const DEADLINE_MS = 40_000
   const startedAt = Date.now()
   let stoppedEarly = false
 
@@ -165,7 +170,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       // (which would leave the client's fetch pending forever — no
       // browser-side fetch timeout). 10s is well above a healthy ~1-2s call.
       const controller = new AbortController()
-      const placesTimer = setTimeout(() => controller.abort(), 10_000)
+      const placesTimer = setTimeout(() => controller.abort(), 7_000)
       try {
         res = await fetch('https://places.googleapis.com/v1/places:searchText', {
           method: 'POST',
@@ -184,7 +189,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         })
       } catch (err) {
         const msg = err instanceof Error && err.name === 'AbortError'
-          ? 'timed out after 20s (Google Places did not respond)'
+          ? 'timed out after 7s (Google Places did not respond)'
           : err instanceof Error ? err.message : String(err)
         errors.push(`Network error on "${textQuery}" (page ${page + 1}): ${msg}`)
         break
