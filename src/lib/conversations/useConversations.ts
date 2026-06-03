@@ -194,19 +194,24 @@ export function useConversations(opts: UseConversationsOptions = {}) {
         lastActivityAt = lead.updated_at
       }
 
-      // Status derivation:
-      //   - paused → 'paused' (operator + auto-paused on reply both set this)
+      // Status derivation (order matters):
+      //   - lead disqualified / archived → 'done' regardless of reply state.
+      //     The operator formally closed the loop; the conversation must
+      //     leave the Needs you queue even if a reply went unanswered.
+      //   - paused → 'paused' (with 'needs_you' bump if there's an
+      //     unanswered reply on a paused thread)
       //   - has reply, no send AFTER the reply → 'needs_you'
-      //   - status = 'replied' but the reply has been handled (a send went
-      //     out after) → 'done'
+      //   - status = 'replied' but the reply has been handled → 'done'
       //   - otherwise sequence in progress → 'active'
       let status: ConversationStatus
       const needsResponse = lastReply && (!lastSend || replyAt > sendAt)
-      if (lead.outreach_paused) {
+      if (lead.status === 'disqualified' || lead.status === 'archived') {
+        status = 'done'
+      } else if (lead.outreach_paused) {
         status = needsResponse ? 'needs_you' : 'paused'
       } else if (needsResponse) {
         status = 'needs_you'
-      } else if (lead.status === 'replied' || lead.status === 'disqualified') {
+      } else if (lead.status === 'replied') {
         status = 'done'
       } else {
         status = 'active'
