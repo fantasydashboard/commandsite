@@ -15,9 +15,11 @@
  * No scroll-triggered animations. No layout property animations.
  * Selection + filter changes use opacity + background transitions.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useConversations, type ConversationStatus } from '@/lib/conversations/useConversations'
+import type { CsLead } from '@/types/database'
 import CommandSiteLeadTimeline from '@/components/CommandSiteLeadTimeline.vue'
+import CommandSiteLeadDetailModal from '@/components/CommandSiteLeadDetailModal.vue'
 import ConversationListItem from './ConversationListItem.vue'
 import ConversationThreadHeader from './ConversationThreadHeader.vue'
 import ConversationReplyComposer from './ConversationReplyComposer.vue'
@@ -46,6 +48,28 @@ const showThreadOverlay = computed(() => !!conv.selectedRow.value)
 
 function closeOverlay() {
   conv.select(null)
+}
+
+// In-page lead detail card so the operator can disqualify, archive, or
+// edit without leaving the Conversations page. Triggered by clicking the
+// company/contact name in ConversationThreadHeader.
+const detailLead = ref<CsLead | null>(null)
+const detailOpen = computed(() => detailLead.value !== null)
+
+function openLead(lead: CsLead) {
+  detailLead.value = lead
+}
+function closeLead() {
+  detailLead.value = null
+}
+async function onLeadSaved() {
+  // Pull the latest conversation rows so any status/pause change made in
+  // the detail modal is reflected immediately in the right pane header.
+  await conv.refresh()
+  // Keep the modal open with a refreshed snapshot of the same lead.
+  if (detailLead.value && conv.selectedRow.value?.leadId === detailLead.value.id) {
+    detailLead.value = conv.selectedRow.value.lead
+  }
 }
 </script>
 
@@ -132,6 +156,7 @@ function closeOverlay() {
             :row="conv.selectedRow.value"
             :persona-name="personaName"
             @changed="conv.refresh"
+            @open-lead="openLead"
           />
           <div class="flex-1 overflow-y-auto px-4 py-3">
             <CommandSiteLeadTimeline :lead-id="conv.selectedRow.value.leadId" />
@@ -180,6 +205,7 @@ function closeOverlay() {
             :row="conv.selectedRow.value"
             :persona-name="personaName"
             @changed="conv.refresh"
+            @open-lead="openLead"
           />
           <div class="flex-1 overflow-y-auto px-4 py-3">
             <CommandSiteLeadTimeline :lead-id="conv.selectedRow.value.leadId" />
@@ -192,5 +218,16 @@ function closeOverlay() {
         </section>
       </transition>
     </div>
+
+    <!-- In-page lead detail card. Click on the company/contact name in
+         the thread header opens this; saves refresh the conversation
+         rows so status changes (disqualify, pause) reflect immediately. -->
+    <CommandSiteLeadDetailModal
+      :open="detailOpen"
+      :lead="detailLead"
+      @close="closeLead"
+      @saved="onLeadSaved"
+      @drafted="onLeadSaved"
+    />
   </div>
 </template>

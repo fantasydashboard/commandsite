@@ -11,6 +11,7 @@ import { computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import type { ConversationRow } from '@/lib/conversations/useConversations'
+import type { CsLead } from '@/types/database'
 
 const props = defineProps<{
   row: ConversationRow
@@ -22,6 +23,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'changed'): void
+  /** Click on the company/contact name opens the lead detail card. Lets
+   *  the operator disqualify or edit without leaving Conversations. */
+  (e: 'openLead', lead: CsLead): void
 }>()
 
 const displayName = computed(() =>
@@ -71,7 +75,12 @@ async function togglePause() {
     <!-- Row 1: name + status -->
     <div class="flex items-baseline justify-between gap-3 mb-1">
       <div class="flex items-baseline gap-2 min-w-0">
-        <h2 class="text-base font-semibold text-ink truncate">{{ displayName }}</h2>
+        <button
+          type="button"
+          class="text-base font-semibold text-ink truncate text-left hover:underline decoration-brand decoration-2 underline-offset-4"
+          :title="`Open ${displayName} lead card`"
+          @click="emit('openLead', row.lead)"
+        >{{ displayName }}</button>
         <span v-if="row.contactName && row.companyName" class="text-xs text-ink-muted truncate">
           · {{ row.companyName }}
         </span>
