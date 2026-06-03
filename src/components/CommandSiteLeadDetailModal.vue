@@ -10,6 +10,7 @@
 import { computed, ref, watch } from 'vue'
 import type { CsLead, CsLeadStatus } from '@/types/database'
 import { supabase } from '@/lib/supabase'
+import { withTimeout } from '@/lib/withTimeout'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import CommandSiteLeadTimeline from '@/components/CommandSiteLeadTimeline.vue'
 
@@ -238,15 +239,22 @@ async function save(): Promise<boolean> {
   try {
     // .select('id').single() forces a 200 JSON response instead of the
     // default 204 No Content. supabase-js's 204 path has caused stuck
-    // promises here — the wire request finishes but the JS handler
-    // never resolves, leaving "Saving…" frozen and locking the auth
-    // queue against the next save.
-    const { error } = await supabase
-      .from('cs_leads')
-      .update(payload as never)
-      .eq('id', l.id)
-      .select('id')
-      .single()
+    // promises here. We additionally wrap in withTimeout because the
+    // network request itself can stall at the wire level (mid-session
+    // connection issue, DNS hiccup, etc), and without a timeout the
+    // promise never settles. That meant "Saving…" froze AND locked the
+    // auth queue against the next save, requiring a hard refresh.
+    // 15s is well above a healthy ~200ms update.
+    const { error } = await withTimeout(
+      supabase
+        .from('cs_leads')
+        .update(payload as never)
+        .eq('id', l.id)
+        .select('id')
+        .single(),
+      15_000,
+      'Saving lead',
+    )
     if (error) {
       message.value = { kind: 'err', text: `Save failed: ${error.message}` }
       return false
@@ -281,17 +289,32 @@ async function dropAsUnreachable() {
   dropping.value = true
   message.value = null
   const existingTags = (l.tags ?? []).filter((t) => t !== 'no_contact_available')
-  const { error } = await supabase
-    .from('cs_leads')
-    .update({
-      status: 'disqualified',
-      tags: [...existingTags, 'no_contact_available'],
-    } as never)
-    .eq('id', l.id)
-  dropping.value = false
-  if (error) {
-    message.value = { kind: 'err', text: `Couldn't drop: ${error.message}` }
+  try {
+    const { error } = await withTimeout(
+      supabase
+        .from('cs_leads')
+        .update({
+          status: 'disqualified',
+          tags: [...existingTags, 'no_contact_available'],
+        } as never)
+        .eq('id', l.id)
+        .select('id')
+        .single(),
+      15_000,
+      'Dropping lead',
+    )
+    if (error) {
+      message.value = { kind: 'err', text: `Couldn't drop: ${error.message}` }
+      return
+    }
+  } catch (err) {
+    message.value = {
+      kind: 'err',
+      text: `Drop errored: ${err instanceof Error ? err.message : String(err)}`,
+    }
     return
+  } finally {
+    dropping.value = false
   }
   emit('saved')
   emit('close')
