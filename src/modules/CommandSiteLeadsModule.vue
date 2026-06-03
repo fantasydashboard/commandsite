@@ -273,7 +273,42 @@ const enrichableCount = computed(() => {
       && !(l.tags ?? []).includes('email_not_found')
       && !(l.tags ?? []).includes('email_fetch_error')
       && !(l.tags ?? []).includes('email_invalid')
-      && !(l.tags ?? []).includes('email_unverifiable'),
+      && !(l.tags ?? []).includes('email_unverifiable')
+      // Match Score with Ada / Read websites: don't burn enrichment credits
+      // on leads the operator has already trimmed out.
+      && l.status !== 'archived'
+      && l.status !== 'disqualified',
+  ).length
+})
+
+// ── Bulk-trim eligibility counts ──────────────────────────────────
+// Surfaces "how many obvious don't-send leads can I clear in one click?"
+// before running Score / Read / Find emails. Threshold is the minimum
+// ICP score below which a 'new' lead is considered low-fit. 60 is the
+// conventional Heritage cutoff (Ada's 65-80 strong band starts there).
+const lowFitThreshold = ref(60)
+const lowFitCount = computed(() => {
+  return leads.value.filter(
+    (l) =>
+      (l.icp_score ?? 0) < lowFitThreshold.value
+      && l.status === 'new'
+      && !(l.tags ?? []).includes('ada_reviewed'),
+  ).length
+})
+// Leads where we already tried to find an email and couldn't, or there's
+// no website to scrape from. Outreach is impossible; safe to bulk-archive.
+const noEmailCount = computed(() => {
+  return leads.value.filter(
+    (l) =>
+      !l.contact_email
+      && l.status === 'new'
+      && (
+        !l.company_url
+        || (l.tags ?? []).includes('email_not_found')
+        || (l.tags ?? []).includes('email_invalid')
+        || (l.tags ?? []).includes('email_unverifiable')
+        || (l.tags ?? []).includes('email_fetch_error')
+      ),
   ).length
 })
 
@@ -657,6 +692,98 @@ async function runEnrichEmails() {
   }
 }
 
+/**
+ * Bulk-archive leads matching a filter predicate. Sets status='archived'
+ * in a single round-trip so the next Score / Read / Find emails action
+ * automatically skips them (their filters already exclude archived).
+ *
+ * Note: not wrapped in withTimeout because we're using supabase-js, which
+ * already routes through the global timed-fetch wrapper in src/lib/supabase.ts.
+ */
+async function bulkArchive(
+  predicate: (l: CsLead) => boolean,
+  reasonTag: string,
+  humanReason: string,
+): Promise<void> {
+  const targets = leads.value.filter(predicate)
+  if (targets.length === 0) {
+    pipelineMsg.value = `Nothing to archive — no matching leads.`
+    setTimeout(() => { pipelineMsg.value = null }, 4000)
+    return
+  }
+  const confirmed = window.confirm(
+    `Archive ${targets.length} ${targets.length === 1 ? 'lead' : 'leads'}: ${humanReason}?\n\n`
+    + `They'll be excluded from Score with Ada, Read websites, Find emails, and outreach. `
+    + `Reversible from each lead's detail card.`,
+  )
+  if (!confirmed) return
+
+  pipelineMsg.value = `Archiving ${targets.length}…`
+  const ids = targets.map((l) => l.id)
+  const { error } = await supabase
+    .from('cs_leads')
+    .update({ status: 'archived' } as never)
+    .in('id', ids)
+  if (error) {
+    pipelineMsg.value = `Archive failed: ${error.message}`
+    setTimeout(() => { pipelineMsg.value = null }, 8000)
+    return
+  }
+  // Apply the change locally too so the counts update without waiting
+  // on the next load() reload.
+  for (const t of targets) {
+    (t as unknown as { status: string }).status = 'archived'
+    if (!(t.tags ?? []).includes(reasonTag)) {
+      (t as unknown as { tags: string[] }).tags = [...(t.tags ?? []), reasonTag]
+    }
+  }
+  pipelineMsg.value = `Archived ${targets.length} leads.`
+  setTimeout(() => { pipelineMsg.value = null }, 8000)
+  await load()
+}
+
+/** Trim leads whose Ada-or-heuristic score is below the configured threshold. */
+async function runArchiveLowFit() {
+  if (isPipelineWorking.value) return
+  if (usingFixture.value) {
+    pipelineMsg.value = 'Demo mode — connect to a real cs_leads table to bulk archive.'
+    setTimeout(() => { pipelineMsg.value = null }, 5000)
+    return
+  }
+  await bulkArchive(
+    (l) =>
+      (l.icp_score ?? 0) < lowFitThreshold.value
+      && l.status === 'new'
+      && !(l.tags ?? []).includes('ada_reviewed'),
+    'archive_low_fit',
+    `score below ${lowFitThreshold.value}`,
+  )
+}
+
+/** Trim leads we can't email (no website, no contact email, or NeverBounce rejected). */
+async function runArchiveNoEmail() {
+  if (isPipelineWorking.value) return
+  if (usingFixture.value) {
+    pipelineMsg.value = 'Demo mode — connect to a real cs_leads table to bulk archive.'
+    setTimeout(() => { pipelineMsg.value = null }, 5000)
+    return
+  }
+  await bulkArchive(
+    (l) =>
+      !l.contact_email
+      && l.status === 'new'
+      && (
+        !l.company_url
+        || (l.tags ?? []).includes('email_not_found')
+        || (l.tags ?? []).includes('email_invalid')
+        || (l.tags ?? []).includes('email_unverifiable')
+        || (l.tags ?? []).includes('email_fetch_error')
+      ),
+    'archive_no_email',
+    `no usable email`,
+  )
+}
+
 async function handleImported({ rows, batchLabel }: { rows: CsLeadInsert[]; batchLabel: string }) {
   pipelineMsg.value = null
   submitMsg.value = null
@@ -808,6 +935,34 @@ const leadsTicker = ref<InstanceType<typeof GraceLiveTicker> | null>(null)
           <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
           Live · {{ leads.length }} leads
         </span>
+        <!-- ── Bulk trim actions ─────────────────────────────────
+             Run these BEFORE Score with Ada / Read websites / Find
+             emails so the credit-burn actions don't process leads
+             you've already decided not to send to. -->
+        <button
+          v-if="!usingFixture && lowFitCount > 0"
+          type="button"
+          class="rounded-md bg-surface-raised border border-divider text-ink-muted px-3 py-1.5 text-sm font-semibold hover:border-danger hover:text-ink disabled:opacity-50 inline-flex items-center gap-1.5 transition-[border-color,transform,color] duration-200 ease-out-quart active:scale-[0.97] disabled:active:scale-100"
+          :disabled="isPipelineWorking"
+          :title="`Archive every 'new' lead with score below ${lowFitThreshold} (and not yet Ada-reviewed). Use before Score with Ada to skip burning credits on weak fits.`"
+          @click="runArchiveLowFit"
+        >
+          <span class="inline-flex items-center gap-1.5">
+            Trim below {{ lowFitThreshold }} ({{ lowFitCount }})
+          </span>
+        </button>
+        <button
+          v-if="!usingFixture && noEmailCount > 0"
+          type="button"
+          class="rounded-md bg-surface-raised border border-divider text-ink-muted px-3 py-1.5 text-sm font-semibold hover:border-danger hover:text-ink disabled:opacity-50 inline-flex items-center gap-1.5 transition-[border-color,transform,color] duration-200 ease-out-quart active:scale-[0.97] disabled:active:scale-100"
+          :disabled="isPipelineWorking"
+          :title="`Archive 'new' leads with no contact email (either no website, or NeverBounce couldn't verify one). They can't be sent to anyway.`"
+          @click="runArchiveNoEmail"
+        >
+          <span class="inline-flex items-center gap-1.5">
+            Archive no-email ({{ noEmailCount }})
+          </span>
+        </button>
         <button
           v-if="!usingFixture && scorableCount > 0"
           type="button"
