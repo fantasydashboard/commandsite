@@ -457,8 +457,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const errors: string[] = []
   const BATCH_SIZE = 3
   const INTER_BATCH_MS = 250
+  // Server-side wall-clock budget. Same pattern as research-leads and
+  // enrich-lead-emails: at chunk size 8 from the frontend, ~3 internal
+  // batches × (Places + Claude) can exceed the platform's function cap
+  // when Anthropic or Places has a slow day, the function gets killed
+  // mid-flight, and the client's fetch hangs with no response. Return
+  // cleanly within the budget with whatever we scored so the frontend
+  // gets a 200 and can resume on the next chunk.
+  const DEADLINE_MS = 50_000
+  const startedAt = Date.now()
+  let stoppedEarly = false
 
   for (let i = 0; i < placeIds.length; i += BATCH_SIZE) {
+    if (Date.now() - startedAt > DEADLINE_MS) { stoppedEarly = true; break }
     const batch = placeIds.slice(i, i + BATCH_SIZE)
     const settled = await Promise.allSettled(
       batch.map(async (placeId) => {
@@ -494,9 +505,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
+  if (stoppedEarly) {
+    errors.push(
+      `Stopped at the ${DEADLINE_MS / 1000}s budget with ${Object.keys(scored).length} of ${placeIds.length} scored. Click Score with Ada again to pick up the rest.`,
+    )
+  }
+
   return json({
     scored,
     count: Object.keys(scored).length,
+    stopped_early: stoppedEarly,
     errors: errors.length > 0 ? errors : undefined,
   })
 })
