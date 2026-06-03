@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Grace for small and mid-sized churches · CommandSite</title>
+<style>
+  :root {
+    /* Brand stays Builder's Blue (CommandSite parent identity) */
+    --brand: #1e40af;
+    --brand-hover: #1d4ed8;
+    --brand-deep: #1e3a8a;
+    /* Accent shifts to a warm sacred amber for the church register
+       (candlelight, wood pews, cream pages of an open Bible) */
+    --accent: #b08a4e;
+    --accent-deep: #876939;
+    /* Warm sanctuary off-whites */
+    --chrome: #14182a;
+    --chrome-ink: #f5f1e8;
+    --ink: #1b1d29;
+    --ink-muted: #4c5160;
+    --ink-disabled: #8b8f9d;
+    --surface: #fbf9f3;
+    --surface-soft: #f4f0e6;
+    --surface-elev: #ebe6d7;
+    --divider: #e3dccc;
+    --success: #2f7d5b;
+    --warn: #c08a3e;
+    --danger: #b14b42;
+
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--surface-elev); font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+  /* ── Slide layout ─────────────────────────────────────────── */
+  .slide {
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 8vh 88px 56px;
+    overflow: hidden;
+    position: relative;
+    background: var(--surface-soft);
+  }
+  .slide.active { display: flex; }
+  .slide.dark { background: var(--chrome); color: var(--chrome-ink); justify-content: center; padding: 56px 88px; }
+  .slide.dark .ink-muted { color: rgba(245,241,232,0.65); }
+  .slide.dark .ink { color: var(--chrome-ink); }
+
+  .slide-num {
+    position: absolute;
+    bottom: 24px; right: 32px;
+    font-size: 11px;
+    color: var(--ink-disabled);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+  }
+  .slide.dark .slide-num { color: rgba(245,241,232,0.4); }
+
+  /* ── Brand mark ───────────────────────────────────────────── */
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .brand-mark img { width: auto; }
+  .corner-brand img { height: 22px; }
+  .brand-mark:not(.corner-brand) img { height: 32px; }
+  .brand-logo-light { display: block; }
+  .brand-logo-dark { display: none; }
+  .slide.dark .brand-logo-light { display: none; }
+  .slide.dark .brand-logo-dark { display: block; }
+  .corner-brand { position: absolute; top: 32px; left: 56px; }
+
+  /* ── Typography ───────────────────────────────────────────── */
+  h1.title { font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 800; margin: 0 0 24px; color: var(--ink); }
+  h1.hero  { font-size: 84px; line-height: 1; letter-spacing: -0.035em; font-weight: 900; margin: 0 0 32px; color: var(--ink); }
+  .slide.dark h1.title, .slide.dark h1.hero { color: var(--chrome-ink); }
+  h2.section { font-size: 48px; line-height: 1.05; letter-spacing: -0.02em; font-weight: 800; margin: 0 0 20px; color: var(--ink); }
+  .slide.dark h2.section { color: var(--chrome-ink); }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 11px; font-weight: 700; color: var(--brand); margin-bottom: 16px; }
+  .slide.dark .eyebrow { color: var(--accent); }
+  .lede { font-size: 22px; line-height: 1.5; color: var(--ink-muted); max-width: 880px; margin: 0 0 32px; }
+  .slide.dark .lede { color: rgba(245,241,232,0.78); }
+  p.body { font-size: 18px; line-height: 1.55; color: var(--ink-muted); margin: 0 0 16px; }
+  .slide.dark p.body { color: rgba(245,241,232,0.7); }
+
+  /* ── Cards / KPIs ─────────────────────────────────────────── */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(27,29,41,0.06), 0 1px 2px rgba(27,29,41,0.04);
+    border: 1px solid var(--divider);
+  }
+  .card.success { border-color: rgba(47,125,91,0.4); background: rgba(47,125,91,0.06); }
+  .card.danger  { border-color: rgba(177,75,66,0.35); background: rgba(177,75,66,0.05); }
+  .card.brand   { border-color: rgba(30,64,175,0.3); background: rgba(30,64,175,0.04); }
+  .card.accent  { border-color: rgba(176,138,78,0.4); background: rgba(176,138,78,0.07); }
+
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: var(--ink-muted); margin-bottom: 8px; }
+  .kpi-value { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .kpi-value.success { color: var(--success); }
+  .kpi-value.brand   { color: var(--brand); }
+  .kpi-value.accent  { color: var(--accent-deep); }
+  .kpi-value.danger  { color: var(--danger); }
+  .kpi-hint { font-size: 12px; color: var(--ink-disabled); margin-top: 6px; line-height: 1.45; }
+
+  /* ── Pills ────────────────────────────────────────────────── */
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pill.success { background: rgba(47,125,91,0.15); color: var(--success); }
+  .pill.brand   { background: rgba(30,64,175,0.12); color: var(--brand); }
+  .pill.accent  { background: rgba(176,138,78,0.18); color: var(--accent-deep); }
+  .pill.warn    { background: rgba(192,138,62,0.15); color: var(--warn); }
+  .pill.danger  { background: rgba(177,75,66,0.15); color: var(--danger); }
+
+  /* ── Leak list ──────────────────────────────────────────── */
+  .leak { display: flex; align-items: center; gap: 20px; padding: 16px 22px; background: var(--surface); border-radius: 12px; border: 1px solid var(--divider); margin-bottom: 9px; box-shadow: 0 1px 3px rgba(27,29,41,0.04); }
+  .leak-num { width: 36px; height: 36px; border-radius: 50%; background: rgba(177,75,66,0.12); color: var(--danger); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex-shrink: 0; }
+  .leak-body { flex: 1; }
+  .leak-title { font-weight: 700; font-size: 16px; color: var(--ink); margin-bottom: 3px; }
+  .leak-detail { font-size: 13px; color: var(--ink-muted); }
+  .leak-amt { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 15px; color: var(--danger); white-space: nowrap; }
+
+  /* ── Timeline ─────────────────────────────────────────────── */
+  .timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .timeline .day { background: var(--surface); border-radius: 12px; padding: 22px; border: 1px solid var(--divider); }
+  .timeline .day-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-deep); font-weight: 700; margin-bottom: 8px; }
+  .timeline .day-title { font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 8px; letter-spacing: -0.01em; }
+  .timeline .day-body { font-size: 13px; color: var(--ink-muted); line-height: 1.5; }
+
+  /* ── Pricing ──────────────────────────────────────────────── */
+  .tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; }
+  .tier {
+    background: var(--surface);
+    border: 1px solid var(--divider);
+    border-radius: 18px;
+    padding: 26px 24px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+  }
+  .tier.featured {
+    border: 2px solid var(--brand);
+    background: rgba(30,64,175,0.03);
+    transform: scale(1.04);
+    box-shadow: 0 12px 30px rgba(30,64,175,0.12);
+    z-index: 2;
+  }
+  .tier .ribbon {
+    position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+    background: var(--brand); color: #fff;
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 5px 14px; border-radius: 99px; white-space: nowrap;
+  }
+  .tier .tier-name { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+  .tier .tier-for { font-size: 13px; color: var(--ink-muted); margin: 4px 0 16px; min-height: 34px; }
+  .tier .price-wrap { margin-bottom: 6px; }
+  .price-standard { font-size: 34px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; transition: all 320ms var(--ease-out); }
+  .price-standard small, .price-founding small { font-size: 15px; font-weight: 600; color: var(--ink-muted); }
+  .price-founding { display: none; font-size: 34px; font-weight: 800; color: var(--success); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .setup-line { font-size: 12px; color: var(--ink-muted); margin: 8px 0 18px; min-height: 18px; }
+  .setup-waived { display: none; color: var(--success); font-weight: 700; }
+  .tier ul { margin: 0 0 20px; padding-left: 0; list-style: none; flex: 1; }
+  .tier ul li { font-size: 13.5px; color: var(--ink-muted); line-height: 1.5; padding: 5px 0 5px 22px; position: relative; }
+  .tier ul li::before { content: '✓'; position: absolute; left: 0; color: var(--accent-deep); font-weight: 800; }
+  .tier .roi-note { font-size: 12px; color: var(--ink-disabled); font-style: italic; line-height: 1.45; }
+
+  #pricing.founding .price-standard { font-size: 18px; text-decoration: line-through; color: var(--ink-disabled); font-weight: 600; }
+  #pricing.founding .price-founding { display: block; animation: dropIn 420ms var(--ease-out) both; }
+  #pricing.founding .setup-standard { display: none; }
+  #pricing.founding .setup-waived { display: inline; animation: dropIn 420ms var(--ease-out) 80ms both; }
+  #pricing.founding .fp-badge { opacity: 1; transform: none; }
+  .fp-badge { opacity: 0; transform: translateY(8px); transition: opacity 360ms var(--ease-out), transform 360ms var(--ease-out); }
+
+  .reveal-btn {
+    background: var(--accent); color: #fff; border: 0;
+    padding: 12px 24px; border-radius: 99px; font-weight: 700; font-size: 15px;
+    cursor: pointer; transition: transform 150ms var(--ease-out), background 150ms var(--ease-out);
+  }
+  .reveal-btn:hover { background: var(--accent-deep); }
+  .reveal-btn:active { transform: scale(0.97); }
+  #pricing.founding .reveal-btn { display: none; }
+
+  /* ── Recreated dashboard UI (slide 7) ─────── */
+  .shot { background: var(--surface); border-radius: 12px; border: 1px solid var(--divider); overflow: hidden; box-shadow: 0 8px 24px rgba(27,29,41,0.10); }
+  .shot .bar { height: 30px; background: var(--surface-elev); display: flex; align-items: center; gap: 6px; padding: 0 12px; border-bottom: 1px solid var(--divider); }
+  .shot .bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-disabled); opacity: 0.5; display: inline-block; }
+  .shot .shot-cap { padding: 12px 16px; font-size: 13px; color: var(--ink-muted); border-top: 1px solid var(--divider); }
+  .shot .shot-cap b { color: var(--ink); }
+
+  .ui { padding: 13px 15px 15px; background: var(--surface); }
+  .ui-eyebrow { font-size: 9px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; color: var(--brand); }
+  .ui-h { font-size: 16px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; margin: 2px 0; }
+  .ui-h .ghost { color: var(--ink-muted); font-weight: 600; }
+  .ui-sub { font-size: 10px; color: var(--ink-muted); margin-bottom: 10px; line-height: 1.4; }
+  .appr { border: 1px solid var(--divider); border-radius: 9px; padding: 8px 10px; margin-bottom: 7px; background: var(--surface-soft); transition: background 320ms var(--ease-out), border-color 320ms var(--ease-out); }
+  .appr-top { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; flex-wrap: wrap; }
+  .appr-badge { font-size: 7.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; border-radius: 99px; white-space: nowrap; }
+  .appr-badge.warn { background: rgba(192,138,62,0.16); color: var(--warn); }
+  .appr-badge.success { background: rgba(47,125,91,0.16); color: var(--success); }
+  .appr-badge.brand { background: rgba(30,64,175,0.12); color: var(--brand); }
+  .appr-badge.accent { background: rgba(176,138,78,0.18); color: var(--accent-deep); }
+  .appr-name { font-size: 11px; font-weight: 700; color: var(--ink); }
+  .appr-msg { font-size: 10px; color: var(--ink-muted); font-style: italic; line-height: 1.45; margin-top: 2px; }
+  .appr-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; background: var(--brand); color: #fff; font-size: 9.5px; font-weight: 700; padding: 4px 11px; border-radius: 6px; transition: background 280ms var(--ease-out); }
+  .appr-btn .sent { display: none; }
+  .appr.done { background: rgba(47,125,91,0.08); border-color: rgba(47,125,91,0.45); }
+  .appr.done .appr-btn { background: var(--success); }
+  .appr.done .appr-btn .send { display: none; }
+  .appr.done .appr-btn .sent { display: inline; }
+
+  .drift { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--divider); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; background: var(--surface-soft); }
+  .drift.info   { background: rgba(30,64,175,0.08); border-color: rgba(30,64,175,0.38); }
+  .drift.warn   { background: rgba(192,138,62,0.13); border-color: rgba(192,138,62,0.55); }
+  .drift.danger { background: rgba(177,75,66,0.11); border-color: rgba(177,75,66,0.6); }
+  .drift-name { font-size: 11px; font-weight: 700; color: var(--ink); }
+  .drift-meta { font-size: 9px; color: var(--ink-muted); margin-top: 1px; }
+  .drift-amt { font-size: 11px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .brief { padding: 6px 2px; border-bottom: 1px solid var(--divider); font-size: 10.5px; line-height: 1.5; color: var(--ink-muted); }
+  .brief:last-child { border-bottom: 0; }
+  .brief b { color: var(--ink); }
+
+  /* ── Closing ──────────────────────────────────────────────── */
+  .closing { text-align: center; align-items: center; justify-content: center; }
+  .cta { display: inline-block; background: var(--brand); color: var(--surface); padding: 16px 36px; border-radius: 99px; font-weight: 700; font-size: 18px; margin-top: 24px; text-decoration: none; transition: background 150ms var(--ease-out); }
+  .cta:hover { background: var(--brand-hover); }
+  .scarcity { display: inline-flex; align-items: center; gap: 10px; background: rgba(176,138,78,0.16); color: var(--accent); padding: 8px 18px; border-radius: 99px; font-weight: 700; font-size: 14px; margin-bottom: 28px; }
+
+  /* ── Nav ──────────────────────────────────────────────────── */
+  .nav { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; background: rgba(20,24,42,0.85); backdrop-filter: blur(8px); padding: 8px 14px; border-radius: 99px; z-index: 100; align-items: center; }
+  .nav button { background: transparent; border: 0; color: var(--chrome-ink); font-size: 14px; cursor: pointer; padding: 6px 10px; border-radius: 6px; font-weight: 600; }
+  .nav button:hover { background: rgba(245,241,232,0.1); }
+  .nav .nav-current { color: rgba(245,241,232,0.7); font-size: 13px; padding: 0 8px; font-variant-numeric: tabular-nums; }
+
+  /* ── Entrance motion ── */
+  @keyframes contentIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes dropIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .slide .reveal { opacity: 0; }
+  .slide.active .reveal { animation: contentIn 460ms var(--ease-out) both; }
+  .slide.active .reveal.d1 { animation-delay: 60ms; }
+  .slide.active .reveal.d2 { animation-delay: 120ms; }
+  .slide.active .reveal.d3 { animation-delay: 180ms; }
+  .slide.active .reveal.d4 { animation-delay: 240ms; }
+  .slide.active .reveal.d5 { animation-delay: 300ms; }
+  .slide.active .reveal.d6 { animation-delay: 360ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide .reveal, .slide.active .reveal { animation: none !important; opacity: 1 !important; transform: none !important; }
+    #pricing.founding .price-founding, #pricing.founding .setup-waived { animation: none !important; }
+  }
+
+  @media print {
+    body { background: var(--surface); }
+    .slide { display: flex !important; page-break-after: always; height: 100vh; }
+    .slide:last-child { page-break-after: auto; }
+    .slide .reveal { opacity: 1 !important; animation: none !important; }
+    .nav { display: none !important; }
+    #pricing .price-founding, #pricing .setup-waived { display: block !important; }
+    #pricing .reveal-btn { display: none !important; }
+  }
+
+  /* Helpers */
+  .row { display: flex; gap: 16px; align-items: center; }
+  .row.between { justify-content: space-between; }
+  .row.wrap { flex-wrap: wrap; }
+  .mt-sm { margin-top: 12px; }
+  .mt-md { margin-top: 24px; }
+  .mt-lg { margin-top: 40px; }
+  .cite { font-size: 12px; color: var(--ink-disabled); font-style: italic; margin-top: 16px; }
+  .slide.dark .cite { color: rgba(245,241,232,0.5); }
+  .big-num { font-size: 132px; font-weight: 900; line-height: 1; letter-spacing: -0.04em; color: var(--brand); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════════ SLIDE 1 · COVER ═════════════════ -->
+<section class="slide dark active">
+  <div class="brand-mark reveal" style="margin-bottom: 56px;">
+    <img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite">
+    <img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite">
+  </div>
+  <div class="eyebrow reveal d1">Meet Grace</div>
+  <h1 class="hero reveal d1">Every visitor reached.<br>Every family noticed.<br><span style="color: var(--accent);">Every story followed.</span></h1>
+  <p class="lede reveal d2" style="font-size: 24px;">
+    Grace is the AI ministry assistant for small and mid-sized churches. She follows up with every first-time family within 24 hours, flags the people who are starting to fade before they're gone, and drafts every message in your voice. You approve, she sends. So your pastors stay in the room with people, not buried in the inbox.
+  </p>
+  <div class="row mt-md reveal d3">
+    <span class="pill" style="background: rgba(176,138,78,0.22); color: var(--accent); padding: 6px 14px; font-size: 12px;">For churches with 200 to 1,500 weekly attendance</span>
+  </div>
+  <div class="slide-num">1 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 2 · THE HOOK ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="eyebrow reveal">The painful question</div>
+  <h1 class="title reveal d1">A family filled out a connect card<br>at your church last Sunday.</h1>
+  <p class="lede reveal d2" style="font-size: 26px; max-width: 1000px;">
+    They wrote their name, their kids' names, and a question. <strong style="color: var(--ink);">Nobody has reached out yet.</strong>
+  </p>
+  <p class="lede reveal d3" style="font-size: 26px; color: var(--danger); font-weight: 600; max-width: 1000px;">
+    By the time someone does, they will already have visited the church down the street.
+  </p>
+  <div class="card accent mt-md reveal d4" style="display: inline-flex; align-items: center; gap: 20px; max-width: 880px; padding: 20px 24px;">
+    <div style="font-size: 52px; font-weight: 900; color: var(--accent-deep); line-height: 1; font-variant-numeric: tabular-nums;">80%</div>
+    <div>
+      <div style="font-weight: 700; color: var(--ink); font-size: 16px;">of first-time visitors never come back for a second Sunday.</div>
+      <div style="font-size: 13px; color: var(--ink-muted); margin-top: 4px;">It is not that your team does not care. It is that there is no system, and Wednesday is already booked.</div>
+    </div>
+  </div>
+  <p class="cite reveal d4">Source: VisiConnect retention research; Effective Church Group, 2025-2026.</p>
+  <div class="slide-num">2 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 3 · THE MATH ═════════════════ -->
+<section class="slide" style="background: var(--surface);">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div style="margin: 0 auto; max-width: 1120px; width: 100%;">
+    <div class="eyebrow reveal">The 24-hour rule</div>
+    <h2 class="section reveal d1">Speed is the difference between<br>a returning family and a one-time visit.</h2>
+
+    <div class="grid grid-3 mt-lg reveal d2" style="gap: 24px;">
+      <div class="card">
+        <div class="kpi-label">Of guests who left a connect card</div>
+        <div class="kpi-value danger"><span data-count="24">0</span>%</div>
+        <div class="kpi-hint">Got any kind of follow-up from the church within 30 days. The other three out of four heard nothing.</div>
+      </div>
+      <div class="card accent">
+        <div class="kpi-label">If a visitor hears from someone within 24 hours</div>
+        <div class="kpi-value accent"><span data-count="85">0</span>%</div>
+        <div class="kpi-hint">return rate for the second Sunday. Compared to 15% if the follow-up doesn't happen until after day 3.</div>
+      </div>
+      <div class="card brand">
+        <div class="kpi-label">Average small/mid church</div>
+        <div class="kpi-value brand"><span data-count="80">0</span>%</div>
+        <div class="kpi-hint">of first-time visitors don't return for a second visit. The math says most would have, if anyone had reached out in time.</div>
+      </div>
+    </div>
+    <p class="lede reveal d3 mt-md" style="font-size: 18px;">
+      Grace handles the 24-hour follow-up the same way every Sunday. A personal text, then an email at day 3, then a gentle invitation back week two. In your voice, with your one-tap approval.
+    </p>
+    <p class="cite reveal d3">Sources: PastorsLine retention data, Effective Church Group, VisiConnect, 2025-2026.</p>
+  </div>
+  <div class="slide-num">3 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 4 · WHERE MINISTRY LEAKS ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="eyebrow reveal">It is not just the new family</div>
+  <h2 class="section reveal d1">Six places people fall through every week.</h2>
+  <p class="lede reveal d1" style="margin-bottom: 20px; font-size: 19px;">Every one of these is a follow-up someone is supposed to do. None of them happen consistently, because there is no time.</p>
+
+  <div class="reveal d2">
+    <div class="leak">
+      <div class="leak-num">1</div>
+      <div class="leak-body">
+        <div class="leak-title">First-time visitors who never hear back</div>
+        <div class="leak-detail">The connect card gets seen Sunday afternoon. Someone means to text them Wednesday. By Friday it's a week.</div>
+      </div>
+      <div class="leak-amt">80% don't return</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">2</div>
+      <div class="leak-body">
+        <div class="leak-title">Families starting to fade</div>
+        <div class="leak-detail">Three Sundays missed. Then four. Nobody notices until a month later when someone asks about them in the lobby.</div>
+      </div>
+      <div class="leak-amt">Quietly gone</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">3</div>
+      <div class="leak-body">
+        <div class="leak-title">Returning visitors no one re-welcomes</div>
+        <div class="leak-detail">Second visit. Third. They want to be seen, not just counted. Without a system, the moment passes.</div>
+      </div>
+      <div class="leak-amt">The next step</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">4</div>
+      <div class="leak-body">
+        <div class="leak-title">Prayer requests that don't get followed up</div>
+        <div class="leak-detail">The card mentioned a job loss in October. Nobody asked again in November. That's the kind of care your church is known for, when it actually happens.</div>
+      </div>
+      <div class="leak-amt">Pastoral cost</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">5</div>
+      <div class="leak-body">
+        <div class="leak-title">Volunteer gaps that surface too late</div>
+        <div class="leak-detail">Nursery is short Sunday at 9. Three families step in because they always do. They quietly burn out and stop signing up at all.</div>
+      </div>
+      <div class="leak-amt">36% of pastors flag this</div>
+    </div>
+    <div class="leak">
+      <div class="leak-num">6</div>
+      <div class="leak-body">
+        <div class="leak-title">Your own bandwidth</div>
+        <div class="leak-detail">72% of pastors work 55 to 75 hours a week. 42% have seriously considered leaving since 2020. The hour you'd spend on visitor follow-up is the hour you didn't sleep.</div>
+      </div>
+      <div class="leak-amt">Burnout</div>
+    </div>
+  </div>
+  <div class="slide-num">4 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 5 · MEET GRACE ═════════════════ -->
+<section class="slide dark">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div style="margin: 0 auto; max-width: 1100px;">
+    <div class="eyebrow reveal">Meet Grace</div>
+    <h1 class="title reveal d1">She is the ministry assistant<br>you would hire if you could.</h1>
+    <p class="lede reveal d2" style="font-size: 24px;">
+      Grace is one AI ministry assistant who watches every connect card, flags every family starting to drift, and drafts every follow-up in your voice. You approve, she sends. She does the relational work that nobody has time to do, so your pastors stay in the room with people.
+    </p>
+    <div class="row mt-md reveal d3" style="flex-wrap: wrap;">
+      <span class="pill" style="background: rgba(176,138,78,0.22); color: var(--accent);">One assistant, many roles</span>
+      <span class="pill" style="background: rgba(176,138,78,0.22); color: var(--accent);">Sounds like your pastor</span>
+      <span class="pill" style="background: rgba(176,138,78,0.22); color: var(--accent);">You approve before anything sends</span>
+      <span class="pill" style="background: rgba(176,138,78,0.22); color: var(--accent);">Plugs into Planning Center, Subsplash, Tithely</span>
+    </div>
+  </div>
+  <div class="slide-num">5 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 6 · HER ROLES ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="eyebrow reveal">One Grace, many roles</div>
+  <h2 class="section reveal d1">The two jobs that pay for her on their own.</h2>
+  <p class="lede reveal d1" style="margin-bottom: 24px; font-size: 19px;">Welcome and Drift Watch are the headline roles. Everything else compounds on top.</p>
+
+  <div class="grid grid-4 reveal d2" style="gap: 14px;">
+    <div class="card brand" style="grid-column: span 2;">
+      <div class="row between">
+        <div class="kpi-label" style="color: var(--brand);">Headline role</div>
+        <span class="pill brand">The 24-hour rule</span>
+      </div>
+      <div style="font-weight: 800; font-size: 20px; color: var(--ink); margin: 8px 0 6px;">Welcome</div>
+      <div style="font-size: 14px; color: var(--ink-muted); line-height: 1.5;">First-time family fills out a connect card. Grace drafts a personal text within 24 hours, an email at day 3, and a gentle invitation back week 2. Every word in the pastor's voice, every send pending one-tap approval.</div>
+    </div>
+    <div class="card brand" style="grid-column: span 2;">
+      <div class="row between">
+        <div class="kpi-label" style="color: var(--brand);">Headline role</div>
+        <span class="pill brand">The quiet leavers</span>
+      </div>
+      <div style="font-weight: 800; font-size: 20px; color: var(--ink); margin: 8px 0 6px;">Drift Watch</div>
+      <div style="font-size: 14px; color: var(--ink-muted); line-height: 1.5;">Three Sundays missed in a row. Grace flags the family on the pastor's morning list and drafts a "we miss you, anything we can pray about?" outreach. The families you would have noticed eventually, surfaced while there is still time.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0;">Connect Triage</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Reads every card; flags urgent care needs, prayer requests, and "new in town" notes for the right staff.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0;">Returning Visitor</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Second and third visits. Drafts a "good to see you again" note so the next step doesn't slip past.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0;">Prayer Follow-up</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Tracks prayer requests on the connect card; resurfaces them three weeks later so nothing falls through.</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label" style="color: var(--accent-deep);">Role</div>
+      <div style="font-weight: 700; font-size: 16px; color: var(--ink); margin: 6px 0;">Volunteer Gap</div>
+      <div style="font-size: 13px; color: var(--ink-muted); line-height: 1.5;">Nursery short Sunday at 9. Grace knows who's volunteered before and drafts the ask without leaning on the same three families again.</div>
+    </div>
+  </div>
+  <div class="slide-num">6 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 7 · SEE HER AT WORK ═════════════════ -->
+<section class="slide" id="see-her" style="background: var(--surface);">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="eyebrow reveal">See her at work</div>
+  <h2 class="section reveal d1">This is Grace, working a real church.</h2>
+  <p class="lede reveal d1" style="margin-bottom: 22px; font-size: 18px;">Cornerstone Community Church, 600 weekly attendance. Everything Grace drafts waits for the pastor's one-tap approval.</p>
+
+  <div class="grid reveal d2" style="grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start;">
+
+    <!-- Featured: Welcome queue (animated) -->
+    <div class="shot">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <div class="ui">
+        <div class="ui-eyebrow">Today's drafts</div>
+        <div class="ui-h"><span class="appr-count">5 waiting on you</span></div>
+        <div class="ui-sub">Review, approve, or edit before it sends. Every message goes from Pastor Mark's number, in his voice.</div>
+
+        <div class="appr appr-lead">
+          <div class="appr-top"><span class="appr-badge brand">Welcome · day 1</span><span class="appr-name">The Hayes family · first visit Sunday</span></div>
+          <div class="appr-msg">"Hey Sarah, Pastor Mark here at Cornerstone. So glad you and the kids visited Sunday. Your card mentioned you just moved to town. If you ever want coffee or to ask about anything, I'm around. No pressure, just glad you came."</div>
+          <span class="appr-btn"><span class="send">Approve &amp; send</span><span class="sent">&#10003; Sent</span></span>
+        </div>
+
+        <div class="appr">
+          <div class="appr-top"><span class="appr-badge warn">Drift watch · 3 weeks</span><span class="appr-name">The Foster family · missed three Sundays</span></div>
+          <div class="appr-msg">"Hey James, haven't seen you and the kids in a few weeks and just wanted to check in. Anything going on you'd want us to pray for? No agenda. Just thinking about your family."</div>
+          <span class="appr-btn"><span class="send">Approve &amp; send</span><span class="sent">&#10003; Sent</span></span>
+        </div>
+
+        <div class="appr">
+          <div class="appr-top"><span class="appr-badge success">Welcome · day 14</span><span class="appr-name">The Lim family · second visit yesterday</span></div>
+          <div class="appr-msg">"Good to see you all again Sunday. Caleb asked about the kids' Tuesday thing. We've got a parent group Wednesday nights if you ever want to drop in. Either way, glad you keep coming."</div>
+          <span class="appr-btn"><span class="send">Approve &amp; send</span><span class="sent">&#10003; Sent</span></span>
+        </div>
+
+        <div class="appr">
+          <div class="appr-top"><span class="appr-badge accent">Prayer follow-up</span><span class="appr-name">Maddux family · prayer request 21 days ago</span></div>
+          <div class="appr-msg">"Hey Diane, three weeks ago you mentioned the job interview. I've been praying for it and just wanted to check in. How's it going? No pressure to answer if you're swamped."</div>
+          <span class="appr-btn"><span class="send">Approve &amp; send</span><span class="sent">&#10003; Sent</span></span>
+        </div>
+
+        <div class="appr">
+          <div class="appr-top"><span class="appr-badge brand">Volunteer ask</span><span class="appr-name">Nursery · Sunday 9 AM short one</span></div>
+          <div class="appr-msg">"Hey Sam, nursery is short one for Sunday at 9. You filled in two months ago and Maya said the babies loved you. Any chance you can swing it again, or should we ask elsewhere?"</div>
+          <span class="appr-btn"><span class="send">Approve &amp; send</span><span class="sent">&#10003; Sent</span></span>
+        </div>
+      </div>
+      <div class="shot-cap"><b>Today.</b> Drafts wait for Pastor Mark's one-tap approval, each written in his voice.</div>
+    </div>
+
+    <!-- Stacked right -->
+    <div style="display: grid; grid-template-rows: auto auto; gap: 18px;">
+
+      <!-- Drift watchlist -->
+      <div class="shot">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="ui">
+          <div class="ui-eyebrow">Drift Watch</div>
+          <div class="ui-h">Watchlist <span class="ghost">· sorted by Sundays missed</span></div>
+          <div class="drift info">
+            <div><div class="drift-name">The Foster family</div><div class="drift-meta">3 Sundays · last seen 4/12 · child in kids ministry</div></div>
+            <div class="drift-amt">Soft check</div>
+          </div>
+          <div class="drift warn">
+            <div><div class="drift-name">Stephanie Voss</div><div class="drift-meta">5 Sundays · was in small group · joined 2023</div></div>
+            <div class="drift-amt">Pastor call</div>
+          </div>
+          <div class="drift danger">
+            <div><div class="drift-name">The Patel family</div><div class="drift-meta">8 Sundays · stopped serving in kids ministry</div></div>
+            <div class="drift-amt">Care visit</div>
+          </div>
+        </div>
+        <div class="shot-cap"><b>Drift Watch.</b> The quiet leavers, surfaced while there is still time to reach out.</div>
+      </div>
+
+      <!-- Pastor's morning brief -->
+      <div class="shot">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="ui">
+          <div class="ui-eyebrow">Pastor's morning brief</div>
+          <div class="ui-h">Monday at 6 AM</div>
+          <div class="brief"><b>3 new families</b> visited Sunday. Hayes (new in town), Lim (came back, second visit), Reyes (visiting from out of state).</div>
+          <div class="brief"><b>2 prayer requests</b> from connect cards. Job interview (Diane Maddux), surgery this week (Mom of Ella Cole).</div>
+          <div class="brief"><b>1 drift flag.</b> The Foster family is at 3 missed Sundays. Soft check drafted, in your queue.</div>
+          <div class="brief"><b>5 drafts</b> waiting for your approval. Average 10 minutes to clear.</div>
+        </div>
+        <div class="shot-cap"><b>Brief.</b> Everything the pastor needs to know about people, in one screen.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">7 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 8 · THREE WAYS ═════════════════ -->
+<section class="slide" style="background: var(--surface);">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="eyebrow reveal">The real comparison</div>
+  <h2 class="section reveal d1">Three ways to get this done.</h2>
+  <p class="lede reveal d1" style="margin-bottom: 22px; font-size: 19px;">Every job Grace does still has to happen somehow. Here is what each path actually costs.</p>
+
+  <div class="grid grid-3 reveal d2" style="align-items: stretch; gap: 18px;">
+
+    <!-- Do nothing -->
+    <div class="card danger" style="display:flex; flex-direction:column;">
+      <div class="kpi-label" style="color: var(--danger);">Do nothing</div>
+      <div style="font-weight:800; font-size:20px; color:var(--ink); margin:6px 0 14px; letter-spacing:-0.01em;">Keep relying on Wednesday</div>
+      <ul style="margin:0 0 16px; padding-left:0; list-style:none; flex:1;">
+        <li style="font-size:13.5px; color:var(--ink-muted); line-height:1.5; padding:5px 0;">The connect card gets seen Sunday afternoon</li>
+        <li style="font-size:13.5px; color:var(--ink-muted); line-height:1.5; padding:5px 0;">Someone means to text them Wednesday</li>
+        <li style="font-size:13.5px; color:var(--ink-muted); line-height:1.5; padding:5px 0;">By Friday the moment is gone</li>
+      </ul>
+      <div style="border-top:1px solid var(--divider); padding-top:14px;">
+        <div style="font-size:28px; font-weight:800; color:var(--danger); letter-spacing:-0.02em;">80% don't return</div>
+        <div style="font-size:12.5px; color:var(--ink-muted); margin-top:5px; line-height:1.5;">and the families starting to fade get noticed a month after they're already gone.</div>
+      </div>
+    </div>
+
+    <!-- Hire it out -->
+    <div class="card" style="display:flex; flex-direction:column;">
+      <div class="kpi-label">Hire it out</div>
+      <div style="font-weight:800; font-size:20px; color:var(--ink); margin:6px 0 14px; letter-spacing:-0.01em;">A comms / connections director</div>
+      <ul style="margin:0 0 16px; padding-left:0; list-style:none; flex:1; font-variant-numeric:tabular-nums;">
+        <li style="font-size:12.5px; color:var(--ink-muted); line-height:1.4; padding:4px 0; display:flex; justify-content:space-between; gap:10px;"><span>Part-time connections director (20 hrs)</span><b style="color:var(--ink); white-space:nowrap;">~$2,400</b></li>
+        <li style="font-size:12.5px; color:var(--ink-muted); line-height:1.4; padding:4px 0; display:flex; justify-content:space-between; gap:10px;"><span>Benefits + payroll overhead (~20%)</span><b style="color:var(--ink); white-space:nowrap;">~$500</b></li>
+        <li style="font-size:12.5px; color:var(--ink-muted); line-height:1.4; padding:4px 0; display:flex; justify-content:space-between; gap:10px;"><span>Texting platform (Text in Church or similar)</span><b style="color:var(--ink); white-space:nowrap;">~$180</b></li>
+        <li style="font-size:12.5px; color:var(--ink-muted); line-height:1.4; padding:4px 0; display:flex; justify-content:space-between; gap:10px;"><span>Connect card automation (extra software)</span><b style="color:var(--ink); white-space:nowrap;">~$100</b></li>
+        <li style="font-size:12.5px; color:var(--ink-muted); line-height:1.4; padding:4px 0; display:flex; justify-content:space-between; gap:10px;"><span>Drift / attendance reporting tooling</span><b style="color:var(--ink); white-space:nowrap;">~$150</b></li>
+        <li style="font-size:12.5px; color:var(--ink-muted); line-height:1.4; padding:4px 0; display:flex; justify-content:space-between; gap:10px;"><span>Training + management (your hours)</span><b style="color:var(--ink); white-space:nowrap;">5+ hrs/wk</b></li>
+      </ul>
+      <div style="border-top:1px solid var(--divider); padding-top:14px;">
+        <div style="font-size:28px; font-weight:800; color:var(--ink); letter-spacing:-0.02em;">~$3,300+<small style="font-size:15px; color:var(--ink-muted); font-weight:600;">/mo</small></div>
+        <div style="font-size:12.5px; color:var(--ink-muted); margin-top:5px; line-height:1.5;">and you have to manage a hire, write the playbooks yourself, and they leave in 18 months on average.</div>
+      </div>
+    </div>
+
+    <!-- Hire Grace -->
+    <div class="card brand" style="display:flex; flex-direction:column; border:2px solid var(--brand); box-shadow:0 12px 30px rgba(30,64,175,0.12);">
+      <div class="kpi-label" style="color:var(--brand);">Hire Grace</div>
+      <div style="font-weight:800; font-size:20px; color:var(--ink); margin:6px 0 14px; letter-spacing:-0.01em;">One assistant. All of it.</div>
+      <ul style="margin:0 0 16px; padding-left:0; list-style:none; flex:1;">
+        <li style="font-size:13.5px; color:var(--ink-muted); line-height:1.5; padding:5px 0 5px 22px; position:relative;"><span style="position:absolute; left:0; color:var(--accent-deep); font-weight:800;">&#10003;</span>Every visitor follow-up in 24 hours, in your voice</li>
+        <li style="font-size:13.5px; color:var(--ink-muted); line-height:1.5; padding:5px 0 5px 22px; position:relative;"><span style="position:absolute; left:0; color:var(--accent-deep); font-weight:800;">&#10003;</span>Drift, prayer follow-up, returning visitor, volunteer asks</li>
+        <li style="font-size:13.5px; color:var(--ink-muted); line-height:1.5; padding:5px 0 5px 22px; position:relative;"><span style="position:absolute; left:0; color:var(--accent-deep); font-weight:800;">&#10003;</span>Nothing to manage. Live in about two weeks.</li>
+      </ul>
+      <div style="border-top:1px solid rgba(30,64,175,0.2); padding-top:14px;">
+        <div style="font-size:24px; font-weight:800; color:var(--brand); letter-spacing:-0.02em;">See the next slide &rarr;</div>
+        <div style="font-size:12.5px; color:var(--ink-muted); margin-top:5px; line-height:1.5;">One price for everything above. Less than the column to your left.</div>
+      </div>
+    </div>
+
+  </div>
+  <p class="cite reveal d2">Grace plugs into Planning Center, Subsplash, Tithely, Church Community Builder, Breeze.</p>
+  <div class="slide-num">8 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 9 · PRICING ═════════════════ -->
+<section class="slide" id="pricing" style="background: var(--surface);">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div style="margin: 0 auto; max-width: 1180px; width: 100%;">
+    <div class="row between reveal" style="align-items: flex-end;">
+      <div>
+        <div class="eyebrow">The investment</div>
+        <h2 class="section" style="margin-bottom: 8px;">Less than a part-time hire.</h2>
+      </div>
+      <button class="reveal-btn" onclick="setFounding(true)">Show Founding Partner pricing &rarr;</button>
+    </div>
+
+    <div class="tiers reveal d2 mt-md">
+      <!-- Welcome -->
+      <div class="tier">
+        <div class="tier-name">Welcome</div>
+        <div class="tier-for">Solo or small-staff churches getting visitor follow-up right.</div>
+        <div class="price-wrap">
+          <span class="price-standard">$499<small>/mo</small></span>
+          <span class="price-founding">$399<small>/mo</small></span>
+        </div>
+        <div class="setup-line"><span class="setup-standard">+ $1,000 one-time onboarding</span><span class="setup-waived">Onboarding waived</span></div>
+        <ul>
+          <li>Welcome cadence: text day 1, email day 3, invitation week 2</li>
+          <li>Connect Triage on every card</li>
+          <li>Returning Visitor follow-up</li>
+          <li>Drafts in the pastor's voice; you approve before send</li>
+        </ul>
+        <div class="roi-note">The essentials: every first-time family heard from in 24 hours.</div>
+      </div>
+
+      <!-- Welcome + Drift (featured) -->
+      <div class="tier featured">
+        <div class="ribbon">Recommended</div>
+        <div class="tier-name">Welcome + Drift</div>
+        <div class="tier-for">Most churches start here. Catch the new families and the quiet leavers.</div>
+        <div class="price-wrap">
+          <span class="price-standard">$899<small>/mo</small></span>
+          <span class="price-founding">$799<small>/mo</small></span>
+        </div>
+        <div class="setup-line"><span class="setup-standard">+ $1,000 one-time onboarding</span><span class="setup-waived">Onboarding waived</span></div>
+        <ul>
+          <li>Everything in Welcome</li>
+          <li><strong>Drift Watch</strong>: families flagged at 3 missed Sundays</li>
+          <li><strong>Prayer Follow-up</strong>: requests resurface at week 3</li>
+          <li>Pastor's morning brief, daily</li>
+        </ul>
+        <div class="roi-note">Most churches lose 80% of first-time visitors. Even modest improvement covers a year of Grace.</div>
+      </div>
+
+      <!-- Pro + Coaching -->
+      <div class="tier">
+        <div class="tier-name">Pro + Coaching</div>
+        <div class="tier-for">Pastors who want a partner walking it out, not just software.</div>
+        <div class="price-wrap">
+          <span class="price-standard">$1,499<small>/mo</small></span>
+          <span class="price-founding">$1,299<small>/mo</small></span>
+        </div>
+        <div class="setup-line"><span class="setup-standard">+ $1,000 one-time onboarding</span><span class="setup-waived">Onboarding waived</span></div>
+        <ul>
+          <li>Everything in Welcome + Drift</li>
+          <li>Monthly 1:1 with Josh</li>
+          <li>Voice tuning + new role rollouts (volunteer coordination, weekly comms)</li>
+          <li>Priority on new Grace roles as the product grows</li>
+        </ul>
+        <div class="roi-note">For the church that wants to grow its care infrastructure, not just patch the most-broken thing.</div>
+      </div>
+    </div>
+
+    <div class="row between mt-md reveal d3" style="align-items: center;">
+      <div style="font-size: 14px; color: var(--ink-muted);">
+        Everything a comms / connections director would cost you in salary, benefits, software, and management time. One assistant, one price.
+        Month to month, cancel anytime, your data exports clean.
+      </div>
+      <span class="fp-badge pill accent" style="padding: 8px 16px; font-size: 12px; white-space: nowrap;">Founding Partner · locked through 2027 · first 10 churches</span>
+    </div>
+  </div>
+  <div class="slide-num">9 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 10 · SETUP STORY ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="eyebrow reveal">From handshake to live</div>
+  <h2 class="section reveal d1">Two weeks to a working assistant.</h2>
+  <p class="lede reveal d1" style="margin-bottom: 28px;">No months-long rollout. No consultant. Built around your church, and live within about two weeks.</p>
+
+  <div class="timeline reveal d2">
+    <div class="day">
+      <div class="day-label">Day 1</div>
+      <div class="day-title">Kickoff</div>
+      <div class="day-body">30 minutes. We walk how visitors and members move through your church today and find where the follow-up breaks down.</div>
+    </div>
+    <div class="day">
+      <div class="day-label">Days 2-5</div>
+      <div class="day-title">Connect your tools</div>
+      <div class="day-body">Planning Center, Subsplash, Tithely, your texting platform. Connect cards flow into Grace automatically; no double-entry.</div>
+    </div>
+    <div class="day">
+      <div class="day-label">Days 6-10</div>
+      <div class="day-title">Voice training</div>
+      <div class="day-body">Three to five real samples of how you actually write to families. Grace sounds like you within one round of edits.</div>
+    </div>
+    <div class="day">
+      <div class="day-label">Days 11-14</div>
+      <div class="day-title">Shadow, then live</div>
+      <div class="day-body">She runs in shadow mode first. You see every draft, send nothing. Once it sounds right, she goes live.</div>
+    </div>
+  </div>
+  <div class="slide-num">10 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 11 · FOUNDER + BOUNDARIES ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="grid" style="grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center;">
+    <div class="reveal d1">
+      <div class="eyebrow">Who built this</div>
+      <h2 class="section" style="font-size: 40px;">A note from the founder.</h2>
+      <p class="body" style="font-size: 18px; color: var(--ink);">I spent 20 years in church ministry before I built CommandSite. Every pastor I've sat with has said the same thing: we try, but we should do better.</p>
+      <p class="body" style="font-size: 16px;">It's not capacity, exactly. It's that the work of pastoring, the actual shepherding, only happens if there's space for it. Connect cards stacking up, families drifting un-noticed, prayer requests forgotten by Wednesday: those aren't failures of care. They're what happens when there's no system, and Sunday keeps coming.</p>
+      <p class="body" style="font-size: 16px; color: var(--ink); font-weight: 600;">Grace is the assistant who handles the system. So you can do the work only you can do.</p>
+    </div>
+    <div class="reveal d2">
+      <div class="eyebrow" style="color: var(--accent-deep);">An honest boundary</div>
+      <div class="card danger" style="margin-bottom: 12px;">
+        <div style="font-weight: 700; color: var(--ink); font-size: 15px; margin-bottom: 4px;">She is not autonomous.</div>
+        <p style="font-size: 13.5px; color: var(--ink-muted); margin: 0; line-height: 1.5;">Grace drafts. You approve. Every message that leaves your church is one a pastor signed off on.</p>
+      </div>
+      <div class="card danger" style="margin-bottom: 12px;">
+        <div style="font-weight: 700; color: var(--ink); font-size: 15px; margin-bottom: 4px;">She is not a chatbot for your members.</div>
+        <p style="font-size: 13.5px; color: var(--ink-muted); margin: 0; line-height: 1.5;">Messages go from the pastor's number, in the pastor's voice. Families never know AI was involved.</p>
+      </div>
+      <div class="card danger" style="margin-bottom: 12px;">
+        <div style="font-weight: 700; color: var(--ink); font-size: 15px; margin-bottom: 4px;">She never speaks to theology.</div>
+        <p style="font-size: 13.5px; color: var(--ink-muted); margin: 0; line-height: 1.5;">Logistics, follow-up, care drift, volunteer coordination. Pastoral conversations stay yours, always.</p>
+      </div>
+      <div class="card danger">
+        <div style="font-weight: 700; color: var(--ink); font-size: 15px; margin-bottom: 4px;">She is not another tool to babysit.</div>
+        <p style="font-size: 13.5px; color: var(--ink-muted); margin: 0; line-height: 1.5;">Ten minutes a day of approvals. That's the whole job. She runs the rest on a rhythm you set.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">11 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 12 · CLOSING ═════════════════ -->
+<section class="slide dark closing">
+  <div class="brand-mark reveal" style="margin-bottom: 48px;"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="scarcity reveal d1">Founding Partner pricing · 8 of 10 spots left</div>
+  <h1 class="hero reveal d1" style="font-size: 72px; max-width: 1000px;">Let's get Grace<br><span style="color: var(--accent);">in front of this Sunday's visitors.</span></h1>
+  <p class="lede reveal d2" style="font-size: 22px; max-width: 760px; margin: 0 auto 8px;">
+    We lock your Founding Partner rate through 2027, waive onboarding, and have Grace drafting on your actual connect cards within two weeks. The next family who walks in gets the welcome you've been meaning to send.
+  </p>
+  <a href="https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough" class="cta reveal d3">Book a 30-minute walkthrough &rarr;</a>
+  <p class="reveal d3" style="margin-top: 24px; font-size: 14px; color: rgba(245,241,232,0.65);">
+    Or reach me directly: <a href="mailto:josh@commandsite.io" style="color: var(--accent); text-decoration: underline;">josh@commandsite.io</a>
+  </p>
+  <div class="slide-num">12 / 13</div>
+</section>
+
+<!-- ═════════════════ SLIDE 13 · FAQ ═════════════════ -->
+<section class="slide">
+  <div class="brand-mark corner-brand"><img class="brand-logo-light" src="assets/commandsite-lockup-light.png" alt="CommandSite"><img class="brand-logo-dark" src="assets/commandsite-lockup-dark.png" alt="CommandSite"></div>
+  <div class="eyebrow reveal">For the leave-behind</div>
+  <h2 class="section reveal d1">What pastors ask first.</h2>
+
+  <div class="grid grid-2 reveal d2 mt-sm" style="gap: 16px;">
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"AI in ministry feels impersonal."</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Grace drafts, you approve. Every word stays in your voice. The AI is removing the typing, not the shepherding. Families experience a fast, personal church. They never see Grace.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"We already use Planning Center / Subsplash / Tithely."</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Those are tools you look at. Grace is an assistant who does the work. She plugs into the tools you already use and handles the follow-up they don't do.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"What if Grace says something the wrong way?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">She never sends without a pastor's approval. If a draft lands off, you edit it before it goes out. She also has hard rules: no theology, no doctrine, no pastoral counsel, no politics.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"How much of my time does this take?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">About 10 minutes a day approving drafts. Setup runs about two weeks and we do the heavy lifting. No data migration, no rebuilding your church management system.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"What if it doesn't work for our church?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Month to month. Cancel any time and we export your data clean. No annual contract, no lock-in.</p>
+    </div>
+    <div class="card">
+      <div style="font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 16px;">"Who runs the onboarding?"</div>
+      <p style="font-size: 14px; color: var(--ink-muted); margin: 0; line-height: 1.55;">Josh. I built it, I set it up with you. Not a sales rep, not an account manager. Twenty years in church ministry, on your side of the desk.</p>
+    </div>
+  </div>
+  <div class="slide-num">13 / 13</div>
+</section>
+
+<!-- ═════════════════ NAV ═════════════════ -->
+<div class="nav">
+  <button onclick="prev()">&lsaquo; Prev</button>
+  <span class="nav-current"><span id="navCurrent">1</span> / 13</span>
+  <button onclick="next()">Next &rsaquo;</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let idx = 0;
+
+  function countUp(el) {
+    const target = parseFloat(el.dataset.count);
+    if (reduce) { el.textContent = target; return; }
+    const dur = 900, start = performance.now();
+    function tick(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 4);
+      el.textContent = Math.round(target * eased);
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function setFounding(on) {
+    document.getElementById('pricing').classList.toggle('founding', on);
+  }
+
+  // Approval-queue loop on slide 7: top draft cycles waiting -> sent.
+  let apprTimer = null;
+  function stopApprovalLoop() { if (apprTimer) { clearInterval(apprTimer); apprTimer = null; } }
+  function startApprovalLoop() {
+    const lead = document.querySelector('#see-her .appr-lead');
+    const count = document.querySelector('#see-her .appr-count');
+    if (!lead || !count) return;
+    lead.classList.remove('done');
+    count.textContent = '5 waiting on you';
+    if (reduce) return;
+    let on = false;
+    apprTimer = setInterval(() => {
+      on = !on;
+      lead.classList.toggle('done', on);
+      count.textContent = on ? '4 waiting · 1 sent' : '5 waiting on you';
+    }, 2600);
+  }
+
+  function show(i) {
+    slides.forEach((s, n) => s.classList.toggle('active', n === i));
+    document.getElementById('navCurrent').textContent = (i + 1).toString();
+    idx = i;
+    const s = slides[i];
+    s.querySelectorAll('[data-count]').forEach((el) => { el.textContent = '0'; countUp(el); });
+    if (s.id === 'pricing') setFounding(false);
+    stopApprovalLoop();
+    if (s.id === 'see-her') startApprovalLoop();
+  }
+  function next() { if (idx < slides.length - 1) show(idx + 1); }
+  function prev() { if (idx > 0) show(idx - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    const onPricing = slides[idx].id === 'pricing';
+    if ((e.key === 'ArrowRight' || e.key === ' ')) {
+      e.preventDefault();
+      if (onPricing && !slides[idx].classList.contains('founding')) { setFounding(true); return; }
+      next();
+    }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  });
+
+  show(0);
+</script>
+
+</body>
+</html>
