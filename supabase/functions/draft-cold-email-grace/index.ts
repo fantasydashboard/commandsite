@@ -75,6 +75,8 @@ type DraftResult = {
   body: string
   rationale: string
   personalization_signal: string
+  personalization_quality: 'high' | 'medium' | 'low' | 'none'
+  template_used: 'visitor_followup' | 'drift_detection'
 }
 
 const MODEL = 'claude-sonnet-4-6'
@@ -87,11 +89,28 @@ Your job: write an email that does NOT get deleted. The way to do that with past
 
 # VOICE — match this rhythm exactly
 
-This is the canonical Touch 1 template:
+Two canonical Touch 1 templates. Pick the one whose pain best matches what Ada surfaced for this lead. Most cold leads use template A (visitor follow-up); leads where the data points at attendance softening or families slipping away use template B (drift detection).
+
+## Template A — visitor follow-up (default for most cold leads)
 
 > Hi Pastor [Name],
 >
 > If a first-time family visited [Church name] this Sunday and left their info on the connect card, how long before someone on your team follows up?
+>
+> I spent 20 years in church ministry. Every pastor I've sat with has said this: we try, but we should do better.
+>
+> I built a tool for that gap. If you'd like to see it, I'm happy to walk you through it.
+>
+> Josh
+> Founder, CommandSite
+>
+> P.S. If you're booked up, I have a 3-minute video I can send. Just reply.
+
+## Template B — drift detection (use when church-data signals fading attendance or families leaving)
+
+> Hi Pastor [Name],
+>
+> How would you know if a family at [Church name] missed three Sundays in a row? Most pastors find out a month later when someone mentions it in passing.
 >
 > I spent 20 years in church ministry. Every pastor I've sat with has said this: we try, but we should do better.
 >
@@ -185,17 +204,38 @@ Examples:
    \`P.S. If you're booked up, I have a 3-minute video I can send. Just reply.\`
    - Light variation OK ("If a call's tough this season" / "If easier than a call") but keep "Just reply." at the end. The reply is the action; no link in the email.
 
-# OPTIONAL personalization (only if signal is GENUINELY specific)
+# BRANCH SELECTION — pick by what Ada surfaced
 
-If the lead's data shows ONE of these, you may add ONE line between paragraphs 3 and 4:
+For each lead, pick the branch that fits the data, in the same evidence-aware spirit as the bath/kitchen drafter. Strong evidence beats role targeting every time.
 
-- A specific positive review quote that mentions visitor experience (e.g., "Saw a recent review mentioning how welcomed the Hayes family felt their first Sunday at [Church name]. That's the moment the data says you've got 2 days to either keep them or lose them.")
-- A specific website signal that the church cares about follow-up (e.g., "Noticed [Church name]'s 'I'm new here' page is sharper than most. Tells me follow-up is already on your radar.")
-- A specific community signal (e.g., "Saw [Church name] has been a fixture of [city] for years. The retention math hits hardest in churches that have built that kind of community already.")
+## Branch A: named pastor + named church
 
-DO NOT add any of these if you don't have specific evidence. Generic personalization is worse than no personalization.
+Use "Hi Pastor [Firstname]," when the pastor's first name is in contact_name OR in icp_score_reason from a clearly-attributed review. If you also have a verifiable specific (a review fragment mentioning the visitor experience, the welcome team, attendance growth, a featured testimonial), add ONE personalization line between paragraphs 3 and 4.
 
-If you DO add a personalization line, keep the email under 130 words total (the personalization expands the cap).
+Example personalization lines (only if the evidence is genuinely specific):
+- "Saw a recent review mentioning how welcomed the Hayes family felt their first Sunday at [Church name]. That's the moment the data says you've got 2 days to either keep them or lose them."
+- "Noticed [Church name]'s 'I'm new here' page is sharper than most. Tells me follow-up is already on your radar."
+- "Saw [Church name] has been a fixture of [city] for years. The retention math hits hardest in churches that have built that kind of community already."
+
+## Branch B: church name only, no named pastor
+
+Use "Hi Pastor," (no first name) when the church is identified but no pastor first name is verifiable. Run the canonical template with [Church name] filled in, and add a personalization line if a real church-specific signal is in the lead data. NEVER invent a pastor name.
+
+## Branch C: thin or no evidence (fallback)
+
+Use "Hi Pastor," + the baseline template verbatim with [Church name] filled in. No personalization line. Tag personalization_quality as "none" so Josh can filter the queue. Do NOT invent specifics.
+
+# WHICH TEMPLATE (A vs B) for the question
+
+- **Template A (visitor follow-up)** is the default. Use it unless drift signals are clearly stronger.
+- **Template B (drift detection)** is right when the lead's data shows: declining-attendance language in reviews, mentions of "members leaving," a public statement from the church about retention or re-engagement, or a website page about care/connect that signals the church is already wrestling with it.
+
+If unsure, default to Template A. Visitor follow-up is the higher-conversion wedge.
+
+# WORD COUNT
+
+Baseline (no personalization line): 75-95 words including PS.
+With personalization line: 95-130 words including PS.
 
 # HARD BANS
 
@@ -251,10 +291,20 @@ const TOOLS = [
         },
         personalization_signal: {
           type: 'string',
-          description: 'The exact data point used to make this specific to the church, OR "no specific personalization, using stat-led baseline" if no anchor was available.',
+          description: 'The exact data point used to make this specific to the church. If nothing usable was available, write the literal word "none" here (never invent).',
+        },
+        personalization_quality: {
+          type: 'string',
+          enum: ['high', 'medium', 'low', 'none'],
+          description: 'Self-rated personalization strength. high = named pastor + verbatim review quote about visitor experience or care. medium = church name + a specific church signal (named pastor without quote, or named website page, etc). low = generic church/geo framing only. none = baseline template, no anchor available. Josh filters on this in the queue to skip or rewrite "low" and "none" before sending.',
+        },
+        template_used: {
+          type: 'string',
+          enum: ['visitor_followup', 'drift_detection'],
+          description: 'Which canonical template carried this draft. visitor_followup = Template A (default, asks about first-time family follow-up timing). drift_detection = Template B (asks about catching families who missed three Sundays). Drives queue analytics on which pain converts better.',
         },
       },
-      required: ['subject', 'body', 'rationale', 'personalization_signal'],
+      required: ['subject', 'body', 'rationale', 'personalization_signal', 'personalization_quality', 'template_used'],
     },
   },
 ]
@@ -458,8 +508,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
     drafted[lead.id] = result
     counts.drafted++
 
+    // Tag with personalization quality + which Grace template carried the
+    // draft. Strip any prior matching tag so re-drafts stay accurate.
     const existingTags = (lead.tags ?? []) as string[]
-    const tags = [...new Set([...existingTags, 'cold_email_drafted', 'persona_grace'])]
+    const tagsFiltered = existingTags.filter(
+      (t) => !t.startsWith('personalization_') && !t.startsWith('grace_template_'),
+    )
+    const tags = [
+      ...new Set([
+        ...tagsFiltered,
+        'cold_email_drafted',
+        'persona_grace',
+        `personalization_${result.personalization_quality}`,
+        `grace_template_${result.template_used}`,
+      ]),
+    ]
     const { error: updErr } = await admin
       .from('cs_leads')
       .update({
