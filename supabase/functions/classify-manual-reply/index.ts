@@ -130,6 +130,52 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!body.body || typeof body.body !== 'string') return json({ error: 'body (reply text) required' }, 400)
   if (!body.from_email || typeof body.from_email !== 'string') return json({ error: 'from_email required' }, 400)
 
+  // ── Bounce short-circuit ───────────────────────────────────────────
+  // Postmaster/mailer-daemon senders and "Undeliverable / Returned mail"
+  // subjects are delivery failures, not human replies. Mirror what
+  // gmail-inbox-poll does on the auto path: don't insert a cs_replies row
+  // (bounces aren't conversation events), flag the lead as bounced, set
+  // status=disqualified, skip the LLM call entirely.
+  const fromLocal = body.from_email.split('@')[0]?.toLowerCase() ?? ''
+  const isPostmasterSender =
+    /^(mailer-daemon|postmaster|mail-daemon|mailer_daemon|noreply|no-reply)$/.test(fromLocal)
+    || body.from_email.toLowerCase().includes('mailer-daemon')
+  const isBounceSubject = /undeliverable|delivery (status|failure|has failed)|mail delivery|returned mail|message not delivered|failure notice/i
+    .test(body.subject ?? '')
+  if (isPostmasterSender || isBounceSubject) {
+    const reasonMatch = body.body.match(/(?:reason|status|error|because)[:\s][^.\n]{5,160}/i)
+    const reason = reasonMatch?.[0].replace(/\s+/g, ' ').slice(0, 200) ?? 'Delivery failed'
+
+    if (body.lead_id) {
+      const { error: updErr } = await admin
+        .from('cs_leads')
+        .update({
+          bounced_at: new Date().toISOString(),
+          bounce_reason: reason,
+          status: 'disqualified',
+        } as never)
+        .eq('id', body.lead_id)
+        .is('bounced_at', null) // idempotent: skip if already flagged
+      if (updErr) {
+        return json({ error: `Bounce flag failed: ${updErr.message}` }, 500)
+      }
+    }
+    return json({
+      is_bounce: true,
+      lead_disqualified: !!body.lead_id,
+      reason,
+      // Backward-compatible classifier fields so callers expecting them don't break.
+      classification: 'unclassified',
+      classification_confidence: 1,
+      classification_reason: `Bounce (${isPostmasterSender ? 'sender' : 'subject'} match): ${reason}`,
+      suggested_reply: null,
+      auto_handled: true,
+      needs_review: false,
+      reply_id: null,
+    })
+  }
+
+
   // Build prompt with the lead's prior outreach context if available
   const contextLines: string[] = []
   let leadIndustry: string | null = null
