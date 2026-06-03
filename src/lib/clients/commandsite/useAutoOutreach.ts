@@ -280,20 +280,31 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
         'Gmail send',
       )
       if (fnErr) {
-        // Supabase wraps non-2xx as `fnErr`. Pull the actual payload (429 deferral, etc.)
-        // out of fnErr.context if present so the operator sees the real reason.
-        type FnErrWithContext = { message: string; context?: { body?: unknown } }
-        const ctx = (fnErr as FnErrWithContext).context
-        const ctxBody = ctx?.body as { deferred?: boolean; code?: string; reason?: string } | null | undefined
-        if (ctxBody?.deferred) {
+        // supabase.functions.invoke wraps the response in a Response object
+        // on fnErr.context. The body has to be read via .json(); reading it
+        // as a property (the old code) always returned undefined and gave
+        // every failure the generic "Edge Function returned a non-2xx
+        // status code" message. Unwrap it properly so the operator sees the
+        // real reason (OAuth refresh failed, send window deferred, etc).
+        const ctx = (fnErr as { context?: Response }).context
+        let body: { deferred?: boolean; code?: string; reason?: string; error?: string } | null = null
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            body = await ctx.clone().json()
+          } catch {
+            // body wasn't JSON; fall through to plain message
+          }
+        }
+        if (body?.deferred) {
           return {
             ok: false,
             deferred: true,
-            code: ctxBody.code,
-            error: ctxBody.reason ?? 'Send deferred — outside the send window.',
+            code: body.code,
+            error: body.reason ?? 'Send deferred, outside the send window.',
           }
         }
-        return { ok: false, error: `Gmail send failed: ${fnErr.message}` }
+        const realError = body?.error ?? body?.reason ?? fnErr.message
+        return { ok: false, error: `Gmail send failed: ${realError}` }
       }
       const result = sendResp as {
         ok?: boolean
