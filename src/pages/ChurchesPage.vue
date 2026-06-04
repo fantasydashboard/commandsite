@@ -104,7 +104,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; grace: string }
 const compare: CompareRow[] = [
-  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'A fraction of the cost, quoted on your discovery call' },
+  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: '$400 to $1,300/mo. Founding-cohort rate locked through 2027.' },
   { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7. Answers calls Sunday morning, Wednesday night, anytime' },
   { dimension: 'Visitor follow-up',     hire: 'When she has time',           grace: 'Every first-timer within 2 hours, every time' },
   { dimension: 'Dormant member alerts', hire: 'Catches the obvious ones',    grace: 'Notices everyone who drifts past 60 days' },
@@ -430,26 +430,59 @@ const faqs: Faq[] = [
         </div>
       </article>
 
-      <!-- Other 4 modules as icon-left horizontal cards -->
-      <!-- Drift Watch (modules[1]) gets a slightly stronger frame because
-           it's the second headline product. Others stay neutral. -->
-      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+      <!-- Drift Watch hero card: mirrors Welcome's treatment with its own
+           drift-alert example, so the "two headline jobs" message lines up
+           with the visual hierarchy. -->
+      <article class="card lg:p-8 flex flex-col lg:flex-row gap-6 lg:gap-10 items-stretch mt-6">
+        <div class="flex-1 lg:max-w-md flex flex-col justify-center">
+          <div
+            v-if="modules[1].productName"
+            class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-2"
+          >
+            {{ modules[1].productName }}
+          </div>
+          <h3 class="text-xl sm:text-2xl font-semibold text-ink leading-tight">
+            {{ modules[1].title }}
+          </h3>
+          <p class="mt-2 text-sm font-medium text-brand">
+            {{ modules[1].tagline }}
+          </p>
+          <p class="mt-4 text-sm text-ink-muted leading-relaxed">
+            {{ modules[1].detail }}
+          </p>
+        </div>
+        <!-- Real-feeling drift alert on the right -->
+        <div class="w-full lg:flex-1 rounded-xl bg-surface-elevated p-4 sm:p-5 border border-divider">
+          <div class="flex items-center gap-2 mb-3 pb-3 border-b border-divider">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand">
+              <AdaIcon name="referral_hunter" class="h-3 w-3" />
+            </span>
+            <span class="text-xs text-ink font-semibold">Drift alert · Mon 8:14 AM</span>
+            <span class="ml-auto text-[11px] text-ink-disabled">4 weeks</span>
+          </div>
+          <div class="space-y-2.5 text-xs leading-relaxed">
+            <p><span class="font-semibold text-ink-muted uppercase tracking-wider text-[10px]">Household</span><br /><span class="text-ink-data">The Whitaker Family. Last seen 4 weeks ago. Three small flags: no Sunday attendance, skipped small group, paused giving.</span></p>
+            <p><span class="font-semibold text-brand uppercase tracking-wider text-[10px]">Grace · drafted for your pastor</span><br /><span class="text-ink-data">"Hey Drew and Ana, thinking about you both this week. I know the last couple of months have been a lot. No agenda here, just wanted to see if a coffee or a call would be helpful sometime. I've got Tuesday afternoon or Friday morning open if either works."</span></p>
+          </div>
+          <div class="mt-3 pt-3 border-t border-divider flex items-center gap-1.5 text-[11px]">
+            <span class="text-success font-bold" aria-hidden="true">✓</span>
+            <span class="text-ink font-medium">Queued for your pastor · sends after review · 14 of last 14 drafts approved</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Supporting 3 modules (Front Desk, Stories, Weekly Report) in a
+           3-column row beneath the two headline products. -->
+      <div class="mt-6 grid gap-4 sm:grid-cols-3">
         <article
-          v-for="m in modules.slice(1)"
+          v-for="m in modules.slice(2)"
           :key="m.title"
-          class="rounded-card bg-surface-raised border p-5 flex items-start gap-4"
-          :class="m.productName ? 'border-brand/30' : 'border-divider'"
+          class="rounded-card bg-surface-raised border border-divider p-5 flex items-start gap-4"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand flex-shrink-0">
             <AdaIcon :name="m.icon" class="h-5 w-5" />
           </div>
           <div class="flex-1 min-w-0">
-            <div
-              v-if="m.productName"
-              class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-1"
-            >
-              {{ m.productName }}
-            </div>
             <h3 class="text-base font-semibold text-ink leading-snug">{{ m.title }}</h3>
             <p class="text-xs font-medium text-brand mt-0.5">{{ m.tagline }}</p>
             <p class="mt-2 text-sm text-ink-muted leading-relaxed">{{ m.detail }}</p>
@@ -585,11 +618,11 @@ const faqs: Faq[] = [
 
           <!-- Founder identity card (right rail at lg+, stacks above on mobile) -->
           <aside class="lg:sticky lg:top-24 lg:self-start order-first lg:order-last">
-            <!-- TODO: replace placeholder with josh-headshot.jpg when available. Keep the rounded-full + h-24 w-24 sizing. -->
-            <div class="h-24 w-24 rounded-full bg-surface-elevated border border-divider flex items-center justify-center mb-4 overflow-hidden">
-              <svg viewBox="0 0 24 24" class="h-12 w-12 text-ink-disabled" fill="currentColor" aria-hidden="true">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
+            <!-- Monogram stand-in until josh-headshot.jpg lands. Matches the
+                 Heritage landing's pattern: brand-tinted circle + initial, no
+                 generic person silhouette. Honest about the absence and on-brand. -->
+            <div class="h-24 w-24 rounded-full bg-brand/10 flex items-center justify-center mb-4" aria-hidden="true">
+              <span class="text-brand text-4xl font-semibold tracking-tight">J</span>
             </div>
             <p class="text-base font-semibold text-ink leading-tight">Josh</p>
             <p class="text-sm text-ink-muted">Founder, CommandSite</p>
