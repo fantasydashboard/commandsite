@@ -51,15 +51,18 @@ function ago(days: number, hours = 0): string {
   return d.toISOString()
 }
 
+// Icons are AdaIcon names (rendered via <AdaIcon :name="..." />). Each
+// care kind picks a visually distinct AdaIcon so the open-cases list
+// stays scannable without breaking the platform's icon system.
 export const KIND_META: Record<CareKind, { label: string; icon: string; color: string }> = {
-  at_risk_check_in:    { label: 'At-risk check-in',    icon: '⚠',  color: '#EF4444' },
-  life_event_followup: { label: 'Life event',          icon: '🎉', color: '#A855F7' },
-  hospital_visit:      { label: 'Hospital visit',      icon: '🏥', color: '#0EA5E9' },
-  counseling_request:  { label: 'Counseling',          icon: '💭', color: 'rgb(var(--color-brand))' },
-  prayer_request:      { label: 'Prayer request',      icon: '🙏', color: '#F59E0B' },
-  meal_train:          { label: 'Meal train',          icon: '🍲', color: '#10B981' },
-  grief_support:       { label: 'Grief support',       icon: '💔', color: '#64748B' },
-  returning_welcome:   { label: 'Returning welcome',   icon: '🏡', color: '#10B981' },
+  at_risk_check_in:    { label: 'At-risk check-in',    icon: 'alert-triangle',  color: '#EF4444' },
+  life_event_followup: { label: 'Life event',          icon: 'review_engine',   color: '#A855F7' },
+  hospital_visit:      { label: 'Hospital visit',      icon: 'building',        color: '#0EA5E9' },
+  counseling_request:  { label: 'Counseling',          icon: 'qa_assistant',    color: 'rgb(var(--color-brand))' },
+  prayer_request:      { label: 'Prayer request',      icon: 'clock',           color: '#F59E0B' },
+  meal_train:          { label: 'Meal train',          icon: 'calendar',        color: '#10B981' },
+  grief_support:       { label: 'Grief support',       icon: 'referral_hunter', color: '#64748B' },
+  returning_welcome:   { label: 'Returning welcome',   icon: 'reactivation',    color: '#10B981' },
 }
 
 export const URGENCY_META: Record<Urgency, { label: string; color: string }> = {

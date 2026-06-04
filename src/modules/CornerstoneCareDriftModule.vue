@@ -15,6 +15,7 @@ import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
@@ -70,9 +71,9 @@ function memberSummary(h: Household): string {
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'care-whitaker',
-    role: 'care_triage',
-    icon: 'referral_hunter',
-    badge: 'Care Triage',
+    role: 'drift_detection',
+    icon: 'alert-triangle',
+    badge: 'Drift Watch',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Pastoral check-in — The Whitaker Family',
     recipient: '2 red flags · kids missed 3 of last 4 Sundays',
@@ -82,9 +83,9 @@ const queueItems: ApprovalQueueItem[] = [
   },
   {
     id: 'care-castellano',
-    role: 'care_triage',
-    icon: 'referral_hunter',
-    badge: 'Care Triage',
+    role: 'drift_detection',
+    icon: 'alert-triangle',
+    badge: 'Drift Watch',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Pastoral check-in — The Castellano Family',
     recipient: 'Drifting · stopped serving 2mo ago · giving paused',
@@ -155,6 +156,36 @@ const pageRoles = rolesOnTab('care-drift')
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
+    <!-- Drift Watch hero block: this is the page's headline product,
+         mirroring the Welcome hero on the Front Desk & Guests page. -->
+    <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
+      <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
+      <div class="flex items-baseline gap-2 mb-3">
+        <AdaIcon name="alert-triangle" class="h-5 w-5 text-brand" />
+        <span class="font-bold text-ink text-lg">Drift Watch</span>
+      </div>
+      <div class="flex flex-wrap items-end gap-x-8 gap-y-3 justify-between">
+        <div class="min-w-0">
+          <div class="text-3xl font-bold text-brand tabular-nums leading-none">{{ stats.at_risk_one_flag + stats.at_risk_two_plus_flags }} households</div>
+          <div class="text-[11px] uppercase tracking-wide text-ink-muted mt-1.5">flagged this week</div>
+          <!-- Supporting stats: sentence-case chips with clear separators.
+               Checkmark on the cases-resolved line frames it as good
+               news (drift caught + acted on, not drift caught + ignored). -->
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-xs text-ink-muted">
+            <span><span class="font-semibold text-ink">{{ stats.at_risk_two_plus_flags }}</span> at 2+ flags (urgent)</span>
+            <span class="text-ink-disabled" aria-hidden="true">·</span>
+            <span class="inline-flex items-center gap-1">
+              <AdaIcon name="check-circle" class="h-3 w-3 text-success flex-shrink-0" />
+              <span>{{ care.drafts_pending }} pastoral check-ins drafted, awaiting your sign-off</span>
+            </span>
+          </div>
+        </div>
+        <div class="text-xs text-ink-muted max-w-md">
+          <span class="font-semibold text-ink">Latest:</span> Hawthorne household crossed 2-flag threshold · 8 min ago
+        </div>
+      </div>
+    </section>
+
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="3"
@@ -204,7 +235,12 @@ const pageRoles = rolesOnTab('care-drift')
           class="rounded-md border border-divider bg-surface-elevated/40 px-3 py-2"
         >
           <div class="flex items-center gap-2 mb-1 flex-wrap">
-            <span class="text-base flex-shrink-0">{{ CARE_KIND_META[c.kind].icon }}</span>
+            <span
+              class="flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
+              :style="{ backgroundColor: CARE_KIND_META[c.kind].color + '22', color: CARE_KIND_META[c.kind].color }"
+            >
+              <AdaIcon :name="CARE_KIND_META[c.kind].icon" class="h-3.5 w-3.5" />
+            </span>
             <span class="text-sm font-semibold text-ink">{{ c.household_name }}</span>
             <span
               class="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-inverse"
