@@ -41,7 +41,13 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const BATCH_CAP = 5
-const ORPHAN_DRAFTING_MS = 30 * 60 * 1000  // 30 min
+// Reset 'drafting' rows older than this on each cron tick. 30 min was too
+// generous — any activity on the lead (Score with Ada, manual edit, etc.)
+// bumps updated_at and resets the clock, so orphans never aged out. The
+// drafter itself can't take longer than the function's wall-clock budget
+// (~50s), so 10 min is a comfortable safety margin without leaving leads
+// stuck for days waiting for the next "no activity" window.
+const ORPHAN_DRAFTING_MS = 10 * 60 * 1000  // 10 min
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
