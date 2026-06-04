@@ -11,6 +11,7 @@ import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -32,6 +33,25 @@ const understaffedRoles = computed(() => {
 
 const recentPosts = computed(() => posts.filter((p) => p.status === 'sent').slice(0, 5))
 const draftedPosts = computed(() => posts.filter((p) => p.status === 'draft' || p.status === 'scheduled'))
+
+// Countdown to first service Sunday morning. Reads the upcoming-service
+// date and counts forward from now. Used by the Sunday-status hero so
+// the pastor has a single anchor for "how close are we, and are we ready?"
+const sundayCountdown = computed(() => {
+  const target = new Date(upcomingService.date)
+  target.setHours(9, 0, 0, 0)
+  const ms = target.getTime() - Date.now()
+  if (ms <= 0) return 'Today'
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000))
+  const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
+  if (days === 0) return `${hours}h`
+  if (days === 1) return `1 day · ${hours}h`
+  return `${days} days`
+})
+
+const sundayReadinessPct = computed(() =>
+  Math.round((sunday.value.filled_slots / sunday.value.total_slots) * 100),
+)
 
 function pct(v: number): string { return Math.round(v * 100) + '%' }
 function fmtSlotTime(t: '9_am' | '11_am'): string { return t === '9_am' ? '9 AM' : '11 AM' }
@@ -142,6 +162,40 @@ const pageRoles = rolesOnTab('sundays-comms')
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
+    <!-- Sunday-status hero: this page's anchor. Countdown + readiness %
+         + outstanding actions in one glance. Operational page, so the
+         answer to "are we ready for Sunday?" lives at the top, not
+         buried in the KPI strip. -->
+    <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
+      <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">This Sunday · readiness brief</div>
+      <div class="flex flex-wrap items-end gap-x-8 gap-y-3 justify-between">
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-3 flex-wrap">
+            <div class="text-3xl font-bold text-brand tabular-nums leading-none">{{ sundayCountdown }}</div>
+            <div class="text-sm font-semibold text-ink">
+              until first service
+              <span class="text-ink-muted font-medium">·</span>
+              <span :class="readinessTone(sunday.filled_slots / sunday.total_slots)">{{ sundayReadinessPct }}% ready</span>
+            </div>
+          </div>
+          <div class="text-[11px] uppercase tracking-wide text-ink-muted mt-1.5">{{ upcomingService.sermon.title }}</div>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-xs text-ink-muted">
+            <span><span class="font-semibold" :class="sunday.short_total > 0 ? 'text-warn' : 'text-success'">{{ sunday.short_total }}</span> roles still short</span>
+            <span class="text-ink-disabled" aria-hidden="true">·</span>
+            <span><span class="font-semibold text-ink">{{ draftedPosts.length }}</span> comms drafts awaiting sign-off</span>
+            <span class="text-ink-disabled" aria-hidden="true">·</span>
+            <span class="inline-flex items-center gap-1">
+              <AdaIcon name="check-circle" class="h-3 w-3 text-success flex-shrink-0" />
+              <span>Worship setlist locked ({{ upcomingService.worship_setlist.length }} songs)</span>
+            </span>
+          </div>
+        </div>
+        <div class="text-xs text-ink-muted max-w-md">
+          <span class="font-semibold text-ink">Latest:</span> Holloway confirmed for backing vocals · 38 min ago
+        </div>
+      </div>
+    </section>
+
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="6"
@@ -210,14 +264,23 @@ const pageRoles = rolesOnTab('sundays-comms')
       <div v-if="understaffedRoles.length > 0">
         <div class="kpi-label mb-2">Roles short — Grace's suggested fills</div>
         <ul class="space-y-2">
+          <!-- Urgency-aware row styling: 2+ short = danger accent
+               (red tint), 1 short = warn accent (amber tint). Pastor's
+               eye lands on the most critical gap first instead of
+               having to read all 5 rows to triage. -->
           <li
             v-for="r in understaffedRoles"
             :key="r.role + r.time"
-            class="rounded-md border border-warn/30 bg-warn/5 px-3 py-2"
+            class="rounded-md border px-3 py-2"
+            :class="r.need >= 2 ? 'border-danger/40 bg-danger/5' : 'border-warn/30 bg-warn/5'"
           >
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-sm font-semibold text-ink">{{ r.label }}</span>
-              <span class="text-[11px] text-ink-muted">· {{ fmtSlotTime(r.time) }} · {{ r.need }} short</span>
+              <span class="text-[11px] text-ink-muted">· {{ fmtSlotTime(r.time) }}</span>
+              <span
+                class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide flex-shrink-0"
+                :class="r.need >= 2 ? 'bg-danger/15 text-danger' : 'bg-warn/15 text-warn'"
+              >{{ r.need }} short</span>
             </div>
             <p v-if="r.suggested.length > 0" class="text-[11px] text-ink-muted mt-1">
               <span class="font-medium text-brand">Grace suggests:</span> {{ r.suggested.join(', ') }}
@@ -229,16 +292,41 @@ const pageRoles = rolesOnTab('sundays-comms')
       <p v-else class="text-xs text-success">All Sunday roles staffed.</p>
     </section>
 
-    <!-- Communications — Sent + Drafts + Performance -->
+    <!-- Communications — Drafts first (action surface), then Sent + Performance -->
     <section id="communications" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Communications · Recent</span>
-          <span class="text-xs text-ink-muted">sent in the last few weeks</span>
+          <span class="eyebrow">Communications</span>
+          <span class="text-xs text-ink-muted">drafts + recent sends</span>
         </div>
       </div>
 
-      <ul class="space-y-2 mb-4">
+      <!-- Drafts waiting for review: promoted above the recent-sends list
+           so the action surface (things that need pastoral sign-off) is
+           seen first. Recent-sends is reference data; drafts are work. -->
+      <div v-if="draftedPosts.length > 0" class="mb-5 rounded-md border border-divider bg-surface-elevated/40 px-3 py-3">
+        <div class="flex items-baseline justify-between gap-2 mb-2 flex-wrap">
+          <div class="kpi-label">Drafts waiting for your review</div>
+          <span class="text-[11px] text-ink-disabled">{{ draftedPosts.length }} pending</span>
+        </div>
+        <ul class="space-y-1.5">
+          <li
+            v-for="p in draftedPosts.slice(0, 4)"
+            :key="p.id"
+            class="flex items-center gap-2 text-xs"
+          >
+            <span class="text-sm flex-shrink-0">{{ CHANNEL_META[p.channel].icon }}</span>
+            <span class="font-medium text-ink truncate flex-1">{{ p.title }}</span>
+            <span
+              class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide flex-shrink-0"
+              :class="p.status === 'scheduled' ? 'bg-brand/15 text-brand' : 'bg-warn/15 text-warn'"
+            >{{ p.status }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="kpi-label mb-2">Recent sends</div>
+      <ul class="space-y-2">
         <li
           v-for="p in recentPosts"
           :key="p.id"
@@ -256,24 +344,6 @@ const pageRoles = rolesOnTab('sundays-comms')
           </p>
         </li>
       </ul>
-
-      <div v-if="draftedPosts.length > 0">
-        <div class="kpi-label mb-2">Drafts waiting for your review</div>
-        <ul class="space-y-1.5">
-          <li
-            v-for="p in draftedPosts.slice(0, 4)"
-            :key="p.id"
-            class="flex items-center gap-2 text-xs"
-          >
-            <span class="text-sm flex-shrink-0">{{ CHANNEL_META[p.channel].icon }}</span>
-            <span class="font-medium text-ink truncate flex-1">{{ p.title }}</span>
-            <span
-              class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide flex-shrink-0"
-              :class="p.status === 'scheduled' ? 'bg-brand/15 text-brand' : 'bg-warn/15 text-warn'"
-            >{{ p.status }}</span>
-          </li>
-        </ul>
-      </div>
     </section>
 
     <LiveActivityFeed
