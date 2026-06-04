@@ -148,7 +148,10 @@ const pageRoles = rolesOnTab('front-desk-guests')
     />
 
     <!-- Welcome hero block: this is the page's headline product, treated
-         the same way the Today page treats Welcome in its role grid. -->
+         the same way the Today page treats Welcome in its role grid.
+         Headline metric matches Today exactly ("8 welcomes / first-time
+         families this week") so the same number reads the same way on
+         both surfaces. -->
     <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
       <div class="flex items-baseline gap-2 mb-3">
@@ -156,9 +159,21 @@ const pageRoles = rolesOnTab('front-desk-guests')
         <span class="font-bold text-ink text-lg">Welcome</span>
       </div>
       <div class="flex flex-wrap items-end gap-x-8 gap-y-3 justify-between">
-        <div>
-          <div class="text-3xl font-bold text-brand tabular-nums leading-none">8 first-time families</div>
-          <div class="text-xs uppercase tracking-wide text-ink-muted mt-1.5">welcomed this week · 42% connected · 0 of last 30 crossed Drift Watch threshold</div>
+        <div class="min-w-0">
+          <div class="text-3xl font-bold text-brand tabular-nums leading-none">8 welcomes</div>
+          <div class="text-[11px] uppercase tracking-wide text-ink-muted mt-1.5">first-time families this week</div>
+          <!-- Supporting stats: sentence-case chips with clear separators
+               instead of a wall of dense uppercase microtext. Checkmark
+               icon on the drift line makes "0" read unambiguously as
+               good news (zero failures, not zero data). -->
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-xs text-ink-muted">
+            <span><span class="font-semibold text-ink">42%</span> connected</span>
+            <span class="text-ink-disabled" aria-hidden="true">·</span>
+            <span class="inline-flex items-center gap-1">
+              <AdaIcon name="check-circle" class="h-3 w-3 text-success flex-shrink-0" />
+              <span>0 drift escalations from last 30 welcomes</span>
+            </span>
+          </div>
         </div>
         <div class="text-xs text-ink-muted max-w-md">
           <span class="font-semibold text-ink">Latest:</span> Riley Boucher opened her welcome SMS · 11 min after send
