@@ -56,12 +56,37 @@ const greeting = computed(() => {
 })
 
 // ── Approval queue: Grace's drafts awaiting sign-off ──────────────────
-// Ordered by URGENCY, not by chronological order. The pastor opening
-// this in the morning sees the most-pressing items first: grief
-// support, then escalated care, then time-sensitive guest follow-up.
-// Birth congrats + giving notes + volunteer coordination sit at the
-// bottom — they're real work but can wait a day if needed.
+// Ordered to lead with the two headline products (Welcome + Drift
+// Watch) so the pastor opening this in the morning sees the products
+// they're evaluating FIRST. Grief support, giving, communications,
+// and volunteer coordination follow as supporting workflows. Pastors
+// can re-sort if they prefer urgency-first; the queue itself is
+// re-sortable.
 const queueItems: ApprovalQueueItem[] = [
+  {
+    id: 'q-maddux',
+    role: 'guest_followup',
+    icon: 'qa_assistant',
+    badge: 'Welcome',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Welcome card — Maddux Family',
+    recipient: '4th visit Sunday · daughter loves the kids program',
+    preview: '"The Maddux Family, thanks so much for joining us again Sunday. Lila told her teacher she can\'t wait to come back, which made everyone\'s day. If you\'re open to it, we\'d love to chat about Newcomers Lunch next month, no pressure either way. — Pastor"',
+    approved_response: 'Sent. The Madduxes are now in the day-7 nudge sequence. If no reply by then I\'ll draft another soft touch.',
+    ticker_after_approval: 'Welcome card sent to the Maddux Family',
+  },
+  {
+    id: 'q-sullivan',
+    role: 'drift_detection',
+    icon: 'alert-triangle',
+    badge: 'Drift Watch',
+    badgeClass: 'bg-warn/15 text-warn',
+    title: 'Pastoral check-in — Sullivan Family',
+    recipient: 'Drew & Ana Sullivan · 3 flags (no Sunday attendance, skipped small group, paused giving) · escalated 4d ago',
+    preview: '"Drew, Ana, was thinking about you both this week. I know the last few months have been a lot. No agenda here, just wanted to see if a coffee or a call would be helpful. I\'ve got Tuesday afternoon or Friday morning open. — Pastor"',
+    approved_response: "Sent. I'll watch for a reply for 48 hrs and let you know either way. If they don't respond, I'll surface it again Wednesday.",
+    ticker_after_approval: 'Drift Watch check-in sent to the Sullivans',
+  },
   {
     id: 'q-foster-grief',
     role: 'care_triage',
@@ -73,30 +98,6 @@ const queueItems: ApprovalQueueItem[] = [
     preview: '"Amanda — thinking of you, James, and the kids constantly this week. I\'ll be at the funeral Friday and will plan to be there early. In the meantime: meals are covered through next Sunday via your small group, and the Cornerstone benevolence fund covered the casket flowers. No need to respond. Just know we\'re carrying you. — Pastor"',
     approved_response: 'Sent. I\'ll keep an eye out for any reply but won\'t prompt. I\'ll surface a 30-day follow-up reminder mid-June so you can check in once the immediate flurry settles.',
     ticker_after_approval: 'Funeral-week note sent to the Foster Family',
-  },
-  {
-    id: 'q-sullivan',
-    role: 'care_triage',
-    icon: 'referral_hunter',
-    badge: 'Care Triage',
-    badgeClass: 'bg-warn/15 text-warn',
-    title: 'Pastoral check-in — Sullivan Family',
-    recipient: 'Drew & Ana Sullivan · 3 red flags · escalated 4d ago',
-    preview: '"Drew, Ana, was thinking about you both this week. I know the last few months have been a lot. No agenda here, just wanted to see if a coffee or a call would be helpful. I\'ve got Tuesday afternoon or Friday morning open. — Pastor"',
-    approved_response: "Sent. I'll watch for a reply for 48 hrs and let you know either way. If they don't respond, I'll surface it again Wednesday.",
-    ticker_after_approval: 'Pastoral check-in sent to the Sullivans',
-  },
-  {
-    id: 'q-maddux',
-    role: 'guest_followup',
-    icon: 'qa_assistant',
-    badge: 'Guest Follow-Up',
-    badgeClass: 'bg-success/15 text-success',
-    title: 'Welcome card — Maddux Family',
-    recipient: '4th visit Sunday · daughter loves the kids program',
-    preview: '"The Maddux Family, thanks so much for joining us again Sunday. Lila told her teacher she can\'t wait to come back, which made everyone\'s day. If you\'re open to it, we\'d love to chat about Newcomers Lunch next month, no pressure either way. — Pastor"',
-    approved_response: 'Sent. The Madduxes are now in the day-7 nudge sequence. If no reply by then I\'ll draft another soft touch.',
-    ticker_after_approval: 'Welcome card sent to the Maddux Family',
   },
   {
     id: 'q-hawthorne',
@@ -137,21 +138,27 @@ const queueItems: ApprovalQueueItem[] = [
 ]
 
 // ── Live-updating activity feed ────────────────────────────────────────
+// Mix the two headline products (Welcome + Drift Watch) into the seed
+// + pool so a pastor watching the stream sees those firing, not just
+// supporting roles.
 const liveSeed: LiveEvent[] = [
-  seedEvent(11 * 60,  'email_marketing', 'Riley opened your welcome text', 'communications'),
-  seedEvent(22 * 60,  'check-circle',    'Card #4 mailed for the Hawthorne family', 'communications'),
-  seedEvent(47 * 60,  'front_desk',      'Connect form submitted — Kennedy Park', 'front_desk'),
-  seedEvent(95 * 60,  'review_engine',   'Baptism testimony captured — Marcus L.', 'stories'),
+  seedEvent(8 * 60,   'alert-triangle',  'Whitaker household crossed 4-week threshold · check-in drafted', 'drift_detection'),
+  seedEvent(11 * 60,  'qa_assistant',    'Riley opened your Welcome text',                                 'guest_followup'),
+  seedEvent(22 * 60,  'check-circle',    'Card #4 mailed for the Hawthorne family',                       'communications'),
+  seedEvent(47 * 60,  'front_desk',      'Connect form submitted — Kennedy Park',                         'front_desk'),
+  seedEvent(95 * 60,  'review_engine',   'Baptism testimony captured — Marcus L.',                        'stories'),
 ]
 const livePool: PoolEvent[] = [
-  { icon: 'email_marketing', text: 'Newsletter open: 38% (847 recipients)',                role: 'communications' },
-  { icon: 'qa_assistant',    text: 'Connect card submitted — first-time visitor',          role: 'guest_followup' },
-  { icon: 'calendar',        text: 'Sunday volunteer slot auto-confirmed (Parking)',       role: 'volunteer_coord' },
-  { icon: 'check-circle',    text: 'Birthday card queued for next Monday print run',       role: 'communications' },
-  { icon: 'qa_assistant',    text: 'New small group inquiry — replied with the directory', role: 'guest_followup' },
-  { icon: 'reactivation',    text: '"We missed you" SMS opened by the Reyes Family',       role: 'reengagement' },
-  { icon: 'email_marketing', text: 'Auto-drafted Sunday recap for review',                 role: 'communications' },
-  { icon: 'calendar',        text: 'Volunteer fill confirmed — Mia Pham accepted',         role: 'volunteer_coord' },
+  { icon: 'qa_assistant',    text: 'Welcome card drafted — first-time visitor from Sunday',                role: 'guest_followup' },
+  { icon: 'alert-triangle',  text: 'Castellano household flagged · pastoral check-in drafted',             role: 'drift_detection' },
+  { icon: 'email_marketing', text: 'Newsletter open: 38% (847 recipients)',                                role: 'communications' },
+  { icon: 'qa_assistant',    text: 'Welcome day-3 nudge approved + sent to the Boucher family',            role: 'guest_followup' },
+  { icon: 'calendar',        text: 'Sunday volunteer slot auto-confirmed (Parking)',                       role: 'volunteer_coord' },
+  { icon: 'check-circle',    text: 'Birthday card queued for next Monday print run',                       role: 'communications' },
+  { icon: 'alert-triangle',  text: 'Reyes Family · Drift Watch flag cleared (returned Sunday)',            role: 'drift_detection' },
+  { icon: 'reactivation',    text: '"We missed you" SMS opened by the Reyes Family',                       role: 'reengagement' },
+  { icon: 'email_marketing', text: 'Auto-drafted Sunday recap for review',                                  role: 'communications' },
+  { icon: 'calendar',        text: 'Volunteer fill confirmed — Mia Pham accepted',                         role: 'volunteer_coord' },
 ]
 
 const { events: liveEvents, fmtAgo: fmtLiveAgo, pushEvent } = useLiveActivity({
@@ -183,9 +190,15 @@ onBeforeUnmount(() => {
 <template>
   <div class="space-y-4">
     <!-- ── 1. Grace at Work hub — value-prop hero ─────────────────── -->
+    <!-- headlineRoleKeys promotes Welcome + Drift Watch to a 2-col hero
+         strip at the top of the role grid. Mirrors the deck slide 6
+         layout + the landing page module hierarchy: two headline jobs
+         get equal heavy treatment, eight supporting roles render at
+         standard size below. -->
     <AdaAtWorkHub
       :roles="graceRoles"
       assistant-name="Grace"
+      :headline-role-keys="['guest_followup', 'drift_detection']"
       @role-click="onRoleClick"
     />
 

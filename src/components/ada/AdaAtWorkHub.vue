@@ -37,6 +37,13 @@ const props = defineProps<{
    *  THE killer role for this vertical." Pass the role.key string,
    *  e.g., 'quote_followup' for bath/kitchen remodelers. */
   killerRoleKey?: string
+  /** Optional 2+ role keys to promote to hero cards at the top of the
+   *  grid (50% width each), with the remaining roles rendered in the
+   *  standard 3-col supporting grid below. Use for verticals that have
+   *  TWO equal headline products (e.g., Welcome + Drift Watch for
+   *  churches). When set, this takes precedence over killerRoleKey
+   *  styling for the matching roles. */
+  headlineRoleKeys?: string[]
 }>()
 
 const assistantName = computed(() => props.assistantName ?? 'Ada')
@@ -44,6 +51,22 @@ const assistantName = computed(() => props.assistantName ?? 'Ada')
 const emit = defineEmits<{ 'role-click': [role: AdaRole] }>()
 
 const activeRoles = computed(() => props.roles.filter((r) => r.status === 'active'))
+
+// Split roles into headline + supporting when headlineRoleKeys is set.
+// Headline roles render in a 2-col hero strip at the top; supporting
+// roles render in the standard 3-col grid below. Preserves the input
+// ordering within each group.
+const headlineRoles = computed(() => {
+  if (!props.headlineRoleKeys || props.headlineRoleKeys.length === 0) return []
+  const set = new Set(props.headlineRoleKeys)
+  return props.roles.filter((r) => set.has(r.key))
+})
+const supportingRoles = computed(() => {
+  if (!props.headlineRoleKeys || props.headlineRoleKeys.length === 0) return props.roles
+  const set = new Set(props.headlineRoleKeys)
+  return props.roles.filter((r) => !set.has(r.key))
+})
+const useHeadlineLayout = computed(() => headlineRoles.value.length > 0)
 
 // Hours-saved is the ROI translation a buyer uses to decide "is this
 // worth it?" — but on its own it reads as fabricated marketing math.
@@ -190,12 +213,60 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- Headline strip (when headlineRoleKeys is set): two hero cards
+         at 50% width each, visually heavier than the supporting roles
+         below. Used for verticals with two equal headline products
+         (e.g., Welcome + Drift Watch for churches). -->
+    <div
+      v-if="useHeadlineLayout"
+      class="mb-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+    >
+      <button
+        v-for="(role, i) in headlineRoles"
+        :key="role.key"
+        type="button"
+        class="role-tile-enter text-left rounded-card border-2 border-brand bg-brand/[0.04] p-5 hover:bg-brand/[0.08] hover:shadow-sm transition-[background-color,box-shadow,transform] duration-200 ease-out-quart focus:outline-none focus:ring-2 focus:ring-brand/40 active:scale-[0.99]"
+        :style="{ animationDelay: `${i * 30}ms` }"
+        @click="emit('role-click', role)"
+      >
+        <div class="mb-2.5 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Headline role</span>
+          </div>
+        </div>
+        <div class="mb-2 flex items-baseline gap-2">
+          <AdaIcon :name="role.icon" class="h-5 w-5 text-brand flex-shrink-0" />
+          <span class="font-bold text-ink text-lg">{{ role.name }}</span>
+        </div>
+        <template v-if="role.business_outcome_headline">
+          <div class="text-3xl font-bold text-brand tabular-nums leading-none">
+            {{ role.business_outcome_headline }}
+          </div>
+          <div class="text-[11px] uppercase tracking-wide text-ink-muted mt-1">
+            {{ role.business_outcome_label ?? 'this week' }}
+          </div>
+        </template>
+        <template v-else>
+          <div class="text-3xl font-bold text-brand tabular-nums leading-none">
+            {{ fmtTimeSaved(minutesForRole(role)) }}
+          </div>
+          <div class="text-[11px] uppercase tracking-wide text-ink-muted mt-1">
+            saved this week
+          </div>
+        </template>
+        <div class="text-xs text-ink-muted leading-snug mt-3">
+          {{ role.this_week_snippet }}
+        </div>
+      </button>
+    </div>
+
     <!-- Role grid. Killer role (when killerRoleKey is provided) spans
          2 columns on lg+ so the visually-prominent slot matches its
-         business-priority role for the vertical. -->
+         business-priority role for the vertical. When useHeadlineLayout
+         is true, this grid only renders the supporting roles. -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
       <button
-        v-for="(role, i) in roles"
+        v-for="(role, i) in supportingRoles"
         :key="role.key"
         type="button"
         class="role-tile-enter text-left rounded-card border bg-surface-raised p-3.5 hover:bg-brand/5 hover:shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out-quart focus:outline-none focus:ring-2 focus:ring-brand/40 active:scale-[0.98]"
