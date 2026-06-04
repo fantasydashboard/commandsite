@@ -10,6 +10,7 @@ import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import AdaIcon from '@/components/ada/AdaIcon.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -30,6 +31,7 @@ const recentVisitorTouches: VisitorTouch[] = [
   { name: 'Riley Boucher',     stage: 'First-time',     latest: 'Welcome SMS sent — opened in 11 min',           ago: '2h' },
   { name: 'Kennedy Park',      stage: 'Returning',      latest: 'Day-3 nudge: "What did you think of Sunday?"',   ago: '1d' },
   { name: 'The Maddux Family', stage: 'Connected',      latest: 'Discover Cornerstone class invite drafted',      ago: '3d' },
+  { name: 'The Brooks Family', stage: 'Discover Class', latest: 'Week-2 reminder queued for Saturday',            ago: '4d' },
   { name: 'The Yates Family',  stage: 'First-time',     latest: 'Welcome SMS sent — no response yet',             ago: '4d' },
   { name: 'The Reyes Family',  stage: 'Returning',      latest: '"We missed you" check-in sent (4-mo gap)',       ago: '5d' },
 ]
@@ -54,18 +56,33 @@ function storyStatusClass(s: Story['status']): string {
 }
 
 // ── Approval queue: visitor sequences + story drafts ──────────────────
+// Ordered to lead with Welcome items (the page's headline product),
+// then Story Engine items, mirroring the Today page's "headline
+// products first" approval pattern.
 const queueItems: ApprovalQueueItem[] = [
   {
     id: 'fd-yates-nudge',
     role: 'guest_followup',
     icon: 'qa_assistant',
-    badge: 'Guest Follow-Up',
+    badge: 'Welcome',
     badgeClass: 'bg-warn/15 text-warn',
     title: 'Day-7 nudge — The Yates Family',
     recipient: 'First-time visitor · welcome SMS sent · no response after 4 days',
     preview: '"Hey Yates Family — just wanted to circle back from last week. No pressure to reply, but if you\'re thinking about coming back this Sunday, we\'d love to see you again. Happy to answer anything about kids ministry or small groups whenever. — Pastor Mark"',
     approved_response: "Sent. If they don't respond by next Sunday I'll move them from 'first-time' to 'cooled' so we don't keep nudging. They opened the welcome SMS though, so I'm cautiously optimistic.",
     ticker_after_approval: 'Day-7 nudge sent to the Yates Family',
+  },
+  {
+    id: 'fd-kennedy-day3',
+    role: 'guest_followup',
+    icon: 'qa_assistant',
+    badge: 'Welcome',
+    badgeClass: 'bg-success/15 text-success',
+    title: 'Day-3 nudge — Kennedy Park',
+    recipient: '2nd visit Sunday · filled out connect card',
+    preview: '"Hey Kennedy — wanted to follow up after Sunday and just say it was great having you with us again. Saw the connect card — thanks for that. If you\'re open to it, our Newcomers Lunch is May 19th — informal, no commitment. Otherwise: looking forward to seeing you again whenever feels right. — Pastor Mark"',
+    approved_response: "Sent. Kennedy's a soft pipeline lead — I'll watch for an RSVP or a reply, and surface either to you within minutes.",
+    ticker_after_approval: 'Day-3 nudge sent to Kennedy Park',
   },
   {
     id: 'fd-tellez-story',
@@ -90,18 +107,6 @@ const queueItems: ApprovalQueueItem[] = [
     preview: '"Marc and Hannah — would you be open to us sharing the news of Baby Ellison\'s arrival on socials + in this Sunday\'s announcement? Totally optional, no pressure either way. If yes, I\'ll draft something simple for your approval first. — Pastor Mark (via Grace)"',
     approved_response: "Sent. Asking for permission first is the right move with births — I'll surface their reply the moment it lands and only THEN draft the announcement.",
     ticker_after_approval: 'Permission ask sent to the Ellisons',
-  },
-  {
-    id: 'fd-kennedy-day3',
-    role: 'guest_followup',
-    icon: 'qa_assistant',
-    badge: 'Guest Follow-Up',
-    badgeClass: 'bg-success/15 text-success',
-    title: 'Day-3 nudge — Kennedy Park',
-    recipient: '2nd visit Sunday · filled out connect card',
-    preview: '"Hey Kennedy — wanted to follow up after Sunday and just say it was great having you with us again. Saw the connect card — thanks for that. If you\'re open to it, our Newcomers Lunch is May 19th — informal, no commitment. Otherwise: looking forward to seeing you again whenever feels right. — Pastor Mark"',
-    approved_response: "Sent. Kennedy's a soft pipeline lead — I'll watch for an RSVP or a reply, and surface either to you within minutes.",
-    ticker_after_approval: 'Day-3 nudge sent to Kennedy Park',
   },
 ]
 
@@ -141,6 +146,25 @@ const pageRoles = rolesOnTab('front-desk-guests')
       :roles="pageRoles"
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
+
+    <!-- Welcome hero block: this is the page's headline product, treated
+         the same way the Today page treats Welcome in its role grid. -->
+    <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
+      <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
+      <div class="flex items-baseline gap-2 mb-3">
+        <AdaIcon name="qa_assistant" class="h-5 w-5 text-brand" />
+        <span class="font-bold text-ink text-lg">Welcome</span>
+      </div>
+      <div class="flex flex-wrap items-end gap-x-8 gap-y-3 justify-between">
+        <div>
+          <div class="text-3xl font-bold text-brand tabular-nums leading-none">8 first-time families</div>
+          <div class="text-xs uppercase tracking-wide text-ink-muted mt-1.5">welcomed this week · 42% connected · 0 of last 30 crossed Drift Watch threshold</div>
+        </div>
+        <div class="text-xs text-ink-muted max-w-md">
+          <span class="font-semibold text-ink">Latest:</span> Riley Boucher opened her welcome SMS · 11 min after send
+        </div>
+      </div>
+    </section>
 
     <GraceApprovalQueue
       :items="queueItems"

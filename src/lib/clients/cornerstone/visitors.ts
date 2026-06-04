@@ -208,6 +208,26 @@ export const visitors: VisitorRecord[] = [
     },
     note: 'Did 2 visits, then ghosted. Worth one warm low-pressure ping before letting it go.',
   },
+  // In Discover Cornerstone — week 2 of 4
+  {
+    id: 'v-008',
+    household_id: 'h-mc-001',
+    primary_contact_name: 'The Brooks Family',
+    email: 'matt.brooks@gmail.com',
+    phone: '(407) 555-2189',
+    first_visit_at: ago(72),
+    last_visit_at: ago(2),
+    total_visits: 9,
+    stage: 'membership_class',
+    source: 'invited_by_member',
+    next_action: {
+      label: 'Discover Cornerstone week 2 reminder — fires Saturday',
+      channel: 'sms',
+      draft: `Matt + Lindsay — looking forward to seeing you tomorrow for week 2 of Discover Cornerstone at 10:30 in the upper room. Coffee + breakfast on us. Any questions before then, text back. — Pastor Mark`,
+      scheduled_at: inDays(3, 10),
+    },
+    note: 'Brought by the Téllez Family back in March. Came to Newcomers Lunch in April. Started Discover Cornerstone two weeks ago, finishes May 19.',
+  },
   // Connected — came to community service event
   {
     id: 'v-007',
