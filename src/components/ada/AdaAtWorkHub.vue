@@ -68,6 +68,20 @@ const supportingRoles = computed(() => {
 })
 const useHeadlineLayout = computed(() => headlineRoles.value.length > 0)
 
+// When headline roles are set, build a "headline products this week"
+// line for the hero stat that names each one by its product name +
+// its business outcome. Falls back to time-saved fmt when the role
+// has no business_outcome_headline set.
+const headlineProductLine = computed(() => {
+  if (!useHeadlineLayout.value) return ''
+  return headlineRoles.value
+    .map((r) => {
+      const metric = r.business_outcome_headline ?? fmtTimeSaved(minutesForRole(r))
+      return `${r.name} ${metric.toLowerCase()}`
+    })
+    .join(' · ')
+})
+
 // Hours-saved is the ROI translation a buyer uses to decide "is this
 // worth it?" — but on its own it reads as fabricated marketing math.
 // Anchor it to the underlying actions count (observable + verifiable)
@@ -202,6 +216,12 @@ onBeforeUnmount(() => {
         <div class="text-xs uppercase tracking-wide opacity-80 mt-1.5 tabular-nums">
           across {{ totalActions }} actions {{ assistantName }} handled{{ ownerName ? ` for ${ownerName}` : '' }} this week
         </div>
+        <div
+          v-if="headlineProductLine"
+          class="text-xs opacity-90 mt-1.5 font-medium"
+        >
+          {{ headlineProductLine }}
+        </div>
       </div>
       <div class="text-right">
         <div class="text-lg font-semibold leading-tight tabular-nums">
@@ -263,8 +283,13 @@ onBeforeUnmount(() => {
     <!-- Role grid. Killer role (when killerRoleKey is provided) spans
          2 columns on lg+ so the visually-prominent slot matches its
          business-priority role for the vertical. When useHeadlineLayout
-         is true, this grid only renders the supporting roles. -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+         is true, this grid renders only the supporting roles AND uses
+         a 4-col layout so 8 supporting roles fit perfectly (4+4)
+         without a trailing empty slot. -->
+    <div
+      class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+      :class="useHeadlineLayout ? 'lg:grid-cols-4' : 'lg:grid-cols-3'"
+    >
       <button
         v-for="(role, i) in supportingRoles"
         :key="role.key"

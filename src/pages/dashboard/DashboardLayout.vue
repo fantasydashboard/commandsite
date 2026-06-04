@@ -384,9 +384,9 @@ async function onLogout() {
       <template v-else>
         <header
           v-if="!suppressLayoutHeader"
-          class="mb-6 flex items-baseline justify-between gap-3 border-b border-divider pb-4"
+          class="mb-4 flex items-baseline justify-between gap-3"
         >
-          <h1 class="text-2xl font-semibold text-ink tracking-tight">
+          <h1 class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
             <template v-if="isDemoMode">{{ demoCompany }}</template>
             <template v-else>{{ client.name }}</template>
           </h1>
