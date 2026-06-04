@@ -209,8 +209,8 @@ const pageRoles = rolesOnTab('front-desk-guests')
     <section id="guest_followup" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Guest Follow-Up · Pipeline</span>
-          <span class="text-xs text-ink-muted">Grace's sequences, by stage</span>
+          <span class="eyebrow">Welcome · Pipeline</span>
+          <span class="text-xs text-ink-muted">Grace's first-time visitor follow-up, by stage</span>
         </div>
       </div>
 

@@ -45,12 +45,12 @@ onUnmounted(() => {
 interface Pain { headline: string; detail: string }
 const pains: Pain[] = [
   {
-    headline: 'A first-time family visits Sunday and leaves a connect card.',
-    detail: 'By Friday they\'ve heard nothing. By next Sunday, they\'re checking out the bigger church across town that texted them the same afternoon.',
+    headline: '8 out of 10 first-time families never come back for a second Sunday.',
+    detail: 'Most would have, if anyone had reached out within 24 hours. By Friday they\'ve heard nothing. By next Sunday, they\'re at the bigger church across town that texted them the same afternoon.',
   },
   {
     headline: 'A member hasn\'t been in 8 weeks.',
-    detail: 'Nobody noticed. Nobody texted. The drift was preventable — but invisible.',
+    detail: 'Nobody noticed. Nobody texted. The drift was preventable, just invisible. Most would have stayed if someone had reached out by week 3.',
   },
   {
     headline: 'A prayer request sits in your contact form for five days.',
@@ -62,8 +62,26 @@ const pains: Pain[] = [
   },
 ]
 
-interface Module { icon: string; title: string; tagline: string; detail: string }
+interface Module { icon: string; title: string; productName?: string; tagline: string; detail: string }
+// Welcome and Drift Watch are the two headline products (mirrors the
+// deck slide 6 layout). Other modules are supporting jobs. The lead
+// module (modules[0]) renders the connect-card example, which maps
+// directly to Welcome.
 const modules: Module[] = [
+  {
+    icon: 'qa_assistant',
+    title: 'Welcome',
+    productName: 'Headline role',
+    tagline: 'Every first-timer, within 24 hours.',
+    detail: 'Drafts a personal text or email in your pastor\'s voice within 2 hours of a Sunday visit. Day 3, 7, 14, 30. Gentle, mission-aligned next-step invitations. Always personal, never spammy. 24-hour follow-up lifts second-Sunday return from 20% to 85%.',
+  },
+  {
+    icon: 'referral_hunter',
+    title: 'Drift Watch',
+    productName: 'Headline role',
+    tagline: 'The quiet leavers, surfaced before they\'re gone.',
+    detail: 'Members who haven\'t attended in 4-8 weeks get flagged on your pastor\'s Monday list. Grace drafts a "we miss you, can we pray for anything?" outreach in your voice. Pastors who reach out by week 3 retain 60%+ of drifters. After week 6, retention drops under 20%.',
+  },
   {
     icon: 'phone-off',
     title: 'Grace at the front desk',
@@ -71,22 +89,10 @@ const modules: Module[] = [
     detail: 'Trained on your ministries, service times, and team. Routes pastoral emergencies straight to your cell, captures first-time visitor info, handles general questions warmly, 24/7. Sounds like a thoughtful volunteer, not a chatbot.',
   },
   {
-    icon: 'qa_assistant',
-    title: 'Grace welcomes every first-timer',
-    tagline: 'Within hours, not weeks.',
-    detail: 'Drafts a personal text or email in your pastor\'s voice within 2 hours of a Sunday visit. Day 3, 7, 14, 30. Gentle, mission-aligned next-step invitations. Always personal, never spammy.',
-  },
-  {
     icon: 'flask',
     title: 'Grace captures the stories',
     tagline: 'The testimonies you never have time to gather.',
     detail: 'After a baptism, a small group milestone, or a notable life moment, Grace asks for the story (with permission) and drafts share-ready quotes for Sunday slides, your website, and social.',
-  },
-  {
-    icon: 'referral_hunter',
-    title: 'Grace notices when someone drifts',
-    tagline: 'Before they\'re gone for good.',
-    detail: 'Members who haven\'t attended in 60-90 days get a personal "we miss you, can we pray for anything?" outreach. Drafts always go through your pastoral team for review. Never fully automated for pastoral care.',
   },
   {
     icon: 'trending-up',
@@ -181,8 +187,8 @@ const faqs: Faq[] = [
             Grace · AI ministry assistant · for churches 50–1,500 weekly
           </div>
           <h1 class="text-4xl font-semibold tracking-tight text-ink sm:text-6xl leading-[1.05]">
-            Every first-time family welcomed.
-            <span class="text-brand">Every drift noticed.</span>
+            Every first-timer welcomed.
+            <span class="text-brand">Every drift caught.</span>
           </h1>
           <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
             <strong class="text-ink font-semibold">CommandSite</strong> builds Grace custom for your church: trained on your ministries, your services, your team's voice. First-time visitors get a personal text within 2 hours. Pastoral check-ins are drafted for your team to review and send. Members who drift past 60 days get noticed before they're gone for good. Your team stays in the relationships. Grace handles the systems work.
@@ -379,15 +385,21 @@ const faqs: Faq[] = [
         What Grace handles
       </div>
       <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-3">
-        Five things Grace handles for your team.
+        Five jobs. One Grace.
       </h2>
       <p class="text-base text-ink-muted max-w-2xl mb-10">
-        Grace handles the systems work. Your pastors and team focus on the people work.
+        Welcome and Drift Watch are the two headline jobs. Both pay for Grace on their own. Three more compound on top.
       </p>
 
       <!-- Lead module: hero card with a real-feeling first-time-visitor inquiry -->
       <article class="card lg:p-8 flex flex-col lg:flex-row gap-6 lg:gap-10 items-stretch">
         <div class="flex-1 lg:max-w-md flex flex-col justify-center">
+          <div
+            v-if="modules[0].productName"
+            class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-2"
+          >
+            {{ modules[0].productName }}
+          </div>
           <h3 class="text-xl sm:text-2xl font-semibold text-ink leading-tight">
             {{ modules[0].title }}
           </h3>
@@ -419,16 +431,25 @@ const faqs: Faq[] = [
       </article>
 
       <!-- Other 4 modules as icon-left horizontal cards -->
+      <!-- Drift Watch (modules[1]) gets a slightly stronger frame because
+           it's the second headline product. Others stay neutral. -->
       <div class="mt-6 grid gap-4 sm:grid-cols-2">
         <article
           v-for="m in modules.slice(1)"
           :key="m.title"
-          class="rounded-card bg-surface-raised border border-divider p-5 flex items-start gap-4"
+          class="rounded-card bg-surface-raised border p-5 flex items-start gap-4"
+          :class="m.productName ? 'border-brand/30' : 'border-divider'"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand flex-shrink-0">
             <AdaIcon :name="m.icon" class="h-5 w-5" />
           </div>
           <div class="flex-1 min-w-0">
+            <div
+              v-if="m.productName"
+              class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-1"
+            >
+              {{ m.productName }}
+            </div>
             <h3 class="text-base font-semibold text-ink leading-snug">{{ m.title }}</h3>
             <p class="text-xs font-medium text-brand mt-0.5">{{ m.tagline }}</p>
             <p class="mt-2 text-sm text-ink-muted leading-relaxed">{{ m.detail }}</p>

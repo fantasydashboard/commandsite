@@ -224,7 +224,7 @@ const pageRoles = rolesOnTab('care-drift')
     <section id="drift_detection" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Drift Detection · Household directory</span>
+          <span class="eyebrow">Drift Watch · Household directory</span>
           <span class="text-xs text-ink-muted">three-flag system, sorted by risk</span>
         </div>
       </div>
