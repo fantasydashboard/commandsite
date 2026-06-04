@@ -104,7 +104,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; grace: string }
 const compare: CompareRow[] = [
-  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: '$400 to $1,300/mo. Founding-cohort rate locked through 2027.' },
+  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'Sized to your church. Founding-cohort rate locked through 2027.' },
   { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7. Answers calls Sunday morning, Wednesday night, anytime' },
   { dimension: 'Visitor follow-up',     hire: 'When she has time',           grace: 'Every first-timer within 2 hours, every time' },
   { dimension: 'Dormant member alerts', hire: 'Catches the obvious ones',    grace: 'Notices everyone who drifts past 60 days' },
@@ -162,8 +162,8 @@ const faqs: Faq[] = [
         <nav class="flex items-center gap-4 sm:gap-6">
           <RouterLink
             to="/"
-            class="text-sm font-medium text-ink-inverse/80 hover:text-ink-inverse transition-colors hidden sm:inline"
-          >For service businesses</RouterLink>
+            class="text-[11px] font-medium text-ink-inverse/55 hover:text-ink-inverse/85 transition-colors hidden sm:inline"
+          >Also for service businesses →</RouterLink>
           <RouterLink
             to="/login"
             class="text-sm font-medium text-ink-inverse hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
@@ -191,7 +191,7 @@ const faqs: Faq[] = [
             <span class="text-brand">Every drift caught.</span>
           </h1>
           <p class="mt-6 max-w-2xl text-lg text-ink-muted leading-relaxed">
-            <strong class="text-ink font-semibold">CommandSite</strong> builds Grace custom for your church: trained on your ministries, your services, your team's voice. First-time visitors get a personal text within 2 hours. Pastoral check-ins are drafted for your team to review and send. Members who drift past 60 days get noticed before they're gone for good. Your team stays in the relationships. Grace handles the systems work.
+            <strong class="text-ink font-semibold">Welcome</strong> drafts first-time follow-up within 24 hours. <strong class="text-ink font-semibold">Drift Watch</strong> flags members starting to fade before they're gone. Trained on your ministries and your team's voice. You approve, she sends.
           </p>
           <p class="mt-3 text-sm text-ink-muted">
             <strong class="text-ink font-medium">Works with</strong> Planning Center, Tithe.ly, MailChimp, and Twilio. Plugs into your existing stack instead of replacing it.
@@ -636,9 +636,9 @@ const faqs: Faq[] = [
             <p class="text-sm text-ink-muted">Founder, CommandSite</p>
             <hr class="my-4 border-divider max-w-[160px]" />
             <ul class="space-y-2 text-xs text-ink-muted leading-relaxed">
-              <li>Nearly 20 years serving in church ministry</li>
-              <li>Sat with dozens of pastors and admins</li>
-              <li>Runs every discovery call himself</li>
+              <li>Nearly 20 years in church ministry</li>
+              <li>Dozens of pastor + admin conversations behind this build</li>
+              <li>Hand-runs every discovery call + founding-cohort onboarding</li>
             </ul>
           </aside>
         </div>
