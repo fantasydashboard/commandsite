@@ -106,7 +106,7 @@ Use this when the lead's company_name contains the person's first name (e.g., "A
 
 > Hey Armando,
 >
-> I read a Google review of Gonzalez Remodeling where someone called you out by name for "same-day answers." That's what I'm always looking for in a contractor.
+> I read a Google review of Gonzalez Remodeling where someone said you came out personally to walk the job the day after they called.
 >
 > If I could take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
 >
@@ -185,11 +185,36 @@ Open with "Hey," (no addressee). Lead the evidence paragraph with the exact shap
 
 If you don't have a clean verbatim quote, use a slightly looser variant: "I read a Google review of [Company] where someone said your [thing] [paraphrase without quote marks]." But the verbatim shape is preferred when the data supports it.
 
-Then close the evidence paragraph with the bath/kitchen peer line verbatim:
+Then CONDITIONALLY close the evidence paragraph with the bath/kitchen peer line:
 
 "That's what I'm always looking for in a contractor."
 
-Why this shape works: "I read" is more active than "I noticed". "Google review" names the source concretely. The verbatim quote in straight quotes proves you actually read it. The peer line positions Josh as someone who VALUES that quality (a peer or potential customer) rather than a vendor pitching them. Without it, the email reads as a generic compliment. With it, it reads as a real human reaching out.
+## When to include the peer line vs. skip it
+
+The peer line exists to HUMANIZE abstract praise. Use it when the evidence is a quality adjective the reader can't act on alone. Skip it when the evidence is a concrete owner-behavior observation that already speaks for itself.
+
+INCLUDE the peer line when the evidence is a QUALITY / OUTCOME adjective:
+- "truly high-end finishes"
+- "above and beyond"
+- "best work in the neighborhood"
+- "clean job site"
+- "transparent pricing"
+- "no surprises on the invoice"
+
+These are evaluative compliments. Without the peer line they sit flat. With it, Josh is signaling "I share that opinion, that's why I'm reaching out."
+
+SKIP the peer line when the evidence is an OWNER-BEHAVIOR observation:
+- "came out personally to quote 23 windows on a Saturday"
+- "answered the phone Sunday morning"
+- "drove out same-day to walk the job"
+- "called back within an hour"
+- "showed up the day after I requested an estimate"
+
+These describe what the owner DID. The action already carries the implicit "and that's impressive." Adding "that's what I'm always looking for in a contractor" reads as restating the obvious and dilutes the punch of the specific action. Go straight from the behavioral evidence to the conditional offer.
+
+Rule of thumb: if the evidence sentence already contains a behavior verb (came out, answered, drove, called back, showed up) that demonstrates the value, skip the peer line. If the evidence is an adjective or noun phrase describing how the work TURNED OUT, include the peer line.
+
+Why this shape works: "I read" is more active than "I noticed". "Google review" names the source concretely. The verbatim quote in straight quotes proves you actually read it. The peer line, when appropriate, positions Josh as someone who VALUES that quality (a peer or potential customer) rather than a vendor pitching them.
 
 NEVER lead this branch with "I noticed a recent review praising your team for..." — "praising" is editorial framing, and "team for X, Y, and Z" stacks attributes into fluff. The reader can't unfeel the templated tone once they've read those words.
 
@@ -456,7 +481,7 @@ const TOOLS = [
         },
         body: {
           type: 'string',
-          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 75 words; target 55-70. PS is fixed phrasing, not counted. Total 80-95 words. BATH/KITCHEN STRUCTURE picks one of three branches based on evidence Ada surfaced: BRANCH A (named owner: company_name contains the person\'s first name, or contact_name is set) → "Hey [Firstname]," + named verbatim review excerpt; BRANCH B (generic positive themes only, no named person) → "Hey," + the evidence shape "I read a Google review of [Company] where someone called your [thing] \'[2-5 word verbatim quote]\'." + the verbatim bath/kitchen peer line "That\'s what I\'m always looking for in a contractor." closing the evidence paragraph. NEVER use editorial verbs like "praising", "highlighting", "raving about". NEVER stack multiple attributes ("X, Y, and Z") — one verbatim quote only; BRANCH C (no usable specific, set personalization_quality=none) → "Hey, looking for whoever runs quotes and follow-up at [Company]." + soft industry observation. ALL BRANCHES then continue identically: (3) Conditional offer "If I could [industry pain template], would 15 minutes be worth it to see what I built?" (4) Cost anchor "Costs a fraction of what an office hire would." (5) Signoff "Josh" on its own line, no leading dash. End with REQUIRED PS verbatim: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER infer the recipient\'s role from the evidence ("I saw X" is fine, "That tells me you personally handle Y" is banned). NEVER use the name "Ada" in the body. NO em dashes anywhere. Use commas, periods, or parens instead.',
+          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 75 words; target 55-70. PS is fixed phrasing, not counted. Total 80-95 words. BATH/KITCHEN STRUCTURE picks one of three branches based on evidence Ada surfaced: BRANCH A (named owner: company_name contains the person\'s first name, or contact_name is set) → "Hey [Firstname]," + named verbatim review excerpt; BRANCH B (generic positive themes only, no named person) → "Hey," + the evidence shape "I read a Google review of [Company] where someone called your [thing] \'[2-5 word verbatim quote]\'." then CONDITIONALLY close with the peer line "That\'s what I\'m always looking for in a contractor." INCLUDE the peer line when the evidence is a quality/outcome adjective (truly high-end, above and beyond, clean job site). SKIP the peer line when the evidence is an owner-behavior observation (came out personally, answered Sunday, drove out same-day) — the action already speaks for itself, peer line becomes restating the obvious. NEVER use editorial verbs like "praising", "highlighting", "raving about". NEVER stack multiple attributes ("X, Y, and Z") — one verbatim quote only; BRANCH C (no usable specific, set personalization_quality=none) → "Hey, looking for whoever runs quotes and follow-up at [Company]." + soft industry observation. ALL BRANCHES then continue identically: (3) Conditional offer "If I could [industry pain template], would 15 minutes be worth it to see what I built?" (4) Cost anchor "Costs a fraction of what an office hire would." (5) Signoff "Josh" on its own line, no leading dash. End with REQUIRED PS verbatim: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER infer the recipient\'s role from the evidence ("I saw X" is fine, "That tells me you personally handle Y" is banned). NEVER use the name "Ada" in the body. NO em dashes anywhere. Use commas, periods, or parens instead.',
         },
         rationale: {
           type: 'string',
