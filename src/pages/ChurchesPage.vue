@@ -196,16 +196,13 @@ const faqs: Faq[] = [
           <p class="mt-3 text-sm text-ink-muted">
             <strong class="text-ink font-medium">Works with</strong> Planning Center, Tithe.ly, MailChimp, and Twilio. Plugs into your existing stack instead of replacing it.
           </p>
-          <p class="mt-3 text-sm text-ink-muted italic">
-            (Named "Grace" because grace is what every church needs more of, quietly.)
-          </p>
           <div class="mt-10 flex flex-wrap gap-3">
             <a :href="CTA_URL" class="btn-primary">
               {{ CTA_LABEL }} →
             </a>
-            <a href="#how-it-works" class="btn-secondary">
-              See how it works
-            </a>
+            <RouterLink to="/dashboard/cornerstone-community-church" class="btn-secondary">
+              Tour the demo
+            </RouterLink>
           </div>
         </div>
 
@@ -363,9 +360,20 @@ const faqs: Faq[] = [
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-10 max-w-3xl">
           If this happens at your church, keep reading.
         </h2>
-        <div class="grid gap-4 sm:grid-cols-2">
+
+        <!-- Headline pain: the 8-out-of-10 stat. Full-width, brand-accented,
+             larger headline. This is the entire pitch for Welcome — treating
+             it as one of four equal cards squanders the math. -->
+        <div class="rounded-card border border-brand/30 bg-brand/5 p-6 sm:p-8 relative overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-[3px] bg-brand" aria-hidden="true"></div>
+          <p class="text-xl sm:text-2xl font-semibold text-ink leading-snug max-w-2xl">{{ pains[0].headline }}</p>
+          <p class="mt-3 text-sm sm:text-base text-ink-muted leading-relaxed max-w-2xl">{{ pains[0].detail }}</p>
+        </div>
+
+        <!-- Supporting pains: 3-column row below the headline pain. -->
+        <div class="mt-4 grid gap-4 sm:grid-cols-3">
           <div
-            v-for="(p, i) in pains"
+            v-for="(p, i) in pains.slice(1)"
             :key="i"
             class="rounded-card border border-divider bg-surface-raised p-5"
           >
@@ -522,13 +530,13 @@ const faqs: Faq[] = [
     <section class="py-16 sm:py-20">
       <div class="mx-auto max-w-3xl px-4 sm:px-8">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand mb-4">
-          On the AI question
+          How Grace stays pastoral
         </div>
         <h2 class="text-2xl sm:text-3xl font-semibold text-ink mb-4">
-          Some pastors hear "AI" and stop listening. We get it.
+          How Grace stays pastoral. (And what we won't let her do.)
         </h2>
         <p class="text-base text-ink-muted leading-relaxed mb-6">
-          Grace isn't a chatbot pretending to be human. She's a ministry assistant who handles the parts of church admin that are already broken or missed entirely.
+          Grace isn't a chatbot pretending to be human. She's a ministry assistant who handles the parts of church admin that are already broken or missed entirely. Three lines we draw on purpose:
         </p>
         <ul class="space-y-4 text-sm text-ink leading-relaxed">
           <li class="flex items-start gap-3">
