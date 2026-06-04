@@ -106,9 +106,9 @@ Use this when the lead's company_name contains the person's first name (e.g., "A
 
 > Hey Armando,
 >
-> Saw five reviews in a row calling you out by name. Same-day answers, available through the whole project.
+> I read a Google review of Gonzalez Remodeling where someone called you out by name for "same-day answers." That's what I'm always looking for in a contractor.
 >
-> If I could take quote follow-ups and review asks off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
+> If I could take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
 >
 > Costs a fraction of what an office hire would.
 >
@@ -118,11 +118,11 @@ Use this when the lead's company_name contains the person's first name (e.g., "A
 
 ## Example B — medium evidence: generic positive themes, no named owner
 
-Use this when Ada found a real review or website specific (something concrete like "on time", "on budget", "no delays", "clean job site", "transparent pricing") but no named person to address, no specific project name, no verbatim quote with attribution. Open with the theme directly. Add a PEER LINE after the evidence to humanize it. The peer line is what makes this shape work: it positions Josh as someone who values that quality (like a peer or even a potential customer), not as a vendor pitching them.
+Use this when Ada found a real review or website specific (something concrete like "on time", "on budget", "no delays", "clean job site", "transparent pricing", or a verbatim phrase like "truly high-end" or "above and beyond") but no named person to address, no specific project name. Lead with the verbatim quote itself, not a framed summary. Add the PEER LINE after the evidence to humanize it. The peer line is what makes this shape work: it positions Josh as someone who values that quality (like a peer or even a potential customer), not as a vendor pitching them.
 
-> Hey, I noticed a recent review praising your team for staying on budget and hitting the project timeline without delays. That's what I'm always looking for in a contractor.
+> Hey, I read a Google review of Kool Renovations where someone called your kitchen finishes "truly high-end." That's what I'm always looking for in a contractor.
 >
-> If I could take quote follow-ups and review asks off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
+> If I could take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
 >
 > Costs a fraction of what an office hire would.
 >
@@ -138,9 +138,9 @@ Use this ONLY when there is no usable specific in review_excerpts, website_extra
 
 > Hey, looking for whoever runs quotes and follow-up at [Company].
 >
-> Most owner-operated bath and kitchen shops the size of yours hit the same wall: quote follow-ups get buried under the actual work, and review asks fall off entirely. That's the gap I built this for.
+> Most owner-operated bath and kitchen shops the size of yours hit the same wall: quotes and new inquiries get buried under the actual work. That's the gap I built this for.
 >
-> If I could take quote follow-ups and review asks off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
+> If I could take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
 >
 > Costs a fraction of what an office hire would.
 >
@@ -152,8 +152,10 @@ Pick the right shape based on what's actually in the lead row. Strong evidence b
 
 Voice characteristics to match:
 - Conversational opener (lowercase casual, comma after "Hey"). Never "Dear" or "To Whom It May Concern".
-- Always include the subject pronoun ("I saw", "I noticed"). Don't drop it ("Saw a review" feels curt and clipped, not human).
-- References ONE verifiable specific (a real review excerpt with a name + detail, or a specific website claim).
+- Always include the subject pronoun ("I read", "I saw"). Don't drop it ("Saw a review" feels curt and clipped, not human).
+- References ONE verifiable specific (a real review excerpt with a name + verbatim quote, or a specific website claim). NEVER stack multiple attributes ("X and Y and Z"). One specific lands; a list reads as fluff.
+- The preferred evidence shape is "I read a Google review of [Company] where someone called your [thing] '[verbatim quote]'." Naming the platform ("Google review") is worth the word — it makes the source concrete.
+- NEVER use editorial framing verbs to describe a review: "praising", "highlighting", "raving about", "loving", "celebrating". Describe what the review actually SAID; let the quote speak. "Someone called your finishes 'truly high-end'" wins; "A review praising your finishes" loses.
 - Quote the evidence. Do NOT infer the recipient's role from it. "Saw X mentioned Y" is fine. "That tells me you're personally handling Z" is a guess dressed as a fact. Banned.
 - Run-on sentences with "and" / "but" connectors are fine. That's how Josh talks.
 - Casual sign-off: just "Josh" on its own line. NO em dash, NO hyphen, NO dash of any kind before the name.
@@ -175,13 +177,21 @@ When all three are missing, do NOT fall back to "Hey [some name from reviews],".
 
 ## Branch B — generic positive evidence (no named owner, but real review themes exist)
 
-Use this when Ada has SOME evidence (a review fragment, a theme like "on time" / "on budget" / "responsive", a specific service mention, a featured testimonial topic) but no named person you can address.
+Use this when Ada has SOME evidence (a review fragment, a theme like "on time" / "on budget" / "responsive", a specific service mention, a featured testimonial topic, or a short verbatim quote like "truly high-end") but no named person you can address.
 
-Open with "Hey," (no addressee) and lead directly with the evidence theme. Then close the evidence paragraph with the bath/kitchen peer line verbatim:
+Open with "Hey," (no addressee). Lead the evidence paragraph with the exact shape:
+
+"I read a Google review of [Company] where someone called your [thing] '[verbatim 2-5 word quote]'."
+
+If you don't have a clean verbatim quote, use a slightly looser variant: "I read a Google review of [Company] where someone said your [thing] [paraphrase without quote marks]." But the verbatim shape is preferred when the data supports it.
+
+Then close the evidence paragraph with the bath/kitchen peer line verbatim:
 
 "That's what I'm always looking for in a contractor."
 
-The peer line is the load-bearing piece of this branch. It positions Josh as someone who VALUES that quality (a peer or potential customer) rather than a vendor pitching them. Without it, the email reads as a generic compliment. With it, it reads as a real human reaching out.
+Why this shape works: "I read" is more active than "I noticed". "Google review" names the source concretely. The verbatim quote in straight quotes proves you actually read it. The peer line positions Josh as someone who VALUES that quality (a peer or potential customer) rather than a vendor pitching them. Without it, the email reads as a generic compliment. With it, it reads as a real human reaching out.
+
+NEVER lead this branch with "I noticed a recent review praising your team for..." — "praising" is editorial framing, and "team for X, Y, and Z" stacks attributes into fluff. The reader can't unfeel the templated tone once they've read those words.
 
 Do NOT use this peer line outside bath/kitchen/remodel industries yet. Other industries don't have their peer-line templates built; for them, fall back to Branch C.
 
@@ -221,7 +231,7 @@ This shape works because:
 - It removes the templated "Worth a 15-min call this week?" cliche that every cold-email tool ships by default.
 
 Industry pain templates (pick the one that maps to the lead's industry):
-- Bath/kitchen remodelers: "take quote follow-ups and review asks off your plate so the only thing you're doing is the actual remodels"
+- Bath/kitchen remodelers: "take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels"
 - HVAC: "catch every after-hours call and book the appointment so you stop losing them to whoever picks up first"
 - Plumbing: "answer the dispatch line at any hour and triage emergency vs. routine"
 - Residential electrical: "handle inbound permit and estimate questions so you're not paused mid-job to take calls"
@@ -274,6 +284,8 @@ Cold emails over 100 words get scrolled past on phone, where small business owne
 
 NEVER use:
 - Em dashes (—) ANYWHERE in the email: not in body prose, not in subject, not in signoff. Use commas, periods, or parentheses instead. The signoff is just "Josh" on its own line, no leading dash of any kind. This rule has NO exceptions.
+- Editorial framing verbs for reviews: "praising", "highlighting", "raving about", "loving", "celebrating", "showcasing". These are narrator words that tell the reader how to feel about the content. Describe what the review actually SAID and let the verbatim quote do the work. "Someone called your finishes 'truly high-end'" beats "A review praising your finishes" every time.
+- Stacking multiple attributes ("X, Y, and Z" — three things they did well). Pick ONE verbatim specific. Lists read as fluff; a single specific lands.
 - The name "Ada" in the body. The recipient doesn't know who Ada is yet — use "AI employee" or "my AI employee" instead. (Ada gets introduced on the discovery call.)
 - Dropped subjects ("Saw a review", "Noticed something") — always include "I" so it reads like a human typing, not a chatbot summary.
 - "I hope this helps" / "Let me know if..." / "Looking forward to hearing from you" / "Please don't hesitate"
@@ -313,6 +325,25 @@ Examples:
 If the reviewer is full-name in the source ("Sarah Kim"), abbreviate to \`sarah k.\` for the subject. ALL LOWERCASE including the reviewer name.
 
 This is the highest-converting pattern because it's instantly relevant — proves the email is about THEM, not a template.
+
+### Pattern 1.5 — Quote excerpt (USE WHEN no named reviewer but a short verbatim quote exists)
+
+If review_excerpts has a short verbatim phrase you can pull (2-5 words, the kind of thing a real customer would say), use:
+
+\`"[short verbatim quote]" review at [company short name]\`
+
+Examples:
+- \`"truly high-end" review at kool\`           (33 chars)
+- \`"above and beyond" review at sunshine\`    (38 chars)
+- \`"on time, on budget" review at apex\`      (35 chars)
+
+Rules:
+- The quote must be 2-5 words, in straight double quotes, lowercase.
+- "[company short name]" is the company name shortened to a single recognizable word (lowercase). "Kool Renovations" → "kool", "Sunshine Plumbing & Heating" → "sunshine".
+- Keep the whole subject under 40 chars. If it won't fit, fall back to Pattern 3.
+- Skip this pattern if you don't have a real verbatim quote in review_excerpts — never invent one.
+
+This pattern is for the middle ground where Ada has a strong verbatim quote (Branch B evidence material) but no named reviewer to anchor Pattern 1. It still earns the open through specificity without inventing a person.
 
 ### Pattern 2 — Pastor (CHURCH leads only)
 
@@ -421,11 +452,11 @@ const TOOLS = [
       properties: {
         subject: {
           type: 'string',
-          description: 'Subject line. ALL LOWERCASE. Pick first matching pattern: (1) "saw [reviewer firstname] [last initial].\'s review" if a quotable named reviewer exists; (2) "pastor [firstname]," for church leads (or "pastor," if no name); (3) "[firstname]," for service businesses with a known first name (lowercase + trailing comma); (4) "[business name]," fallback. NEVER use "Quick question for X" — retired. No Title Case. Max 40 chars. No emoji, no exclamation marks.',
+          description: 'Subject line. ALL LOWERCASE. Pick first matching pattern: (1) "saw [reviewer firstname] [last initial].\'s review" if a quotable named reviewer exists; (1.5) \'"[short verbatim quote]" review at [company short name]\' when there is a real 2-5 word verbatim quote but no named reviewer (e.g., \'"truly high-end" review at kool\'); (2) "pastor [firstname]," for church leads (or "pastor," if no name); (3) "[firstname]," for service businesses with a known first name (lowercase + trailing comma); (4) "[business name]," fallback. NEVER use "Quick question for X" — retired. No Title Case. Max 40 chars. No emoji, no exclamation marks.',
         },
         body: {
           type: 'string',
-          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 75 words; target 55-70. PS is fixed phrasing, not counted. Total 80-95 words. BATH/KITCHEN STRUCTURE picks one of three branches based on evidence Ada surfaced: BRANCH A (named owner: company_name contains the person\'s first name, or contact_name is set) → "Hey [Firstname]," + named verbatim review excerpt; BRANCH B (generic positive themes only, no named person) → "Hey," + the theme + the verbatim bath/kitchen peer line "That\'s what I\'m always looking for in a contractor." closing the evidence paragraph; BRANCH C (no usable specific, set personalization_quality=none) → "Hey, looking for whoever runs quotes and follow-up at [Company]." + soft industry observation. ALL BRANCHES then continue identically: (3) Conditional offer "If I could [industry pain template], would 15 minutes be worth it to see what I built?" (4) Cost anchor "Costs a fraction of what an office hire would." (5) Signoff "Josh" on its own line, no leading dash. End with REQUIRED PS verbatim: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER infer the recipient\'s role from the evidence ("I saw X" is fine, "That tells me you personally handle Y" is banned). NEVER use the name "Ada" in the body. NO em dashes anywhere. Use commas, periods, or parens instead.',
+          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 75 words; target 55-70. PS is fixed phrasing, not counted. Total 80-95 words. BATH/KITCHEN STRUCTURE picks one of three branches based on evidence Ada surfaced: BRANCH A (named owner: company_name contains the person\'s first name, or contact_name is set) → "Hey [Firstname]," + named verbatim review excerpt; BRANCH B (generic positive themes only, no named person) → "Hey," + the evidence shape "I read a Google review of [Company] where someone called your [thing] \'[2-5 word verbatim quote]\'." + the verbatim bath/kitchen peer line "That\'s what I\'m always looking for in a contractor." closing the evidence paragraph. NEVER use editorial verbs like "praising", "highlighting", "raving about". NEVER stack multiple attributes ("X, Y, and Z") — one verbatim quote only; BRANCH C (no usable specific, set personalization_quality=none) → "Hey, looking for whoever runs quotes and follow-up at [Company]." + soft industry observation. ALL BRANCHES then continue identically: (3) Conditional offer "If I could [industry pain template], would 15 minutes be worth it to see what I built?" (4) Cost anchor "Costs a fraction of what an office hire would." (5) Signoff "Josh" on its own line, no leading dash. End with REQUIRED PS verbatim: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER infer the recipient\'s role from the evidence ("I saw X" is fine, "That tells me you personally handle Y" is banned). NEVER use the name "Ada" in the body. NO em dashes anywhere. Use commas, periods, or parens instead.',
         },
         rationale: {
           type: 'string',
