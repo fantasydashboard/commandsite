@@ -83,6 +83,38 @@ function base64UrlEncode(s: string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+/** Format a prior send as a Gmail-style quoted block. Each line of the
+ *  prior body is prefixed with "> " (the standard plain-text quote
+ *  prefix). Blank lines also get the "> " so the quote stays
+ *  contiguous in clients that auto-collapse it. The header line
+ *  ("On [date], [from] wrote:") matches what Gmail's own Reply button
+ *  produces, which is what recipients are conditioned to expect.
+ *
+ *  Used for Touch 2 (quotes Touch 1) and Touch 3 (quotes Touch 2) so
+ *  recipients reading the follow-up in isolation still see the prior
+ *  context. Without this, a Touch 2 like "if last week's note made
+ *  any sense..." is incomprehensible to anyone who doesn't remember
+ *  Touch 1, especially on mobile previews where threads don't expand.
+ */
+function formatQuotedReply(currentBody: string, prior: { body: string; sent_at: string; from: string }): string {
+  // Match Gmail's "On Thu, May 30, 2026 at 8:14 AM" weekday+date format.
+  let dateLine: string
+  try {
+    const d = new Date(prior.sent_at)
+    const datePart = d.toLocaleDateString('en-US', {
+      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+    })
+    const timePart = d.toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    })
+    dateLine = `On ${datePart} at ${timePart} ${prior.from} wrote:`
+  } catch {
+    dateLine = `${prior.from} wrote:`
+  }
+  const quotedLines = prior.body.split('\n').map((l) => `> ${l}`).join('\n')
+  return `${currentBody}\n\n${dateLine}\n${quotedLines}`
+}
+
 /** Build a minimal RFC 822 message. Subject is encoded so emoji + unicode
  *  in the subject line survive transit. Body is plain text. If
  *  inReplyTo is provided, adds In-Reply-To + References headers so
@@ -391,12 +423,49 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: `OAuth refresh failed: ${msg}` }, 500)
   }
 
+  // ── For Touch 2/3: append the prior send as a Gmail-style quoted
+  // block + auto-thread off the prior message-id. Without the quote,
+  // recipients reading the follow-up on mobile / in preview pane have
+  // no context (Touch 2 says "if last week's note made any sense..."
+  // which is incomprehensible if you can't see last week's note). With
+  // the quote, the email looks like a real Reply, which is what the
+  // Re: subject promises.
+  let finalBody = body.body
+  let finalInReplyTo = body.in_reply_to_message_id
+  if (touchNumber >= 2 && body.lead_id) {
+    const { data: priorSendRow } = await admin
+      .from('cs_outreach_sends')
+      .select('body, sent_at, sent_via_email_address, external_message_id')
+      .eq('lead_id', body.lead_id)
+      .eq('channel', 'email')
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const prior = priorSendRow as
+      | { body: string | null; sent_at: string | null; sent_via_email_address: string | null; external_message_id: string | null }
+      | null
+    if (prior?.body && prior?.sent_at) {
+      finalBody = formatQuotedReply(body.body, {
+        body: prior.body,
+        sent_at: prior.sent_at,
+        from: prior.sent_via_email_address ?? fromEmail ?? 'me',
+      })
+      // Auto-populate the In-Reply-To header from the prior send's
+      // message-id IF the caller didn't pass one explicitly. Keeps
+      // the threading working without the caller having to do the
+      // lookup themselves.
+      if (!finalInReplyTo && prior.external_message_id) {
+        finalInReplyTo = prior.external_message_id
+      }
+    }
+  }
+
   const raw = base64UrlEncode(buildRfc822(
     fromEmail ?? 'me',
     body.to,
     body.subject,
-    body.body,
-    body.in_reply_to_message_id,
+    finalBody,
+    finalInReplyTo,
   ))
   const sendPayload: { raw: string; threadId?: string } = { raw }
   if (body.thread_id) sendPayload.threadId = body.thread_id
