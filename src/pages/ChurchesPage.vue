@@ -104,7 +104,7 @@ const modules: Module[] = [
 
 interface CompareRow { dimension: string; hire: string; grace: string }
 const compare: CompareRow[] = [
-  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'Sized to your church. Founding-cohort rate locked through 2027.' },
+  { dimension: 'Cost',                  hire: '$25-45K/year + benefits',     grace: 'Sized to your church. Founding-partner pricing for our first cohort.' },
   { dimension: 'Hours available',       hire: 'Office hours',                grace: '24/7. Answers calls Sunday morning, Wednesday night, anytime' },
   { dimension: 'Visitor follow-up',     hire: 'When she has time',           grace: 'Every first-timer within 2 hours, every time' },
   { dimension: 'Dormant member alerts', hire: 'Catches the obvious ones',    grace: 'Notices everyone who drifts past 60 days' },
