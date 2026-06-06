@@ -110,7 +110,7 @@ function buildRfc822(from: string, to: string, subject: string, body: string, in
 interface SendWindow {
   tz_strategy: 'recipient_local' | 'sender_local' | 'fixed_et'
   weekday_hours: { start: number; end: number }
-  allowed_days: string[]  // 'mon','tue',...,'sun'
+  allowed_days: string[]  // 'mon','tue',...,'sun' — applies to Touch 1
   blocked_dates: string[] // 'yyyy-mm-dd'
   max_per_day: number
   jitter_minutes: number
@@ -118,6 +118,13 @@ interface SendWindow {
    *  Default 60 (set in migration 0071). When omitted, the gate
    *  behaves like the pre-reserve version (no T1 sub-cap). */
   followup_reserve_pct?: number
+  /** Day filter that applies ONLY to Touch 2 + Touch 3 follow-ups.
+   *  When set, follow-ups defer to days in this list, even if
+   *  allowed_days is broader. Research-backed default: tue/wed/thu
+   *  (peak reply-rate window). Touch 1 still uses allowed_days,
+   *  which Josh keeps wider for volume. When unset, follow-ups
+   *  fall back to allowed_days (pre-migration-0077 behavior). */
+  followup_allowed_days?: string[]
 }
 
 /** Today's send count broken down by touch. Returned by the
@@ -210,11 +217,23 @@ function evaluateSendGate(
       reason: `${isoDate} is on the blocked-dates list (holiday or blackout).`,
     }
   }
-  if (!window.allowed_days.includes(weekday3)) {
+  // Touch 2/3 use the (optional) tighter followup_allowed_days filter
+  // if configured. Touch 1 always uses the wider allowed_days. Research
+  // backing: Touch 2/3 reply rates peak on Tue/Wed/Thu; sending follow-ups
+  // on Mon/Fri/weekend tanks closure-pressure mechanics.
+  const useFollowupFilter = touchNumber >= 2
+    && Array.isArray(window.followup_allowed_days)
+    && window.followup_allowed_days.length > 0
+  const dayFilter = useFollowupFilter
+    ? window.followup_allowed_days as string[]
+    : window.allowed_days
+  if (!dayFilter.includes(weekday3)) {
     return {
       ok: false,
       code: 'day_blocked',
-      reason: `${weekday3} is not in the allowed-days list (${window.allowed_days.join(', ')}).`,
+      reason: useFollowupFilter
+        ? `${weekday3} is not in the follow-up allowed-days list (${dayFilter.join(', ')}). Touch ${touchNumber} defers to the next allowed day.`
+        : `${weekday3} is not in the allowed-days list (${dayFilter.join(', ')}).`,
     }
   }
   if (hour < window.weekday_hours.start || hour >= window.weekday_hours.end) {
