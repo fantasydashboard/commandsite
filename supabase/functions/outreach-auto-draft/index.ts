@@ -75,6 +75,12 @@ Deno.serve(async (req: Request) => {
     .eq('draft_state', 'drafting')
     .lt('updated_at', orphanCutoff)
 
+  // CRITICAL: filter to send_count = 0. Without this, leads that
+  // already received Touch 1 (and had their drafts refreshed for a
+  // Touch 2/3 re-draft) get picked back up by THIS cron and drafted
+  // as if they were fresh Touch 1 candidates. The Touch 2/3 work
+  // belongs to draft-followup-emails, not here. send_count >= 1 means
+  // Touch 1 already went out, so this cron must skip the row.
   const { data: candidates, error: fetchErr } = await admin
     .from('cs_leads')
     .select('id, company_name, icp_score, contact_email, status, draft_state, tags')
@@ -84,6 +90,7 @@ Deno.serve(async (req: Request) => {
     .is('draft_state', null)
     .not('contact_email', 'is', null)
     .not('status', 'in', '(replied,disqualified)')
+    .eq('send_count', 0)
     .order('icp_score', { ascending: false, nullsFirst: false })
     .limit(BATCH_CAP)
 
