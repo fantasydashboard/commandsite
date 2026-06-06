@@ -123,13 +123,13 @@ function touchBadge(lead: { send_count?: number }): TouchBadge {
   if (sc === 1) {
     return {
       label: 'T2',
-      longLabel: 'Touch 2 · takeaway',
+      longLabel: 'Touch 2 · friction reduction',
       toneClass: 'bg-warn/15 text-warn border-warn/40',
     }
   }
   return {
     label: 'T3',
-    longLabel: 'Touch 3 · breakup',
+    longLabel: 'Touch 3 · release + later',
     toneClass: 'bg-danger/15 text-danger border-danger/40',
   }
 }
