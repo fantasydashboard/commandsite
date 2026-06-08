@@ -49,6 +49,20 @@ const BATCH_CAP = 5
 // stuck for days waiting for the next "no activity" window.
 const ORPHAN_DRAFTING_MS = 10 * 60 * 1000  // 10 min
 
+/** Email-format guard. Catches genuinely broken contact_email values
+ *  (e.g., "domain.com" with no @, "foo@bar" with no TLD) BEFORE we
+ *  spend an Anthropic call drafting to a guaranteed-bounce address.
+ *  Not RFC 5322 strict — that regex is huge and over-rejects valid
+ *  edge-cases. This is the 95% guard: requires non-empty local part,
+ *  exactly one @, non-empty domain with at least one dot, and TLD ≥ 2
+ *  chars. No whitespace anywhere. */
+function isValidEmailFormat(email: string | null | undefined): boolean {
+  if (!email || typeof email !== 'string') return false
+  const trimmed = email.trim()
+  if (trimmed.length === 0) return false
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed)
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
@@ -81,6 +95,11 @@ Deno.serve(async (req: Request) => {
   // as if they were fresh Touch 1 candidates. The Touch 2/3 work
   // belongs to draft-followup-emails, not here. send_count >= 1 means
   // Touch 1 already went out, so this cron must skip the row.
+  //
+  // Fetch a wider window (BATCH_CAP * 4) so that after the email-
+  // format guard archives invalid ones we still have BATCH_CAP good
+  // candidates left to draft. Without the wider window, a single
+  // broken-email lead at the top of the queue would shrink that tick.
   const { data: candidates, error: fetchErr } = await admin
     .from('cs_leads')
     .select('id, company_name, icp_score, contact_email, status, draft_state, tags')
@@ -92,16 +111,65 @@ Deno.serve(async (req: Request) => {
     .not('status', 'in', '(replied,disqualified)')
     .eq('send_count', 0)
     .order('icp_score', { ascending: false, nullsFirst: false })
-    .limit(BATCH_CAP)
+    .limit(BATCH_CAP * 4)
 
   if (fetchErr) {
     return json({ error: `Candidate query failed: ${fetchErr.message}` }, 500)
   }
 
-  type Candidate = { id: string; company_name: string; tags: string[] | null }
-  const picked = (candidates ?? []) as Candidate[]
+  type Candidate = { id: string; company_name: string; contact_email: string | null; tags: string[] | null }
+  const allFetched = (candidates ?? []) as Candidate[]
+
+  // ── Email-format guard: archive leads with broken contact_email
+  // (e.g., "domain.com" missing @) so we never spend an Anthropic
+  // call drafting to a guaranteed-bounce address. Also stops the
+  // outreach pipeline from sending obvious garbage.
+  const invalidFormat = allFetched.filter((l) => !isValidEmailFormat(l.contact_email))
+  if (invalidFormat.length > 0) {
+    const invalidIds = invalidFormat.map((l) => l.id)
+    await admin
+      .from('cs_leads')
+      .update({
+        status: 'archived',
+        outreach_paused: true,
+        outreach_paused_reason: 'contact_email is not a valid email format (missing @, no TLD, or malformed)',
+      })
+      .in('id', invalidIds)
+    // Append the diagnostic tag in a separate pass since Postgres array
+    // concatenation through supabase-js needs the existing array.
+    for (const lead of invalidFormat) {
+      const newTags = Array.from(
+        new Set([...(lead.tags ?? []), 'invalid_email_format']),
+      )
+      await admin.from('cs_leads').update({ tags: newTags }).eq('id', lead.id)
+    }
+  }
+
+  // ── Self-heal stale email_not_found tags. Tag gets set during one
+  // enrichment pass and never cleared when contact_email is populated
+  // by a different source (e.g., the Google Maps listing itself).
+  // When the cron sees a valid-format email AND the stale tag, strip
+  // the tag so downstream filters + reports stop being misleading.
+  const validPicks = allFetched.filter((l) => isValidEmailFormat(l.contact_email))
+  for (const lead of validPicks) {
+    if ((lead.tags ?? []).includes('email_not_found')) {
+      const cleanedTags = (lead.tags ?? []).filter((t) => t !== 'email_not_found')
+      await admin.from('cs_leads').update({ tags: cleanedTags }).eq('id', lead.id)
+      lead.tags = cleanedTags  // keep in-memory copy in sync for downstream split
+    }
+  }
+
+  const picked = validPicks.slice(0, BATCH_CAP)
   if (picked.length === 0) {
-    return json({ picked: 0, drafted: 0, failed: 0, message: 'No candidates this tick' })
+    return json({
+      picked: 0,
+      drafted: 0,
+      failed: 0,
+      archived_invalid_format: invalidFormat.length,
+      message: invalidFormat.length > 0
+        ? `No valid candidates this tick — archived ${invalidFormat.length} with invalid email format.`
+        : 'No candidates this tick',
+    })
   }
 
   const leadIds = picked.map((l) => l.id)
@@ -166,6 +234,7 @@ Deno.serve(async (req: Request) => {
     picked: picked.length,
     drafted,
     failed,
+    archived_invalid_format: invalidFormat.length,
     min_score: minScore,
     by_persona: { ada: adaIds.length, grace: graceIds.length },
     errors: errors.length > 0 ? errors : undefined,
