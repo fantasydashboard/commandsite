@@ -240,6 +240,7 @@ export type CsDealTouchKind = 'email' | 'call' | 'meeting' | 'linkedin' | 'note'
 
 export type CsDeal = {
   id: string
+  lead_id: string | null
   company_name: string
   contact_name: string
   contact_email: string | null
@@ -264,6 +265,7 @@ export type CsDeal = {
 
 export type CsDealInsert = {
   id?: string
+  lead_id?: string | null
   company_name: string
   contact_name: string
   contact_email?: string | null

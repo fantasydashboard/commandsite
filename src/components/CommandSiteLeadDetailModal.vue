@@ -45,6 +45,8 @@ const enriching = ref(false)
 const dropping = ref(false)
 const unpausing = ref(false)
 const schedulingWarmFollowup = ref(false)
+const promoting = ref(false)
+const existingDealId = ref<string | null>(null)
 const message = ref<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
 // ── Warm follow-up: schedule a draft for N days from now. Used after
@@ -163,6 +165,122 @@ const warmFollowupDueAt = computed(() =>
   (props.lead as unknown as { warm_followup_due_at?: string | null } | null)?.warm_followup_due_at ?? null,
 )
 
+// ── Promote-to-pipeline: create a cs_deals row tied to this lead.
+// Path B (auto-promote on reply) isn't shipped yet; this gives Josh a
+// manual button to push qualified replies into the deal pipeline so
+// they show up on the Pipeline page. The lead still keeps its
+// cs_leads row (deals reference leads via lead_id, not replace them).
+//
+// Defaults: stage='replied' (most replies are coming in via outreach,
+// so this is the natural starting point), source='cold_email'. Notes
+// auto-populated with light context so Josh doesn't start from blank.
+async function promoteToPipeline() {
+  const l = props.lead
+  if (!l || promoting.value) return
+  if (existingDealId.value) {
+    message.value = { kind: 'err', text: 'Already in pipeline. Open the Pipeline page to find the deal.' }
+    return
+  }
+  promoting.value = true
+  message.value = null
+  try {
+    // Deduplication check: a deal may have been created between the
+    // modal opening and the click. Cheap re-query before insert.
+    const { data: existing } = await withTimeout(
+      supabase
+        .from('cs_deals')
+        .select('id')
+        .eq('lead_id', l.id)
+        .limit(1)
+        .maybeSingle(),
+      10_000,
+      'Checking existing deal',
+    )
+    if (existing) {
+      existingDealId.value = (existing as { id: string }).id
+      message.value = { kind: 'err', text: 'Already in pipeline. Open the Pipeline page to find the deal.' }
+      return
+    }
+
+    // contact_name is NOT NULL in cs_deals. Fall back to "Owner" if the
+    // lead doesn't have one captured yet. Josh can edit the deal later.
+    const contactName = l.contact_name?.trim() || 'Owner'
+    // stage='replied' makes sense for the common case (Josh promotes after
+    // a reply). If the lead has status='new' or 'contacted', use 'contacted'
+    // or 'researched' so the pipeline shows accurate state.
+    const stage =
+      l.status === 'replied' ? 'replied'
+      : l.status === 'contacted' ? 'contacted'
+      : 'researched'
+    const sourceLabel = (l.tags ?? []).includes('persona_grace') ? 'cold_email' : 'cold_email'
+    const notesParts: string[] = []
+    if (l.status === 'replied') notesParts.push('Replied to cold outreach.')
+    if ((l.send_count ?? 0) > 0) notesParts.push(`Touches sent: ${l.send_count}.`)
+    notesParts.push('Promoted manually from Leads.')
+
+    const { data: inserted, error } = await withTimeout(
+      supabase
+        .from('cs_deals')
+        .insert({
+          lead_id: l.id,
+          company_name: l.company_name,
+          contact_name: contactName,
+          contact_email: l.contact_email ?? null,
+          contact_title: l.contact_title ?? null,
+          industry: l.industry ?? null,
+          city: l.city ?? null,
+          state: l.state ?? null,
+          stage,
+          source: sourceLabel,
+          notes: notesParts.join(' '),
+          last_touch_kind: l.send_count && l.send_count > 0 ? 'email' : 'note',
+        } as never)
+        .select('id')
+        .single(),
+      15_000,
+      'Promoting to pipeline',
+    )
+    if (error) {
+      message.value = { kind: 'err', text: `Couldn't promote: ${error.message}` }
+      return
+    }
+    existingDealId.value = (inserted as { id: string }).id
+    message.value = {
+      kind: 'ok',
+      text: `Added to pipeline at "${stage}" stage. Open the Pipeline page to set next-action + ARR.`,
+    }
+    emit('saved')
+  } catch (err) {
+    message.value = {
+      kind: 'err',
+      text: `Promote errored: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  } finally {
+    promoting.value = false
+  }
+}
+
+// Check if this lead already has a deal whenever the modal opens
+async function loadExistingDealId() {
+  existingDealId.value = null
+  const l = props.lead
+  if (!l) return
+  const { data } = await supabase
+    .from('cs_deals')
+    .select('id')
+    .eq('lead_id', l.id)
+    .limit(1)
+    .maybeSingle()
+  existingDealId.value = (data as { id: string } | null)?.id ?? null
+}
+
+const showPromoteButton = computed(() => {
+  const l = props.lead
+  if (!l) return false
+  if (l.status === 'disqualified' || l.status === 'archived') return false
+  return true
+})
+
 // ── Unpause: resume the sequence after the trigger paused this lead
 async function unpauseOutreach() {
   if (!props.lead || unpausing.value) return
@@ -217,7 +335,13 @@ watch(
       state: l?.state ?? '',
       notes: l?.notes ?? '',
     }
-    if (l?.id !== lastLeadId) message.value = null
+    if (l?.id !== lastLeadId) {
+      message.value = null
+      // Async — don't block the form populate. If the lookup fails the
+      // promote button will just show "Add to pipeline" and the
+      // server-side dedup check in promoteToPipeline catches the race.
+      loadExistingDealId()
+    }
     lastLeadId = l?.id ?? null
   },
   { immediate: true },
@@ -900,6 +1024,25 @@ async function draftNow() {
                   @click="cancelWarmFollowup"
                 >· cancel</button>
               </span>
+            </template>
+
+            <!-- Promote to pipeline. Creates a cs_deals row tied to this
+                 lead. Manual sibling of Path B (auto-promote on reply). -->
+            <template v-if="showPromoteButton">
+              <span class="text-ink-disabled text-xs">·</span>
+              <button
+                v-if="!existingDealId"
+                type="button"
+                class="text-xs text-brand hover:underline disabled:opacity-50 transition-colors"
+                :disabled="saving || drafting || dropping || promoting"
+                :title="'Create a deal in the Pipeline tied to this lead. Sets stage based on the lead status.'"
+                @click="promoteToPipeline"
+              >{{ promoting ? 'Promoting…' : 'Add to pipeline' }}</button>
+              <span
+                v-else
+                class="inline-flex items-center gap-1.5 text-xs text-ink-muted"
+                :title="'This lead is already in the Pipeline. Open the Pipeline page to find the deal.'"
+              >In pipeline ✓</span>
             </template>
           </div>
           <div class="flex items-center gap-2">
