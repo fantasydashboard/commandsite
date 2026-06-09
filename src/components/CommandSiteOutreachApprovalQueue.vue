@@ -101,17 +101,38 @@ function bandLabel(color: QueueItem['scoreColor']): string {
   }
 }
 
-/** Which touch this draft represents — derived from send_count.
- *  send_count = 0 → next send is Touch 1 (initial cold)
- *  send_count = 1 → next send is Touch 2 (followup)
- *  send_count = 2 → next send is Touch 3 (breakup) */
+/** Which touch this draft represents — derived from send_count + tags.
+ *  Warm follow-ups override the cold-cadence label because they're a
+ *  different conversation shape (prospect already engaged + Josh replied
+ *  + they went silent again). The warm_followup_drafted tag is set by
+ *  draft-warm-followup when it writes the draft, so the badge reflects
+ *  the actual prompt that produced the body.
+ *
+ *  send_count = 0 + no warm tag → Touch 1 (initial cold)
+ *  send_count = 1 + no warm tag → Touch 2 (cold followup, friction-reduction)
+ *  send_count = 2 + no warm tag → Touch 3 (cold release + later)
+ *  warm_followup_drafted tag    → Warm follow-up (WT1/WT2/WT3 by sub-tag) */
 interface TouchBadge {
   label: string
   longLabel: string
   toneClass: string
 }
 
-function touchBadge(lead: { send_count?: number }): TouchBadge {
+function touchBadge(lead: { send_count?: number; tags?: string[] | null }): TouchBadge {
+  const tags = lead.tags ?? []
+  if (tags.includes('warm_followup_drafted')) {
+    // Pick warm sub-touch by tag if present, otherwise default to WT1.
+    const warmT = tags.includes('warm_followup_drafted_t3')
+      ? 3
+      : tags.includes('warm_followup_drafted_t2')
+        ? 2
+        : 1
+    return {
+      label: `WT${warmT}`,
+      longLabel: `Warm follow-up · WT${warmT}`,
+      toneClass: 'bg-accent/15 text-accent border-accent/40',
+    }
+  }
   const sc = lead.send_count ?? 0
   if (sc === 0) {
     return {

@@ -44,7 +44,124 @@ const drafting = ref(false)
 const enriching = ref(false)
 const dropping = ref(false)
 const unpausing = ref(false)
+const schedulingWarmFollowup = ref(false)
 const message = ref<{ kind: 'ok' | 'err'; text: string } | null>(null)
+
+// ── Warm follow-up: schedule a draft for N days from now. Used after
+// a prospect replied + Josh replied + the conversation went quiet. The
+// warm-followup-cron picks up overdue rows every 30 min and drafts a
+// re-engagement email using a different prompt shape than cold T2/T3.
+async function scheduleWarmFollowup(daysFromNow: number) {
+  const l = props.lead
+  if (!l || schedulingWarmFollowup.value) return
+  schedulingWarmFollowup.value = true
+  message.value = null
+  try {
+    const dueAt = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000).toISOString()
+    const { error } = await withTimeout(
+      supabase
+        .from('cs_leads')
+        .update({
+          warm_followup_due_at: dueAt,
+          warm_followup_state: 'queued',
+        } as never)
+        .eq('id', l.id)
+        .select('id')
+        .single(),
+      15_000,
+      'Scheduling warm follow-up',
+    )
+    if (error) {
+      message.value = { kind: 'err', text: `Couldn't schedule: ${error.message}` }
+      return
+    }
+    // Mutate in-place so the modal reflects the change immediately
+    ;(l as unknown as Record<string, unknown>).warm_followup_due_at = dueAt
+    ;(l as unknown as Record<string, unknown>).warm_followup_state = 'queued'
+    message.value = {
+      kind: 'ok',
+      text: `Warm follow-up scheduled for ${daysFromNow} days from now. The drafter cron picks it up at the scheduled time.`,
+    }
+    emit('saved')
+  } catch (err) {
+    message.value = {
+      kind: 'err',
+      text: `Schedule errored: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  } finally {
+    schedulingWarmFollowup.value = false
+  }
+}
+
+async function cancelWarmFollowup() {
+  const l = props.lead
+  if (!l || schedulingWarmFollowup.value) return
+  schedulingWarmFollowup.value = true
+  message.value = null
+  try {
+    const { error } = await withTimeout(
+      supabase
+        .from('cs_leads')
+        .update({
+          warm_followup_due_at: null,
+          warm_followup_state: 'canceled',
+        } as never)
+        .eq('id', l.id)
+        .select('id')
+        .single(),
+      15_000,
+      'Canceling warm follow-up',
+    )
+    if (error) {
+      message.value = { kind: 'err', text: `Couldn't cancel: ${error.message}` }
+      return
+    }
+    ;(l as unknown as Record<string, unknown>).warm_followup_due_at = null
+    ;(l as unknown as Record<string, unknown>).warm_followup_state = 'canceled'
+    message.value = { kind: 'ok', text: 'Warm follow-up canceled.' }
+    emit('saved')
+  } catch (err) {
+    message.value = {
+      kind: 'err',
+      text: `Cancel errored: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  } finally {
+    schedulingWarmFollowup.value = false
+  }
+}
+
+// Format the scheduled date for the button label
+function fmtWarmFollowupDue(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const ms = new Date(iso).getTime() - Date.now()
+  const days = Math.round(ms / (24 * 60 * 60 * 1000))
+  if (days < 0) return 'overdue'
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return `in ${days} days`
+}
+
+// Show the warm-followup controls only on leads where it makes sense:
+// they've been contacted at least once AND aren't disqualified/archived.
+const showWarmFollowupControls = computed(() => {
+  const l = props.lead
+  if (!l) return false
+  if (l.status === 'disqualified' || l.status === 'archived') return false
+  if ((l.send_count ?? 0) < 1) return false
+  return true
+})
+
+const warmFollowupScheduled = computed(() => {
+  const l = props.lead
+  if (!l) return false
+  const state = (l as unknown as { warm_followup_state?: string }).warm_followup_state
+  const dueAt = (l as unknown as { warm_followup_due_at?: string | null }).warm_followup_due_at
+  return state === 'queued' && !!dueAt
+})
+
+const warmFollowupDueAt = computed(() =>
+  (props.lead as unknown as { warm_followup_due_at?: string | null } | null)?.warm_followup_due_at ?? null,
+)
 
 // ── Unpause: resume the sequence after the trigger paused this lead
 async function unpauseOutreach() {
@@ -759,6 +876,31 @@ async function draftNow() {
               :title="'Mark this lead as unreachable. Sets status to Disqualified with a recovery tag.'"
               @click="dropAsUnreachable"
             >{{ dropping ? 'Dropping…' : 'Drop · can\'t reach' }}</button>
+
+            <!-- Warm follow-up scheduler. Only shows on contacted leads -->
+            <template v-if="showWarmFollowupControls">
+              <span class="text-ink-disabled text-xs">·</span>
+              <button
+                v-if="!warmFollowupScheduled"
+                type="button"
+                class="text-xs text-brand hover:underline disabled:opacity-50 transition-colors"
+                :disabled="saving || drafting || dropping || schedulingWarmFollowup"
+                :title="'Queue a warm follow-up draft. Cron drafts it on the scheduled day and lands it in your approval queue.'"
+                @click="scheduleWarmFollowup(5)"
+              >{{ schedulingWarmFollowup ? 'Scheduling…' : 'Schedule warm follow-up (5d)' }}</button>
+              <span
+                v-else
+                class="inline-flex items-center gap-1.5 text-xs text-ink-muted"
+              >
+                <span>Warm follow-up {{ fmtWarmFollowupDue(warmFollowupDueAt) }}</span>
+                <button
+                  type="button"
+                  class="text-xs text-danger hover:underline disabled:opacity-50 transition-colors"
+                  :disabled="schedulingWarmFollowup"
+                  @click="cancelWarmFollowup"
+                >· cancel</button>
+              </span>
+            </template>
           </div>
           <div class="flex items-center gap-2">
             <button
