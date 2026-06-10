@@ -1,6 +1,6 @@
 # Grace founding-partner Stripe products
 
-Ready-to-paste content for two Stripe products. Two tiers instead of three: research-backed restructure (see the bottom of this doc for rationale). Create in Stripe Dashboard → Products → Add product. All are recurring USD subscriptions with no setup fee.
+Ready-to-paste content for the Grace tiers. Two recurring tiers (Core, Pro) plus a one-time setup fee that applies to either. Create in Stripe Dashboard → Products → Add product.
 
 Naming convention matches the existing Ada products: `{Persona} by CommandSite - {Tier} (Founding Partner)`.
 
@@ -22,7 +22,7 @@ Welcome + Drift Watch bundled together as the headline product. Includes the sup
 >
 > Plus Front Desk (catches every call, form, and connect card 24/7), Story Engine (captures testimonies after baptisms and milestones), a weekly engagement report, and Ask Grace (chat with her about your congregation anytime).
 >
-> White-glove setup included. Founding-partner rate as our thanks for being early; standard rate post-cohort is $699/mo.
+> One-time $1,249 setup covers the white-glove onboarding (PCO integration, voice tuning, first-week co-sign sessions). Founding-partner rate as our thanks for being early; standard rate post-cohort is $699/mo.
 
 ## 2. Grace Pro
 
@@ -42,7 +42,7 @@ Everything in Core, plus the high-touch services that make Grace fit a more dema
 >
 > **First in line for new roles.** As we ship new ministry workflows, Pro churches get them first.
 >
-> White-glove setup included. Founding-partner rate as our thanks for being early; standard rate post-cohort is $1,199/mo.
+> One-time $1,249 setup covers the white-glove onboarding (PCO integration, voice tuning, first-week co-sign sessions, custom workflow build). Founding-partner rate as our thanks for being early; standard rate post-cohort is $1,199/mo.
 
 ## Annual billing
 
@@ -62,15 +62,29 @@ For founding cohort sales, offer a 14-day pilot before the subscription activate
 - Lowers the perceived risk for the buyer without giving away product
 - Differentiates from competitors that lock annual contracts at signing
 
+## 3. Grace Setup (one-time)
+
+A one-time charge for the white-glove onboarding (PCO integration, voice tuning, first-week co-sign sessions, custom workflow build for Pro). Applies to both Core and Pro at the founding rate.
+
+- **Name:** `Grace by CommandSite - Setup (Founding Partner)`
+- **Statement descriptor:** `COMMANDSITE GRACE`
+- **Price:** $1,249 USD, one-time (not recurring)
+- **Description:**
+
+> One-time onboarding for new Grace churches. Covers Planning Center integration, voice tuning to match how your pastor actually talks, first-week co-sign sessions on every Welcome and Drift Watch draft, and (for Pro churches) one custom workflow build of your choice.
+
+This charges once at the start. The recurring Core or Pro subscription starts billing the same day.
+
 ## Notes for the dashboard
 
 - **Tax:** "Stripe Tax automatically managed" on, same as Ada products
-- **Setup fees:** create products WITHOUT a setup fee. "White-glove setup included" is the message; never quote a separate onboarding fee. (Old "$1,000 onboarding waived" framing read as a SaaS implementation tax even when waived; churches don't pay these for Realm, Planning Center, etc.)
-- **Payment links:** generate a shareable payment link for each product + each interval (monthly Core, annual Core, monthly Pro, annual Pro). Save the URLs into `cs_settings.stripe_payment_links` jsonb keyed:
-  - `grace_core_monthly`
-  - `grace_core_annual`
-  - `grace_pro_monthly`
-  - `grace_pro_annual`
+- **Setup as a separate product:** Create the Grace Setup product as a SEPARATE one-time product (not a recurring price). When you generate the payment link for a new church, Stripe lets you bundle the recurring Core/Pro price + the one-time Setup price in a single checkout. The customer sees a clear line-item breakdown: "$1,249 one-time + $599/mo recurring" (or $999/mo for Pro).
+- **Payment links:** generate a shareable payment link for each combination, bundling the recurring + one-time:
+  - `grace_core_monthly_with_setup` (Core $599/mo + Setup $1,249)
+  - `grace_core_annual_with_setup` (Core $6,470/yr + Setup $1,249)
+  - `grace_pro_monthly_with_setup` (Pro $999/mo + Setup $1,249)
+  - `grace_pro_annual_with_setup` (Pro $10,790/yr + Setup $1,249)
+- Save the URLs into `cs_settings.stripe_payment_links` jsonb under those keys.
 - **Prices are immutable.** To change later, archive the price and create a new one.
 
 ---
