@@ -22,7 +22,7 @@ Welcome + Drift Watch bundled together as the headline product. Includes the sup
 >
 > Plus Front Desk (catches every call, form, and connect card 24/7), Story Engine (captures testimonies after baptisms and milestones), a weekly engagement report, and Ask Grace (chat with her about your congregation anytime).
 >
-> One-time $1,249 setup covers the white-glove onboarding (PCO integration, voice tuning, first-week co-sign sessions). Founding-partner rate as our thanks for being early; standard rate post-cohort is $699/mo.
+> One-time $1,249 setup covers the white-glove onboarding (PCO integration, voice tuning, first-week co-sign sessions). Founding-partner rate as our thanks for being early; standard rate post-cohort is $849/mo.
 
 ## 2. Grace Pro
 
@@ -42,7 +42,7 @@ Everything in Core, plus the high-touch services that make Grace fit a more dema
 >
 > **First in line for new roles.** As we ship new ministry workflows, Pro churches get them first.
 >
-> One-time $1,249 setup covers the white-glove onboarding (PCO integration, voice tuning, first-week co-sign sessions, custom workflow build). Founding-partner rate as our thanks for being early; standard rate post-cohort is $1,199/mo.
+> One-time $1,249 setup covers the white-glove onboarding (PCO integration, voice tuning, first-week co-sign sessions, custom workflow build). Founding-partner rate as our thanks for being early; standard rate post-cohort is $1,399/mo.
 
 ## Annual billing
 
