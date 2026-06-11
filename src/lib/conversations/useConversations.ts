@@ -83,7 +83,19 @@ export function useConversations(opts: UseConversationsOptions = {}) {
   async function load() {
     loading.value = true
     error.value = null
+    try {
+      await loadInner()
+    } catch (err) {
+      // Network error, abort, etc. Surface the message instead of
+      // leaving loading=true forever (the bug the reliability sweep
+      // is closing across the app).
+      error.value = err instanceof Error ? err.message : 'Failed to load conversations'
+    } finally {
+      loading.value = false
+    }
+  }
 
+  async function loadInner() {
     // 1. Pull leads that have ANY outreach activity. send_count > 0 OR
     //    a reply landed (we approximate that as status='replied' or
     //    outreach_paused=true with reason 'Reply received').
@@ -97,14 +109,12 @@ export function useConversations(opts: UseConversationsOptions = {}) {
 
     if (leadsErr) {
       error.value = leadsErr.message
-      loading.value = false
       return
     }
 
     const leads = (leadsData ?? []) as unknown as CsLead[]
     if (leads.length === 0) {
       rows.value = []
-      loading.value = false
       return
     }
 
@@ -237,7 +247,6 @@ export function useConversations(opts: UseConversationsOptions = {}) {
     // Final sort: most recent activity first.
     out.sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime())
     rows.value = out
-    loading.value = false
   }
 
   onMounted(load)

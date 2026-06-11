@@ -98,31 +98,39 @@ export function useAutoOutreach(opts: AutoOutreachOptions = {}) {
   async function load() {
     loading.value = true
     error.value = null
-    const { data, error: e } = await supabase
-      .from('cs_leads')
-      .select('*')
-      .order('icp_score', { ascending: false, nullsFirst: false })
-      .limit(500)
-    if (e) {
-      error.value = e.message
+    try {
+      const { data, error: e } = await supabase
+        .from('cs_leads')
+        .select('*')
+        .order('icp_score', { ascending: false, nullsFirst: false })
+        .limit(500)
+      if (e) {
+        error.value = e.message
+        return
+      }
+      leads.value = (data ?? []) as unknown as CsLead[]
+
+      // Compute today's counters from existing data so we don't reset
+      // on every page reload.
+      const todayIso = new Date()
+      todayIso.setHours(0, 0, 0, 0)
+      const cutoff = todayIso.toISOString()
+      sentTodayCount.value = leads.value.filter(
+        (l) => l.last_contacted_at && l.last_contacted_at >= cutoff,
+      ).length
+      draftedTodayCount.value = leads.value.filter(
+        (l) => l.draft_cold_email_at && l.draft_cold_email_at >= cutoff,
+      ).length
+    } catch (err) {
+      // Network error, abort, etc. Surface the message so the user
+      // knows what happened instead of seeing a stuck loading state.
+      error.value = err instanceof Error ? err.message : 'Failed to load leads'
+    } finally {
+      // Always reset loading, no matter what path we took. This is
+      // the fix for the "stuck loading" bug class — without try/finally,
+      // any thrown rejection above would leave loading=true forever.
       loading.value = false
-      return
     }
-    leads.value = (data ?? []) as unknown as CsLead[]
-
-    // Compute today's counters from existing data so we don't reset
-    // on every page reload.
-    const todayIso = new Date()
-    todayIso.setHours(0, 0, 0, 0)
-    const cutoff = todayIso.toISOString()
-    sentTodayCount.value = leads.value.filter(
-      (l) => l.last_contacted_at && l.last_contacted_at >= cutoff,
-    ).length
-    draftedTodayCount.value = leads.value.filter(
-      (l) => l.draft_cold_email_at && l.draft_cold_email_at >= cutoff,
-    ).length
-
-    loading.value = false
   }
 
   // ── Derived queues ─────────────────────────────────────────────────

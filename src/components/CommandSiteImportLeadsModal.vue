@@ -179,43 +179,48 @@ function submit() {
   if (!canImport.value || submitting.value) return
   submitting.value = true
   error.value = null
-  const batchId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `batch-${Date.now()}`
-  const label = batchLabel.value.trim() || `${sourceOptions.find((s) => s.value === sourceTag.value)?.label ?? 'Import'} · ${new Date().toISOString().slice(0, 10)}`
-  const rows: CsLeadInsert[] = []
-  for (const row of parsedRows.value) {
-    const lead: Partial<CsLeadInsert> = {
-      source: sourceTag.value,
-      imported_batch_id: batchId,
-      imported_batch_label: label,
-      status: 'new',
-    }
-    parsedHeaders.value.forEach((_h, i) => {
-      const target = columnMapping.value[i]
-      if (target === '__skip') return
-      const val = (row[i] ?? '').trim()
-      if (!val) return
-      if (target === 'team_size' || target === 'annual_revenue_estimate') {
-        const n = parseInt(val.replace(/[^0-9]/g, ''), 10)
-        if (!isNaN(n)) (lead as Record<string, unknown>)[target] = n
-      } else {
-        (lead as Record<string, unknown>)[target] = val
+  try {
+    const batchId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `batch-${Date.now()}`
+    const label = batchLabel.value.trim() || `${sourceOptions.find((s) => s.value === sourceTag.value)?.label ?? 'Import'} · ${new Date().toISOString().slice(0, 10)}`
+    const rows: CsLeadInsert[] = []
+    for (const row of parsedRows.value) {
+      const lead: Partial<CsLeadInsert> = {
+        source: sourceTag.value,
+        imported_batch_id: batchId,
+        imported_batch_label: label,
+        status: 'new',
       }
-    })
-    if (!lead.company_name) continue
-    // Score it now
-    const { score, reason } = scoreLead({
-      industry: lead.industry ?? null,
-      team_size: lead.team_size ?? null,
-      state: lead.state ?? null,
-      country: 'US',
-    }, props.settings)
-    lead.icp_score = score
-    lead.icp_score_reason = reason
-    rows.push(lead as CsLeadInsert)
+      parsedHeaders.value.forEach((_h, i) => {
+        const target = columnMapping.value[i]
+        if (target === '__skip') return
+        const val = (row[i] ?? '').trim()
+        if (!val) return
+        if (target === 'team_size' || target === 'annual_revenue_estimate') {
+          const n = parseInt(val.replace(/[^0-9]/g, ''), 10)
+          if (!isNaN(n)) (lead as Record<string, unknown>)[target] = n
+        } else {
+          (lead as Record<string, unknown>)[target] = val
+        }
+      })
+      if (!lead.company_name) continue
+      // Score it now
+      const { score, reason } = scoreLead({
+        industry: lead.industry ?? null,
+        team_size: lead.team_size ?? null,
+        state: lead.state ?? null,
+        country: 'US',
+      }, props.settings)
+      lead.icp_score = score
+      lead.icp_score_reason = reason
+      rows.push(lead as CsLeadInsert)
+    }
+    emit('imported', { rows, batchLabel: label })
+    close()
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Import failed'
+  } finally {
+    submitting.value = false
   }
-  emit('imported', { rows, batchLabel: label })
-  submitting.value = false
-  close()
 }
 </script>
 
