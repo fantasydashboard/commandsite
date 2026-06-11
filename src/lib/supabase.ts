@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { markRequestSlow, unmarkRequestSlow } from './requestStatus'
 
 // .trim() guards against stray whitespace or newlines in env values
 // (a common Vercel paste hazard — fetch throws if headers contain a newline).
@@ -11,28 +12,68 @@ if (!url || !anonKey) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in env')
 }
 
-// Cap any single Supabase fetch at 90s. Without this, a stalled response
-// (e.g., a 204 PATCH whose body-read never resolves) holds the auth
-// client's internal pendingInLock queue open, and every subsequent
-// supabase call queues behind it forever — visible as "Saving…" stuck
-// after the second consecutive write. 90s comfortably exceeds the slowest
-// real Edge Function call (Apollo, cold-email drafting) while still
-// guaranteeing the UI unsticks.
-const FETCH_TIMEOUT_MS = 90_000
+// Cap Supabase fetches with two different timeouts depending on what's
+// being called:
+//
+//   PostgREST queries (/rest/v1/...): 15s
+//     These should finish in 2-5 seconds normally. A 15s timeout means
+//     a stuck query fails fast instead of leaving the UI frozen for a
+//     minute and a half (the prior 90s timeout was "user already gave
+//     up and refreshed" territory).
+//
+//   Edge function invocations (/functions/v1/...): 60s
+//     Real edge function calls (cold-email drafting, Apollo enrich,
+//     score-leads-ada) can take 30-50s legitimately. 60s gives them
+//     room without leaving things hung indefinitely.
+//
+// Both fail with a clear TimeoutError so callers can surface useful
+// error messages instead of the request just hanging.
+const REST_TIMEOUT_MS = 15_000
+const FUNCTIONS_TIMEOUT_MS = 60_000
+
+// Slow-request threshold: when a fetch has been pending this long, bump
+// the global slow-request counter so the UI can show a "still working..."
+// indicator. Gives users visual confirmation that something IS happening,
+// not just frozen, before the timeout fires.
+const SLOW_REQUEST_THRESHOLD_MS = 5_000
+
+function extractUrl(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.toString()
+  return input.url
+}
 
 const timedFetch: typeof fetch = (input, init) => {
   const ac = new AbortController()
-  const timer = setTimeout(
-    () => ac.abort(new DOMException(`Supabase fetch timed out after ${FETCH_TIMEOUT_MS}ms`, 'TimeoutError')),
-    FETCH_TIMEOUT_MS,
+  const urlStr = extractUrl(input)
+  const isEdgeFunction = urlStr.includes('/functions/v1/')
+  const timeoutMs = isEdgeFunction ? FUNCTIONS_TIMEOUT_MS : REST_TIMEOUT_MS
+
+  const timeoutTimer = setTimeout(
+    () => ac.abort(new DOMException(`Supabase fetch timed out after ${timeoutMs}ms`, 'TimeoutError')),
+    timeoutMs,
   )
+
+  // Track whether THIS request crossed the slow threshold, so we know
+  // whether to decrement on completion. (Without the flag, fast requests
+  // would decrement the counter incorrectly.)
+  let markedSlow = false
+  const slowTimer = setTimeout(() => {
+    markedSlow = true
+    markRequestSlow()
+  }, SLOW_REQUEST_THRESHOLD_MS)
+
   // Honor any caller-provided signal too.
   const callerSignal = init?.signal
   if (callerSignal) {
     if (callerSignal.aborted) ac.abort(callerSignal.reason)
     else callerSignal.addEventListener('abort', () => ac.abort(callerSignal.reason), { once: true })
   }
-  return fetch(input, { ...init, signal: ac.signal }).finally(() => clearTimeout(timer))
+  return fetch(input, { ...init, signal: ac.signal }).finally(() => {
+    clearTimeout(timeoutTimer)
+    clearTimeout(slowTimer)
+    if (markedSlow) unmarkRequestSlow()
+  })
 }
 
 export const supabase = createClient<Database>(url, anonKey, {
