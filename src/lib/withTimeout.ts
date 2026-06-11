@@ -19,7 +19,10 @@ export function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Pr
   })
 }
 
-/** fetch() that aborts (and rejects with a readable message) after `ms`. */
+/** fetch() that aborts (and rejects with a readable message) after `ms`.
+ *  Honors a caller-provided AbortSignal too (init.signal) so an operator-
+ *  driven Cancel can interrupt the in-flight request without waiting for
+ *  the timeout. */
 export async function fetchWithTimeout(
   url: string,
   init: RequestInit,
@@ -28,10 +31,23 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), ms)
+
+  // Chain the caller's signal into our controller so external cancellation
+  // works the same as the timeout. If the caller has already aborted,
+  // honor that immediately.
+  const callerSignal = init.signal
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort(callerSignal.reason)
+    else callerSignal.addEventListener('abort', () => controller.abort(callerSignal.reason), { once: true })
+  }
+
   try {
     return await fetch(url, { ...init, signal: controller.signal })
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
+      if (callerSignal?.aborted) {
+        throw new Error(`${label} canceled.`)
+      }
       throw new Error(`${label} timed out after ${Math.round(ms / 1000)}s. Try again.`)
     }
     throw err

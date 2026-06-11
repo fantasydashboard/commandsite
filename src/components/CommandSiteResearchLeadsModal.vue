@@ -107,6 +107,11 @@ const adaProgress = ref({ completed: 0, total: 0 })
 // "Searching..." for up to 40 seconds. Each query is its own round trip
 // + try/catch, so a slow query doesn't kill the others.
 const searchProgress = ref({ completed: 0, total: 0 })
+// AbortController for the in-flight search. Cancel button aborts this
+// to break out of a hung Google Places call without waiting for the
+// 30s per-query timeout to fire.
+let searchAbort: AbortController | null = null
+const cancelled = ref(false)
 
 // Reset state when modal opens
 watch(() => props.open, (isOpen) => {
@@ -176,6 +181,7 @@ async function runFindProspects() {
   excluded.value = new Set()
   adaProgress.value = { completed: 0, total: 0 }
   searchProgress.value = { completed: 0, total: 0 }
+  cancelled.value = false
 
   // Pre-validate
   const queries = queriesRaw.value
@@ -196,9 +202,18 @@ async function runFindProspects() {
     return
   }
 
-  // Stage 1: search
+  // Stage 1: search.
+  // Set the progress counter total BEFORE phase changes so the loading
+  // panel shows "0 of N queries" from the very first frame instead of
+  // the legacy "N queries..." placeholder while we set up auth + abort.
+  searchProgress.value = { completed: 0, total: queries.length }
   phase.value = 'searching'
   const searchOk = await runSearch(queries)
+  if (cancelled.value) {
+    phase.value = 'form'
+    error.value = 'Search canceled.'
+    return
+  }
   if (!searchOk) {
     phase.value = 'form'
     return
@@ -218,6 +233,13 @@ async function runFindProspects() {
 }
 
 async function runSearch(queries: string[]): Promise<boolean> {
+  // Set up the abort controller BEFORE the auth call. If supabase.auth.
+  // getSession() ever stalls (it shouldn't — it's local-storage read —
+  // but defensively) Cancel still works because we set up the abort path
+  // first.
+  searchAbort = new AbortController()
+  const signal = searchAbort.signal
+
   const session = (await supabase.auth.getSession()).data.session
   if (!session) {
     error.value = 'Not signed in. Refresh the page and try again.'
@@ -230,6 +252,7 @@ async function runSearch(queries: string[]): Promise<boolean> {
   //   • A try/catch per query so one timeout doesn't lose the others
   //   • Per-query budget tight enough that a Google Places stall is felt
   //     in 30 seconds, not 90
+  //   • Cancel button can abort mid-flight without waiting
   searchProgress.value = { completed: 0, total: queries.length }
   const aggregated: ResearchedLead[] = []
   const aggregatedQueriesRun: string[] = []
@@ -238,6 +261,7 @@ async function runSearch(queries: string[]): Promise<boolean> {
   let anySuccess = false
 
   for (let i = 0; i < queries.length; i++) {
+    if (signal.aborted || cancelled.value) break
     const q = queries[i]
     let res: Response
     try {
@@ -253,8 +277,10 @@ async function runSearch(queries: string[]): Promise<boolean> {
           location: location.value.trim(),
           max_per_query: maxPerQuery.value,
         }),
+        signal,
       }, 30_000, `Search "${q}"`)
     } catch (err) {
+      if (signal.aborted || cancelled.value) break
       aggregatedApiErrors.push(`Query "${q}": ${err instanceof Error ? err.message : 'failed'}`)
       searchProgress.value = { completed: i + 1, total: queries.length }
       continue
@@ -284,11 +310,20 @@ async function runSearch(queries: string[]): Promise<boolean> {
   queriesRun.value = aggregatedQueriesRun
   apiErrors.value = aggregatedApiErrors
 
+  if (cancelled.value || signal.aborted) return false
   if (!anySuccess) {
     error.value = aggregatedApiErrors[0] ?? 'All search queries failed. Try again or narrow the location.'
     return false
   }
   return true
+}
+
+function cancelSearch() {
+  cancelled.value = true
+  searchAbort?.abort()
+  // Reset phase right away so the button + Cancel both come back to
+  // a clean state, even if an in-flight fetch is still settling.
+  phase.value = 'form'
 }
 
 async function runAdaReview() {
@@ -982,9 +1017,8 @@ const isWorking = computed(() => phase.value === 'searching' || phase.value === 
               <button
                 type="button"
                 class="btn-secondary !text-sm"
-                :disabled="isWorking"
-                @click="close"
-              >Cancel</button>
+                @click="isWorking ? cancelSearch() : close()"
+              >{{ isWorking ? 'Cancel search' : 'Cancel' }}</button>
               <button
                 v-if="phase !== 'preview'"
                 type="button"
