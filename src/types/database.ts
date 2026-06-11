@@ -410,6 +410,12 @@ export type CsLead = {
   outreach_paused: boolean
   outreach_paused_reason: string | null
   outreach_paused_at: string | null
+  // Warm-followup pipeline (mig 0078). Set by the operator when a reply
+  // arrives that's a "later" or "maybe" rather than yes/no. Cron picks
+  // these up at warm_followup_due_at and drafts a WT1/WT2/WT3 follow-up.
+  warm_followup_state: 'queued' | 'drafted' | 'sent' | 'completed' | null
+  warm_followup_due_at: string | null
+  warm_followup_touch: number | null
   created_at: string
   updated_at: string
 }

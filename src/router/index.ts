@@ -46,6 +46,11 @@ const routes = [
         component: () => import('@/pages/admin/ClientDetailPage.vue'),
         props: true,
       },
+      {
+        path: 'health',
+        name: 'admin.health',
+        component: () => import('@/pages/admin/AdminHealthPage.vue'),
+      },
     ],
   },
   {

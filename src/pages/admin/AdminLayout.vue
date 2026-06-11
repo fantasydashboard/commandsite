@@ -29,6 +29,13 @@ async function onLogout() {
             >
               Clients
             </RouterLink>
+            <RouterLink
+              to="/admin/health"
+              class="text-ink-inverse/70 hover:text-ink-inverse transition-colors"
+              active-class="text-ink-inverse font-medium"
+            >
+              Health
+            </RouterLink>
           </nav>
         </div>
         <div class="flex items-center gap-4">
