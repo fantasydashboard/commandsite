@@ -102,6 +102,11 @@ const sortBy = ref<'heuristic' | 'ada' | 'rating' | 'review_count'>('heuristic')
 
 // Progress tracking for the multi-stage loading bar
 const adaProgress = ref({ completed: 0, total: 0 })
+// Search runs one query at a time now (was: one batch of N queries) so
+// the user sees real per-query progress instead of staring at a blank
+// "Searching..." for up to 40 seconds. Each query is its own round trip
+// + try/catch, so a slow query doesn't kill the others.
+const searchProgress = ref({ completed: 0, total: 0 })
 
 // Reset state when modal opens
 watch(() => props.open, (isOpen) => {
@@ -125,7 +130,10 @@ const INTER_CHUNK_DELAY_MS = 1500
 // ── Stage-aware message + hint surfaced in the LoadingBar
 const phaseMessage = computed(() => {
   if (phase.value === 'searching') {
-    return `Searching Google Maps · ${queryCount.value} ${queryCount.value === 1 ? 'query' : 'queries'}…`
+    if (searchProgress.value.total === 0) {
+      return `Searching Google Maps · ${queryCount.value} ${queryCount.value === 1 ? 'query' : 'queries'}…`
+    }
+    return `Searching Google Maps · ${searchProgress.value.completed} of ${searchProgress.value.total} queries`
   }
   if (phase.value === 'ada-reading') {
     if (adaProgress.value.total === 0) return `${assistantName.value} is starting her review…`
@@ -167,6 +175,7 @@ async function runFindProspects() {
   adaScores.value = {}
   excluded.value = new Set()
   adaProgress.value = { completed: 0, total: 0 }
+  searchProgress.value = { completed: 0, total: 0 }
 
   // Pre-validate
   const queries = queriesRaw.value
@@ -209,42 +218,77 @@ async function runFindProspects() {
 }
 
 async function runSearch(queries: string[]): Promise<boolean> {
-  try {
-    const session = (await supabase.auth.getSession()).data.session
-    if (!session) {
-      error.value = 'Not signed in. Refresh the page and try again.'
-      return false
-    }
+  const session = (await supabase.auth.getSession()).data.session
+  if (!session) {
+    error.value = 'Not signed in. Refresh the page and try again.'
+    return false
+  }
 
-    const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/research-leads`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'authorization': `Bearer ${session.access_token}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        queries,
-        location: location.value.trim(),
-        max_per_query: maxPerQuery.value,
-      }),
-    }, 90_000, 'Search')
+  // Run one query at a time. The server still handles multi-query
+  // batches, but driving the loop from the client gives us:
+  //   • Visible per-query progress ("3 of 5") instead of an opaque wait
+  //   • A try/catch per query so one timeout doesn't lose the others
+  //   • Per-query budget tight enough that a Google Places stall is felt
+  //     in 30 seconds, not 90
+  searchProgress.value = { completed: 0, total: queries.length }
+  const aggregated: ResearchedLead[] = []
+  const aggregatedQueriesRun: string[] = []
+  const aggregatedApiErrors: string[] = []
+  const seenPlaceIds = new Set<string>()
+  let anySuccess = false
+
+  for (let i = 0; i < queries.length; i++) {
+    const q = queries[i]
+    let res: Response
+    try {
+      res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/research-leads`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'authorization': `Bearer ${session.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          queries: [q],
+          location: location.value.trim(),
+          max_per_query: maxPerQuery.value,
+        }),
+      }, 30_000, `Search "${q}"`)
+    } catch (err) {
+      aggregatedApiErrors.push(`Query "${q}": ${err instanceof Error ? err.message : 'failed'}`)
+      searchProgress.value = { completed: i + 1, total: queries.length }
+      continue
+    }
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      error.value = body?.error ?? `Research failed (${res.status})`
-      return false
+      aggregatedApiErrors.push(`Query "${q}": ${body?.error ?? `HTTP ${res.status}`}`)
+      searchProgress.value = { completed: i + 1, total: queries.length }
+      continue
     }
 
-    const data = await res.json()
-    results.value = Array.isArray(data.results) ? data.results : []
-    queriesRun.value = Array.isArray(data.queries_run) ? data.queries_run : []
-    apiErrors.value = Array.isArray(data.errors) ? data.errors : []
-    return true
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err)
+    const data = await res.json().catch(() => ({}))
+    const chunkResults: ResearchedLead[] = Array.isArray(data.results) ? data.results : []
+    for (const row of chunkResults) {
+      if (seenPlaceIds.has(row.place_id)) continue
+      seenPlaceIds.add(row.place_id)
+      aggregated.push(row)
+    }
+    if (Array.isArray(data.queries_run)) aggregatedQueriesRun.push(...data.queries_run)
+    if (Array.isArray(data.errors)) aggregatedApiErrors.push(...data.errors)
+    anySuccess = true
+    searchProgress.value = { completed: i + 1, total: queries.length }
+  }
+
+  results.value = aggregated
+  queriesRun.value = aggregatedQueriesRun
+  apiErrors.value = aggregatedApiErrors
+
+  if (!anySuccess) {
+    error.value = aggregatedApiErrors[0] ?? 'All search queries failed. Try again or narrow the location.'
     return false
   }
+  return true
 }
 
 async function runAdaReview() {
