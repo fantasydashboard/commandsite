@@ -349,21 +349,46 @@ async function runEnrichmentOver(
 
   for (let i = 0; i < eligible.length; i += ENRICH_CHUNK_SIZE) {
     const chunk = eligible.slice(i, i + ENRICH_CHUNK_SIZE)
-    const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/enrich-lead-emails`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'authorization': `Bearer ${session.access_token}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ lead_ids: chunk }),
-    }, 120_000, 'Finding emails')
+    const chunkNum = Math.floor(i / ENRICH_CHUNK_SIZE) + 1
+
+    // Mirror the Ada scoring loop's pattern: try/catch around the
+    // fetch so one stalled chunk records errors + advances progress
+    // rather than killing the whole run. Without this, a 120s timeout
+    // on the first chunk leaves the user staring at "0 of N" forever
+    // because the loop dies before any progress update fires.
+    let res: Response
+    try {
+      res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/enrich-lead-emails`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'authorization': `Bearer ${session.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ lead_ids: chunk }),
+      }, 60_000, 'Finding emails')
+    } catch (err) {
+      totals.errors += chunk.length
+      enrichProgress.value = {
+        completed: Math.min(i + chunk.length, eligible.length),
+        total: eligible.length,
+      }
+      pipelineMsg.value = `Chunk ${chunkNum} ${err instanceof Error ? err.message : 'failed'}. Other chunks continuing.`
+      continue
+    }
+
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      pipelineMsg.value = `Chunk ${Math.floor(i / ENRICH_CHUNK_SIZE) + 1} failed (${res.status}): ${detail.slice(0, 200)}`
-      break
+      totals.errors += chunk.length
+      enrichProgress.value = {
+        completed: Math.min(i + chunk.length, eligible.length),
+        total: eligible.length,
+      }
+      pipelineMsg.value = `Chunk ${chunkNum} failed (${res.status}): ${detail.slice(0, 200)}`
+      continue
     }
-    const data = await res.json()
+
+    const data = await res.json().catch(() => ({}))
     const counts = data?.counts ?? {}
     totals.found += counts.found ?? 0
     totals.not_found += counts.not_found ?? 0

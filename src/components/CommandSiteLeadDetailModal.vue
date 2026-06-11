@@ -485,7 +485,10 @@ async function save(): Promise<boolean> {
     // connection issue, DNS hiccup, etc), and without a timeout the
     // promise never settles. That meant "Saving…" froze AND locked the
     // auth queue against the next save, requiring a hard refresh.
-    // 15s is well above a healthy ~200ms update.
+    // 6s budget: a healthy update is ~200ms; staring at "Saving…" for
+    // longer than that reads as broken even when it's technically
+    // pending. Better to surface "timed out, retry" early than to
+    // keep the button looking frozen.
     const { error } = await withTimeout(
       supabase
         .from('cs_leads')
@@ -493,7 +496,7 @@ async function save(): Promise<boolean> {
         .eq('id', l.id)
         .select('id')
         .single(),
-      15_000,
+      6_000,
       'Saving lead',
     )
     if (error) {
