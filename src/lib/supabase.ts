@@ -37,10 +37,71 @@ const FUNCTIONS_TIMEOUT_MS = 60_000
 // not just frozen, before the timeout fires.
 const SLOW_REQUEST_THRESHOLD_MS = 5_000
 
+// Auto-retry config for read operations. Catches transient network blips
+// and 5xx server errors invisibly so users don't see "stuck" states that
+// would have worked on retry.
+//
+// Only retries:
+//   - GET requests (POST/PATCH/DELETE could be partially applied; never
+//     auto-retry writes)
+//   - PostgREST queries, NOT edge functions (edge functions are
+//     legitimately long; retrying compounds the wait)
+//   - Network errors + 5xx responses (4xx are client errors that won't
+//     change on retry)
+//
+// Exponential backoff so transient blips clear without compounding load
+// on the DB.
+const RETRY_MAX_ATTEMPTS = 3
+const RETRY_DELAYS_MS = [200, 500, 1000] as const
+
 function extractUrl(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input
   if (input instanceof URL) return input.toString()
   return input.url
+}
+
+/** Single fetch attempt with retry semantics for transient errors.
+ *  Re-throws non-retryable errors and the last error after exhausting
+ *  retries. Honors the AbortController so a timeout/cancel during retry
+ *  exits the loop immediately. */
+async function fetchWithRetry(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  abortSignal: AbortSignal,
+  maxRetries: number,
+): Promise<Response> {
+  let lastError: unknown
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(input, { ...init, signal: abortSignal })
+      // 2xx-4xx: don't retry. 4xx is a client error that won't change;
+      // 2xx + 3xx are successful as far as the wire is concerned.
+      // 5xx: retry if we have attempts left.
+      if (res.status < 500 || attempt === maxRetries) return res
+      // Fall through to retry on 5xx
+    } catch (err) {
+      // If the abort fired (timeout or caller cancel), bail immediately.
+      // Don't retry — the request is meant to stop.
+      if (abortSignal.aborted) throw err
+      lastError = err
+      if (attempt === maxRetries) throw err
+    }
+    // Wait before the next attempt
+    const delay = RETRY_DELAYS_MS[attempt] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]
+    await new Promise<void>((resolve, reject) => {
+      const t = setTimeout(resolve, delay)
+      abortSignal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(t)
+          reject(abortSignal.reason ?? new DOMException('Aborted', 'AbortError'))
+        },
+        { once: true },
+      )
+    })
+  }
+  // Should be unreachable, but keep the type-checker happy.
+  throw lastError ?? new Error('fetchWithRetry: all retries exhausted')
 }
 
 const timedFetch: typeof fetch = (input, init) => {
@@ -69,7 +130,16 @@ const timedFetch: typeof fetch = (input, init) => {
     if (callerSignal.aborted) ac.abort(callerSignal.reason)
     else callerSignal.addEventListener('abort', () => ac.abort(callerSignal.reason), { once: true })
   }
-  return fetch(input, { ...init, signal: ac.signal }).finally(() => {
+
+  // Decide whether to auto-retry: GET requests to PostgREST only.
+  // Edge functions are too long to retry (compounding wait). Writes
+  // could be partially applied (idempotency risk).
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const isReadOnly = method === 'GET'
+  const shouldRetry = isReadOnly && !isEdgeFunction
+  const maxRetries = shouldRetry ? RETRY_MAX_ATTEMPTS : 0
+
+  return fetchWithRetry(input, init, ac.signal, maxRetries).finally(() => {
     clearTimeout(timeoutTimer)
     clearTimeout(slowTimer)
     if (markedSlow) unmarkRequestSlow()
