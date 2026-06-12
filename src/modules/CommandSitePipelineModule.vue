@@ -86,7 +86,14 @@ function stageValue(stage: PipelineStage): number {
 }
 
 function money(cents: number, opts: { compact?: boolean } = {}): string {
-  if (opts.compact && cents >= 100_000) return '$' + Math.round(cents / 1000) + 'k'
+  // Compact mode: only for deals >= $10k. Below that, the precision matters
+  // more than the brevity (a $7,188 church deal reads better as "$7,188"
+  // than "$7k", and the old threshold of cents >= 100_000 also had a unit
+  // bug that divided by 1000 instead of 100_000, so $7,188 displayed as
+  // $719k).
+  if (opts.compact && cents >= 1_000_000) {
+    return '$' + Math.round(cents / 100_000) + 'k'
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency', currency: 'USD',
     minimumFractionDigits: 0, maximumFractionDigits: 0,
