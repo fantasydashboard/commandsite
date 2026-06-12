@@ -16,6 +16,7 @@
 // deno-lint-ignore no-explicit-any
 declare const Deno: any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { logClientEvent } from '../_shared/client-events.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -242,6 +243,21 @@ Deno.serve(async (req: Request) => {
     welcome_email_body: draft.body,
     welcome_send_error: null,
   }).eq('id', customer.id)
+
+  // Best-effort: record this in the per-customer event log. Cost is
+  // null because gmail-send is free; the Anthropic spend for the draft
+  // is captured separately by the welcome_drafted event (when that
+  // gets wired into the drafter call earlier in this function).
+  await logClientEvent(admin, {
+    customer_id: customer.id,
+    event_kind: 'welcome_sent',
+    payload: {
+      recipient_email: recipient.email,
+      subject: draft.subject,
+      message_id: sent.message_id,
+    },
+    source: 'customer-welcome-send',
+  })
 
   return json({
     ok: true,

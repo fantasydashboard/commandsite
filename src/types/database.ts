@@ -507,6 +507,28 @@ export type CsReply = {
 
 export type CsReplyUpdate = Partial<Omit<CsReply, 'id' | 'created_at' | 'updated_at' | 'raw_payload'>>
 
+// ── CommandSite customer usage event log (cs_client_events, mig 0080) ──
+// Append-only per-customer activity log. Drives the future monthly
+// customer-facing report AND Josh's internal client-health view (who
+// needs a check-in). See migration 0080 header for the full event_kind
+// taxonomy; type stays loose (string) so adding events doesn't require
+// a migration.
+export type CsClientEvent = {
+  id: string
+  customer_id: string
+  event_kind: string
+  payload: Record<string, unknown>
+  cost_cents: number | null
+  source: string | null
+  actor_id: string | null
+  created_at: string
+}
+
+export type CsClientEventInsert = Omit<CsClientEvent, 'id' | 'created_at'> & {
+  id?: string
+  created_at?: string
+}
+
 // ── UFD replies — parallel to CsReply but for the support@ufd inbox.
 // Classification shape is UFD-specific (feedback/question/support/cancel/praise
 // vs. cold-email's positive/objection/etc).
@@ -629,6 +651,12 @@ export type Database = {
         Row: CsReply
         Insert: Partial<CsReply>
         Update: CsReplyUpdate
+        Relationships: []
+      }
+      cs_client_events: {
+        Row: CsClientEvent
+        Insert: CsClientEventInsert
+        Update: Partial<CsClientEventInsert>
         Relationships: []
       }
     }
