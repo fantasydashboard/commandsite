@@ -39,15 +39,17 @@ const phase = ref<Phase>('form')
 type Persona = 'ada' | 'grace'
 const persona = ref<Persona>('ada')
 
-// Default queries flip with persona — HVAC/plumbing/electrician for Ada,
-// non-denominational + Baptist + Methodist church for Grace. The operator
-// edits freely after switching.
-const ADA_DEFAULT_QUERIES = 'HVAC contractor\nplumber\nelectrician'
+// Default queries flip with persona. Ada's defaults target bath/kitchen
+// remodelers (Josh's primary ICP for the Ada vertical); Grace's defaults
+// target small/mid Protestant churches. The operator edits freely after
+// switching.
+const ADA_DEFAULT_QUERIES =
+  'kitchen remodel\nbathroom remodel\nkitchen and bath remodeling\nhome remodeling contractor\nbathroom renovation'
 const GRACE_DEFAULT_QUERIES = 'community church\nbaptist church\nmethodist church'
 
 const queriesRaw = ref(ADA_DEFAULT_QUERIES)
 const location = ref('Orlando, FL')
-const maxPerQuery = ref(20)
+const maxPerQuery = ref(60)
 const minRating = ref(4.0)
 const error = ref<string | null>(null)
 
