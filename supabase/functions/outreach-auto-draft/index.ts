@@ -100,6 +100,15 @@ Deno.serve(async (req: Request) => {
   // format guard archives invalid ones we still have BATCH_CAP good
   // candidates left to draft. Without the wider window, a single
   // broken-email lead at the top of the queue would shrink that tick.
+  // ── NeverBounce gate. CRITICAL for sender reputation. Drafting +
+  // sending to email_verification_status = 'unverified' / 'catchall' /
+  // 'unknown' / NULL was the root cause of a 12% bounce rate on 2026-
+  // 06-15. We now require 'valid' (NeverBounce-confirmed) before any
+  // Anthropic draft cost is incurred OR any send goes out. Without
+  // this, a single bad-data import poisons sender reputation for
+  // weeks. The Find Emails action (enrich-lead-emails) writes the
+  // status, so the only sends that ever reach Gmail are addresses
+  // NeverBounce has explicitly blessed.
   const { data: candidates, error: fetchErr } = await admin
     .from('cs_leads')
     .select('id, company_name, icp_score, contact_email, status, draft_state, tags')
@@ -108,6 +117,7 @@ Deno.serve(async (req: Request) => {
     .is('draft_cold_email_body', null)
     .is('draft_state', null)
     .not('contact_email', 'is', null)
+    .eq('email_verification_status', 'valid')
     .not('status', 'in', '(replied,disqualified)')
     .eq('send_count', 0)
     .order('icp_score', { ascending: false, nullsFirst: false })

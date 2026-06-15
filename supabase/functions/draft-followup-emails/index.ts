@@ -466,12 +466,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Implementation note: Supabase JS doesn't have a NOT CONTAINS shortcut, so
   // we filter in memory after fetch. Cheap because each window is small.
 
+  // NeverBounce gate (same rule as outreach-auto-draft): only draft
+  // touch 2 + 3 for addresses NeverBounce verified as 'valid'. Even
+  // if touch 1 happened to land without bouncing, the address being
+  // unverified means it might still be soft-bouncing into spam or
+  // hitting low-reputation graveyard inboxes. Sender reputation
+  // matters most on follow-up touches because those are sent later
+  // (more chances for Gmail to flag) and they go to addresses we've
+  // already touched once. See 2026-06-15 incident.
   if (explicitIds.length > 0) {
     const { data } = await admin
       .from('cs_leads')
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
       .in('id', explicitIds)
       .not('contact_email', 'is', null)
+      .eq('email_verification_status', 'valid')
       .eq('status', 'contacted')
       .eq('outreach_paused', false)
     const rows = (data ?? []) as CandidateRow[]
@@ -484,6 +493,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
       .eq('status', 'contacted')
       .eq('outreach_paused', false)
+      .eq('email_verification_status', 'valid')
       .eq('send_count', 1)
       .gte('last_contacted_at', touch2WindowStart)
       .lte('last_contacted_at', touch2WindowEnd)
@@ -496,6 +506,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .select('id, company_name, contact_name, contact_email, industry, city, state, icp_score_reason, notes, send_count, last_contacted_at, tags')
       .eq('status', 'contacted')
       .eq('outreach_paused', false)
+      .eq('email_verification_status', 'valid')
       .eq('send_count', 2)
       .gte('last_contacted_at', touch3WindowStart)
       .lte('last_contacted_at', touch3WindowEnd)

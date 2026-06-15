@@ -121,11 +121,18 @@ Deno.serve(async (req: Request) => {
   // Two ordering criteria: send_count DESC (so leads with prior sends
   // come first — they're follow-ups), then draft_cold_email_at ASC
   // (oldest drafts go first within each group, FIFO).
+  // Defense in depth: even though outreach-auto-draft already filters
+  // on email_verification_status='valid' before creating drafts, we
+  // re-assert the gate here so a manually-approved draft on a non-
+  // verified lead can't sneak through and bleed sender reputation.
+  // See 2026-06-15 incident: 12% bounce rate from sending to 209
+  // unverified addresses tanked Gmail reputation.
   const { data: leadsData, error: leadsErr } = await admin
     .from('cs_leads')
     .select('id, contact_email, contact_name, company_name, draft_cold_email_subject, draft_cold_email_body, draft_cold_email_at, send_count')
     .eq('draft_state', 'ready_for_review')
     .eq('outreach_paused', false)
+    .eq('email_verification_status', 'valid')
     .not('contact_email', 'is', null)
     .not('draft_cold_email_subject', 'is', null)
     .not('draft_cold_email_body', 'is', null)
