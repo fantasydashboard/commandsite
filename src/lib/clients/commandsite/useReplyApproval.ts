@@ -12,6 +12,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
+import { withTimeout } from '@/lib/withTimeout'
 import type { CsReply, CsLead } from '@/types/database'
 import type { ReplyQueueItem } from '@/components/CommandSiteReplyApprovalQueue.vue'
 
@@ -102,17 +103,34 @@ export function useReplyApproval() {
       return { ok: false, error: 'Reply has no from_email' }
     }
 
-    // Call gmail-send with threading params
-    const { data, error: fnErr } = await supabase.functions.invoke('gmail-send', {
-      body: {
-        to: reply.from_email,
-        subject,
-        body,
-        thread_id: reply.gmail_thread_id ?? undefined,
-        in_reply_to_message_id: reply.gmail_message_id ?? undefined,
-        lead_id: reply.lead_id ?? undefined,
-      },
-    })
+    // Call gmail-send with threading params. Wrap in withTimeout so a
+    // hung Gmail token or hung function never leaves the operator
+    // staring at "Sending..." forever. 30s is generous for a healthy
+    // gmail-send (typically <2s); anything longer means something is
+    // genuinely wrong and we surface it as an error.
+    let data: unknown
+    let fnErr: { message: string } | null = null
+    try {
+      const res = await withTimeout(
+        supabase.functions.invoke('gmail-send', {
+          body: {
+            to: reply.from_email,
+            subject,
+            body,
+            thread_id: reply.gmail_thread_id ?? undefined,
+            in_reply_to_message_id: reply.gmail_message_id ?? undefined,
+            lead_id: reply.lead_id ?? undefined,
+          },
+        }),
+        30_000,
+        'Gmail send',
+      )
+      data = res.data
+      fnErr = res.error
+    } catch (err) {
+      busy.value = false
+      return { ok: false, error: err instanceof Error ? err.message : `Gmail send failed: ${String(err)}` }
+    }
     if (fnErr) {
       busy.value = false
       return { ok: false, error: `Gmail send failed: ${fnErr.message}` }
