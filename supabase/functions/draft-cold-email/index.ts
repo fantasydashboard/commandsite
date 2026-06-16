@@ -98,57 +98,70 @@ Your job: write an email that does NOT get deleted. The way to do that is to be 
 
 # JOSH'S VOICE — match this rhythm and tone exactly
 
-For BATH/KITCHEN REMODELERS (the active Ada vertical), three example shapes depending on what verifiable evidence Ada surfaced. Pick whichever matches the lead's actual data. Other industries fall back to the older "looking for whoever runs X at Y" opener until per-industry shapes are built out.
+For BATH/KITCHEN REMODELERS (the active Ada vertical), three example shapes depending on what verifiable evidence Ada surfaced. Pick whichever matches the lead's actual data. The shape is identical across all three branches: identity-validating opener, named pain reframe ending in "the stuff between the handshakes", short product line + soft reply ask. Only the EVIDENCE in the first paragraph changes per branch. Other industries fall back to Branch C until per-industry shapes are built out.
+
+## The CORE SHAPE (all branches share lines 2-4)
+
+Every email lands on the same three closing moves regardless of the opening evidence:
+
+1. **Identity-validating evidence** (branch-specific, see below): 1-2 sentences acknowledging what the owner is doing right. Always names a behavior the in-person owner-operator is protecting (the design walkthrough, the personal quote, the named craft). Closes with "That's the part that earns the job, and the part nobody else seems to do anymore." OR a near-variant that mirrors back the value of the in-person move. NEVER skip this. The whole sequence rests on defusing the "you want to replace my in-person work" reflex BEFORE the reader forms it.
+
+2. **The pain reframe** (universal): "What I'm guessing eats your time is the rest:" + a list of THREE specific between-jobs pains in this exact spirit:
+   - the lead you need to follow up with
+   - the review you've been meaning to ask for
+   - the call you couldn't grab while you were on a jobsite
+
+   The third item should reference an actual trade situation (on a jobsite, under a sink, on a roof, in a tear-down). Close the list with "The stuff between the handshakes." (verbatim). This phrase is the signature line of the sequence — touch 2 and touch 3 build on it.
+
+3. **The product + ask** (universal): "I built a tool that handles only that part. Worth a reply if you want to hear more?" verbatim or near-verbatim. "Only that part" is load-bearing — it preserves the identity validation by promising NOT to touch the in-person work.
+
+4. **Sign-off**: "Josh" on its own line. No PS. No dash before the name.
 
 ## Example A — strong evidence: company_name contains a named owner
 
-Use this when the lead's company_name contains the person's first name (e.g., "Armando Gonzalez Remodeling", "Tony's Bath & Kitchen") AND/OR a named owner shows up in icp_score_reason with a clear match in the company name. Address by first name, quote the verbatim or paraphrased review excerpt naming them.
+Use this when the lead's company_name contains the person's first name (e.g., "Armando Gonzalez Remodeling", "Tony's Bath & Kitchen") AND/OR a named owner shows up in icp_score_reason with a clear match in the company name. Address by first name. Lead with a behavior the owner himself does.
 
 > Hey Armando,
 >
-> I read a Google review of Gonzalez Remodeling where someone said you came out personally to walk the job the day after they called.
+> Saw a couple reviews mention you walking homeowners through the design before you quote it. That's the part that earns the job, and the part nobody else seems to do anymore.
 >
-> If I could take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
+> What I'm guessing eats your time is the rest: the lead you need to follow up with, the review you've been meaning to ask for, the call you couldn't grab while you were on a jobsite. The stuff between the handshakes.
 >
-> Costs a fraction of what an office hire would.
+> I built a tool that handles only that part. Worth a reply if you want to hear more?
 >
 > Josh
->
-> P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
 
 ## Example B — medium evidence: generic positive themes, no named owner
 
-Use this when Ada found a real review or website specific (something concrete like "on time", "on budget", "no delays", "clean job site", "transparent pricing", or a verbatim phrase like "truly high-end" or "above and beyond") but no named person to address, no specific project name. Lead with the verbatim quote itself, not a framed summary. Add the PEER LINE after the evidence to humanize it. The peer line is what makes this shape work: it positions Josh as someone who values that quality (like a peer or even a potential customer), not as a vendor pitching them.
+Use this when Ada found a real review specific (verbatim phrase like "truly high-end", "above and beyond", "clean job site", "no surprises on the invoice") but no named person to address. Open with "Hey," (no addressee). Lead the evidence paragraph with the verbatim quote framed as something the in-person owner is protecting.
 
-> Hey, I read a Google review of Kool Renovations where someone called your kitchen finishes "truly high-end." That's what I'm always looking for in a contractor.
+> Hey,
 >
-> If I could take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
+> Saw a couple reviews mention your finishes as "truly high-end." That's the part that earns the job, and the part nobody else seems to do anymore.
 >
-> Costs a fraction of what an office hire would.
+> What I'm guessing eats your time is the rest: the lead you need to follow up with, the review you've been meaning to ask for, the call you couldn't grab while you were on a jobsite. The stuff between the handshakes.
+>
+> I built a tool that handles only that part. Worth a reply if you want to hear more?
 >
 > Josh
->
-> P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
 
-The bath/kitchen peer line is exactly: "That's what I'm always looking for in a contractor." Use it verbatim. Place it as the closer of the evidence paragraph, not on its own line.
+For Branch B specifically, when the evidence is a quality adjective (truly high-end, above and beyond, best work), you can frame it as "your [thing] as '[quote]'" or "someone called your [thing] '[quote]'". Either reads natural. When the evidence is owner-behavior ("answered Sunday morning", "came out same-day"), use the same shape as Branch A — the behavior speaks for itself.
 
 ## Example C — thin evidence: no real specific available (fallback, should be rare)
 
-Use this ONLY when there is no usable specific in review_excerpts, website_extract, icp_score_reason, or notes. Tag the draft as personalization_none in the personalization_quality field so Josh can filter it out.
+Use this ONLY when there is no usable specific in review_excerpts, website_extract, icp_score_reason, or notes. Tag the draft as personalization_none. Without evidence, lead with a soft observation about owner-operated bath/kitchen shops rather than inventing a specific.
 
-> Hey, looking for whoever runs quotes and follow-up at [Company].
+> Hey,
 >
-> Most owner-operated bath and kitchen shops the size of yours hit the same wall: quotes and new inquiries get buried under the actual work. That's the gap I built this for.
+> Most owner-operated bath and kitchen shops walk every job in person before quoting it. That's the part that earns the work, and the part nobody else seems to do anymore.
 >
-> If I could take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels, would 15 minutes be worth it to see what I built?
+> What I'm guessing eats your time is the rest: the lead you need to follow up with, the review you've been meaning to ask for, the call you couldn't grab while you were on a jobsite. The stuff between the handshakes.
 >
-> Costs a fraction of what an office hire would.
+> I built a tool that handles only that part. Worth a reply if you want to hear more?
 >
 > Josh
->
-> P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
 
-Pick the right shape based on what's actually in the lead row. Strong evidence beats role targeting every time. The "looking for whoever" opener is the fallback now, not the default.
+Pick the right shape based on what's actually in the lead row. Strong evidence beats generic framing every time, but the CORE SHAPE (identity-validating opener + pain reframe + soft ask) stays constant across all three branches.
 
 Voice characteristics to match:
 - Conversational opener (lowercase casual, comma after "Hey"). Never "Dear" or "To Whom It May Concern".
@@ -237,73 +250,38 @@ For non-bath/kitchen industries, this opener is still the default for now (until
 
 For bath/kitchen Branch C specifically, follow the opener with a soft industry observation about owner-operated shops (see Example C above). Always set personalization_quality to "none" when using this branch.
 
-# NO PIVOT, NO PRODUCT PARAGRAPH
+# COLD EMAIL STRUCTURE — touch 1 only (touch 2 + 3 live in draft-followup-emails)
 
-The old structure had a pivot sentence ("That's exactly what I built this for") and a separate product paragraph ("I build AI employees... Mine catches every call..."). The new structure cuts both. Go straight from evidence to the permission-based offer below. The conditional itself does the work of pivot + product + CTA combined.
+Every bath/kitchen Branch (A, B, or C) follows the same four-part structure. The OPENER changes per branch; everything else stays constant.
 
-If you find yourself wanting to write a pivot sentence or a "what I build" paragraph, you are being too wordy. Cut both.
+1. **Opener + identity-validating evidence** (2-3 lines): Per the OPENER section. The evidence MUST close with a phrase that mirrors back the value of the in-person owner-operator move. Canonical close: "That's the part that earns the job, and the part nobody else seems to do anymore." OR a near-variant. This defuses the "you want to replace my in-person work" reflex BEFORE the reader forms it. NEVER skip.
 
-# THE PERMISSION-BASED OFFER — the heart of the email
+2. **Pain reframe** (2-3 lines): "What I'm guessing eats your time is the rest:" + three between-jobs pains + "The stuff between the handshakes."
+   - Pain 1: "the lead you need to follow up with"
+   - Pain 2: "the review you've been meaning to ask for"
+   - Pain 3: a call you couldn't grab while doing real work (on a jobsite, under a sink, on a roof, in a tear-down — pick the one that fits the trade)
+   The closing phrase "The stuff between the handshakes." is the signature line of the sequence. Use it verbatim.
 
-A single conditional that combines pivot + product + CTA:
+3. **Product + soft ask** (1-2 lines): "I built a tool that handles only that part. Worth a reply if you want to hear more?" Verbatim or near-verbatim. "Only that part" is load-bearing — promises NOT to touch the in-person work.
 
-"If I could [take {industry pain} off your plate so the only thing you're doing is {the actual work they care about}], would 15 minutes be worth it to see what I built?"
+4. **Sign-off**: "Josh" on its own line. No dash of any kind. NO PS, NO cost anchor, NO conditional offer in touch 1. The founding offer + video link live in touch 2. Touch 1 stays clean.
 
-This shape works because:
-- It is conversational, not declarative.
-- It forces the reader to imagine the value before committing.
-- "What I built" at the end gives "it" a clean antecedent without naming the thing prematurely.
-- It removes the templated "Worth a 15-min call this week?" cliche that every cold-email tool ships by default.
+# WORD COUNT — target band
 
-Industry pain templates (pick the one that maps to the lead's industry):
-- Bath/kitchen remodelers: "take quote and inquiry follow-ups off your plate so the only thing you're doing is the actual remodels"
-- HVAC: "catch every after-hours call and book the appointment so you stop losing them to whoever picks up first"
-- Plumbing: "answer the dispatch line at any hour and triage emergency vs. routine"
-- Residential electrical: "handle inbound permit and estimate questions so you're not paused mid-job to take calls"
-- Roofing: "follow up on every estimate at day 1, 3, and 7 so the slow yeses stop slipping away"
-- Landscaping (project work): "chase quote responses so you're not losing field days to the office"
-- Cleaning: "book new recurring clients without you having to chase them"
-- Pool service / pest control: "handle seasonal call spikes so you're not staffing up for spring"
-- Churches/ministries: "follow up with first-time visitors before they go cold"
+Total body (opener through "Josh"): 85-100 words. Target 90-95.
 
-If reviews showed real pain (missed calls, no callback, ghost quote, slow response), use the pain that maps to it. If no documented pain, pick the most likely friction for that industry size.
+Touch 1 is the longest in the sequence because it does the most work (identity validation + pain reframe + product line + ask). Touch 2 drops to ~75-80 words. Touch 3 sits at ~65-70 words. Each touch in the sequence is shorter than the one before, which mirrors how a person actually escalates a soft outreach.
 
-# COST ANCHOR
+If the body exceeds 100 words, cut a connector sentence. The four-part structure does NOT bend — cut adjectives or examples within a section before cutting the section itself.
 
-One short line, after the conditional offer:
+# WHAT TOUCH 1 NO LONGER CONTAINS (removed 2026-06-16)
 
-"Costs a fraction of what an office hire would."
+The previous shape had a conditional offer ("If I could take X off your plate..."), a cost anchor ("Costs a fraction of what an office hire would"), and a required PS ("Hit reply with 'video'..."). All three are removed from touch 1 to:
+- Defuse the "another AI tool" reflex by NOT pitching in touch 1
+- Earn the right to the founding offer (introduced in touch 2)
+- Keep the video ask for touch 2 where it has more credibility (the recipient has now seen two messages from the same founder)
 
-Or close variant. The anchor positions the price against a hire the owner already understands (office manager, receptionist, admin) without ever quoting a number.
-
-# PS LINE — REQUIRED
-
-After the "Josh" signoff line, always add a PS that gives a lower-friction reply path. Use this exact phrasing:
-
-> P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.
-
-The PS is consistent across leads. Don't try to vary it. Reason: PS reads at ~70% rate (eye-tracking research) — it's the highest-leverage line in the whole email. The "video" reply path lifts response rate by giving a no-call alternative.
-
-# COLD EMAIL STRUCTURE
-
-Bath/kitchen Branches A and B follow this shape:
-
-1. **Opener** (1 line): per the OPENER section. Branch A is "Hey [Firstname],". Branch B is "Hey,". Branch C is "Hey, looking for whoever runs quotes and follow-up at [Company].".
-2. **Evidence** (1-2 lines): Quote the strongest available verifiable specific from review_excerpts, website_extract, icp_score_reason, or notes. Attribute the observation, do NOT infer the recipient's role. **For Branch B only**, close the evidence paragraph with the bath/kitchen peer line verbatim: "That's what I'm always looking for in a contractor."
-3. **Conditional offer** (1-2 lines): "If I could [industry pain template], would 15 minutes be worth it to see what I built?" One line. Combines pivot + product + CTA.
-4. **Cost anchor** (1 line): "Costs a fraction of what an office hire would." Or close variant.
-5. **Sign-off** (1 line): "Josh". Just the name, no dash of any kind.
-6. **PS** (1 line, REQUIRED): 'P.S. If a call's too much for this week, hit reply with "video" and I'll send a 90-second walkthrough instead.'
-
-Branch C (fallback) replaces the verbatim-evidence line with the soft industry observation shown in Example C, then proceeds with the conditional offer + cost anchor + signoff + PS the same way.
-
-# WORD COUNT — HARD CAP
-
-The MAIN BODY (lines 1-5, opener through sign-off) MUST be under 75 words. Target 55-70 words.
-The PS is fixed phrasing (~22 words) and is NOT counted against the body cap.
-Total email including PS should be ~80-95 words.
-
-Cold emails over 100 words get scrolled past on phone, where small business owners read. The new shape is tighter than the old one on purpose: one observation, one conditional offer, one cost anchor. If you find yourself adding a pivot sentence or a product paragraph, delete them. The conditional does both jobs.
+If you find yourself wanting to write a conditional offer, cost anchor, or PS in touch 1, do not. That content moved to touch 2/3 prompts.
 
 # HARD BANS (these are the AI tells that get this email deleted on sight)
 
@@ -481,7 +459,7 @@ const TOOLS = [
         },
         body: {
           type: 'string',
-          description: 'Email body + PS, plain text. MAIN BODY (opener through "Josh" signoff) capped at 75 words; target 55-70. PS is fixed phrasing, not counted. Total 80-95 words. BATH/KITCHEN STRUCTURE picks one of three branches based on evidence Ada surfaced: BRANCH A (named owner: company_name contains the person\'s first name, or contact_name is set) → "Hey [Firstname]," + named verbatim review excerpt; BRANCH B (generic positive themes only, no named person) → "Hey," + the evidence shape "I read a Google review of [Company] where someone called your [thing] \'[2-5 word verbatim quote]\'." then CONDITIONALLY close with the peer line "That\'s what I\'m always looking for in a contractor." INCLUDE the peer line when the evidence is a quality/outcome adjective (truly high-end, above and beyond, clean job site). SKIP the peer line when the evidence is an owner-behavior observation (came out personally, answered Sunday, drove out same-day) — the action already speaks for itself, peer line becomes restating the obvious. NEVER use editorial verbs like "praising", "highlighting", "raving about". NEVER stack multiple attributes ("X, Y, and Z") — one verbatim quote only; BRANCH C (no usable specific, set personalization_quality=none) → "Hey, looking for whoever runs quotes and follow-up at [Company]." + soft industry observation. ALL BRANCHES then continue identically: (3) Conditional offer "If I could [industry pain template], would 15 minutes be worth it to see what I built?" (4) Cost anchor "Costs a fraction of what an office hire would." (5) Signoff "Josh" on its own line, no leading dash. End with REQUIRED PS verbatim: \'P.S. If a call\'s too much for this week, hit reply with "video" and I\'ll send a 90-second walkthrough instead.\' NEVER infer the recipient\'s role from the evidence ("I saw X" is fine, "That tells me you personally handle Y" is banned). NEVER use the name "Ada" in the body. NO em dashes anywhere. Use commas, periods, or parens instead.',
+          description: 'Email body, plain text. Total 85-100 words, target 90-95. NO PS, NO cost anchor, NO conditional offer (those moved to touch 2/3). BATH/KITCHEN four-part structure: (1) OPENER per branch — Branch A (named owner): "Hey [Firstname]," + behavior the owner himself does ("walking homeowners through the design before you quote it"). Branch B (generic positive theme, no named person): "Hey," + verbatim quote ("Saw a couple reviews mention your finishes as \'truly high-end\'"). Branch C (no specific): "Hey," + soft industry observation about owner-operated shops. (2) IDENTITY VALIDATION close — every branch ends its opener paragraph with "That\'s the part that earns the job, and the part nobody else seems to do anymore." (or near-variant). NEVER skip this — it defuses the "you want to replace my in-person work" reflex. (3) PAIN REFRAME paragraph: "What I\'m guessing eats your time is the rest:" + three between-jobs pains as a list: "the lead you need to follow up with, the review you\'ve been meaning to ask for, the call you couldn\'t grab while you were on a jobsite." (the third pain can swap jobsite for under-a-sink/on-a-roof/in-a-tear-down to match trade). Close with the signature line VERBATIM: "The stuff between the handshakes." (4) PRODUCT + SOFT ASK: "I built a tool that handles only that part. Worth a reply if you want to hear more?" "Only that part" is load-bearing — it promises NOT to touch the in-person work. (5) Sign-off: "Josh" on its own line, no dash. NEVER use editorial verbs ("praising", "highlighting", "raving about"). NEVER stack multiple attributes. NEVER infer the recipient\'s role from evidence. NEVER use the name "Ada" in the body. NO em dashes anywhere — use commas, periods, or parens instead. NO PS, NO cost anchor, NO conditional offer.',
         },
         rationale: {
           type: 'string',
