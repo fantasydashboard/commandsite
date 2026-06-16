@@ -492,12 +492,20 @@ async function onRunInboxPoll() {
 // ── Reply Approval Queue (inbound replies + Sage drafts) ──────────────
 const replyApproval = useReplyApproval()
 const editingReply = ref<CsReply | null>(null)
+// Modal-local error message — separate from the page-level errorMsg so
+// the operator sees failures inside the modal where they're looking,
+// not on the page behind it.
+const replyEditError = ref<string | null>(null)
+const replyEditSaving = ref(false)
 
 function openReplyEditor(reply: CsReply) {
   editingReply.value = reply
+  replyEditError.value = null
 }
 function closeReplyEditor() {
   editingReply.value = null
+  replyEditError.value = null
+  replyEditSaving.value = false
 }
 async function onReplyApprove(reply: CsReply) {
   const result = await replyApproval.approve(reply)
@@ -512,33 +520,53 @@ async function onReplyApprove(reply: CsReply) {
   }
 }
 async function onReplySave(payload: { reply: CsReply; body: string }) {
-  const result = await replyApproval.saveEdit(payload.reply, payload.body)
-  if (result.ok) {
-    outreachToasts.push('✓ Edits saved — still in queue', 'success')
-    closeReplyEditor()
-  } else {
-    errorMsg.value = result.error ?? 'Failed to save edits'
+  replyEditError.value = null
+  replyEditSaving.value = true
+  try {
+    const result = await replyApproval.saveEdit(payload.reply, payload.body)
+    if (result.ok) {
+      outreachToasts.push('✓ Edits saved — still in queue', 'success')
+      closeReplyEditor()
+    } else {
+      // Show inside the modal so the operator can see + react.
+      replyEditError.value = result.error ?? 'Failed to save edits (no detail returned)'
+    }
+  } catch (err) {
+    replyEditError.value = `Save threw: ${err instanceof Error ? err.message : String(err)}`
+  } finally {
+    replyEditSaving.value = false
   }
 }
 async function onReplySaveAndSend(payload: { reply: CsReply; body: string }) {
-  const saveResult = await replyApproval.saveEdit(payload.reply, payload.body)
-  if (!saveResult.ok) {
-    errorMsg.value = saveResult.error ?? 'Failed to save edits'
-    return
-  }
-  // Pull the fresh reply (with the edited body) and approve
-  const fresh = replyApproval.replies.value.find((r) => r.id === payload.reply.id)
-  if (!fresh) return
-  const sendResult = await replyApproval.approve(fresh, { body: payload.body })
-  if (sendResult.ok) {
-    outreachToasts.push(`✓ Reply sent to ${fresh.from_name || fresh.from_email}`, 'success')
-    outreachTicker.value?.pushEvent({
-      icon: 'email_marketing',
-      text: `Sent response to ${fresh.from_name || fresh.from_email}`,
-    })
-    closeReplyEditor()
-  } else {
-    errorMsg.value = sendResult.error ?? 'Failed to send reply'
+  replyEditError.value = null
+  replyEditSaving.value = true
+  try {
+    const saveResult = await replyApproval.saveEdit(payload.reply, payload.body)
+    if (!saveResult.ok) {
+      replyEditError.value = saveResult.error ?? 'Failed to save edits (no detail returned)'
+      return
+    }
+    // Pull the fresh reply (with the edited body) and approve. Fall back
+    // to the original reply object if load() hasn't repopulated yet —
+    // approve uses the body override anyway, so the in-memory row's
+    // drafted_response staleness doesn't matter for sending.
+    const fresh =
+      replyApproval.replies.value.find((r) => r.id === payload.reply.id) ?? payload.reply
+    const sendResult = await replyApproval.approve(fresh, { body: payload.body })
+    if (sendResult.ok) {
+      outreachToasts.push(`✓ Reply sent to ${fresh.from_name || fresh.from_email}`, 'success')
+      outreachTicker.value?.pushEvent({
+        icon: 'email_marketing',
+        text: `Sent response to ${fresh.from_name || fresh.from_email}`,
+      })
+      closeReplyEditor()
+    } else {
+      replyEditError.value = sendResult.error ?? 'Failed to send reply (no detail returned)'
+    }
+  } catch (err) {
+    replyEditError.value = `Send threw: ${err instanceof Error ? err.message : String(err)}`
+  } finally {
+    replyEditSaving.value = false
   }
 }
 async function onReplySkip(reply: CsReply) {
@@ -2219,9 +2247,12 @@ function leadForReply(r: CsReply): CsLead | null {
     <CommandSiteReplyEditModal
       :open="editingReply !== null"
       :reply="editingReply"
+      :error-message="replyEditError"
+      :saving="replyEditSaving"
       @close="closeReplyEditor"
       @save="onReplySave"
       @save-and-send="onReplySaveAndSend"
+      @clear-error="replyEditError = null"
     />
 
     <!-- ── VIEW: Coming next ──────────────────────────────────────── -->

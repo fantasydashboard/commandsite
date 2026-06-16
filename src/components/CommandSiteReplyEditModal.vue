@@ -13,12 +13,21 @@ import type { CsReply } from '@/types/database'
 const props = defineProps<{
   open: boolean
   reply: CsReply | null
+  /** Optional inline error message from the parent's save/send action.
+   *  Surfaced directly above the buttons so the operator never has to
+   *  guess why "nothing happened" — the previous behavior put errors
+   *  on the page behind the modal where they were invisible. */
+  errorMessage?: string | null
+  /** Optional saving/sending state from the parent so the buttons can
+   *  show a working state instead of looking unresponsive. */
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'save', payload: { reply: CsReply; body: string }): void
   (e: 'saveAndSend', payload: { reply: CsReply; body: string }): void
+  (e: 'clearError'): void
 }>()
 
 const body = ref('')
@@ -42,10 +51,14 @@ const wordCount = computed(() => body.value.trim().split(/\s+/).filter(Boolean).
 function close() { emit('close') }
 function save() {
   if (!props.reply) return
+  if (!body.value.trim()) return
+  emit('clearError')
   emit('save', { reply: props.reply, body: body.value })
 }
 function saveAndSend() {
   if (!props.reply) return
+  if (!body.value.trim()) return
+  emit('clearError')
   emit('saveAndSend', { reply: props.reply, body: body.value })
 }
 </script>
@@ -115,22 +128,35 @@ function saveAndSend() {
             </div>
           </div>
 
+          <!-- Inline error so the operator sees exactly why an action
+               failed. Used to be displayed on the page behind the modal,
+               which read as "nothing happened" when actions failed. -->
+          <div
+            v-if="errorMessage"
+            class="mx-5 mb-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger"
+            role="alert"
+          >
+            {{ errorMessage }}
+          </div>
           <footer class="flex items-center justify-end gap-2 px-5 py-3 border-t border-divider bg-surface-raised">
             <button
               type="button"
-              class="rounded-md px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink"
+              class="rounded-md px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink disabled:opacity-50"
+              :disabled="saving"
               @click="close"
             >Cancel</button>
             <button
               type="button"
-              class="rounded-md border border-accent/40 text-accent bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-accent/10"
+              class="rounded-md border border-accent/40 text-accent bg-surface-raised px-3 py-1.5 text-xs font-semibold hover:bg-accent/10 disabled:opacity-50"
+              :disabled="saving || !body.trim()"
               @click="save"
-            >Save (stay in queue)</button>
+            >{{ saving ? 'Saving…' : 'Save (stay in queue)' }}</button>
             <button
               type="button"
-              class="rounded-md bg-success text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97]"
+              class="rounded-md bg-success text-ink-inverse px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-[opacity,transform] duration-200 ease-out-quart active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100"
+              :disabled="saving || !body.trim()"
               @click="saveAndSend"
-            >Save & send →</button>
+            >{{ saving ? 'Sending…' : 'Save & send →' }}</button>
           </footer>
         </div>
       </div>
