@@ -279,15 +279,24 @@ function buildUserMessage(lead: LeadCandidate, touchNumber: 2 | 3, productDemoLi
   if (lead.last_send_subject) lines.push(`Subject: ${lead.last_send_subject}`)
   if (lead.last_send_body) lines.push(`Body:\n${lead.last_send_body}`)
   lines.push('')
-  // Touch 3 only: pass the product demo link if Josh has one configured
-  if (touchNumber === 3) {
-    if (productDemoLink) {
-      lines.push(`# VIDEO LINK FOR TOUCH 3 — INCLUDE THIS IN THE EMAIL`)
-      lines.push(`product_demo_link: ${productDemoLink}`)
-    } else {
-      lines.push(`# VIDEO LINK FOR TOUCH 3 — NOT CONFIGURED`)
-      lines.push(`Skip the video drop paragraph entirely. Use the no-video Touch 3 shape (release + future triggers, no middle paragraph).`)
+  // Pass the product demo link if Josh has one configured.
+  // Touch 2 (bath/kitchen path) injects it where <link> appears in the
+  // canonical shape. Touch 3 (fallback verticals only) inserts the
+  // "Made a 90-second walkthrough" line before the three-paths block.
+  if (productDemoLink) {
+    lines.push(`# VIDEO LINK FOR THIS TOUCH — INCLUDE THIS IN THE EMAIL`)
+    lines.push(`product_demo_link: ${productDemoLink}`)
+    if (touchNumber === 2) {
+      lines.push(`In the bath/kitchen Touch 2 shape, the line "Here's a 90-second walkthrough: <link>" should substitute the actual product_demo_link URL for <link>.`)
     }
+    lines.push('')
+  } else if (touchNumber === 3) {
+    lines.push(`# VIDEO LINK FOR TOUCH 3 — NOT CONFIGURED`)
+    lines.push(`Skip the video drop paragraph entirely. Use the no-video Touch 3 shape (release + future triggers, no middle paragraph).`)
+    lines.push('')
+  } else if (touchNumber === 2) {
+    lines.push(`# VIDEO LINK FOR TOUCH 2 — NOT CONFIGURED`)
+    lines.push(`For the bath/kitchen path, omit the "Here's a 90-second walkthrough: <link>" paragraph entirely. Replace it with just "Worth a quick reply if it's relevant?" so the CTA still lands. For non-bath/kitchen path, no video line exists in Touch 2 so this doesn't apply.`)
     lines.push('')
   }
   lines.push(`Now draft Touch ${touchNumber}. Call save_followup_draft.`)
