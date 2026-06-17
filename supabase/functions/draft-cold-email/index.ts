@@ -104,7 +104,7 @@ For BATH/KITCHEN REMODELERS (the active Ada vertical), three example shapes depe
 
 Every email lands on the same three closing moves regardless of the opening evidence:
 
-1. **Identity-validating evidence** (branch-specific, see below): 1-2 sentences acknowledging what the owner is doing right. Always names a behavior the in-person owner-operator is protecting (the design walkthrough, the personal quote, the named craft). Closes with "That's the part that earns the job, and the part nobody else seems to do anymore." OR a near-variant that mirrors back the value of the in-person move. NEVER skip this. The whole sequence rests on defusing the "you want to replace my in-person work" reflex BEFORE the reader forms it.
+1. **Identity-validating evidence** (branch-specific, see below): 1-2 sentences acknowledging what the owner is doing right. Always names a behavior the in-person owner-operator is protecting (the design walkthrough, the personal quote, the named craft). The validation phrase that closes the paragraph is BRANCH-SPECIFIC — Branch A (owner-behavior evidence) uses "That's the part of the job that has to be you." Branch B (quality-adjective evidence) uses "That's what I'm always looking for in a contractor." Branch C (no evidence) uses "That's the part of the job that has to be you." NEVER use the phrase "the part nobody else seems to do anymore" — this was retired 2026-06-17 because it claims rarity (false in this industry) and reads as a sales tactic. The whole sequence rests on defusing the "you want to replace my in-person work" reflex BEFORE the reader forms it, but the defusal works better as STRUCTURAL OBSERVATION ("has to be you" — a true statement about how the work functions) than as RARITY CLAIM.
 
 2. **The pain reframe** (universal): "What I'm guessing eats your time is the rest:" + a list of THREE specific between-jobs pains in this exact spirit:
    - the lead you need to follow up with
@@ -123,7 +123,7 @@ Use this when the lead's company_name contains the person's first name (e.g., "A
 
 > Hey Armando,
 >
-> Saw a couple reviews mention you walking homeowners through the design before you quote it. That's the part that earns the job, and the part nobody else seems to do anymore.
+> Saw a couple reviews mention you walking homeowners through the design before you quote it. That's the part of the job that has to be you.
 >
 > What I'm guessing eats your time is the rest: the lead you need to follow up with, the review you've been meaning to ask for, the call you couldn't grab while you were on a jobsite. The stuff between the handshakes.
 >
@@ -133,11 +133,11 @@ Use this when the lead's company_name contains the person's first name (e.g., "A
 
 ## Example B — medium evidence: generic positive themes, no named owner
 
-Use this when Ada found a real review specific (verbatim phrase like "truly high-end", "above and beyond", "clean job site", "no surprises on the invoice") but no named person to address. Open with "Hey," (no addressee). Lead the evidence paragraph with the verbatim quote framed as something the in-person owner is protecting.
+Use this when Ada found a real review specific (verbatim phrase like "truly high-end", "above and beyond", "clean job site", "no surprises on the invoice") but no named person to address. Open with "Hey," (no addressee). Lead the evidence paragraph with the verbatim quote. CRITICAL: for QUALITY-ADJECTIVE evidence (truly high-end, above and beyond, best work), close the evidence paragraph with the peer line "That's what I'm always looking for in a contractor." This works because the peer line gives the abstract praise a concrete frame — Josh is positioned as someone who'd hire them, not as a vendor pitching them. For OWNER-BEHAVIOR evidence (answered Sunday, came out personally) close with "That's the part of the job that has to be you." instead — the behavior already speaks for itself.
 
 > Hey,
 >
-> Saw a couple reviews mention your finishes as "truly high-end." That's the part that earns the job, and the part nobody else seems to do anymore.
+> Saw a couple reviews mention your finishes as "truly high-end." That's what I'm always looking for in a contractor.
 >
 > What I'm guessing eats your time is the rest: the lead you need to follow up with, the review you've been meaning to ask for, the call you couldn't grab while you were on a jobsite. The stuff between the handshakes.
 >
@@ -145,15 +145,13 @@ Use this when Ada found a real review specific (verbatim phrase like "truly high
 >
 > Josh
 
-For Branch B specifically, when the evidence is a quality adjective (truly high-end, above and beyond, best work), you can frame it as "your [thing] as '[quote]'" or "someone called your [thing] '[quote]'". Either reads natural. When the evidence is owner-behavior ("answered Sunday morning", "came out same-day"), use the same shape as Branch A — the behavior speaks for itself.
-
 ## Example C — thin evidence: no real specific available (fallback, should be rare)
 
 Use this ONLY when there is no usable specific in review_excerpts, website_extract, icp_score_reason, or notes. Tag the draft as personalization_none. Without evidence, lead with a soft observation about owner-operated bath/kitchen shops rather than inventing a specific.
 
 > Hey,
 >
-> Most owner-operated bath and kitchen shops walk every job in person before quoting it. That's the part that earns the work, and the part nobody else seems to do anymore.
+> Most owner-operated bath and kitchen shops walk every job in person before quoting it. That's the part of the job that has to be you.
 >
 > What I'm guessing eats your time is the rest: the lead you need to follow up with, the review you've been meaning to ask for, the call you couldn't grab while you were on a jobsite. The stuff between the handshakes.
 >
@@ -459,7 +457,7 @@ const TOOLS = [
         },
         body: {
           type: 'string',
-          description: 'Email body, plain text. Total 85-100 words, target 90-95. NO PS, NO cost anchor, NO conditional offer (those moved to touch 2/3). BATH/KITCHEN four-part structure: (1) OPENER per branch — Branch A (named owner): "Hey [Firstname]," + behavior the owner himself does ("walking homeowners through the design before you quote it"). Branch B (generic positive theme, no named person): "Hey," + verbatim quote ("Saw a couple reviews mention your finishes as \'truly high-end\'"). Branch C (no specific): "Hey," + soft industry observation about owner-operated shops. (2) IDENTITY VALIDATION close — every branch ends its opener paragraph with "That\'s the part that earns the job, and the part nobody else seems to do anymore." (or near-variant). NEVER skip this — it defuses the "you want to replace my in-person work" reflex. (3) PAIN REFRAME paragraph: "What I\'m guessing eats your time is the rest:" + three between-jobs pains as a list: "the lead you need to follow up with, the review you\'ve been meaning to ask for, the call you couldn\'t grab while you were on a jobsite." (the third pain can swap jobsite for under-a-sink/on-a-roof/in-a-tear-down to match trade). Close with the signature line VERBATIM: "The stuff between the handshakes." (4) PRODUCT + SOFT ASK: "I built a tool that handles only that part. Worth a reply if you want to hear more?" "Only that part" is load-bearing — it promises NOT to touch the in-person work. (5) Sign-off: "Josh" on its own line, no dash. NEVER use editorial verbs ("praising", "highlighting", "raving about"). NEVER stack multiple attributes. NEVER infer the recipient\'s role from evidence. NEVER use the name "Ada" in the body. NO em dashes anywhere — use commas, periods, or parens instead. NO PS, NO cost anchor, NO conditional offer.',
+          description: 'Email body, plain text. Total 85-100 words, target 90-95. NO PS, NO cost anchor, NO conditional offer (those moved to touch 2/3). BATH/KITCHEN four-part structure: (1) OPENER per branch — Branch A (named owner): "Hey [Firstname]," + behavior the owner himself does ("walking homeowners through the design before you quote it"). Branch B (generic positive theme, no named person): "Hey," + verbatim quote ("Saw a couple reviews mention your finishes as \'truly high-end\'"). Branch C (no specific): "Hey," + soft industry observation about owner-operated shops. (2) IDENTITY VALIDATION close — BRANCH-SPECIFIC: Branch A (owner-behavior evidence) closes with "That\'s the part of the job that has to be you." Branch B with QUALITY-ADJECTIVE evidence (truly high-end, above and beyond, best work) closes with the peer line "That\'s what I\'m always looking for in a contractor." Branch B with OWNER-BEHAVIOR evidence falls back to "That\'s the part of the job that has to be you." Branch C closes with "That\'s the part of the job that has to be you." NEVER use the phrase "the part nobody else seems to do anymore" (retired 2026-06-17 — claimed rarity that\'s false in this industry). NEVER skip the validation line entirely — it does the threat-defusal work. (3) PAIN REFRAME paragraph: "What I\'m guessing eats your time is the rest:" + three between-jobs pains as a list: "the lead you need to follow up with, the review you\'ve been meaning to ask for, the call you couldn\'t grab while you were on a jobsite." (the third pain can swap jobsite for under-a-sink/on-a-roof/in-a-tear-down to match trade). Close with the signature line VERBATIM: "The stuff between the handshakes." (4) PRODUCT + SOFT ASK: "I built a tool that handles only that part. Worth a reply if you want to hear more?" "Only that part" is load-bearing — it promises NOT to touch the in-person work. (5) Sign-off: "Josh" on its own line, no dash. NEVER use editorial verbs ("praising", "highlighting", "raving about"). NEVER stack multiple attributes. NEVER infer the recipient\'s role from evidence. NEVER use the name "Ada" in the body. NO em dashes anywhere — use commas, periods, or parens instead. NO PS, NO cost anchor, NO conditional offer.',
         },
         rationale: {
           type: 'string',
