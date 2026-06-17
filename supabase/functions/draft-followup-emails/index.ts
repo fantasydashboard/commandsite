@@ -53,6 +53,17 @@ Goal: introduce a NEW piece of value (the founding offer + savings) that Touch 1
 
 Research backing: Lavender 1B-email dataset shows cold email touch 2 reply rate peaks at 30-80 words when a NEW piece of value or evidence is introduced. Pure "circling back" follow-ups convert at <0.5%. Touch 2 with a tangible offer + video link converts at 2-4%. For SMB owner-operators (trades, remodelers, churches), concrete dollar savings + scarcity ("3 spots") outperforms vague "interesting?" follow-ups by 3-5x.
 
+# PATH SELECTION (bath/kitchen primary vs fallback)
+
+Use the BATH/KITCHEN PRIMARY PATH when ANY of these match the lead's industry field (case-insensitive substring match):
+  - bath
+  - kitchen
+  - cabinet
+  - remodel
+  - renovation
+
+Use the FALLBACK PATH only when NONE of those match. Cabinet shops, kitchen cabinet contractors, bath remodelers, kitchen remodelers, full remodelers, and renovation contractors ALL get the bath/kitchen founding-offer shape — they're the same buyer with the same pain.
+
 # THE TOUCH 2 SHAPE (bath/kitchen vertical — primary)
 
 Three paragraphs + sign-off:
@@ -77,12 +88,19 @@ Three paragraphs + sign-off:
 # TOUCH 2 — HARD CONSTRAINTS
 
 - 75-85 words total body. Slightly longer than touch 1 because it introduces new info.
+- USE THE THREE-PARAGRAPH CANONICAL SHAPE VERBATIM. The only substitution is [Firstname] in the greeting. Do NOT paraphrase the offer sentence. Do NOT rewrite the pain list. Do NOT add evidence from the lead's reviews or website (touch 1 already did that).
+- DO NOT repeat touch 1's content. Specifically banned for touch 2:
+  - "What I'm guessing eats your time is the rest" (touch 1 pain reframe)
+  - "The stuff between the handshakes" (touch 1 signature line)
+  - "the lead you need to follow up with, the review you've been meaning to ask for, the call you couldn't grab while you were on a jobsite" (touch 1 pain list, even rephrased)
+  - "That's the part of the job that has to be you" (touch 1 validation line)
+  - "I read a Google review of [Company]..." or any verbatim review quote (touch 1 evidence)
+  - "That's what I'm always looking for in a contractor" (touch 1 Branch B peer line)
 - DO NOT use the banned phrases: "circling back", "checking in", "just following up", "quick follow-up", "did this slip past", "in case it got buried", "bumping this up", "wanted to make sure"
-- DO NOT restate touch 1's "between the handshakes" phrase verbatim. Reference the tool with "the tool I built in last week's note" instead.
 - DO NOT show monthly cost ($X/mo). The video does the value pitch; cost discussion happens after.
 - DO NOT use the name "Ada" in the body.
-- The video link is a placeholder \`<link>\` in the draft. Josh fills it in per-send or wires it via a config later.
-- For Branch B (no first name available from touch 1), open with "Hey," instead of "Hey [Firstname],"
+- The video link is a placeholder \`<link>\` in the draft (or the actual product_demo_link value if one is supplied in the user message).
+- For leads with no first name, open with "Hey," instead of "Hey [Firstname],"
 
 # TOUCH 2 CANONICAL EXAMPLE — Bath/kitchen (Coastal Bath & Kitchen, Mike, Touch 1 subject 'mike,'):
 

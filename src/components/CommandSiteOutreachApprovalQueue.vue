@@ -108,9 +108,9 @@ function bandLabel(color: QueueItem['scoreColor']): string {
  *  draft-warm-followup when it writes the draft, so the badge reflects
  *  the actual prompt that produced the body.
  *
- *  send_count = 0 + no warm tag → Touch 1 (initial cold)
- *  send_count = 1 + no warm tag → Touch 2 (cold followup, friction-reduction)
- *  send_count = 2 + no warm tag → Touch 3 (cold release + later)
+ *  send_count = 0 + no warm tag → Touch 1 (identity-validating opener + pain reframe)
+ *  send_count = 1 + no warm tag → Touch 2 (founding offer + video link)
+ *  send_count = 2 + no warm tag → Touch 3 (release + later mechanic + founding FOMO)
  *  warm_followup_drafted tag    → Warm follow-up (WT1/WT2/WT3 by sub-tag) */
 interface TouchBadge {
   label: string
@@ -144,7 +144,7 @@ function touchBadge(lead: { send_count?: number; tags?: string[] | null }): Touc
   if (sc === 1) {
     return {
       label: 'T2',
-      longLabel: 'Touch 2 · friction reduction',
+      longLabel: 'Touch 2 · founding offer',
       toneClass: 'bg-warn/15 text-warn border-warn/40',
     }
   }
