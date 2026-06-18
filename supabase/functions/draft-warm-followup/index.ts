@@ -75,38 +75,61 @@ Re-open the door WITHOUT re-pitching. Three principles:
 
 # WT1 (first warm nudge, sent 5-7 days after Josh's reply)
 
-Shape: short re-engagement that acknowledges silence + offers a different / softer angle. Pick whichever fits the conversation:
+Shape: light re-engagement that acknowledges silence + brings ONE new piece of context (the founding rate reminder). NOT a call ask. The cold sequence already exhausted call/video asks — repeating them now reads as "I forgot what I sent." The new info IS the founding offer.
 
-- Offer the video instead of a call: "If a call's not the right week, the same thing in a 90-second video is here: {video_link}. Otherwise, no rush."
-- Acknowledge silence as fine: "Hey [First], no rush either way. If timing's off, just let me know and I'll get out of the way. If a quick video would be useful instead, hit reply with 'video'."
-- Add a small piece of new context: "Hey [First], talked to another bath/kitchen owner this week about [related thing]. Made me think of our exchange. If a 15-min call's still useful: {calendly_link}. Otherwise no pressure."
+BATH/KITCHEN canonical shape:
 
-Pick the one that best fits what was said in the prior exchange.
-
-EXAMPLE — Romeo (bath/kitchen, replied warmly, no follow-through):
-> Re: romeo,
->
-> Hey Romeo, no rush either way. If 15 minutes feels off for the week, hit reply with "video" and I'll send the 90-second walkthrough instead. Otherwise, hope the projects are running smooth.
+> Hey [First], no rush either way. Quick reminder the founding rate is still open if it's relevant — about $3,000 off the first year for the first 3 bath/kitchen shops to sign on. Otherwise, [WARM-CLOSE].
 >
 > Josh
 
+EXAMPLE — Mike (bath/kitchen, replied warmly, no follow-through):
+> Re: mike,
+>
+> Hey Mike, no rush either way. Quick reminder the founding rate is still open if it's relevant — about $3,000 off the first year for the first 3 bath/kitchen shops to sign on. Otherwise, hope the projects are running smooth.
+>
+> Josh
+
+FALLBACK for non-bath/kitchen verticals (no founding offer yet): keep the prior light re-engagement shape:
+> Hey [First], no rush either way. If timing's off, just let me know and I'll get out of the way. Otherwise, [WARM-CLOSE].
+
 # WT2 (second warm nudge, sent 12-15 days after Josh's reply)
 
-Shape: a DIFFERENT angle than WT1. Don't repeat the WT1 framing. Two options:
+Shape: bring NEW peer insight + reinforce the founding scarcity. Different angle from WT1 (which was a soft reminder). WT2 brings a piece of industry observation the reader hasn't seen before, then anchors it back to the offer.
 
-- Specific observation: "Hey [First], one more thought. Most of the bath/kitchen shops I've talked to lose more to silence after sending the quote than to losing on price. If that resonates, here's my calendar: {calendly_link}. If not, ignore me."
-- Soft pre-close: "Hey [First], if quote follow-ups aren't biting into your week, totally fine. If they are and the timing's just off right now, hit reply with 'later' and I'll loop back in a few months."
+BATH/KITCHEN canonical shape:
+
+> Hey [First], one more thought. Most bath/kitchen shops I've talked to lose more to silence after the quote goes out than to losing on price. If that hits close to home, the founding spots are still open for another week or two. After that, the rate goes up.
+>
+> Josh
+
+The "lose more to silence than to price" insight is the load-bearing line — keep it verbatim where possible. It's true industry observation and lands harder than any pitch could.
+
+FALLBACK for non-bath/kitchen verticals: use the "later" mechanic from the prior shape:
+> Hey [First], if [INDUSTRY-PAIN] isn't on your radar this month, totally fine. If it is and the timing's just off right now, hit reply with "later" and I'll loop back in a few months.
 
 # WT3 (soft close, sent 21-28 days after Josh's reply)
 
-Shape: respectful release. NO call ask. NO new pitch.
+Shape: respectful release + callback to the "between the handshakes" signature phrase from the cold sequence for narrative continuity. Acknowledge the founding rate is likely closed by now (honest, not manufactured urgency). NO call ask. NO new pitch.
 
-- "Hey [First], last note from me. Going to step back. If quote follow-ups become a problem you want solved later, you know where to find me. Hope the projects keep landing."
+BATH/KITCHEN canonical shape:
 
-# INDUSTRY-PAIN PHRASE (use in WT2 + WT3, NOT WT1)
+> Hey [First], last note from me.
+>
+> Going to step back. The founding rate has probably closed by the time you read this, but if the between-the-handshakes work ever becomes a problem you want off your plate, you know where to find me.
+>
+> [WARM-CLOSE].
+>
+> Josh
+
+The phrase "between-the-handshakes work" is a deliberate callback to the cold sequence's signature line. Touch 1 introduced it; WT3 closes the loop with it. Same conversation, different chapter.
+
+FALLBACK for non-bath/kitchen verticals: prior shape without founding-rate language:
+> Hey [First], last note from me. Going to step back. If [INDUSTRY-PAIN] becomes a problem you want solved later, you know where to find me. [WARM-CLOSE].
+
+# INDUSTRY-PAIN PHRASE (use in WT2 + WT3 FALLBACK only)
 
 Match the lead's industry:
-- Bath/kitchen remodelers: "quote and inquiry follow-ups"
 - HVAC: "after-hours calls"
 - Plumbing: "dispatch triage"
 - Residential electrical: "permit + estimate follow-up"
@@ -116,6 +139,8 @@ Match the lead's industry:
 - Pool service / pest control: "seasonal-spike call coverage"
 - Churches/ministries: "first-time visitor follow-up"
 - Anything else: just "follow-up"
+
+Bath/kitchen has its own canonical shapes (founding offer + between-the-handshakes callback) and does NOT use this generic pain phrase.
 
 # WARM-CLOSE PHRASE (use in WT1 + WT3)
 
@@ -127,6 +152,14 @@ Match the lead's industry:
 - Cleaning: "hope the routes are humming"
 - Churches/ministries: "praying your church grows"
 - Anything else: "hope it's running well"
+
+# BANNED for all warm touches (these read as templated follow-up)
+
+- "circling back", "checking in", "just following up", "did this slip past", "in case it got buried", "bumping this up", "wanted to make sure"
+- Re-offering the video the prospect already saw in cold touch 2 ("hit reply with 'video'" is now redundant)
+- Re-asking for a 15-minute call (the cold sequence already exhausted that ask — warm follow-ups should NOT re-ask for the same thing)
+- "exactly" / "literally" as emphasizers
+- "AI employee" / "Ada" by name in the body
 
 # CALL THE TOOL
 
@@ -144,7 +177,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         subject: { type: 'string', description: '"Re: <original cold-touch subject>". Lowercase, max 40 chars. Threads off the cold touch in Gmail.' },
-        body: { type: 'string', description: 'Warm-followup body, 30-50 words. No em dashes. Signoff is just "Josh" on its own line. WT1: soft re-engagement. WT2: different angle. WT3: respectful release.' },
+        body: { type: 'string', description: 'Warm-followup body, 30-60 words. No em dashes. Signoff is just "Josh" on its own line. BATH/KITCHEN canonical shapes: WT1 reminds about the founding rate ($3,000 off the first year for first 3 shops) without re-pitching, NO call ask. WT2 uses the peer insight ("most shops I\'ve talked to lose more to silence after the quote goes out than to losing on price") + reinforces founding scarcity ("spots still open for another week or two, after that the rate goes up"). WT3 respectful release + callback to "between-the-handshakes work" + acknowledges founding has likely closed. NEVER re-offer the video the prospect already saw in cold touch 2. NEVER re-ask for a 15-minute call. NEVER use "circling back" / "checking in" / "just following up". Non-bath/kitchen verticals use the fallback shapes (peer-pattern + "later" mechanic + INDUSTRY-PAIN phrase).' },
         touch_number: { type: 'integer', enum: [1, 2, 3], description: '1=WT1 (first warm nudge), 2=WT2 (different angle), 3=WT3 (soft close)' },
         rationale: { type: 'string', description: 'One sentence: why this angle for this specific lead based on conversation history.' },
       },
