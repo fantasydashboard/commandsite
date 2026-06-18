@@ -39,6 +39,9 @@ const draftsReadyCount = ref(0)
 const stuckDraftingCount = ref(0)
 const warmOverdueCount = ref(0)
 const outreachPausedCount = ref(0)
+// Warm follow-ups scheduled in the next 7 days — shows what's coming
+// so the operator isn't surprised by the next batch of warm drafts.
+const warmScheduled7dCount = ref(0)
 
 // Recent activity (today)
 const sendsTodayCount = ref(0)
@@ -62,6 +65,7 @@ async function refreshAll() {
     const todayIso = todayStart.toISOString()
     const stuckCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString()
     const nowIso = new Date().toISOString()
+    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
     // Fire all queries in parallel. Each one is small and indexed.
     const [
@@ -73,6 +77,7 @@ async function refreshAll() {
       draftsReady,
       stuckDrafting,
       warmOverdue,
+      warmScheduled7d,
       outreachPaused,
       sendsToday,
       repliesToday,
@@ -89,6 +94,10 @@ async function refreshAll() {
       supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('draft_state', 'ready_for_review'),
       supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('draft_state', 'drafting').lt('updated_at', stuckCutoff),
       supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('warm_followup_state', 'queued').lte('warm_followup_due_at', nowIso),
+      // Warm follow-ups scheduled in the next 7 days but not yet due.
+      // Lets the operator see what's coming so the next batch of warm
+      // drafts isn't a surprise.
+      supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('warm_followup_state', 'queued').gt('warm_followup_due_at', nowIso).lte('warm_followup_due_at', sevenDaysFromNow),
       supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('outreach_paused', true),
       supabase.from('cs_outreach_sends').select('*', { count: 'exact', head: true }).gte('sent_at', todayIso),
       supabase.from('cs_replies').select('*', { count: 'exact', head: true }).gte('received_at', todayIso),
@@ -108,6 +117,7 @@ async function refreshAll() {
     draftsReadyCount.value = draftsReady.count ?? 0
     stuckDraftingCount.value = stuckDrafting.count ?? 0
     warmOverdueCount.value = warmOverdue.count ?? 0
+    warmScheduled7dCount.value = warmScheduled7d.count ?? 0
     outreachPausedCount.value = outreachPaused.count ?? 0
 
     sendsTodayCount.value = sendsToday.count ?? 0
@@ -278,7 +288,7 @@ const overallLabel = computed(() => {
         <span class="eyebrow">Queue depths</span>
         <p class="text-xs text-ink-muted">In-flight + waiting work across the pipeline.</p>
       </div>
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
           <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Drafts ready for review</div>
           <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ draftsReadyCount }}</div>
@@ -292,6 +302,11 @@ const overallLabel = computed(() => {
           <div class="text-[10px] uppercase font-semibold tracking-wide opacity-80">Warm followups overdue</div>
           <div class="text-2xl font-bold tabular-nums mt-0.5">{{ warmOverdueCount }}</div>
           <div class="text-[11px] opacity-70 mt-0.5">cron picks these up every 30 min</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Warm followups · next 7d</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ warmScheduled7dCount }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">scheduled WT1/WT2/WT3 coming up</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
           <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Outreach paused</div>
