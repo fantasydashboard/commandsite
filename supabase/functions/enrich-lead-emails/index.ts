@@ -237,9 +237,34 @@ async function fetchPage(url: string, timeoutMs = 8000): Promise<string | null> 
     if (!res.ok) return null
     const ct = res.headers.get('content-type') ?? ''
     if (!/text\/html|application\/xhtml/i.test(ct)) return null
-    const text = await res.text()
-    // Cap at 500KB to avoid pulling down huge pages
-    return text.slice(0, 500_000)
+    // Stream-read with a 150KB hard cap. Old logic loaded the full response
+    // into memory before slicing, which OOM'd the worker on huge sites
+    // (some contractor sites embed 2-5MB of inline base64 images). Reading
+    // up to 150KB is more than enough to find emails + social links in the
+    // <head> + <body> top, and bounds memory per fetch.
+    const reader = res.body?.getReader()
+    if (!reader) return null
+    const decoder = new TextDecoder()
+    let total = 0
+    let text = ''
+    const MAX_BYTES = 150_000
+    try {
+      while (total < MAX_BYTES) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+        text += decoder.decode(value, { stream: true })
+        total += value.byteLength
+      }
+      // Drain the rest so the connection closes cleanly even if we hit the cap
+      if (total >= MAX_BYTES) {
+        await reader.cancel().catch(() => {})
+      }
+    } catch {
+      await reader.cancel().catch(() => {})
+      return text || null
+    }
+    return text
   } catch {
     return null
   }
@@ -286,11 +311,20 @@ async function findCandidateEmail(lead: LeadRow): Promise<
     return { status: 'candidate', email: homepageRanked[0], socialUrls: homepageSocials }
   }
 
-  const fallback = await Promise.all(
-    urls.slice(1).map((u) => fetchPage(u, 6000)),
-  )
-  for (const html of fallback) {
-    if (html) allHtml.push(html)
+  // Fetch fallback pages SEQUENTIALLY (was Promise.all). Parallel fetches
+  // multiplied memory pressure across all leads in a chunk — 5 leads x 3
+  // fallback pages = 15 simultaneous HTTPS connections + 15 HTML buffers
+  // in flight at once. Sequential is slower per-lead but bounds memory
+  // and is the difference between "succeeds" and WORKER_RESOURCE_LIMIT.
+  // Also short-circuit as soon as we find an email on any fallback page
+  // so we don't fetch /about when /contact already had what we needed.
+  for (const u of urls.slice(1)) {
+    const html = await fetchPage(u, 6000)
+    if (!html) continue
+    allHtml.push(html)
+    const found = html.match(EMAIL_REGEX) ?? []
+    const rankedSoFar = rankEmails(found, domain)
+    if (rankedSoFar.length > 0) break
   }
 
   const merged = allHtml.join('\n')
@@ -451,7 +485,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     invalid: 0,
     unverifiable: 0,
   }
-  const BATCH_SIZE = 5
+  // Lowered from 5 → 3 after WORKER_RESOURCE_LIMIT errors on the
+  // Supabase Free tier (~150ms CPU budget, 500MB memory). Each lead
+  // now does fewer parallel things (see fetchPage stream-cap + the
+  // sequential fallback fetch above), but the parallel batch size
+  // still multiplies network buffer pressure, so we keep it tight.
+  const BATCH_SIZE = 3
   // Overall wall-clock budget. Each lead can take 2-5s (website fetch +
   // fallback fetch + NeverBounce). With chunks of 50 at the old default,
   // total runtime easily exceeded the platform's ~150s function cap,
