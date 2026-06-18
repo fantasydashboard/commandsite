@@ -13,7 +13,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { withTimeout } from '@/lib/withTimeout'
-import type { CsReply, CsLead } from '@/types/database'
+import type { CsReply, CsLead, CsReplyClassification } from '@/types/database'
 import type { ReplyQueueItem } from '@/components/CommandSiteReplyApprovalQueue.vue'
 
 export function useReplyApproval() {
@@ -158,6 +158,61 @@ export function useReplyApproval() {
     if (updErr) {
       busy.value = false
       return { ok: false, error: `DB write: ${updErr.message}` }
+    }
+
+    // ── Auto-schedule warm follow-up for warm-classified replies ──────
+    // Research: warm leads decay 50% per 5 days of silence. After Josh
+    // sends a reply to an engaged prospect, the highest-leverage move
+    // is a 5-day check-back if they don't respond. The warm-followup
+    // cron picks up the schedule and drafts a WT1 5 days from now.
+    //
+    // Classifications that trigger auto-schedule:
+    //   - positive: explicit interest
+    //   - interested: signal of interest without commitment
+    //   - objection: engaged but skeptical (still warm — pushback is engagement)
+    //
+    // Classifications that SKIP auto-schedule:
+    //   - negative: not interested
+    //   - unsubscribe / oof: out of office or opted out
+    //   - unclassified: don't auto-act on ambiguous signal
+    //
+    // Operator can still manually cancel or reschedule via the Lead
+    // Detail UI. Skip if:
+    //   - warm_followup_state is already queued/drafted/sent (don't overwrite in-flight)
+    //   - warm_followup_state = 'canceled' (operator explicitly opted out)
+    //
+    // Best-effort: failure here doesn't break the send.
+    if (reply.lead_id) {
+      const warmClassifications: CsReplyClassification[] = ['positive', 'interested', 'objection']
+      const isWarm = reply.classification != null && warmClassifications.includes(reply.classification)
+      if (isWarm) {
+        try {
+          const { data: leadRow } = await supabase
+            .from('cs_leads')
+            .select('warm_followup_state')
+            .eq('id', reply.lead_id)
+            .maybeSingle()
+          const currentState = (leadRow as { warm_followup_state?: string | null } | null)?.warm_followup_state ?? null
+          const isAdjustable = currentState == null || currentState === 'completed'
+          if (isAdjustable) {
+            const dueAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+            await supabase
+              .from('cs_leads')
+              .update({
+                warm_followup_due_at: dueAt,
+                warm_followup_state: 'queued',
+                warm_followup_touch: 1,
+              } as never)
+              .eq('id', reply.lead_id)
+          }
+        } catch (err) {
+          // Don't break the send if the auto-schedule fails.
+          console.warn(
+            'Auto-schedule warm follow-up failed:',
+            err instanceof Error ? err.message : String(err),
+          )
+        }
+      }
     }
 
     lastSentId.value = reply.id
