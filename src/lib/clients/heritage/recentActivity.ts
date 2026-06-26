@@ -14,88 +14,92 @@ function hoursAgo(n: number): string {
   return new Date(Date.now() - n * 60 * 60 * 1000).toISOString()
 }
 
+// Activity feed reads as WINS not server logs. Each event names the human
+// outcome (caught, rescued, booked, drafted) and where relevant the dollar
+// value or the would-have-lost framing. This is the difference between
+// "admin software" and "cheat code that did your job."
 export const recentActivity: RecentActivityEvent[] = [
   {
     id: 'a-001',
     at: minutesAgo(18),
-    text: 'Quote follow-up sent · Rodriguez Estate ($54K master bath, day 7)',
+    text: 'Rescued the Rodriguez Estate quote ($54K master bath) before it went cold. Day-7 nudge drafted in your voice, awaiting your approval.',
     kind: 'quote',
     role: 'quote_followup',
   },
   {
     id: 'a-002',
     at: minutesAgo(42),
-    text: 'New consultation request · Patricia Mendoza (kitchen full reno) — booked Tue 2pm',
+    text: 'Caught a 9:14am call from Patricia Mendoza (kitchen full reno). Booked her for Tue 2pm. Without Ada this would have hit voicemail.',
     kind: 'call',
     role: 'front_desk',
   },
   {
     id: 'a-003',
     at: hoursAgo(2),
-    text: 'Referral ask drafted for Marcus & Tia Bell — awaiting your approval',
+    text: 'Marcus & Tia Bell just posted a 5★ review. Drafted a referral ask in your voice ($500 off for both sides). Your green light needed.',
     kind: 'reactivation',
     role: 'referral_engine',
   },
   {
     id: 'a-004',
     at: hoursAgo(3),
-    text: 'New 5★ review on Google · "Marc and team made our kitchen the heart of the home" — Marcus B.',
+    text: 'New 5★ from Marcus B. on Google: "Marc and team made our kitchen the heart of the home." Already replied in your voice.',
     kind: 'review',
     role: 'review_engine',
   },
   {
     id: 'a-005',
     at: hoursAgo(5),
-    text: 'Quote follow-up sent · James & Rebecca Liu (accessible bath, day 7)',
+    text: 'James & Rebecca Liu (accessible bath, $33K) hadn\'t replied in 7 days. Day-7 check-in sent in your voice. Most owners forget this one.',
     kind: 'quote',
     role: 'quote_followup',
   },
   {
     id: 'a-006',
     at: hoursAgo(7),
-    text: 'LSA lead in · Tampa homeowner asking about bath remodel timeline — booked Thu 10am',
+    text: 'Caught a 6:43pm Local Services Ads lead from Tampa about a bath remodel timeline. Booked her for Thu 10am while you were at dinner.',
     kind: 'call',
     role: 'front_desk',
   },
   {
     id: 'a-007',
     at: hoursAgo(20),
-    text: 'Quote follow-up sent · David Hernandez (day 14, escalation cadence)',
+    text: 'David Hernandez (day 14, $24K guest bath) escalation nudge sent. Tone tuned to "soft urgency", the highest-converting at this stage.',
     kind: 'quote',
     role: 'quote_followup',
   },
   {
     id: 'a-008',
     at: hoursAgo(22),
-    text: 'Spring kitchen trends newsletter sent to 842 recipients · 38% open rate so far',
+    text: 'Spring kitchen trends newsletter went out to 842 past customers + prospects. 38% open rate so far (industry avg: 18%).',
     kind: 'reactivation',
     role: 'email_marketing',
   },
   {
     id: 'a-009',
     at: hoursAgo(27),
-    text: 'Pat Rosenbaum (referred by Joel & Marie Underwood) booked an in-home consultation',
+    text: 'Pat Rosenbaum (referred by Joel & Marie Underwood) booked a consultation. Estimated job: $45K. Cost to acquire: $0.',
     kind: 'reactivation',
     role: 'referral_engine',
   },
   {
     id: 'a-010',
     at: hoursAgo(36),
-    text: 'Reactivation message · Heather Cole (bath remodel 18 months ago) — replied interested in kitchen',
+    text: 'Heather Cole (bath remodel 18 months ago) replied to the kitchen reactivation: "yeah, we\'ve been thinking about it." Drafted follow-up ready.',
     kind: 'reactivation',
     role: 'reactivation',
   },
   {
     id: 'a-011',
     at: hoursAgo(48),
-    text: 'Weekly performance report ready · $112K revenue · 4 jobs closed · 28% close rate',
+    text: 'Weekly performance report ready. $112K revenue won. 4 jobs closed at 28% close rate (industry avg: 20-25%). Trending up.',
     kind: 'dispatch',
     role: 'performance_reporting',
   },
   {
     id: 'a-012',
     at: hoursAgo(50),
-    text: 'Quote closed · Marcus & Tia Bell — kitchen full renovation $59K · onboarding packet sent',
+    text: 'Marcus & Tia Bell signed. Kitchen full renovation $59K. Onboarding packet (welcome email + measure-day calendar invite + design questionnaire) auto-sent.',
     kind: 'quote',
     role: 'deal_won_handoff',
   },

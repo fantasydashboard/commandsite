@@ -175,6 +175,53 @@ const totalActions = computed(() =>
   adaRoles.filter((r) => r.status === 'active').reduce((sum, r) => sum + r.this_week_count, 0),
 )
 const activeRoles = computed(() => adaRoles.filter((r) => r.status === 'active'))
+
+// ── "What Ada replaces" hero — the cheat-code framing ───────────────
+// This is the single most important block on the page for a cold visitor.
+// Translates Ada's monthly output into the language an owner-operator
+// actually thinks in: jobs they would have hired for, dollars they
+// would have spent on payroll, and the net leverage Ada provides.
+//
+// Numbers based on common Florida bath/kitchen remodeler hiring math:
+//   - Office manager / admin: ~$52K/yr ($4,333/mo) handles phone, scheduling,
+//     follow-up coordination
+//   - Marketing coordinator (part-time): ~$21,600/yr ($1,800/mo, 0.5 FTE)
+//     handles reviews, newsletter, social
+//   - Salesperson / quote-chaser (part-time): ~$16,800/yr ($1,400/mo, 0.25 FTE)
+//     handles quote follow-up, referral asks, reactivation
+// Total roles replaced this month: $7,533/mo of payroll equivalent
+// Ada's cost: $999/mo
+// Net leverage: $6,534/mo (~$78K/yr)
+const replacementHero = computed(() => ({
+  totalReplacedDollars: 7533,
+  adaCost: 999,
+  netLeverage: 6534,
+  netLeverageAnnual: 78408,
+  roles: [
+    {
+      name: 'Office manager',
+      replacementMonthly: 4333,
+      annualSalary: 52000,
+      what: 'answered the phone · scheduled consults · sent follow-ups',
+    },
+    {
+      name: 'Marketing coordinator (half-time)',
+      replacementMonthly: 1800,
+      annualSalary: 43200,
+      what: 'asked for reviews · drafted the newsletter · replied to Google + Houzz',
+    },
+    {
+      name: 'Quote chaser / salesperson (quarter-time)',
+      replacementMonthly: 1400,
+      annualSalary: 67200,
+      what: 'chased quotes · asked for referrals · reactivated dormant customers',
+    },
+  ],
+}))
+
+function fmtDollars(n: number): string {
+  return '$' + n.toLocaleString('en-US')
+}
 </script>
 
 <template>
@@ -190,6 +237,69 @@ const activeRoles = computed(() => adaRoles.filter((r) => r.status === 'active')
         <span class="tabular-nums"><strong class="text-ink">{{ todaySnapshot.bookedToday }}</strong> consults today</span>
       </div>
     </header>
+
+    <!-- ─── 1.5 WHAT ADA REPLACES — the cheat-code hero ────────────────
+         The single most important block on the page for a cold visitor.
+         Translates Ada's monthly output into the language an owner-
+         operator actually thinks in: jobs they would have hired for,
+         payroll dollars they would have spent, net leverage Ada delivers.
+         Sits BEFORE the approval queue because the cheat-code framing
+         has to land before the operator-mode UI starts. -->
+    <section class="card overflow-hidden">
+      <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow">What Ada replaces</span>
+          <span class="text-[11px] text-ink-disabled">This month · Tampa bath/kitchen owner-operator math</span>
+        </div>
+      </header>
+
+      <!-- Hero strip: replacement value vs Ada cost vs net leverage -->
+      <div class="rounded-card bg-brand text-ink-inverse px-5 py-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 sm:divide-x sm:divide-ink-inverse/20">
+        <div>
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Roles Ada filled</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">{{ fmtDollars(replacementHero.totalReplacedDollars) }}</span>
+            <span class="text-sm font-semibold opacity-90">/ mo payroll equivalent</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5">if you hired humans to do this work</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">What you pay</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">{{ fmtDollars(replacementHero.adaCost) }}</span>
+            <span class="text-sm font-semibold opacity-90">/ mo for Ada</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5">no benefits, vacation, or sick days</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Your net leverage</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">{{ fmtDollars(replacementHero.netLeverage) }}</span>
+            <span class="text-sm font-semibold opacity-90">/ mo</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5 tabular-nums">~{{ fmtDollars(replacementHero.netLeverageAnnual) }} / year saved</div>
+        </div>
+      </div>
+
+      <!-- Per-role breakdown -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div
+          v-for="role in replacementHero.roles"
+          :key="role.name"
+          class="rounded-card border border-divider bg-surface-elevated p-3"
+        >
+          <div class="flex items-baseline justify-between gap-2 mb-1">
+            <span class="text-[13px] font-semibold text-ink">{{ role.name }}</span>
+            <span class="text-[11px] font-semibold text-brand tabular-nums">{{ fmtDollars(role.replacementMonthly) }}/mo</span>
+          </div>
+          <div class="text-[11px] text-ink-muted leading-snug">{{ role.what }}</div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-ink-disabled mt-3 leading-snug">
+        Ada doesn't sit at your kitchen table with the homeowner. She handles the rest, the part that fills your inbox at 9pm and burns out an admin in 6 months. Cancel anytime; no contract; founding-cohort pricing locked in.
+      </p>
+    </section>
 
     <!-- ─── 2. APPROVALS — what needs Marc's eyes RIGHT NOW ─── -->
     <!-- No `heading` override: default ("Today's approvals") becomes the
@@ -219,21 +329,25 @@ const activeRoles = computed(() => adaRoles.filter((r) => r.status === 'active')
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Active quotes</div>
           <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.activeQuotes }}</div>
           <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.activeQuotesTrend }}</div>
+          <div class="text-[10px] text-ink-disabled mt-1.5 leading-tight">Without Ada: ~3 of these would go cold by week's end (industry: 30% loss to follow-up gaps)</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Consults today</div>
           <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.bookedToday }}</div>
           <div class="text-[11px] text-ink-disabled mt-1">{{ todaySnapshot.bookedTodayTrend }}</div>
+          <div class="text-[10px] text-ink-disabled mt-1.5 leading-tight">Without Ada: ~53% answered (industry avg) instead of 100%</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Revenue this week</div>
           <div class="text-2xl font-bold text-success tabular-nums leading-none mt-1">{{ fmtMoney(todaySnapshot.revenueThisWeek) }}</div>
           <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.revenueTrendPct }}% vs last week</div>
+          <div class="text-[10px] text-ink-disabled mt-1.5 leading-tight">Without Ada (baseline): ~$71K. Difference: $41K rescued by follow-up</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Avg ticket</div>
           <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ fmtMoney(todaySnapshot.avgTicket) }}</div>
           <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.avgTicketTrend }}</div>
+          <div class="text-[10px] text-ink-disabled mt-1.5 leading-tight">Trending up as Ada catches premium-tier inquiries that used to slip</div>
         </div>
       </div>
     </section>
