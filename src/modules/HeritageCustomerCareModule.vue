@@ -193,6 +193,17 @@ const customerCareRecommendations: AdaRecommendation[] = [
       </p>
     </header>
 
+    <!-- Ada's note on past customers + referrals this week -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">A</div>
+        <span class="text-xs font-bold text-ink">Ada's note on your customer base</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        Your past customers are your highest-ROI sales force. Referrals from them close at <strong>50-70%</strong> vs 25-30% for cold leads. This quarter they drove <strong>$188K of revenue at zero acquisition cost</strong>. I'm tracking 12 dormant customers approaching expansion windows and have 2 fresh referral asks waiting on your green light. The hard part isn't asking, it's remembering to ask at the right moment. That's what I'm here for.
+      </p>
+    </section>
+
     <!-- Referral Engine — the new Pro role ⭐ -->
     <section class="card border-brand/30">
       <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">

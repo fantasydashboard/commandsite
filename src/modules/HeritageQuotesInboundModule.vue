@@ -223,6 +223,17 @@ const quoteRecommendations: AdaRecommendation[] = [
       </p>
     </header>
 
+    <!-- Ada's note on this week's quote pipeline -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">A</div>
+        <span class="text-xs font-bold text-ink">Ada's note on quotes this week</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        You have <strong>$404K in active pipeline</strong> across 9 open quotes. I'm nudging 6 of them on schedule. Industry data says ~30% of open quotes go cold to follow-up gaps, which would be <strong>$121K of pipeline lost</strong>. That's the work I'm doing here. Last-chance bucket has one deal (Allen &amp; Priya Patel, $37K) worth your eyes before I mark it cold.
+      </p>
+    </section>
+
     <!-- KPI strip — aligned with Today page metrics -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div class="rounded-card border border-divider bg-surface-elevated p-3">

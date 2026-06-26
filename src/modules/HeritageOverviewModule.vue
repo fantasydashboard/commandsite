@@ -16,10 +16,9 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import type { Client } from '@/types/database'
-import { adaRoles, type AdaRole } from '@/lib/clients/heritage/roles'
+import { adaRoles } from '@/lib/clients/heritage/roles'
 import { recentActivity } from '@/lib/clients/heritage/recentActivity'
 import type { RecentActivityEvent } from '@/lib/clients/heritage/types'
-import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import AdaMorningHandoff from '@/components/heritage/AdaMorningHandoff.vue'
 import AdaRecommendations, { type AdaRecommendation } from '@/components/heritage/AdaRecommendations.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
@@ -32,14 +31,6 @@ const router = useRouter()
 const route = useRoute()
 
 const isCustomDemo = computed(() => typeof route.query.demo_company === 'string')
-
-function onRoleClick(role: AdaRole) {
-  router.push({
-    name: 'dashboard.tab',
-    params: { slug: 'heritage-bath', tab: role.tab },
-    hash: `#${role.key}`,
-  })
-}
 
 // Route an activity event to the relevant tab (clickable feed rows).
 function onActivityClick(event: RecentActivityEvent) {
@@ -372,19 +363,19 @@ const todayRecommendations: AdaRecommendation[] = [
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Active quotes</div>
           <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.activeQuotes }}</div>
           <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.activeQuotesTrend }}</div>
-          <div class="text-[10px] text-ink-disabled mt-1.5 leading-tight">Without Ada: ~3 of these would go cold by week's end (industry: 30% loss to follow-up gaps)</div>
+          <div class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~3 of these would go cold by week's end (industry: 30% loss to follow-up gaps)</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Consults today</div>
           <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.bookedToday }}</div>
           <div class="text-[11px] text-ink-disabled mt-1">{{ todaySnapshot.bookedTodayTrend }}</div>
-          <div class="text-[10px] text-ink-disabled mt-1.5 leading-tight">Without Ada: ~53% answered (industry avg) instead of 100%</div>
+          <div class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~53% answered (industry avg) instead of 100%</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Revenue this week</div>
           <div class="text-2xl font-bold text-success tabular-nums leading-none mt-1">{{ fmtMoney(todaySnapshot.revenueThisWeek) }}</div>
           <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.revenueTrendPct }}% vs last week</div>
-          <div class="text-[10px] text-ink-disabled mt-1.5 leading-tight">Without Ada (baseline): ~$71K. Difference: $41K rescued by follow-up</div>
+          <div class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~$71K baseline. <strong class="text-ink">$41K rescued</strong> by follow-up</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Avg ticket</div>
@@ -395,48 +386,30 @@ const todayRecommendations: AdaRecommendation[] = [
       </div>
     </section>
 
-    <!-- ─── 4. Ada at Work — reassurance + role coverage (REFRAMED) ─── -->
-    <!-- Custom revenue-led hero replacing AdaAtWorkHub's default hours-saved
-         hero. The owner thinks in revenue, not in hours-saved math.
-         Role-count is shown ONLY in the hero strip (right side) — no
-         duplicate header label. -->
-    <section class="card overflow-hidden">
-      <header class="mb-4 flex items-baseline gap-2">
-        <span class="eyebrow">Ada at Work</span>
-        <span class="text-xs text-ink-muted">This week · click any role to drill in</span>
-      </header>
-
-      <!-- Revenue-led hero (replaces default hours-saved hero) -->
-      <div class="rounded-card bg-brand text-ink-inverse px-5 py-4 mb-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
-        <div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="text-4xl font-bold tabular-nums leading-none">{{ fmtMoney(totalRevenueThisWeek) }}</span>
-            <span class="text-base font-semibold opacity-90">revenue won</span>
-          </div>
-          <div class="text-xs uppercase tracking-wide opacity-80 mt-1.5 tabular-nums">
-            across {{ totalActions }} actions Ada handled for Marc this week
-          </div>
+    <!-- ─── 4. Ada at Work — compact proof strip (REDUCED 2026-06-26) ─
+         Previously a full grid of 12 role cards. The morning handoff
+         and Ada's Recommendations now do that storytelling job better,
+         so the role grid became redundant. Kept the revenue + role
+         count as a proof point for the cheat-code hero above, with a
+         link to drill into the full role breakdown if anyone wants it. -->
+    <section class="rounded-card bg-brand text-ink-inverse px-5 py-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
+      <div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-3xl font-bold tabular-nums leading-none">{{ fmtMoney(totalRevenueThisWeek) }}</span>
+          <span class="text-sm font-semibold opacity-90">revenue won this week</span>
         </div>
-        <div class="text-right">
-          <div class="text-lg font-semibold leading-tight tabular-nums">
-            {{ activeRoles.length }} of {{ adaRoles.length }}
-          </div>
-          <div class="text-xs uppercase tracking-wide opacity-80 mt-1">
-            roles active
-          </div>
+        <div class="text-[11px] uppercase tracking-wide opacity-80 mt-1.5 tabular-nums">
+          across {{ totalActions }} actions Ada handled for you this week
         </div>
       </div>
-
-      <!-- Role grid — pass killer role for visual emphasis -->
-      <AdaAtWorkHub
-        :roles="adaRoles"
-        :owner-name="'Marc'"
-        assistant-name="Ada"
-        :killer-role-key="'quote_followup'"
-        :hide-header="true"
-        :hide-hero="true"
-        @role-click="onRoleClick"
-      />
+      <div class="text-right">
+        <div class="text-lg font-semibold leading-tight tabular-nums">
+          {{ activeRoles.length }} of {{ adaRoles.length }}
+        </div>
+        <div class="text-[11px] uppercase tracking-wide opacity-80 mt-1">
+          roles active
+        </div>
+      </div>
     </section>
 
     <!-- ─── 4.5 Ada's Recommendations — what to act on this week ─── -->

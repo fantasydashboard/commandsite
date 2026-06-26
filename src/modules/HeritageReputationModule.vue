@@ -207,6 +207,17 @@ function requestThankYouDraft(review: Review) {
       </p>
     </header>
 
+    <!-- Ada's note on reputation + marketing this week -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">A</div>
+        <span class="text-xs font-bold text-ink">Ada's note on your reputation this week</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        You're at a <strong>4.9★ rating across 128 reviews</strong>, top of your category in Tampa. I asked 6 customers for reviews this week, 5 are coming back 5★. Most contractors lose 5-10 reviews/month to forgetting to ask, I don't forget. The newsletter went out to 842 past customers, 38% opened it (industry: 18%). One 4★ from Pat Owens needs your voice before I post the reply, your call.
+      </p>
+    </section>
+
     <!-- Review summary -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div class="rounded-card border border-divider bg-surface-elevated p-3">

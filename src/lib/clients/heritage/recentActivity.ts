@@ -50,7 +50,7 @@ export const recentActivity: RecentActivityEvent[] = [
   {
     id: 'a-005',
     at: hoursAgo(5),
-    text: 'James & Rebecca Liu (accessible bath, $33K) hadn\'t replied in 7 days. Day-7 check-in sent in your voice. Most owners forget this one.',
+    text: 'James & Rebecca Liu (accessible bath, $33K) hadn\'t replied in 7 days. Sent the day-7 check-in in your voice while you were at the Westshore site visit.',
     kind: 'quote',
     role: 'quote_followup',
   },
@@ -64,14 +64,14 @@ export const recentActivity: RecentActivityEvent[] = [
   {
     id: 'a-007',
     at: hoursAgo(20),
-    text: 'David Hernandez (day 14, $24K guest bath) escalation nudge sent. Tone tuned to "soft urgency", the highest-converting at this stage.',
+    text: 'Sent David Hernandez (day 14, $24K guest bath) the escalation nudge while you were on the Stephanie Voss measure visit. Tone tuned to "soft urgency", highest-converting at this stage.',
     kind: 'quote',
     role: 'quote_followup',
   },
   {
     id: 'a-008',
     at: hoursAgo(22),
-    text: 'Spring kitchen trends newsletter went out to 842 past customers + prospects. 38% open rate so far (industry avg: 18%).',
+    text: 'Sent the spring kitchen trends newsletter to 842 past customers while you were finishing up the Bell kitchen punchlist. 38% open rate so far (industry: 18%). 2 inbound replies already.',
     kind: 'reactivation',
     role: 'email_marketing',
   },
