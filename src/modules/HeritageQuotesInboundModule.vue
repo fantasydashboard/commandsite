@@ -22,6 +22,7 @@ import type { Client } from '@/types/database'
 import { quotes as initialQuotes, totalPipelineValueCents, agingQuoteCount } from '@/lib/clients/heritage/quotes'
 import type { QuoteRecord, QuoteStage } from '@/lib/clients/heritage/types'
 import { fmtMoney, DEMO_BEAT_MS } from '@/lib/clients/heritage/format'
+import AdaRecommendations, { type AdaRecommendation } from '@/components/heritage/AdaRecommendations.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -174,6 +175,39 @@ function togglePause(quote: QuoteRecord) {
 
 // ── Closed-this-period collapsed state
 const showClosed = ref(false)
+
+// ── Ada's recommendations for Quotes & Inbound ─────────────────────
+// Focused on quote-pipeline decisions: which deals need your personal
+// touch vs Ada's drafted nudge, what's at risk, what to escalate.
+const quoteRecommendations: AdaRecommendation[] = [
+  {
+    id: 'q-patel-last',
+    title: 'Allen & Priya Patel ($37K) is at day 31, your last chance',
+    tag: 'Highest leverage',
+    tagTone: 'leverage',
+    body: 'This is the only deal in the last-chance bucket. They went quiet after the wet-room conversion proposal. Industry data says day-30+ deals close 4% when nudged once, 0% when ignored. I drafted a soft "thinking of you" close before I mark it cold.',
+    impact: 'A 4% shot at $37K is worth the 90 seconds of review time.',
+    actionLabel: 'Read the last-chance draft',
+  },
+  {
+    id: 'q-davidh-call',
+    title: 'David Hernandez has been a slow yes historically, worth a call not an email',
+    tag: 'Worth your eyes',
+    tagTone: 'opportunity',
+    body: 'David is at day 14 ($24K guest bath). I noticed his bath last year took 22 days to close after 4 email nudges, then a call from you sealed it in 10 minutes. The pattern is repeating. I\'ll pause the email nudges if you want to call him directly.',
+    impact: 'A 10-min call has closed 67% of David-pattern deals. Email nudges alone closed 21%.',
+    actionLabel: 'Pause emails + remind me to call',
+  },
+  {
+    id: 'q-whitfield-pricetier',
+    title: 'Whitfield Family ($78K) might respond better to a budget-tier alternative',
+    tag: 'Opportunity',
+    tagTone: 'opportunity',
+    body: 'Largest open quote, day 8. Houzz Pro inquiry, originally asked about "open-concept conversion + walk-in pantry." If they\'re hesitating on the $78K full scope, a "phased option" at $48K might unstick them. I can draft both versions and let you pick.',
+    impact: 'Phased-option drafts have closed 38% of $60K+ quotes that went quiet vs 18% on standard nudge.',
+    actionLabel: 'Draft both versions',
+  },
+]
 </script>
 
 <template>
@@ -340,6 +374,9 @@ const showClosed = ref(false)
         </div>
       </div>
     </section>
+
+    <!-- Ada's Recommendations — quote-pipeline decisions worth your eye -->
+    <AdaRecommendations :recommendations="quoteRecommendations" />
 
     <!-- Closed this period — collapsed by default -->
     <section v-if="wonQuotes.length + lostQuotes.length > 0" class="card">

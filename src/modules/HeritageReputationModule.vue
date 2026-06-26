@@ -15,8 +15,40 @@
 import { ref, computed } from 'vue'
 import type { Client } from '@/types/database'
 import { DEMO_BEAT_MS } from '@/lib/clients/heritage/format'
+import AdaRecommendations, { type AdaRecommendation } from '@/components/heritage/AdaRecommendations.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// ── Ada's recommendations for Reputation & Marketing ───────────────
+const reputationRecommendations: AdaRecommendation[] = [
+  {
+    id: 'r-owens-needs-voice',
+    title: 'Pat Owens 4★ review needs your voice before I post the reply',
+    tag: 'Worth your eyes',
+    tagTone: 'urgent',
+    body: 'Pat called out a real issue (cabinet delivery slipped) and you already changed vendors because of it. I drafted an honest reply acknowledging the slip and naming the vendor switch. Owner-acknowledged 4★ reviews convert prospect-viewers at 2x the rate of ignored ones.',
+    impact: 'Each well-handled 4★ review is worth ~$8-12K in deflected prospect-loss over the next 6 months.',
+    actionLabel: 'Read the draft',
+  },
+  {
+    id: 'r-threshold-140',
+    title: 'You\'re 12 reviews from crossing the 140-review threshold',
+    tag: 'Highest leverage',
+    tagTone: 'leverage',
+    body: 'Google\'s local algorithm gives a visible ranking lift at the 100/250/500 review thresholds, and a smaller-but-real one at 140 reviews. I have 18 recent customers who haven\'t been asked yet (post-job timing was off). I can draft requests for all 18 this week.',
+    impact: 'Crossing 140 typically lifts Google Maps clicks by 15-25% in this category. ~3-5 extra leads/month.',
+    actionLabel: 'Draft the 18 review asks',
+  },
+  {
+    id: 'r-diego-shoutout',
+    title: '3 reviews this month specifically named Diego (your installer)',
+    tag: 'Opportunity',
+    tagTone: 'opportunity',
+    body: 'Karen W., Sandra P., and Marcus B. all called out Diego\'s installation work by name. That\'s a real signal his work is differentiating. Worth featuring him in next month\'s newsletter and / or giving him a recognition bonus. Also worth telling new customers "Diego will be your installer" upfront, it builds confidence.',
+    impact: 'Named-installer trust signals lift close rates ~10% in the residential remodel space.',
+    actionLabel: 'Draft Diego feature for newsletter',
+  },
+]
 
 interface Review {
   id: string
@@ -198,6 +230,9 @@ function requestThankYouDraft(review: Review) {
         <div class="text-[11px] text-ink-disabled mt-1">Spring kitchen open rate</div>
       </div>
     </div>
+
+    <!-- Ada's Recommendations — reputation decisions worth your eye -->
+    <AdaRecommendations :recommendations="reputationRecommendations" />
 
     <!-- Recent reviews -->
     <section class="card">

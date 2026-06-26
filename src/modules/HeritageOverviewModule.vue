@@ -20,6 +20,7 @@ import { adaRoles, type AdaRole } from '@/lib/clients/heritage/roles'
 import { recentActivity } from '@/lib/clients/heritage/recentActivity'
 import type { RecentActivityEvent } from '@/lib/clients/heritage/types'
 import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
+import AdaRecommendations, { type AdaRecommendation } from '@/components/heritage/AdaRecommendations.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import { fmtAgo } from '@/lib/format'
 import { fmtMoney } from '@/lib/clients/heritage/format'
@@ -222,6 +223,40 @@ const replacementHero = computed(() => ({
 function fmtDollars(n: number): string {
   return '$' + n.toLocaleString('en-US')
 }
+
+// ── Ada's recommendations for Today ────────────────────────────────
+// Same DNA as the existing Lead Sources recommendations: observation +
+// reasoning + dollar impact + clear next step. The page-level "Ada
+// noticed" frame is what makes her feel like a thinking coworker.
+const todayRecommendations: AdaRecommendation[] = [
+  {
+    id: 't-heather-warm',
+    title: 'Heather Cole replied warmly to the kitchen reactivation',
+    tag: 'Worth your eyes',
+    tagTone: 'opportunity',
+    body: 'Heather did her bath with you 18 months ago. Yesterday she replied "yeah, we\'ve been thinking about it" to the kitchen newsletter. I drafted a no-commitment walkthrough invite. This is a real one, worth a personal touch before I send.',
+    impact: 'Past-bath-becomes-kitchen converts at 28% for Heritage. Estimated kitchen ticket: $45-65K.',
+    actionLabel: 'Read the draft',
+  },
+  {
+    id: 't-day6-preview',
+    title: '3 quotes hit day 6 tomorrow',
+    tag: 'Highest leverage',
+    tagTone: 'leverage',
+    body: 'The Rodriguez Estate ($54K), James & Rebecca Liu ($33K), and Whitfield Family ($78K) all hit the day-7 nudge window tomorrow. I have drafts ready. Total pipeline at risk if these go quiet: <strong class="text-ink">$165K</strong>.',
+    impact: 'Day-7 nudges convert at ~22% in your $30-80K range. Probabilistically rescuing $36K of the $165K.',
+    actionLabel: 'Preview the 3 drafts',
+  },
+  {
+    id: 't-lsa-spike',
+    title: 'LSA inquiries spiked 40% Tuesday afternoon',
+    tag: 'Investigate',
+    tagTone: 'opportunity',
+    body: 'You normally get 2-3 LSA leads per day. Tuesday you got 7 between 1pm and 4pm. Probably a seasonal trigger (Q3 budget season) or a competitor pausing their spend. Worth tuning bid strategy this week before the window closes.',
+    impact: 'If sustained, +5 leads/wk at your 21% LSA close rate = ~1 extra job/wk ($28K avg ticket).',
+    actionLabel: 'Open Lead Sources',
+  },
+]
 </script>
 
 <template>
@@ -395,6 +430,9 @@ function fmtDollars(n: number): string {
         @role-click="onRoleClick"
       />
     </section>
+
+    <!-- ─── 4.5 Ada's Recommendations — what to act on this week ─── -->
+    <AdaRecommendations :recommendations="todayRecommendations" />
 
     <!-- ─── 5. Recent activity — context, clickable ─── -->
     <section class="card overflow-hidden">

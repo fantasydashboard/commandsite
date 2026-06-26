@@ -26,6 +26,7 @@ import {
 } from '@/lib/clients/heritage/referrals'
 import type { ReferralRecord } from '@/lib/clients/heritage/types'
 import { fmtMoney, DEMO_BEAT_MS } from '@/lib/clients/heritage/format'
+import AdaRecommendations, { type AdaRecommendation } from '@/components/heritage/AdaRecommendations.vue'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -144,6 +145,40 @@ const friendStatusById = computed(() => {
   }
   return map
 })
+
+// ── Ada's recommendations for Customer Care ────────────────────────
+// Focused on past-customer expansion and referral leverage. The cheat
+// code here is that past customers are your highest-ROI sales force,
+// and Ada activates them automatically.
+const customerCareRecommendations: AdaRecommendation[] = [
+  {
+    id: 'cc-12mo-bath',
+    title: '3 past-bath customers hit the 12-month kitchen-expansion window this week',
+    tag: 'Highest leverage',
+    tagTone: 'leverage',
+    body: 'The Vincents, the Patel-Rosens, and the Hawkins family all did bath remodels with you exactly 12 months ago. Industry data: 28% of bath customers buy a kitchen within months 12-18. I drafted personalized "thinking of the kitchen?" notes for all three, in your voice.',
+    impact: 'At a 28% conversion rate and $45K avg kitchen ticket, expected revenue from this batch: $38K.',
+    actionLabel: 'Read the 3 drafts',
+  },
+  {
+    id: 'cc-underwood-noref',
+    title: 'Underwood family (5★ kitchen 14 mo ago) hasn\'t referred yet, drafted a soft ask',
+    tag: 'Opportunity',
+    tagTone: 'opportunity',
+    body: 'They left you a glowing 5★ review back in April but haven\'t made an intro yet. They\'re your most enthusiastic past customer who didn\'t convert into a referrer. I drafted a "anyone in your circle thinking of a remodel?" ask that doesn\'t feel transactional, $500 off for both sides.',
+    impact: 'High-affinity unconverted referrers close 31% when asked once vs 0% if never asked.',
+    actionLabel: 'Read the referral ask',
+  },
+  {
+    id: 'cc-cole-warm',
+    title: 'Heather Cole (reactivation) replied "tell me more", needs your voice',
+    tag: 'Worth your eyes',
+    tagTone: 'urgent',
+    body: 'She did her bath 18 months ago, replied warmly to the kitchen newsletter, and is now asking real questions. This is the moment a salesperson would call. I drafted a no-commitment walkthrough invite but you might want to send this one yourself, the warmth deserves the personal touch.',
+    impact: 'Warm reactivation leads who get a personal owner reply close at 64% vs 38% for templated.',
+    actionLabel: 'Personal reply',
+  },
+]
 </script>
 
 <template>
@@ -287,6 +322,9 @@ const friendStatusById = computed(() => {
         </li>
       </ul>
     </section>
+
+    <!-- Ada's Recommendations — past-customer expansion + referral leverage -->
+    <AdaRecommendations :recommendations="customerCareRecommendations" />
 
     <!-- Customer Health + Reactivation -->
     <section class="card">
