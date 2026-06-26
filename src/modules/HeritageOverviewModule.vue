@@ -32,6 +32,25 @@ const route = useRoute()
 
 const isCustomDemo = computed(() => typeof route.query.demo_company === 'string')
 
+// ── Before/After Ada toggle ─────────────────────────────────────────
+// The "wow moment" of the demo. Flips the whole Today page between
+// "With Ada" (current state) and "Before Ada" (what the same week
+// would look like without her, based on industry baselines for
+// owner-operated bath/kitchen shops).
+//
+// "Before Ada" baseline math:
+//   - Revenue: ~$71K (industry close rate 22% vs Ada's 28%, applied
+//     to the same pipeline)
+//   - Consults: industry says ~53% of inbound calls get answered
+//     when there's no admin (vs 100% with Ada)
+//   - Reviews: typical owner forgets to ask 80% of completed jobs;
+//     reviews drop from 6/wk to 1-2/wk
+//   - Approval queue: 0 (no one drafted these)
+//   - Morning handoff: 0 (no one wrote it)
+//   - Activity feed: 0 (no one tracked it)
+type AdaMode = 'with-ada' | 'before-ada'
+const mode = ref<AdaMode>('with-ada')
+
 // Route an activity event to the relevant tab (clickable feed rows).
 function onActivityClick(event: RecentActivityEvent) {
   const tabByKind: Record<string, string> = {
@@ -56,7 +75,22 @@ const greeting = computed(() => {
 })
 
 // ── Today's snapshot KPIs (with trend) ────────────────────────────────
+// Reacts to the Before/After toggle. "Before Ada" numbers reflect
+// industry baselines for what this same business would look like
+// without an admin / Ada handling the in-between work.
 const todaySnapshot = computed(() => {
+  if (mode.value === 'before-ada') {
+    return {
+      activeQuotes: 9,
+      activeQuotesTrend: '3 going cold this week',
+      bookedToday: 1,
+      bookedTodayTrend: 'voicemails: 1 still unreturned',
+      revenueThisWeek: 7100000, // $71K baseline
+      revenueTrendPct: -8, // would be trending DOWN
+      avgTicket: 2800000, // $28K (Ada doesn't change ticket size)
+      avgTicketTrend: `premium tickets you'd be missing`,
+    }
+  }
   return {
     activeQuotes: 9,
     activeQuotesTrend: '2 vs last week',
@@ -265,12 +299,89 @@ const todayRecommendations: AdaRecommendation[] = [
       </div>
     </header>
 
+    <!-- ─── 1.1 BEFORE / AFTER ADA TOGGLE — the cheat-code wow moment.
+         Visitor flips between "what Tuesday looks like with Ada" vs
+         "what Tuesday looks like without her." Industry baselines used
+         for the "before" numbers. The dramatic reveal: the same business,
+         same week, two completely different pages. -->
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">demo controls</div>
+        <p class="text-[12.5px] text-ink-muted leading-snug mt-0.5">See what this same week looks like with vs without Ada.</p>
+      </div>
+      <div class="inline-flex items-center rounded-full border border-divider bg-surface p-0.5" role="group" aria-label="Toggle Ada mode">
+        <button
+          type="button"
+          class="px-3 py-1.5 text-xs font-semibold rounded-full transition-colors"
+          :class="mode === 'before-ada' ? 'bg-danger text-ink-inverse' : 'text-ink-muted hover:text-ink'"
+          :aria-pressed="mode === 'before-ada'"
+          @click="mode = 'before-ada'"
+        >Before Ada</button>
+        <button
+          type="button"
+          class="px-3 py-1.5 text-xs font-semibold rounded-full transition-colors"
+          :class="mode === 'with-ada' ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:text-ink'"
+          :aria-pressed="mode === 'with-ada'"
+          @click="mode = 'with-ada'"
+        >With Ada</button>
+      </div>
+    </div>
+
     <!-- ─── 1.25 ADA'S MORNING HANDOFF — the emotional cheat-code moment.
          The first thing a visitor reads. Not a metric card; a conversational
          coworker note. Lands BEFORE the rational "What Ada replaces" hero
          so the emotional read ("oh, that's what having a coworker feels
          like") sets up the rational read ("here's the payroll math"). -->
-    <AdaMorningHandoff owner-first-name="Marc" />
+    <AdaMorningHandoff v-if="mode === 'with-ada'" owner-first-name="Marc" />
+
+    <!-- "Before Ada" empty state for the morning handoff slot -->
+    <section v-else class="rounded-card border border-danger/25 bg-danger/[0.04] px-5 py-5 sm:px-6 sm:py-6">
+      <header class="flex items-center gap-3 mb-3">
+        <div class="h-9 w-9 rounded-full bg-ink-disabled text-ink-inverse flex items-center justify-center text-sm font-bold flex-shrink-0">?</div>
+        <div>
+          <span class="text-sm font-bold text-ink">No handoff today</span>
+          <p class="text-[11px] text-ink-muted leading-snug">you walk into the week with whatever's in your inbox</p>
+        </div>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        You open your truck, check email between jobs, miss the 7:43pm Tampa call from last night (it went to voicemail), and you don't realize Heather Cole replied to your kitchen-trends newsletter until next week, by which point she's already talking to another contractor. Pat Owens left a 4-star review you haven't seen. The day starts reactive.
+      </p>
+    </section>
+
+    <!-- "Before Ada" hero showing the work the owner would absorb
+         themselves OR hire for. Mirrors the structure of the With-Ada
+         hero below for direct visual contrast. -->
+    <section v-if="mode === 'before-ada'" class="card overflow-hidden">
+      <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow text-danger">What you'd be absorbing</span>
+          <span class="text-[11px] text-ink-disabled">This month · without an admin or Ada</span>
+        </div>
+      </header>
+
+      <div class="rounded-card bg-danger text-ink-inverse px-5 py-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 sm:divide-x sm:divide-ink-inverse/20">
+        <div>
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Work landing on you</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">$7,533</span>
+            <span class="text-sm font-semibold opacity-90">/ mo of admin work</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5">that you'd either do yourself or hire for</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Your options</div>
+          <div class="mt-1 text-[13px] leading-snug">Hire an office manager ($52K/yr + benefits + sick days), OR skip half the follow-up work (which is what most owners do).</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Either way</div>
+          <div class="mt-1 text-[13px] leading-snug font-semibold">Pipeline leaks. Reviews get forgotten. Past customers go cold. The quotes get sent but never chased.</div>
+        </div>
+      </div>
+
+      <p class="text-[12px] text-ink-muted leading-snug">
+        This is the default for owner-operated bath/kitchen shops. The work doesn't go away, it just lands somewhere. Usually on you, after the kids are in bed.
+      </p>
+    </section>
 
     <!-- ─── 1.5 WHAT ADA REPLACES — the cheat-code hero ────────────────
          The single most important block on the page for a cold visitor.
@@ -279,7 +390,7 @@ const todayRecommendations: AdaRecommendation[] = [
          payroll dollars they would have spent, net leverage Ada delivers.
          Sits BEFORE the approval queue because the cheat-code framing
          has to land before the operator-mode UI starts. -->
-    <section class="card overflow-hidden">
+    <section v-else class="card overflow-hidden">
       <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">What Ada replaces</span>
@@ -340,11 +451,21 @@ const todayRecommendations: AdaRecommendation[] = [
          eyebrow + queueLabel ("5 waiting on you") becomes the headline.
          No copy duplication. -->
     <GraceApprovalQueue
+      v-if="mode === 'with-ada'"
       :items="queueItems"
       :assistant-name="'Ada'"
       :owner-name="'Marc'"
       subtitle="Review · approve · or edit before it goes out. Every message sends from your number, in your voice."
     />
+
+    <!-- "Before Ada" empty state for the approvals slot -->
+    <section v-else class="card border-danger/25">
+      <header class="mb-2">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-danger mb-1">today's approvals</div>
+        <h3 class="text-base font-bold text-ink">0 drafts waiting</h3>
+        <p class="text-[12.5px] text-ink-muted mt-1 leading-snug">No one drafted follow-ups, review replies, or referral asks for you. If those got sent this week, you wrote them. If they didn't get sent, they didn't get sent.</p>
+      </header>
+    </section>
 
     <!-- ─── 3. Today's Pulse — at-a-glance state with trends ─── -->
     <section class="card overflow-hidden">
@@ -363,19 +484,22 @@ const todayRecommendations: AdaRecommendation[] = [
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Active quotes</div>
           <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.activeQuotes }}</div>
           <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.activeQuotesTrend }}</div>
-          <div class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~3 of these would go cold by week's end (industry: 30% loss to follow-up gaps)</div>
+          <div v-if="mode === 'with-ada'" class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~3 of these would go cold by week's end (industry: 30% loss to follow-up gaps)</div>
+          <div v-else class="text-[11.5px] text-success mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="font-bold">With Ada:</span> all 9 stay warm. ~3 you'd otherwise lose get rescued.</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Consults today</div>
           <div class="text-2xl font-bold text-ink tabular-nums leading-none mt-1">{{ todaySnapshot.bookedToday }}</div>
           <div class="text-[11px] text-ink-disabled mt-1">{{ todaySnapshot.bookedTodayTrend }}</div>
-          <div class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~53% answered (industry avg) instead of 100%</div>
+          <div v-if="mode === 'with-ada'" class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~53% answered (industry avg) instead of 100%</div>
+          <div v-else class="text-[11.5px] text-success mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="font-bold">With Ada:</span> 100% answered (vs your current ~53%)</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Revenue this week</div>
           <div class="text-2xl font-bold text-success tabular-nums leading-none mt-1">{{ fmtMoney(todaySnapshot.revenueThisWeek) }}</div>
           <div class="text-[11px] text-success mt-1 tabular-nums"><span aria-hidden="true">↗</span> {{ todaySnapshot.revenueTrendPct }}% vs last week</div>
-          <div class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~$71K baseline. <strong class="text-ink">$41K rescued</strong> by follow-up</div>
+          <div v-if="mode === 'with-ada'" class="text-[11.5px] text-danger/80 mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="text-danger font-bold">Without Ada:</span> ~$71K baseline. <strong class="text-ink">$41K rescued</strong> by follow-up</div>
+          <div v-else class="text-[11.5px] text-success mt-2 leading-snug font-medium pt-2 border-t border-divider"><span class="font-bold">With Ada:</span> ~<strong class="text-ink">$112K</strong>. That's <strong class="text-ink">+$41K</strong> from follow-up that doesn't happen on its own.</div>
         </div>
         <div class="rounded-card border border-divider bg-surface-elevated p-3">
           <div class="text-[10px] uppercase tracking-wider text-ink-muted">Avg ticket</div>
@@ -392,7 +516,7 @@ const todayRecommendations: AdaRecommendation[] = [
          so the role grid became redundant. Kept the revenue + role
          count as a proof point for the cheat-code hero above, with a
          link to drill into the full role breakdown if anyone wants it. -->
-    <section class="rounded-card bg-brand text-ink-inverse px-5 py-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
+    <section v-if="mode === 'with-ada'" class="rounded-card bg-brand text-ink-inverse px-5 py-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
       <div>
         <div class="flex items-baseline gap-1.5">
           <span class="text-3xl font-bold tabular-nums leading-none">{{ fmtMoney(totalRevenueThisWeek) }}</span>
@@ -413,10 +537,20 @@ const todayRecommendations: AdaRecommendation[] = [
     </section>
 
     <!-- ─── 4.5 Ada's Recommendations — what to act on this week ─── -->
-    <AdaRecommendations :recommendations="todayRecommendations" />
+    <AdaRecommendations v-if="mode === 'with-ada'" :recommendations="todayRecommendations" />
+
+    <!-- "Before Ada" recent activity empty state -->
+    <section v-if="mode === 'before-ada'" class="card border-danger/25">
+      <header class="mb-2">
+        <h3 class="text-base font-semibold text-ink">Recent activity</h3>
+        <p class="text-[12.5px] text-ink-muted mt-1 leading-snug">
+          You'd be tracking this in your head, in your phone, or on a whiteboard in the office. Which is to say, most of it doesn't get tracked. The follow-ups happen if you remember; the review asks happen if you remember; the referral asks happen if you remember.
+        </p>
+      </header>
+    </section>
 
     <!-- ─── 5. Recent activity — context, clickable ─── -->
-    <section class="card overflow-hidden">
+    <section v-else class="card overflow-hidden">
       <header class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div>
           <h3 class="text-base font-semibold text-ink">Recent activity</h3>
