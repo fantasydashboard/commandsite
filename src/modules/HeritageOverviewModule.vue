@@ -20,6 +20,7 @@ import { adaRoles, type AdaRole } from '@/lib/clients/heritage/roles'
 import { recentActivity } from '@/lib/clients/heritage/recentActivity'
 import type { RecentActivityEvent } from '@/lib/clients/heritage/types'
 import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
+import AdaMorningHandoff from '@/components/heritage/AdaMorningHandoff.vue'
 import AdaRecommendations, { type AdaRecommendation } from '@/components/heritage/AdaRecommendations.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import { fmtAgo } from '@/lib/format'
@@ -272,6 +273,13 @@ const todayRecommendations: AdaRecommendation[] = [
         <span class="tabular-nums"><strong class="text-ink">{{ todaySnapshot.bookedToday }}</strong> consults today</span>
       </div>
     </header>
+
+    <!-- ─── 1.25 ADA'S MORNING HANDOFF — the emotional cheat-code moment.
+         The first thing a visitor reads. Not a metric card; a conversational
+         coworker note. Lands BEFORE the rational "What Ada replaces" hero
+         so the emotional read ("oh, that's what having a coworker feels
+         like") sets up the rational read ("here's the payroll math"). -->
+    <AdaMorningHandoff owner-first-name="Marc" />
 
     <!-- ─── 1.5 WHAT ADA REPLACES — the cheat-code hero ────────────────
          The single most important block on the page for a cold visitor.
