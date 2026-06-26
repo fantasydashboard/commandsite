@@ -88,7 +88,7 @@ const todaySnapshot = computed(() => {
       revenueThisWeek: 7100000, // $71K baseline
       revenueTrendPct: -8, // would be trending DOWN
       avgTicket: 2800000, // $28K (Ada doesn't change ticket size)
-      avgTicketTrend: `premium tickets you'd be missing`,
+      avgTicketTrend: "premium tickets you'd be missing",
     }
   }
   return {
