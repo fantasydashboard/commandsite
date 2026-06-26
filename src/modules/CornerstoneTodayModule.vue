@@ -22,6 +22,8 @@ import { peopleStats } from '@/lib/clients/cornerstone/people'
 import { graceRoles, getRole, type GraceRole } from '@/lib/clients/cornerstone/roles'
 import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vue'
+import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent, type LiveEvent } from '@/composables/useLiveActivity'
 import { money, fmtAgo } from '@/lib/format'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
@@ -185,17 +187,224 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (tickInterval) clearInterval(tickInterval)
 })
+
+// ── Before/After Grace toggle ───────────────────────────────────────
+// The cheat-code wow moment for churches. Same pattern as Heritage's
+// Ada toggle but with PEOPLE framing instead of revenue framing.
+type GraceMode = 'with-grace' | 'before-grace'
+const mode = ref<GraceMode>('with-grace')
+
+// ── "What Grace replaces" hero math ──────────────────────────────────
+// Church-typical math: a part-time admin, part-time connections
+// coordinator, and part-time comms coordinator add up to roughly
+// 30+ hrs/week of work. At typical church compensation that's about
+// $5,500-6,000/mo of payroll-equivalent. Grace Core: $599/mo.
+//
+// Pastors think in HOURS first (time for ministry), DOLLARS second
+// (board / executive pastor language). Hero leads with hours, shows
+// dollars as the secondary frame.
+const replacementHero = {
+  hoursPerWeek: 32,
+  totalReplacedDollars: 5800,
+  graceCost: 599,
+  netLeverage: 5201,
+  netLeverageAnnual: 62412,
+  roles: [
+    {
+      name: 'Church admin (part-time)',
+      replacementMonthly: 2400,
+      what: 'first-time visitor cards · connection card data entry · weekly comms',
+    },
+    {
+      name: 'Connections coordinator (part-time)',
+      replacementMonthly: 2200,
+      what: 'guest follow-up · drift watch · newcomer pathway',
+    },
+    {
+      name: 'Comms / volunteer coordinator (part-time)',
+      replacementMonthly: 1200,
+      what: 'Sunday volunteer texts · mid-week comms · prayer team coordination',
+    },
+  ],
+}
+
+function fmtDollars(n: number): string {
+  return '$' + n.toLocaleString('en-US')
+}
+
+// ── Grace's recommendations for the Today page ──────────────────────
+const todayRecommendations: GraceRecommendation[] = [
+  {
+    id: 'gt-sullivan-care',
+    title: 'The Sullivan family needs your personal eyes before I send the coffee invite',
+    tag: 'Worth your eyes',
+    tagTone: 'pastoral',
+    body: 'Three signals now: no Sunday attendance for 6 weeks, dropped small group in May, paused giving last month. Could be a season, could be something harder. The draft I made reads as no-agenda but you know them better than I do. Your edit could be the difference between "yes, coffee" and "we\'re fine, thanks".',
+    impact: 'Drift-watch families who get the senior pastor\'s voice in the first touch re-engage at ~58% vs ~32% for templated.',
+    actionLabel: 'Read the draft',
+  },
+  {
+    id: 'gt-maddux-lunch',
+    title: 'The Maddux Family is at 4 visits, the Newcomers Lunch sweet spot',
+    tag: 'Opportunity',
+    tagTone: 'opportunity',
+    body: 'Pre-decision families who attend Newcomers Lunch convert to membership at 71% vs 23% who never come. The Madduxes are exactly the profile (kids enrolled, 4th visit, the daughter is excited). I drafted the invite already. Just needs your green light.',
+    impact: 'One Newcomers Lunch invite at this stage is worth a 3x lift in membership conversion.',
+    actionLabel: 'Read the invite',
+  },
+  {
+    id: 'gt-greeters-gap',
+    title: 'Greeters team only has 2 confirmed for next Sunday',
+    tag: 'Heads up',
+    tagTone: 'urgent',
+    body: 'You usually run with 5. I have a list of 8 past greeters I could text Thursday for a soft ask, but I wanted you to know first in case there\'s a reason (vacation week, family situation). If I don\'t hear back by Wednesday end of day, I\'ll start the chain.',
+    actionLabel: 'Let Grace handle it',
+  },
+]
 </script>
 
 <template>
   <div class="space-y-4">
+    <!-- ── BEFORE / AFTER GRACE TOGGLE ─────────────────────────────────
+         The wow moment. Visitor flips between "what your Monday looks
+         like with Grace" vs "without her." Same structure as the Ada
+         toggle on Heritage Bath. -->
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">demo controls</div>
+        <p class="text-[12.5px] text-ink-muted leading-snug mt-0.5">See what this same Monday looks like with vs without Grace.</p>
+      </div>
+      <div class="inline-flex items-center rounded-full border border-divider bg-surface p-0.5" role="group" aria-label="Toggle Grace mode">
+        <button
+          type="button"
+          class="px-3 py-1.5 text-xs font-semibold rounded-full transition-colors"
+          :class="mode === 'before-grace' ? 'bg-danger text-ink-inverse' : 'text-ink-muted hover:text-ink'"
+          :aria-pressed="mode === 'before-grace'"
+          @click="mode = 'before-grace'"
+        >Before Grace</button>
+        <button
+          type="button"
+          class="px-3 py-1.5 text-xs font-semibold rounded-full transition-colors"
+          :class="mode === 'with-grace' ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:text-ink'"
+          :aria-pressed="mode === 'with-grace'"
+          @click="mode = 'with-grace'"
+        >With Grace</button>
+      </div>
+    </div>
+
+    <!-- ── GRACE'S MORNING HANDOFF — the emotional cheat-code moment ─ -->
+    <GraceMorningHandoff v-if="mode === 'with-grace'" pastor-name="Pastor Andrew" />
+
+    <section v-else class="rounded-card border border-danger/25 bg-danger/[0.04] px-5 py-5 sm:px-6 sm:py-6">
+      <header class="flex items-center gap-3 mb-3">
+        <div class="h-9 w-9 rounded-full bg-ink-disabled text-ink-inverse flex items-center justify-center text-sm font-bold flex-shrink-0">?</div>
+        <div>
+          <span class="text-sm font-bold text-ink">No handoff this morning</span>
+          <p class="text-[11px] text-ink-muted leading-snug">staff meeting starts with "anyone hear from the Madduxes?"</p>
+        </div>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        You walk into Monday cold. The connection cards from Sunday are sitting in a stack on your admin's desk. The Sullivan family didn't make it again, but no one tracked it. Brian Patel hasn't been checked on since the funeral 6 weeks ago. The greeters team is short for next Sunday but you won't realize until Friday. The work doesn't go away. It just lands somewhere, usually on Sunday afternoon or your Tuesday off.
+      </p>
+    </section>
+
+    <!-- ── WHAT GRACE REPLACES — the cheat-code hero ───────────────── -->
+    <section v-if="mode === 'with-grace'" class="card overflow-hidden">
+      <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow">What Grace replaces</span>
+          <span class="text-[11px] text-ink-disabled">This month · for a 350-attendance church</span>
+        </div>
+      </header>
+
+      <div class="rounded-card bg-brand text-ink-inverse px-5 py-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 sm:divide-x sm:divide-ink-inverse/20">
+        <div>
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Time back for ministry</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">~{{ replacementHero.hoursPerWeek }} hrs</span>
+            <span class="text-sm font-semibold opacity-90">/ week</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5">that doesn't have to come from your staff or your Tuesday off</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Payroll equivalent</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">{{ fmtDollars(replacementHero.totalReplacedDollars) }}</span>
+            <span class="text-sm font-semibold opacity-90">/ mo</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5">if you hired the admin + connections + comms roles separately</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">What you pay</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">{{ fmtDollars(replacementHero.graceCost) }}</span>
+            <span class="text-sm font-semibold opacity-90">/ mo for Grace</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5 tabular-nums">net leverage: {{ fmtDollars(replacementHero.netLeverage) }}/mo (~{{ fmtDollars(replacementHero.netLeverageAnnual) }}/yr)</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div
+          v-for="role in replacementHero.roles"
+          :key="role.name"
+          class="rounded-card border border-divider bg-surface-elevated p-3"
+        >
+          <div class="flex items-baseline justify-between gap-2 mb-1">
+            <span class="text-[13px] font-semibold text-ink">{{ role.name }}</span>
+            <span class="text-[11px] font-semibold text-brand tabular-nums">{{ fmtDollars(role.replacementMonthly) }}/mo</span>
+          </div>
+          <div class="text-[11px] text-ink-muted leading-snug">{{ role.what }}</div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-ink-disabled mt-3 leading-snug">
+        Grace doesn't preach, lead small groups, or sit with grieving families. She handles the rest, the things that quietly fall through the cracks because there's never enough time. Cancel anytime; no contract; founding-cohort pricing locked in.
+      </p>
+    </section>
+
+    <section v-else class="card overflow-hidden">
+      <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+          <span class="eyebrow text-danger">What you'd be absorbing</span>
+          <span class="text-[11px] text-ink-disabled">This month · without Grace, without a connections pastor</span>
+        </div>
+      </header>
+
+      <div class="rounded-card bg-danger text-ink-inverse px-5 py-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 sm:divide-x sm:divide-ink-inverse/20">
+        <div>
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Work landing on the team</div>
+          <div class="flex items-baseline gap-1.5 mt-1">
+            <span class="text-3xl font-bold tabular-nums leading-none">~{{ replacementHero.hoursPerWeek }} hrs</span>
+            <span class="text-sm font-semibold opacity-90">/ week</span>
+          </div>
+          <div class="text-[11px] opacity-80 mt-1.5">absorbed by you, your admin, or your weekend</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Your options</div>
+          <div class="mt-1 text-[13px] leading-snug">Hire a part-time admin + connections coordinator (~$5,800/mo + benefits), OR let things slip (which is what most churches do).</div>
+        </div>
+        <div class="sm:pl-6">
+          <div class="text-[10px] uppercase tracking-wider opacity-80">Either way</div>
+          <div class="mt-1 text-[13px] leading-snug font-semibold">Visitors slip past. Members drift quietly. Volunteers find out about Sunday on Saturday night.</div>
+        </div>
+      </div>
+
+      <p class="text-[12px] text-ink-muted leading-snug">
+        This is the default for small-to-mid churches. The work doesn't go away, it just lands somewhere. Usually on the senior pastor, after the funeral or the marriage counseling session that ran long.
+      </p>
+    </section>
+
     <!-- ── 1. Grace at Work hub — value-prop hero ─────────────────── -->
     <!-- headlineRoleKeys promotes Welcome + Drift Watch to a 2-col hero
          strip at the top of the role grid. Mirrors the deck slide 6
          layout + the landing page module hierarchy: two headline jobs
          get equal heavy treatment, eight supporting roles render at
-         standard size below. -->
+         standard size below.
+         Hidden in 'before-grace' mode since these roles don't exist
+         without Grace. -->
     <AdaAtWorkHub
+      v-if="mode === 'with-grace'"
       :roles="graceRoles"
       assistant-name="Grace"
       :headline-role-keys="['guest_followup', 'drift_detection']"
@@ -204,11 +413,23 @@ onBeforeUnmount(() => {
 
     <!-- ── 2. Approval queue — Grace's drafts awaiting pastoral sign-off ─ -->
     <GraceApprovalQueue
+      v-if="mode === 'with-grace'"
       :items="queueItems"
       :initial-resolved="8"
       :subtitle="`${greeting}. Co-sign to send, edit to revise, skip to resurface tomorrow.`"
       @approved="onApproved"
     />
+
+    <section v-else class="card border-danger/25">
+      <header class="mb-2">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-danger mb-1">today's approvals</div>
+        <h3 class="text-base font-bold text-ink">0 drafts waiting</h3>
+        <p class="text-[12.5px] text-ink-muted mt-1 leading-snug">No one drafted welcome cards, drift check-ins, or volunteer asks for you. If those went out this week, your team wrote them between everything else. If they didn't go out, they didn't go out.</p>
+      </header>
+    </section>
+
+    <!-- ── 2.5 Grace's recommendations — what to act on this week ─── -->
+    <GraceRecommendations v-if="mode === 'with-grace'" :recommendations="todayRecommendations" />
 
     <!-- ── 3. Today snapshot + Live activity (merged) ─────────────── -->
     <section class="card overflow-hidden !p-0">

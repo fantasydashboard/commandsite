@@ -12,6 +12,7 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
+import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -153,6 +154,35 @@ function onApproved(item: ApprovalQueueItem) {
 }
 
 const pageRoles = rolesOnTab('sundays-comms')
+
+// ── Grace's recommendations for Sundays & Comms ─────────────────────
+const sundaysRecommendations: GraceRecommendation[] = [
+  {
+    id: 'sc-greeters-gap',
+    title: 'Greeters team: 2 of 5 confirmed for next Sunday',
+    tag: 'Heads up',
+    tagTone: 'urgent',
+    body: 'You usually run with 5. I have 8 past greeters I can text Thursday morning for a soft ask. Most churches realize the gap Saturday at 7pm; I can have this closed by Friday noon.',
+    actionLabel: 'Let Grace handle the texts',
+  },
+  {
+    id: 'sc-newsletter-frame',
+    title: 'Mid-week newsletter is drafted, with a Diego shoutout woven in',
+    tag: 'Worth your eyes',
+    tagTone: 'pastoral',
+    body: 'Three families specifically named the worship team in their connection cards this month. I drafted a newsletter that opens with "the worship team is hearing you," which is the kind of recognition that retains volunteers. Goes Tuesday at 10am unless you edit.',
+    actionLabel: 'Read the draft',
+  },
+  {
+    id: 'sc-sunday-school-up',
+    title: 'Sunday school registration is up 22% vs last fall',
+    tag: 'Opportunity',
+    tagTone: 'opportunity',
+    body: 'Real momentum. Worth surfacing in announcements + dropping a quick celebration line in this week\'s newsletter ("our kids ministry is the biggest it\'s been"). Builds confidence for the families on the fence.',
+    impact: 'Mentioning growth publicly tends to lift the next month\'s registrations another 8-12%.',
+    actionLabel: 'Draft the celebration line',
+  },
+]
 </script>
 
 <template>
@@ -161,6 +191,17 @@ const pageRoles = rolesOnTab('sundays-comms')
       :roles="pageRoles"
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
+
+    <!-- Grace's note on Sundays + comms this week -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
+        <span class="text-xs font-bold text-ink">Grace's note on Sunday prep + comms</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        Sunday is ~85% ready right now. Greeters team is short 3 (I can fix that Thursday). Mid-week newsletter is drafted and waiting on your edit, opens with a worship-team shoutout because 3 families specifically called them out this month. Volunteer texts go out automatically Friday at 5pm unless you say otherwise. Most pastors don't realize their volunteer gaps until Saturday night; I see them on Tuesday.
+      </p>
+    </section>
 
     <!-- Sunday-status hero: this page's anchor. Countdown + readiness %
          + outstanding actions in one glance. Operational page, so the
@@ -353,5 +394,8 @@ const pageRoles = rolesOnTab('sundays-comms')
       title="Sunday + comms activity"
       subtitle="Grace's stream scoped to this page · auto-updates"
     />
+
+    <!-- Grace's recommendations — what to act on this week -->
+    <GraceRecommendations :recommendations="sundaysRecommendations" />
   </div>
 </template>

@@ -24,6 +24,7 @@ import { getRole } from '@/lib/clients/cornerstone/roles'
 import { barDefaults, chartColors } from '@/lib/chartTheme'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
+import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { money } from '@/lib/format'
 
@@ -212,10 +213,51 @@ function onApproved(item: ApprovalQueueItem) {
   const role = item.role ?? 'communications'
   pushEvent({ icon: item.icon, text: item.ticker_after_approval, role })
 }
+
+// ── Grace's recommendations for Giving ──────────────────────────────
+const givingRecommendations: GraceRecommendation[] = [
+  {
+    id: 'gv-first-givers',
+    title: '4 first-time givers haven\'t been thanked yet',
+    tag: 'Worth your eyes',
+    tagTone: 'pastoral',
+    body: 'First gifts are pastoral moments, not transactions. I drafted thank-you notes in your voice for all 4, no fundraising ask, just gratitude. Pastoral first-gift acknowledgment within 7 days correlates with 4x recurring-gift conversion.',
+    impact: '~60% of acknowledged first-gift donors give again within 90 days vs ~15% of unacknowledged.',
+    actionLabel: 'Read the 4 thank-yous',
+  },
+  {
+    id: 'gv-lapsed-90day',
+    title: '7 households crossed 90 days without giving',
+    tag: 'Heads up',
+    tagTone: 'urgent',
+    body: 'Most are seasonal patterns (snowbirds, summer travelers) but 2 are unusual for their pattern. The Carter and the Patel-Long families have given monthly for 3+ years and went silent in April. Could be a card update issue (most common cause), could be something else. I drafted a "just checking your card is current" note that\'s pastoral, not transactional.',
+    impact: 'About 40% of "lapsed" giving turns out to be expired cards. The other 60% needs a personal check-in.',
+    actionLabel: 'Read the 2 notes',
+  },
+  {
+    id: 'gv-recurring-trend',
+    title: 'Recurring giving is up 11% vs last quarter',
+    tag: 'Opportunity',
+    tagTone: 'opportunity',
+    body: 'Mostly driven by the new families who set up recurring during the summer. Worth a brief celebration in elder meeting + the next pastoral newsletter ("the church is generous, here\'s what that\'s funding"). Recognition of generosity tends to lift it further.',
+    actionLabel: 'Draft elder-meeting blurb',
+  },
+]
 </script>
 
 <template>
   <div class="space-y-4">
+    <!-- Grace's note on giving this month -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
+        <span class="text-xs font-bold text-ink">Grace's note on giving</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        I see giving as pastoral, not transactional. 4 first-time givers this month need thank-yous (drafts ready). 7 households crossed the 90-day no-gift threshold, mostly seasonal but 2 are unusual for their pattern, worth a "just checking your card" note. Recurring giving is up 11% vs last quarter, the new families who set up giving during summer are a real signal of belonging.
+      </p>
+    </section>
+
     <!-- Privacy note — sets the tone -->
     <div class="rounded-card bg-warn/5 border border-warn/30 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
       <div class="text-sm text-ink">
@@ -456,5 +498,8 @@ function onApproved(item: ApprovalQueueItem) {
       title="Giving signals"
       subtitle="Auto-updates from the merchant + your stack"
     />
+
+    <!-- Grace's recommendations — what to act on this week -->
+    <GraceRecommendations :recommendations="givingRecommendations" />
   </div>
 </template>

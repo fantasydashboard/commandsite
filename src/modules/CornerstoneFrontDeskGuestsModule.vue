@@ -11,6 +11,7 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
+import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -138,6 +139,35 @@ function onApproved(item: ApprovalQueueItem) {
 }
 
 const pageRoles = rolesOnTab('front-desk-guests')
+
+// ── Grace's recommendations for Front Desk & Guests ─────────────────
+const frontDeskRecommendations: GraceRecommendation[] = [
+  {
+    id: 'fd-newcomers-lunch',
+    title: '3 families hit the 3rd-visit window this week',
+    tag: 'Highest leverage',
+    tagTone: 'leverage',
+    body: 'The Madduxes (4th visit), the Reyes-Quinns (3rd visit), and the Harpers (3rd visit) all just crossed into the Newcomers Lunch sweet spot. Pre-decision families who attend close to membership at 71%. I drafted personal invites for all three.',
+    impact: 'A 3x lift in membership conversion if even 2 of 3 attend.',
+    actionLabel: 'Read the 3 invites',
+  },
+  {
+    id: 'fd-riley-followup',
+    title: 'Riley Boucher (Sunday visitor) hasn\'t replied to her welcome text',
+    tag: 'Worth your eyes',
+    tagTone: 'pastoral',
+    body: 'She called Saturday saying she "loved Sunday" but hasn\'t responded to the welcome text I sent Monday. Could be a busy week, could be cooling off. Worth a brief personal note from you before I send the day-7 nudge.',
+    actionLabel: 'Send personal note',
+  },
+  {
+    id: 'fd-mark-pastoral',
+    title: 'Mark called Tuesday at 5pm about his wife in the hospital, follow-up overdue',
+    tag: 'Urgent',
+    tagTone: 'urgent',
+    body: 'I escalated to you immediately when the call came in. Tracking shows no logged follow-up since. Even a 2-minute text from you matters in this window.',
+    actionLabel: 'Mark called/visited',
+  },
+]
 </script>
 
 <template>
@@ -146,6 +176,17 @@ const pageRoles = rolesOnTab('front-desk-guests')
       :roles="pageRoles"
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
+
+    <!-- Grace's note on front desk + guest follow-up this week -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
+        <span class="text-xs font-bold text-ink">Grace's note on first-time visitors + the front desk</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        <strong>22 inquiries this week, 100% answered.</strong> Industry benchmark for churches without a connections coordinator is around 53%. The other 47% would be voicemails sitting on someone's desk Monday morning. Three families just hit the Newcomers Lunch window (4th visit territory), which is the highest-leverage moment in the entire new-visitor journey. Mark called Tuesday with a real pastoral need, I escalated immediately, and he's waiting on a personal follow-up from you.
+      </p>
+    </section>
 
     <!-- Welcome hero block: this is the page's headline product, treated
          the same way the Today page treats Welcome in its role grid.
@@ -318,6 +359,9 @@ const pageRoles = rolesOnTab('front-desk-guests')
       title="Front desk + guests activity"
       subtitle="Grace's stream scoped to this page · auto-updates"
     />
+
+    <!-- Grace's recommendations — what to act on this week -->
+    <GraceRecommendations :recommendations="frontDeskRecommendations" />
 
     <!-- Quiet visitors used reference (silence ESLint via reference) -->
     <span v-if="false">{{ visitors.length }}</span>

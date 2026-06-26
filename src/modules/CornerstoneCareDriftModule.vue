@@ -16,6 +16,7 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
+import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
@@ -147,6 +148,35 @@ function onApproved(item: ApprovalQueueItem) {
 }
 
 const pageRoles = rolesOnTab('care-drift')
+
+// ── Grace's recommendations for Care & Drift ────────────────────────
+const careRecommendations: GraceRecommendation[] = [
+  {
+    id: 'cd-hendrick',
+    title: 'The Hendrick family hit 90 days without a Sunday',
+    tag: 'Worth your eyes',
+    tagTone: 'pastoral',
+    body: 'They were faithful for 4 years until April. Three flags now: no attendance, no small group, no giving. The pattern looks like life-change, not anger. Could be a move, could be a new schedule, could be something harder. I drafted a no-agenda "thinking of you" note from you. Worth a personal read first.',
+    impact: 'Families caught at 90 days re-engage at ~38%. At 180 days that drops to ~9%.',
+    actionLabel: 'Read the note',
+  },
+  {
+    id: 'cd-brian-30day',
+    title: 'Brian Patel is at day 28 since the funeral, the 30-day grief follow-up window',
+    tag: 'Worth your eyes',
+    tagTone: 'pastoral',
+    body: 'He replied warmly to last week\'s check-in ("we\'re doing okay, kids are okay"). Counselor data says the 30-day touch is the most-missed one and the one that matters most to grieving families. I drafted a brief note that doesn\'t reopen the grief, just shows he\'s remembered.',
+    actionLabel: 'Send the 30-day note',
+  },
+  {
+    id: 'cd-summer-pattern',
+    title: 'Summer drift pattern starting earlier than last year',
+    tag: 'Heads up',
+    tagTone: 'urgent',
+    body: '17 families have already shifted to bi-weekly or monthly attendance vs the usual June timing. Could be vacations, could be a real signal. Worth surfacing in elder meeting this week so we can think about how summer comms land.',
+    actionLabel: 'Pull list for elder meeting',
+  },
+]
 </script>
 
 <template>
@@ -155,6 +185,17 @@ const pageRoles = rolesOnTab('care-drift')
       :roles="pageRoles"
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
+
+    <!-- Grace's note on care + drift this week -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
+        <span class="text-xs font-bold text-ink">Grace's note on care + drift</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        <strong>I'm watching 23 members for drift signals right now.</strong> 3 hit the 90-day threshold this week (the most common "they're not coming back" tipping point). The hard part isn't writing the check-in, it's noticing in time. Most churches realize someone is gone when they hear the family joined another congregation. By then it's too late to ask why. I see it at week 3, week 6, week 9.
+      </p>
+    </section>
 
     <!-- Drift Watch hero block: this is the page's headline product,
          mirroring the Welcome hero on the Front Desk & Guests page. -->
@@ -347,6 +388,9 @@ const pageRoles = rolesOnTab('care-drift')
       title="Drift flags + care signals"
       subtitle="Grace's stream scoped to this page · auto-updates"
     />
+
+    <!-- Grace's recommendations — what to act on this week -->
+    <GraceRecommendations :recommendations="careRecommendations" />
 
     <!-- Reference openCareCases is used; silence no-unused if needed -->
   </div>
