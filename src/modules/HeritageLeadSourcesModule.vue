@@ -78,6 +78,17 @@ function acceptRecommendation(id: string) {
       </p>
     </header>
 
+    <!-- Ada's note on lead sources this month -->
+    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+      <header class="flex items-center gap-2.5 mb-2.5">
+        <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">A</div>
+        <span class="text-xs font-bold text-ink">Ada's note on your lead mix</span>
+      </header>
+      <p class="text-[13.5px] text-ink leading-relaxed max-w-2xl">
+        Your blended CAC is <strong>$17</strong>, well below the $40-80 industry range. Customer referrals drove <strong>$188K at zero cost</strong>, your single biggest channel by a wide margin. LSA close rate dipped to 21% this month (your average is 28%), I flagged 3 unclosed leads worth $25-40K. A marketing consultant would charge you $200-400/hr to tell you this. I do it for free, every week, while you're on a jobsite.
+      </p>
+    </section>
+
     <!-- Blended summary KPIs with benchmark context -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div class="rounded-card border border-divider bg-surface-elevated p-3">
