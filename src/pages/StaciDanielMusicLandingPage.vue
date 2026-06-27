@@ -15,7 +15,6 @@
  * Placeholders flagged with TODO(staci) for content she needs to fill:
  *   - phone number for text booking
  *   - email address for booking
- *   - specific awards her students have won
  *   - real parent testimonials
  *   - recital photos (December + May)
  */
@@ -163,14 +162,13 @@ const faqs = [
           </div>
           <h1 class="font-serif text-4xl md:text-6xl leading-[1.05] tracking-tight text-[#1a2421]">
             Eighteen years of students who fell in love with music.
-            <span class="text-[#2d4a3e] italic">A few who won awards along the way.</span>
+            <span class="text-[#2d4a3e] italic">Many who never stopped playing.</span>
           </h1>
           <p class="mt-8 text-lg text-[#1a2421]/75 leading-relaxed max-w-2xl">
             Private piano lessons rooted in classical tradition, taught
-            with the rigor that actually builds musicians. Some of my
-            students compete and win. More of them simply stay with it,
-            for years, sometimes for life. That is the harder thing,
-            and it is what I am proudest of.
+            with the rigor that actually builds musicians. Most of my
+            students stay with it, for years, sometimes for life. That
+            is the harder thing, and it is what I am proudest of.
           </p>
           <div class="mt-10 flex items-center gap-4 flex-wrap">
             <button
@@ -364,17 +362,16 @@ const faqs = [
                 my eighteenth year of running a studio.
               </p>
               <p>
-                In that time I have taught hundreds of students. Five-year-olds
-                who had never touched a keyboard. Forty-year-olds returning
-                to piano after thirty years away. Teenagers preparing for
-                college auditions. Adults learning to play the one piece
-                they always wanted to.
+                In that time the studio has welcomed every kind of student.
+                Five-year-olds who had never touched a keyboard. Forty-year-olds
+                returning to piano after thirty years away. Teenagers
+                preparing for college auditions. Adults learning to play
+                the one piece they always wanted to.
               </p>
               <p>
-                A handful have gone on to win regional performance awards.
-                More have done the harder thing: they have stayed with
-                piano for years, sometimes for decades. That is what
-                I am proudest of.
+                What I am proudest of is something quieter. Students who
+                stay with it, for years, sometimes for decades. That is
+                the harder thing.
               </p>
               <p>
                 I live in Kissimmee with my husband and three children,
@@ -389,8 +386,8 @@ const faqs = [
                 <div class="text-[11px] uppercase tracking-[0.18em] text-[#1a2421]/60 mt-1">Years teaching</div>
               </div>
               <div>
-                <div class="font-serif text-3xl text-[#2d4a3e]">Hundreds</div>
-                <div class="text-[11px] uppercase tracking-[0.18em] text-[#1a2421]/60 mt-1">Students taught</div>
+                <div class="font-serif text-3xl text-[#2d4a3e]">Dec + May</div>
+                <div class="text-[11px] uppercase tracking-[0.18em] text-[#1a2421]/60 mt-1">Recitals each year</div>
               </div>
               <div>
                 <div class="font-serif text-3xl text-[#2d4a3e]">B.M.E.</div>
@@ -423,10 +420,11 @@ const faqs = [
 
         <div class="grid md:grid-cols-2 gap-10 md:gap-16 max-w-5xl mb-20">
           <div class="border-l-2 border-[#2d4a3e] pl-6">
-            <div class="font-serif text-xl mb-2">Won regional performance awards.</div>
+            <div class="font-serif text-xl mb-2">Played a piece they thought they couldn't.</div>
             <p class="text-[#1a2421]/70 leading-relaxed">
-              Students who put in the practice and the years have placed
-              in regional competitions. <span class="italic text-[#1a2421]/50">[TODO: specific awards once Staci sends them]</span>
+              Students who worked through music that intimidated them on
+              first read, then sat down and performed it. That breakthrough
+              is what private lessons are really for.
             </p>
           </div>
           <div class="border-l-2 border-[#2d4a3e] pl-6">

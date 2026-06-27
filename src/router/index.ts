@@ -15,14 +15,19 @@ const routes = [
     meta: { public: true },
   },
   {
-    // Staci Daniel Music — separate-brand landing page. Lives in this
+    // Staci Daniel Music, separate-brand landing page. Lives in this
     // repo to share the build pipeline + Tailwind setup; will move to
     // its own domain (stacidanielmusic.com) when Phase 2 (student
     // portal, payments) is ready and the surface needs full separation.
-    path: '/staci',
-    name: 'staci',
+    path: '/stacidanielmusic',
+    name: 'stacidanielmusic',
     component: () => import('@/pages/StaciDanielMusicLandingPage.vue'),
     meta: { public: true },
+  },
+  {
+    // Old short URL kept as redirect so any links already shared still work.
+    path: '/staci',
+    redirect: '/stacidanielmusic',
   },
   {
     path: '/login',
