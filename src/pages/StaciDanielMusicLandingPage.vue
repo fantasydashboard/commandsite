@@ -12,11 +12,6 @@
  * Phase 1 (this page): public marketing surface, no auth, no dashboard.
  * Phase 2 (later): student portal sign-in + resources + payments.
  *
- * Placeholders flagged with TODO(staci) for content she needs to fill:
- *   - phone number for text booking
- *   - email address for booking
- *   - real parent testimonials
- *   - recital photos (December + May)
  */
 import { onMounted, ref } from 'vue'
 import staciPhoto from '@/assets/staci/staci-with-family.jpg'
@@ -72,22 +67,6 @@ onMounted(() => {
   }
   window.addEventListener('scroll', onScroll, { passive: true })
 })
-
-// Placeholder testimonials — Staci will replace with real ones
-const placeholderTestimonials = [
-  {
-    quote: 'My daughter has been with Staci for four years. She has never once asked to quit. That alone says everything.',
-    attribution: 'Parent of an 11-year-old student',
-  },
-  {
-    quote: 'I started lessons at 42 after thirty years away from piano. Staci met me exactly where I was. No condescension, no rushing me through the basics I had forgotten.',
-    attribution: 'Adult returning student',
-  },
-  {
-    quote: 'When my son won his first regional competition, Staci was more excited than we were. She had been preparing him for months. The work shows.',
-    attribution: 'Parent of a 14-year-old student',
-  },
-]
 
 const faqs = [
   {
@@ -452,35 +431,6 @@ const faqs = [
           </div>
         </div>
 
-        <!-- Testimonials -->
-        <div class="border-t border-[#1a2421]/15 pt-16">
-          <div class="text-[11px] uppercase tracking-[0.22em] text-[#2d4a3e] font-semibold mb-2">
-            What parents and students say
-          </div>
-          <p class="text-[12px] text-[#1a2421]/50 italic mb-12">
-            Real testimonials forthcoming. Below are placeholders that reflect the kinds of things students and parents have said over the years.
-          </p>
-          <div class="grid md:grid-cols-3 gap-10 md:gap-12">
-            <figure v-for="(t, i) in placeholderTestimonials" :key="i">
-              <blockquote class="font-serif text-xl md:text-2xl leading-snug text-[#1a2421] italic">
-                "{{ t.quote }}"
-              </blockquote>
-              <figcaption class="mt-4 text-[11px] uppercase tracking-[0.18em] text-[#1a2421]/60">
-                {{ t.attribution }}
-              </figcaption>
-            </figure>
-          </div>
-        </div>
-
-        <!-- Recital photo placeholders -->
-        <div class="mt-20 grid sm:grid-cols-2 gap-6">
-          <div class="aspect-[4/3] bg-[#f0ebe1] flex items-center justify-center rounded-sm">
-            <span class="text-[#1a2421]/40 text-sm italic">December recital photo · coming</span>
-          </div>
-          <div class="aspect-[4/3] bg-[#f0ebe1] flex items-center justify-center rounded-sm">
-            <span class="text-[#1a2421]/40 text-sm italic">May recital photo · coming</span>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -608,17 +558,14 @@ const faqs = [
 
         <div class="mt-12 grid sm:grid-cols-2 gap-4 max-w-xl mx-auto">
           <a
-            href="sms:+1-PHONE-PLACEHOLDER"
+            href="sms:+14074931556"
             class="rounded-full bg-[#fbf8f3] text-[#1a2421] text-sm font-medium tracking-wide px-6 py-4 hover:bg-[#a8c4b3] transition-colors block"
           >Text Staci</a>
           <a
-            href="mailto:EMAIL-PLACEHOLDER@example.com"
+            href="mailto:staciraedaniel@gmail.com"
             class="rounded-full border border-[#fbf8f3]/40 text-[#fbf8f3] text-sm font-medium tracking-wide px-6 py-4 hover:bg-[#fbf8f3]/10 transition-colors block"
           >Email Staci</a>
         </div>
-        <p class="mt-6 text-[11px] uppercase tracking-[0.18em] text-[#a8c4b3]">
-          TODO: replace with real phone + email
-        </p>
       </div>
     </section>
 
