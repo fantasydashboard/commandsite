@@ -127,6 +127,14 @@ Deno.serve(async (req: Request) => {
   // verified lead can't sneak through and bleed sender reputation.
   // See 2026-06-15 incident: 12% bounce rate from sending to 209
   // unverified addresses tanked Gmail reputation.
+  // Personalization gate: skip drafts tagged personalization_none.
+  // draft-cold-email scores each draft high/medium/low/none based on
+  // whether the opener has a verifiable specific (review quote, named
+  // owner, website detail). 'none' = no specific = pure industry pain
+  // template, which reads like spam and reply-rate tanks. We hold those
+  // back from auto-send so they can be re-researched (via
+  // enrich-lead-website) or manually approved if the operator wants to
+  // send anyway. See 2026-06-28 cold-email diagnostic.
   const { data: leadsData, error: leadsErr } = await admin
     .from('cs_leads')
     .select('id, contact_email, contact_name, company_name, draft_cold_email_subject, draft_cold_email_body, draft_cold_email_at, send_count')
@@ -136,6 +144,7 @@ Deno.serve(async (req: Request) => {
     .not('contact_email', 'is', null)
     .not('draft_cold_email_subject', 'is', null)
     .not('draft_cold_email_body', 'is', null)
+    .not('tags', 'cs', '{personalization_none}')
     .order('send_count', { ascending: false, nullsFirst: false })
     .order('draft_cold_email_at', { ascending: true, nullsFirst: false })
     .limit(PER_TICK_LIMIT)

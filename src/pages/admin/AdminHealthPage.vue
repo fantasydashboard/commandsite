@@ -53,6 +53,24 @@ const bouncedCount = ref(0)
 const invalidFormatCount = ref(0)
 const repliedTotalCount = ref(0)
 
+// ── Cold-email campaign metrics (rolling 30 days)
+// Volume + reply quality + queue-by-personalization. Lets you see at a
+// glance whether the campaign is converting, where in the funnel it
+// leaks, and how much of the queue is personalization_none (which is
+// now blocked from auto-send in auto-outreach-send).
+const sendsTouch1_30d = ref(0)
+const sendsTouch2_30d = ref(0)
+const sendsTouch3_30d = ref(0)
+const repliesPositive_30d = ref(0)
+const repliesInterested_30d = ref(0)
+const repliesObjection_30d = ref(0)
+const repliesNegative_30d = ref(0)
+const repliesNoise_30d = ref(0)        // oof + unsubscribe combined
+const draftsHighCount = ref(0)
+const draftsMediumCount = ref(0)
+const draftsLowCount = ref(0)
+const draftsNoneCount = ref(0)
+
 // ── Auto-refresh timer
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
@@ -66,6 +84,7 @@ async function refreshAll() {
     const stuckCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString()
     const nowIso = new Date().toISOString()
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
     // Fire all queries in parallel. Each one is small and indexed.
     const [
@@ -85,6 +104,19 @@ async function refreshAll() {
       bounced,
       invalidFormat,
       repliedTotal,
+      // ── Cold-email campaign (30d): volume, replies, queue quality
+      t1_30d,
+      t2_30d,
+      t3_30d,
+      positive30d,
+      interested30d,
+      objection30d,
+      negative30d,
+      noise30d,
+      draftsHigh,
+      draftsMedium,
+      draftsLow,
+      draftsNone,
     ] = await Promise.all([
       supabase.from('cs_leads').select('draft_cold_email_at').not('draft_cold_email_at', 'is', null).order('draft_cold_email_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('cs_leads').select('draft_cold_email_at').contains('tags', ['followup_drafted_touch_2']).order('draft_cold_email_at', { ascending: false }).limit(1).maybeSingle(),
@@ -105,6 +137,21 @@ async function refreshAll() {
       supabase.from('cs_leads').select('*', { count: 'exact', head: true }).not('bounced_at', 'is', null),
       supabase.from('cs_leads').select('*', { count: 'exact', head: true }).contains('tags', ['invalid_email_format']),
       supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('status', 'replied'),
+      // ── Cold-email 30d volume by touch number
+      supabase.from('cs_outreach_sends').select('*', { count: 'exact', head: true }).eq('touch_number', 1).gte('sent_at', thirtyDaysAgoIso),
+      supabase.from('cs_outreach_sends').select('*', { count: 'exact', head: true }).eq('touch_number', 2).gte('sent_at', thirtyDaysAgoIso),
+      supabase.from('cs_outreach_sends').select('*', { count: 'exact', head: true }).eq('touch_number', 3).gte('sent_at', thirtyDaysAgoIso),
+      // ── Cold-email 30d replies by classification
+      supabase.from('cs_replies').select('*', { count: 'exact', head: true }).eq('classification', 'positive').gte('received_at', thirtyDaysAgoIso),
+      supabase.from('cs_replies').select('*', { count: 'exact', head: true }).eq('classification', 'interested').gte('received_at', thirtyDaysAgoIso),
+      supabase.from('cs_replies').select('*', { count: 'exact', head: true }).eq('classification', 'objection').gte('received_at', thirtyDaysAgoIso),
+      supabase.from('cs_replies').select('*', { count: 'exact', head: true }).eq('classification', 'negative').gte('received_at', thirtyDaysAgoIso),
+      supabase.from('cs_replies').select('*', { count: 'exact', head: true }).in('classification', ['oof', 'unsubscribe']).gte('received_at', thirtyDaysAgoIso),
+      // ── Draft queue right now, by personalization quality tag
+      supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('draft_state', 'ready_for_review').contains('tags', ['personalization_high']),
+      supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('draft_state', 'ready_for_review').contains('tags', ['personalization_medium']),
+      supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('draft_state', 'ready_for_review').contains('tags', ['personalization_low']),
+      supabase.from('cs_leads').select('*', { count: 'exact', head: true }).eq('draft_state', 'ready_for_review').contains('tags', ['personalization_none']),
     ])
 
     type TimestampRow = { draft_cold_email_at?: string | null; sent_at?: string | null; received_at?: string | null }
@@ -127,6 +174,19 @@ async function refreshAll() {
     bouncedCount.value = bounced.count ?? 0
     invalidFormatCount.value = invalidFormat.count ?? 0
     repliedTotalCount.value = repliedTotal.count ?? 0
+
+    sendsTouch1_30d.value = t1_30d.count ?? 0
+    sendsTouch2_30d.value = t2_30d.count ?? 0
+    sendsTouch3_30d.value = t3_30d.count ?? 0
+    repliesPositive_30d.value = positive30d.count ?? 0
+    repliesInterested_30d.value = interested30d.count ?? 0
+    repliesObjection_30d.value = objection30d.count ?? 0
+    repliesNegative_30d.value = negative30d.count ?? 0
+    repliesNoise_30d.value = noise30d.count ?? 0
+    draftsHighCount.value = draftsHigh.count ?? 0
+    draftsMediumCount.value = draftsMedium.count ?? 0
+    draftsLowCount.value = draftsLow.count ?? 0
+    draftsNoneCount.value = draftsNone.count ?? 0
 
     lastRefreshedAt.value = new Date()
   } catch (err) {
@@ -191,6 +251,23 @@ function statusBg(s: 'green' | 'amber' | 'red' | 'unknown'): string {
   if (s === 'red') return 'bg-danger/15 text-danger border-danger/30'
   return 'bg-surface-elevated text-ink-muted border-divider'
 }
+
+// Reply + positive rate computed from the 30d snapshot. Reply rate is
+// per-send (any reply / sends_t1+t2+t3) since cold-email industry
+// reports it that way. Positive rate is per unique recipient (positive
+// + interested / Touch 1 sends) since each lead gets exactly one T1
+// and that's the buyer-set we're really pitching.
+const replyRate30d = computed<number | null>(() => {
+  const totalSent = sendsTouch1_30d.value + sendsTouch2_30d.value + sendsTouch3_30d.value
+  if (totalSent === 0) return null
+  const totalReplies = repliesPositive_30d.value + repliesInterested_30d.value + repliesObjection_30d.value + repliesNegative_30d.value
+  return (totalReplies / totalSent) * 100
+})
+const positiveRate30d = computed<number | null>(() => {
+  if (sendsTouch1_30d.value === 0) return null
+  const positive = repliesPositive_30d.value + repliesInterested_30d.value
+  return (positive / sendsTouch1_30d.value) * 100
+})
 
 const overallStatus = computed<'green' | 'amber' | 'red'>(() => {
   const statuses = [
@@ -334,6 +411,104 @@ const overallLabel = computed(() => {
         <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
           <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Drafts created today</div>
           <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ draftsTodayCount }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Cold email campaign · 30d ─────────────────────────────── -->
+    <section class="card">
+      <div class="mb-3">
+        <span class="eyebrow">Cold email campaign · last 30 days</span>
+        <p class="text-xs text-ink-muted">
+          Send volume by touch, reply quality by classification, draft queue by personalization. Industry baseline: 1-3% reply rate, 0.3-0.9% positive rate.
+        </p>
+      </div>
+      <!-- Volume + rate row -->
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 mb-4">
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Touch 1 sent</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ sendsTouch1_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">unique recipients</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Touch 2 sent</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ sendsTouch2_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">~3 days after T1</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Touch 3 sent</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ sendsTouch3_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">~7 days after T1</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Reply rate</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">
+            {{ replyRate30d === null ? '—' : `${replyRate30d.toFixed(1)}%` }}
+          </div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">any reply / all sends</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Positive rate</div>
+          <div class="text-2xl font-bold text-success tabular-nums mt-0.5">
+            {{ positiveRate30d === null ? '—' : `${positiveRate30d.toFixed(2)}%` }}
+          </div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">positive+interested / T1</div>
+        </div>
+      </div>
+      <!-- Reply classification breakdown -->
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 mb-4">
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Positive</div>
+          <div class="text-2xl font-bold text-success tabular-nums mt-0.5">{{ repliesPositive_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">"book a call"</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Interested</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ repliesInterested_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">"tell me more"</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Objection</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ repliesObjection_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">winnable</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Negative</div>
+          <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ repliesNegative_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">"no thanks"</div>
+        </div>
+        <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+          <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Noise</div>
+          <div class="text-2xl font-bold text-ink-muted tabular-nums mt-0.5">{{ repliesNoise_30d }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">oof + unsubscribe</div>
+        </div>
+      </div>
+      <!-- Draft queue by personalization quality -->
+      <div class="border-t border-divider pt-4">
+        <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted mb-2">
+          Drafts ready for review, by personalization quality
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+            <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">High</div>
+            <div class="text-2xl font-bold text-success tabular-nums mt-0.5">{{ draftsHighCount }}</div>
+            <div class="text-[11px] text-ink-disabled mt-0.5">verbatim quote or named owner</div>
+          </div>
+          <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+            <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Medium</div>
+            <div class="text-2xl font-bold text-ink tabular-nums mt-0.5">{{ draftsMediumCount }}</div>
+            <div class="text-[11px] text-ink-disabled mt-0.5">specific signal, no quote</div>
+          </div>
+          <div class="rounded-card border border-divider bg-surface-elevated/40 px-3 py-2.5">
+            <div class="text-[10px] uppercase font-semibold tracking-wide text-ink-muted">Low</div>
+            <div class="text-2xl font-bold text-warn tabular-nums mt-0.5">{{ draftsLowCount }}</div>
+            <div class="text-[11px] text-ink-disabled mt-0.5">generic industry framing</div>
+          </div>
+          <div class="rounded-card border border-danger/30 bg-danger/5 px-3 py-2.5">
+            <div class="text-[10px] uppercase font-semibold tracking-wide text-danger">None</div>
+            <div class="text-2xl font-bold text-danger tabular-nums mt-0.5">{{ draftsNoneCount }}</div>
+            <div class="text-[11px] text-danger/70 mt-0.5 font-medium">blocked from auto-send</div>
+          </div>
         </div>
       </div>
     </section>
