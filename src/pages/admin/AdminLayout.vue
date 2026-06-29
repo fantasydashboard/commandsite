@@ -36,6 +36,13 @@ async function onLogout() {
             >
               Health
             </RouterLink>
+            <RouterLink
+              to="/admin/pco-test"
+              class="text-ink-inverse/70 hover:text-ink-inverse transition-colors"
+              active-class="text-ink-inverse font-medium"
+            >
+              PCO test
+            </RouterLink>
           </nav>
         </div>
         <div class="flex items-center gap-4">

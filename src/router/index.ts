@@ -56,6 +56,14 @@ const routes = [
         name: 'admin.health',
         component: () => import('@/pages/admin/AdminHealthPage.vue'),
       },
+      {
+        // Planning Center sandbox. Lets the admin paste a PAT and fire
+        // test calls against PCO to verify the integration shape Grace
+        // will use, before wiring it into a real client surface.
+        path: 'pco-test',
+        name: 'admin.pco-test',
+        component: () => import('@/pages/admin/PcoTestPage.vue'),
+      },
     ],
   },
   {
