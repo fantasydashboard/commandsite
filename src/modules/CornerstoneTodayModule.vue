@@ -376,7 +376,7 @@ const todayRecommendations: GraceRecommendation[] = [
       </p>
     </section>
 
-    <section v-else class="card overflow-hidden">
+    <section v-else-if="!isFocalPoint" class="card overflow-hidden">
       <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow text-danger">What you'd be absorbing</span>

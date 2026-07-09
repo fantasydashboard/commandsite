@@ -17,6 +17,7 @@ import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
@@ -25,6 +26,9 @@ const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 // Client-varying data resolved by slug; names preserved so the rest of the
 // module and template are unchanged.
 const data = churchDataset(props.client.slug)
+// Care & Drift is Sample for Focal Point until drift derivation (needs
+// giving/groups/check-in history) lands. Tag it clearly, hide the fake feeds.
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 const households = data.people.households
 const people = data.people.people
 const peopleStats = data.people.stats
@@ -197,8 +201,8 @@ const careRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
-    <!-- Grace's note on care + drift this week -->
-    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+    <!-- Grace's note (hidden for Focal Point) -->
+    <section v-if="!isFocalPoint" class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
       <header class="flex items-center gap-2.5 mb-2.5">
         <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
         <span class="text-xs font-bold text-ink">Grace's note on care + drift</span>
@@ -210,6 +214,9 @@ const careRecommendations: GraceRecommendation[] = [
 
     <!-- Drift Watch hero block: this is the page's headline product,
          mirroring the Welcome hero on the Front Desk & Guests page. -->
+    <div v-if="isFocalPoint" class="flex justify-end -mb-2">
+      <SampleBadge />
+    </div>
     <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
       <div class="flex items-baseline gap-2 mb-3">
@@ -275,7 +282,7 @@ const careRecommendations: GraceRecommendation[] = [
     <section id="care_triage" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Care Triage · Open cases</span>
+          <span class="eyebrow">Care Triage · Open cases</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">sorted by urgency</span>
         </div>
         <span class="text-[11px] text-ink-disabled">{{ openCareCases.length }} open · {{ care.drafts_pending }} drafted</span>
@@ -312,7 +319,7 @@ const careRecommendations: GraceRecommendation[] = [
     <section id="drift_detection" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Drift Watch · Household directory</span>
+          <span class="eyebrow">Drift Watch · Household directory</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">three-flag system, sorted by risk</span>
         </div>
       </div>
@@ -393,6 +400,7 @@ const careRecommendations: GraceRecommendation[] = [
     </section>
 
     <LiveActivityFeed
+      v-if="!isFocalPoint"
       :events="liveEvents"
       :fmt-ago="fmtLiveAgo"
       :get-role="getRole"
@@ -401,7 +409,7 @@ const careRecommendations: GraceRecommendation[] = [
     />
 
     <!-- Grace's recommendations — what to act on this week -->
-    <GraceRecommendations :recommendations="careRecommendations" />
+    <GraceRecommendations v-if="!isFocalPoint" :recommendations="careRecommendations" />
 
     <!-- Reference openCareCases is used; silence no-unused if needed -->
   </div>

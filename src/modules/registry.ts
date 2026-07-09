@@ -765,6 +765,7 @@ export const moduleRegistry: ModuleDefinition[] = [
     fullWidth: true,
     tab: 'today',
     badge: (slug) => {
+      if (slug === 'focal-point-church') return null // Care data is Sample for FP
       const urgent = churchDataset(slug).care.stats().urgent_cases
       return urgent > 0 ? { count: urgent, tone: 'danger' } : null
     },
@@ -785,6 +786,7 @@ export const moduleRegistry: ModuleDefinition[] = [
     fullWidth: true,
     tab: 'care-drift',
     badge: (slug) => {
+      if (slug === 'focal-point-church') return null // Drift data is Sample for FP
       const d = churchDataset(slug)
       const atRisk = d.people.households.filter((h) => d.people.totalFlagCount(h) >= 2).length
       return atRisk > 0 ? { count: atRisk, tone: 'warn' } : null

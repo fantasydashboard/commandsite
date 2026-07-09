@@ -14,6 +14,7 @@ import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -21,6 +22,8 @@ const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 // Client-varying data resolved by slug; names preserved so the rest of the
 // module and template are unchanged.
 const data = churchDataset(props.client.slug)
+// Sundays & Comms is Sample for Focal Point until comms/volunteer data lands.
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 const sundayStats = data.sundays.stats
 const upcomingService = data.sundays.upcoming
 const commsStats = data.comms.stats
@@ -201,8 +204,8 @@ const sundaysRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
-    <!-- Grace's note on Sundays + comms this week -->
-    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+    <!-- Grace's note (hidden for Focal Point) -->
+    <section v-if="!isFocalPoint" class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
       <header class="flex items-center gap-2.5 mb-2.5">
         <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
         <span class="text-xs font-bold text-ink">Grace's note on Sunday prep + comms</span>
@@ -216,6 +219,9 @@ const sundaysRecommendations: GraceRecommendation[] = [
          + outstanding actions in one glance. Operational page, so the
          answer to "are we ready for Sunday?" lives at the top, not
          buried in the KPI strip. -->
+    <div v-if="isFocalPoint" class="flex justify-end -mb-2">
+      <SampleBadge />
+    </div>
     <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">This Sunday · readiness brief</div>
       <div class="flex flex-wrap items-end gap-x-8 gap-y-3 justify-between">
@@ -285,7 +291,7 @@ const sundaysRecommendations: GraceRecommendation[] = [
     <section id="volunteer_coord" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Volunteer Coordination · This Sunday</span>
+          <span class="eyebrow">Volunteer Coordination · This Sunday</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">Grace's roster gaps + suggested fills</span>
         </div>
         <span class="text-[11px] text-ink-disabled">{{ upcomingService.date_label }} · {{ upcomingService.sermon.title }}</span>
@@ -346,7 +352,7 @@ const sundaysRecommendations: GraceRecommendation[] = [
     <section id="communications" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Communications</span>
+          <span class="eyebrow">Communications</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">drafts + recent sends</span>
         </div>
       </div>
@@ -397,6 +403,7 @@ const sundaysRecommendations: GraceRecommendation[] = [
     </section>
 
     <LiveActivityFeed
+      v-if="!isFocalPoint"
       :events="liveEvents"
       :fmt-ago="fmtLiveAgo"
       :get-role="getRole"
@@ -405,6 +412,6 @@ const sundaysRecommendations: GraceRecommendation[] = [
     />
 
     <!-- Grace's recommendations — what to act on this week -->
-    <GraceRecommendations :recommendations="sundaysRecommendations" />
+    <GraceRecommendations v-if="!isFocalPoint" :recommendations="sundaysRecommendations" />
   </div>
 </template>

@@ -245,6 +245,9 @@ const frontDeskRecommendations: GraceRecommendation[] = [
     />
 
     <!-- KPI strip -->
+    <div v-if="isFocalPoint" class="flex justify-end -mb-1">
+      <SampleBadge />
+    </div>
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card">
         <div class="kpi-label">Calls handled (7d)</div>
