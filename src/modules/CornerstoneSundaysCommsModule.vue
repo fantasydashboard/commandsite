@@ -15,6 +15,7 @@ import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
+import { scrubCornerstone } from '@/lib/clients/church/dataset'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -256,7 +257,7 @@ const sundaysRecommendations: GraceRecommendation[] = [
       <SampleBadge />
     </div>
     <GraceApprovalQueue
-      :items="queueItems"
+      :items="isFocalPoint ? scrubCornerstone(queueItems) : queueItems"
       :initial-resolved="6"
       assistant-name="Grace"
       heading="Sunday + comms queue"

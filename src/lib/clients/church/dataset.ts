@@ -109,16 +109,32 @@ const CORNERSTONE: ChurchDataset = {
   settings: { team: teamMembers, serviceTimes, integrations, privacy: privacySettings, stats: settingsStats },
 }
 
+// Some Focal Point surfaces (Care & Drift, Sundays) still render Cornerstone
+// sample data during setup. Scrub the demo church's name out of any displayed
+// strings so "Cornerstone" never appears on a Focal Point screen. Deep-clones
+// only the data passed through it (never functions), so stat functions that
+// read the originals are unaffected.
+export function scrubCornerstone<T>(v: T): T {
+  if (typeof v === 'string') return v.replace(/Cornerstone/g, 'Focal Point') as unknown as T
+  if (Array.isArray(v)) return v.map((x) => scrubCornerstone(x)) as unknown as T
+  if (v && typeof v === 'object') {
+    const o: Record<string, unknown> = {}
+    for (const k of Object.keys(v as object)) o[k] = scrubCornerstone((v as Record<string, unknown>)[k])
+    return o as unknown as T
+  }
+  return v
+}
+
 const FOCAL_POINT: ChurchDataset = {
-  today: { items: fpToday.todayItems, pulse: fpToday.todayPulse, stats: fpToday.todayStats },
-  people: { households: fpPeople.households, people: fpPeople.people, stats: fpPeople.peopleStats, inHousehold: fpPeople.peopleInHousehold, totalFlagCount: fpPeople.totalFlagCount },
-  visitors: { records: fpVisitors.visitors, stats: fpVisitors.visitorStats },
-  care: { cases: fpCare.careCases, stats: fpCare.careStats },
-  giving: { monthly: fpGiving.monthlyGiving, stoppedHouseholds: fpGiving.stoppedGivingHouseholds, designatedFunds: fpGiving.designatedFunds, stats: fpGiving.givingStats },
+  today: { items: scrubCornerstone(fpToday.todayItems), pulse: fpToday.todayPulse, stats: fpToday.todayStats },
+  people: { households: scrubCornerstone(fpPeople.households), people: scrubCornerstone(fpPeople.people), stats: fpPeople.peopleStats, inHousehold: fpPeople.peopleInHousehold, totalFlagCount: fpPeople.totalFlagCount },
+  visitors: { records: scrubCornerstone(fpVisitors.visitors), stats: fpVisitors.visitorStats },
+  care: { cases: scrubCornerstone(fpCare.careCases), stats: fpCare.careStats },
+  giving: { monthly: fpGiving.monthlyGiving, stoppedHouseholds: scrubCornerstone(fpGiving.stoppedGivingHouseholds), designatedFunds: scrubCornerstone(fpGiving.designatedFunds), stats: fpGiving.givingStats },
   attendance: { weekly: fpAttendance.weeklyAttendance, priorYear: fpAttendance.priorYearAttendance, stats: fpAttendance.attendanceStats },
-  sundays: { upcoming: fpSundays.upcomingService, stats: fpSundays.sundayStats },
-  comms: { posts: fpComms.posts, brandVoice: fpComms.brandVoice, stats: fpComms.commsStats },
-  settings: { team: fpSettings.teamMembers, serviceTimes: fpSettings.serviceTimes, integrations: fpSettings.integrations, privacy: fpSettings.privacySettings, stats: fpSettings.settingsStats },
+  sundays: { upcoming: scrubCornerstone(fpSundays.upcomingService), stats: fpSundays.sundayStats },
+  comms: { posts: scrubCornerstone(fpComms.posts), brandVoice: scrubCornerstone(fpComms.brandVoice), stats: fpComms.commsStats },
+  settings: { team: scrubCornerstone(fpSettings.teamMembers), serviceTimes: scrubCornerstone(fpSettings.serviceTimes), integrations: scrubCornerstone(fpSettings.integrations), privacy: scrubCornerstone(fpSettings.privacySettings), stats: fpSettings.settingsStats },
 }
 
 const BY_SLUG: Record<string, ChurchDataset> = {
