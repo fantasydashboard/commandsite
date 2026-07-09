@@ -21,6 +21,7 @@ import { churchDataset } from '@/lib/clients/church/dataset'
 import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vue'
+import { focalPointBrief, focalPointApproval } from '@/lib/clients/focal-point/today'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent, type LiveEvent } from '@/composables/useLiveActivity'
 import { money, fmtAgo } from '@/lib/format'
@@ -35,6 +36,9 @@ const data = churchDataset(props.client.slug)
 const todayPulse = data.today.pulse
 const givingStats = data.giving.stats
 const peopleStats = data.people.stats
+
+// Focal Point gets its real brief + welcome drafts; Cornerstone keeps the demo.
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 
 function onRoleClick(role: GraceRole) {
   router.push({
@@ -298,7 +302,11 @@ const todayRecommendations: GraceRecommendation[] = [
     </div>
 
     <!-- ── GRACE'S MORNING HANDOFF — the emotional cheat-code moment ─ -->
-    <GraceMorningHandoff v-if="mode === 'with-grace'" pastor-name="Pastor Andrew" />
+    <GraceMorningHandoff
+      v-if="mode === 'with-grace'"
+      :pastor-name="isFocalPoint ? 'Pastor Mark' : 'Pastor Andrew'"
+      :brief="isFocalPoint ? focalPointBrief : null"
+    />
 
     <section v-else class="rounded-card border border-danger/25 bg-danger/[0.04] px-5 py-5 sm:px-6 sm:py-6">
       <header class="flex items-center gap-3 mb-3">
@@ -419,7 +427,7 @@ const todayRecommendations: GraceRecommendation[] = [
     <!-- ── 2. Approval queue — Grace's drafts awaiting pastoral sign-off ─ -->
     <GraceApprovalQueue
       v-if="mode === 'with-grace'"
-      :items="queueItems"
+      :items="isFocalPoint ? focalPointApproval : queueItems"
       :initial-resolved="8"
       :subtitle="`${greeting}. Co-sign to send, edit to revise, skip to resurface tomorrow.`"
       @approved="onApproved"

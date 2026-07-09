@@ -1,3 +1,18 @@
+<script lang="ts">
+/** Prop-driven Monday brief. When a `brief` is passed (e.g. Focal Point's
+ * real data), it renders instead of the built-in Cornerstone demo copy. */
+export interface BriefParagraph {
+  lead: string
+  body: string
+}
+export interface MorningBrief {
+  greeting: string
+  paragraphs: BriefParagraph[]
+  noticed: string[]
+  closing: string
+}
+</script>
+
 <script setup lang="ts">
 /**
  * GraceMorningHandoff: the conversational coworker note from Grace
@@ -15,12 +30,17 @@
  *   2. Who needs your personal attention this week (drift, grief, care)
  *   3. What I noticed at the system level (volunteer gaps, prayer
  *      request patterns, Sunday flow)
+ *
+ * The default body below is the Cornerstone demo. Pass `brief` to render
+ * a client's real handoff instead (Focal Point does this).
  */
 
 defineProps<{
   pastorName: string
   /** Optional override for the "this morning" timestamp text. */
   timestamp?: string
+  /** When provided, renders this brief instead of the demo default. */
+  brief?: MorningBrief | null
 }>()
 </script>
 
@@ -40,8 +60,27 @@ defineProps<{
       </div>
     </header>
 
-    <!-- The note itself: reads as real pastoral prose -->
-    <div class="space-y-3.5 text-[13.5px] text-ink leading-relaxed max-w-2xl">
+    <!-- Prop-driven brief (Focal Point real data) -->
+    <div v-if="brief" class="space-y-3.5 text-[13.5px] text-ink leading-relaxed max-w-2xl">
+      <p>{{ brief.greeting }}</p>
+      <p v-for="(para, i) in brief.paragraphs" :key="i">
+        <strong>{{ para.lead }}</strong>. {{ para.body }}
+      </p>
+      <div v-if="brief.noticed.length" class="pt-1">
+        <p class="text-[12px] text-ink-muted mb-1.5"><strong class="text-ink">A few things I noticed:</strong></p>
+        <ul class="space-y-1.5 text-[13px] text-ink-muted">
+          <li v-for="(n, i) in brief.noticed" :key="i">
+            <span class="text-brand">·</span>
+            {{ n }}
+          </li>
+        </ul>
+      </div>
+      <p class="pt-1">{{ brief.closing }}</p>
+      <p class="text-ink"><span class="text-ink-muted">Grace</span></p>
+    </div>
+
+    <!-- Default demo body (Cornerstone) -->
+    <div v-else class="space-y-3.5 text-[13.5px] text-ink leading-relaxed max-w-2xl">
       <p>{{ pastorName }}, here's where things stand from Sunday before staff meeting.</p>
 
       <p>
