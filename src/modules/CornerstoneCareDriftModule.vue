@@ -19,6 +19,7 @@ import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
+import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
@@ -215,8 +216,9 @@ const careRecommendations: GraceRecommendation[] = [
 
     <!-- Drift Watch hero block: this is the page's headline product,
          mirroring the Welcome hero on the Front Desk & Guests page. -->
-    <!-- Focal Point: real kids-attendance drift replaces the Cornerstone demo headline -->
+    <!-- Focal Point: two real drift surfaces, family (kids) then individual (serving) -->
     <DriftWatch v-if="isFocalPoint" />
+    <PeopleDrift v-if="isFocalPoint" />
     <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
       <div class="flex items-baseline gap-2 mb-3">
