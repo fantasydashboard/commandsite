@@ -255,8 +255,8 @@ const careRecommendations: GraceRecommendation[] = [
       @approved="onApproved"
     />
 
-    <!-- KPI strip -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <!-- KPI strip (hidden for Focal Point: Cornerstone care/giving counts) -->
+    <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card">
         <div class="kpi-label">2+ flag households</div>
         <div class="mt-1 text-2xl font-bold tabular-nums" :class="stats.at_risk_two_plus_flags > 0 ? 'text-danger' : 'text-ink'">{{ stats.at_risk_two_plus_flags }}</div>

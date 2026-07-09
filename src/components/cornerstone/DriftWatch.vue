@@ -46,8 +46,8 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ focalPointDrift.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
+      {{ focalPointDrift.onboardingExcluded }} first-time or occasional families are excluded (they belong in the welcome funnel, not here).
       Giving-lapse and group-absence signals connect once those Planning Center scopes are enabled.
-      Attendance drift stands on its own until then.
     </p>
   </section>
 
@@ -65,7 +65,7 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
   <section class="card">
     <div class="mb-3 flex items-center justify-between">
       <span class="eyebrow">Flagged families</span>
-      <span class="text-[11px] text-ink-muted">kids stopped checking in, most-drifted first</span>
+      <span class="text-[11px] text-ink-muted">most-established families first</span>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
@@ -73,6 +73,7 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
           <tr class="border-b border-divider text-left text-[11px] uppercase tracking-wide text-ink-muted">
             <th class="pb-2 font-medium">Family</th>
             <th class="pb-2 font-medium">Kids at Kids Point</th>
+            <th class="pb-2 font-medium">Regular for</th>
             <th class="pb-2 font-medium">Last checked in</th>
             <th class="pb-2 text-right font-medium">Sundays missed</th>
           </tr>
@@ -81,13 +82,14 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
           <tr v-for="f in focalPointDrift.families" :key="f.family" class="border-b border-divider/60">
             <td class="py-2 font-medium text-ink">The {{ f.family }} family</td>
             <td class="py-2 text-ink-muted">{{ f.kids.join(', ') }}</td>
+            <td class="py-2 text-ink-muted">~{{ f.monthsAttending }}mo · {{ f.totalSundays }} Sundays</td>
             <td class="py-2 text-ink-muted">{{ fmtDate(f.lastSeen) }}</td>
             <td class="py-2 text-right font-semibold" :class="f.sundaysMissed >= 5 ? 'text-danger' : 'text-warn'">
               {{ f.sundaysMissed }}
             </td>
           </tr>
           <tr v-if="!focalPointDrift.families.length">
-            <td colspan="4" class="py-4 text-center text-ink-muted">
+            <td colspan="5" class="py-4 text-center text-ink-muted">
               Family list loads from the local Planning Center pull.
             </td>
           </tr>

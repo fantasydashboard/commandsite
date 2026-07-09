@@ -35,7 +35,7 @@ console.log('\n  Pulling recent Kids Sunday Service check-ins...')
 const checkins = []
 let url = `/check-ins/v2/events/209602/check_ins?include=person&per_page=100&order=-created_at`
 let pages = 0
-while (url && pages < 20) {
+while (url && pages < 70) {
   const r = await pco(url)
   if (r.status !== 200) { console.log('  stopped at status', r.status); break }
   const persons = {}
@@ -48,15 +48,16 @@ while (url && pages < 20) {
       person_id: pid,
       first: p.first_name ?? null,
       last: p.last_name ?? null,
+      membership: p.membership ?? null,
       kind: c.attributes?.kind,
     })
   }
   pages++
   const next = r.json.links?.next
   url = next ? next.replace(BASE, '') : null
-  // stop once we're past ~14 weeks of data
+  // stop once we're past ~1 year of history (enough to measure tenure)
   const oldest = checkins[checkins.length - 1]?.created_at
-  if (oldest && (Date.parse('2026-07-09') - Date.parse(oldest)) > 1000 * 60 * 60 * 24 * 100) break
+  if (oldest && (Date.parse('2026-07-09') - Date.parse(oldest)) > 1000 * 60 * 60 * 24 * 380) break
 }
 await writeFile(join(RAW, 'kids_checkins.json'), JSON.stringify(checkins, null, 2))
 console.log(`  Pulled ${checkins.length} kids check-ins across ${pages} pages`)

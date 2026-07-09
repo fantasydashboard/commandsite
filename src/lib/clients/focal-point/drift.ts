@@ -1,46 +1,50 @@
-// Focal Point Church - Drift Watch (real kids-attendance drift).
+// Focal Point Church - Drift Watch (real, tenure-weighted kids-attendance drift).
 // ---------------------------------------------------------------------------
-// Real signal: children who checked into Kids Point regularly, then stopped
-// for 3+ Sundays. This is the leading indicator that a family is drifting
-// (the kids go quiet before the adults do). Computed from Planning Center
-// Check-Ins (scripts/explore-drift.mjs -> scratchpad/pco-raw/drift_families.json).
+// Real signal: children who were REGULAR at Kids Point (months of Sundays),
+// then stopped for 3+ Sundays. Weighted by tenure so it flags established,
+// committed families going quiet, not one-and-done first-time visitors (those
+// are in the welcome funnel on Front Desk, not drifting). Computed from
+// Planning Center Check-Ins over ~10 months (scripts/explore-drift.mjs).
 //
-// The aggregate counts below are real and safe to commit. The family-level
-// list and the drafted check-ins contain real names, so the committed version
-// keeps them EMPTY; the real data lives only in the local copy of this file
-// (git skip-worktree), so congregant PII never enters git.
+// Aggregate counts below are real and safe to commit. The family-level list
+// and drafted check-ins contain real names, so the committed version keeps
+// them EMPTY; the real data lives only in the local copy of this file
+// (git skip-worktree).
 //
-// Not yet included (waiting on Christina's full-access token): the giving-lapse
+// Not yet included (waiting on Christina's full-access token): giving-lapse
 // and group-absence signals. Attendance drift stands on its own until then.
 
 export interface DriftFamily {
   family: string
   kids: string[]
-  lastSeen: string       // ISO date of last Kids Point check-in
-  sundaysMissed: number  // consecutive Sundays missed since lastSeen
-  priorAttendance: number // Sundays attended in the prior window (was regular)
+  lastSeen: string        // ISO date of last Kids Point check-in
+  sundaysMissed: number   // consecutive Sundays missed since lastSeen
+  monthsAttending: number // how many months they were a regular before going quiet
+  totalSundays: number    // total Sundays attended over the ~10-month window
 }
 
 export interface DriftDraft {
   id: string
   family: string
-  context: string        // e.g. "1 kid · last at Kids Point May 3 · missed 9 Sundays"
-  draft: string          // check-in text in Pastor Mark's voice, never auto-sent
+  context: string         // e.g. "Regular ~9mo (25 Sundays) · last at Kids Point May 24 · missed 6"
+  draft: string           // check-in text in Pastor Mark's voice, never auto-sent
 }
 
 export const focalPointDrift: {
   flaggedFamilies: number
   flaggedKids: number
-  windowSundays: number
+  windowMonths: number
+  onboardingExcluded: number
   signal: string
   families: DriftFamily[]
   drafts: DriftDraft[]
 } = {
-  flaggedFamilies: 29,
-  flaggedKids: 37,
-  windowSundays: 13,
+  flaggedFamilies: 53,
+  flaggedKids: 70,
+  windowMonths: 10,
+  onboardingExcluded: 352,
   signal:
-    'Children who checked into Kids Point regularly, then stopped for 3+ Sundays. The leading indicator that a family is drifting.',
+    'Families whose children were regular at Kids Point for months, then stopped for 3+ Sundays. Ranked by how established they were. First-time and one-or-two-visit families are excluded here (they are in the welcome funnel, not drifting).',
   families: [],
   drafts: [],
 }
