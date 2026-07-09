@@ -245,6 +245,9 @@ const careRecommendations: GraceRecommendation[] = [
       </div>
     </section>
 
+    <div v-if="isFocalPoint" class="flex justify-end -mb-2">
+      <SampleBadge />
+    </div>
     <GraceApprovalQueue
       :items="queueItems"
       :initial-resolved="3"
