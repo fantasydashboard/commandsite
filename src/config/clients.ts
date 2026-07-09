@@ -88,7 +88,7 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'cornerstone-settings' },
   ],
   'focal-point-church': [
-    // Focal Point Church (Orlando, FL) — Grace customer #1. Reuses the
+    // Focal Point Church (Orlando, FL), Grace customer #1. Reuses the
     // Cornerstone church module set; data resolves per slug via
     // churchDataset(). Phase 1 renders passthrough data; Phase 2 swaps in
     // real Planning Center reads (People, Check-Ins, Groups, Giving, Forms).
