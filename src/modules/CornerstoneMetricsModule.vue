@@ -20,6 +20,7 @@ import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import DiscipleshipPathway from '@/components/cornerstone/DiscipleshipPathway.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { money } from '@/lib/format'
 
@@ -40,6 +41,9 @@ const attendanceStats = data.attendance.stats
 const givingStats = data.giving.stats
 const monthlyGiving = data.giving.monthly
 const peopleStats = data.people.stats
+
+// Focal Point-specific surfaces (their priority #1 is pathway visibility).
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 
 const weeks = computed(() => weeklyAttendance())
 const priorWeeks = computed(() => priorYearAttendance())
@@ -367,6 +371,9 @@ const pageRoles = rolesOnTab('insights')
         <div class="text-[11px] text-ink-disabled mt-0.5">{{ att.new_members_12w }} new members</div>
       </div>
     </div>
+
+    <!-- Discipleship Pathway (Focal Point priority #1) -->
+    <DiscipleshipPathway v-if="isFocalPoint" />
 
     <!-- Sunday attendance — hero chart -->
     <section class="card">
