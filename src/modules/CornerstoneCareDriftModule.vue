@@ -280,7 +280,7 @@ const careRecommendations: GraceRecommendation[] = [
     </div>
 
     <!-- Care queue (urgent cases + Grace's drafts) -->
-    <section id="care_triage" class="card scroll-mt-24">
+    <section v-if="!isFocalPoint" id="care_triage" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">Care Triage · Open cases</span> <SampleBadge v-if="isFocalPoint" />

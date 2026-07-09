@@ -6,9 +6,15 @@
  * Giving-lapse and group-absence signals connect once those PCO scopes
  * are enabled; attendance drift stands on its own until then.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import { focalPointDrift } from '@/lib/clients/focal-point/drift'
+
+const COLLAPSED = 12
+const showAll = ref(false)
+const visibleFamilies = computed(() =>
+  showAll.value ? focalPointDrift.families : focalPointDrift.families.slice(0, COLLAPSED),
+)
 
 function fmtDate(iso: string): string {
   const [, m, d] = iso.split('-').map(Number)
@@ -79,7 +85,7 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="f in focalPointDrift.families" :key="f.family" class="border-b border-divider/60">
+          <tr v-for="f in visibleFamilies" :key="f.family" class="border-b border-divider/60">
             <td class="py-2 font-medium text-ink">The {{ f.family }} family</td>
             <td class="py-2 text-ink-muted">{{ f.kids.join(', ') }}</td>
             <td class="py-2 text-ink-muted">~{{ f.monthsAttending }}mo · {{ f.totalSundays }} Sundays</td>
@@ -96,5 +102,12 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
         </tbody>
       </table>
     </div>
+    <button
+      v-if="focalPointDrift.families.length > COLLAPSED"
+      class="mt-3 text-xs font-semibold text-brand hover:underline"
+      @click="showAll = !showAll"
+    >
+      {{ showAll ? 'Show fewer' : `Show all ${focalPointDrift.flaggedFamilies} flagged families` }}
+    </button>
   </section>
 </template>
