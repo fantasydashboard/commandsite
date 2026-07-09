@@ -28,7 +28,7 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
   focalPointServing.drafts.map((d) => ({
     id: d.id,
     role: 're_engagement',
-    icon: 'refresh-cw',
+    icon: 'reactivation',
     badge: 'Serving',
     badgeClass: 'bg-warn/15 text-warn',
     title: `Check-in: ${d.name}`,
