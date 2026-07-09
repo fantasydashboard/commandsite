@@ -18,6 +18,7 @@ import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
+import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
@@ -214,10 +215,9 @@ const careRecommendations: GraceRecommendation[] = [
 
     <!-- Drift Watch hero block: this is the page's headline product,
          mirroring the Welcome hero on the Front Desk & Guests page. -->
-    <div v-if="isFocalPoint" class="flex justify-end -mb-2">
-      <SampleBadge />
-    </div>
-    <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
+    <!-- Focal Point: real kids-attendance drift replaces the Cornerstone demo headline -->
+    <DriftWatch v-if="isFocalPoint" />
+    <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
       <div class="flex items-baseline gap-2 mb-3">
         <AdaIcon name="alert-triangle" class="h-5 w-5 text-brand" />
@@ -245,10 +245,8 @@ const careRecommendations: GraceRecommendation[] = [
       </div>
     </section>
 
-    <div v-if="isFocalPoint" class="flex justify-end -mb-2">
-      <SampleBadge />
-    </div>
     <GraceApprovalQueue
+      v-if="!isFocalPoint"
       :items="queueItems"
       :initial-resolved="3"
       assistant-name="Grace"
@@ -319,7 +317,7 @@ const careRecommendations: GraceRecommendation[] = [
     </section>
 
     <!-- Drift detection — household directory (filtered to at-risk by default) -->
-    <section id="drift_detection" class="card scroll-mt-24">
+    <section v-if="!isFocalPoint" id="drift_detection" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">Drift Watch · Household directory</span> <SampleBadge v-if="isFocalPoint" />
