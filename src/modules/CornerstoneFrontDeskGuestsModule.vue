@@ -9,6 +9,7 @@ import { STAGE_META as VISITOR_STAGE_META } from '@/lib/clients/cornerstone/visi
 import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import { focalPointFrontDeskQueue, focalPointVisitorTouches } from '@/lib/clients/focal-point/visitors'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
@@ -24,6 +25,10 @@ const visitorStats = data.visitors.stats
 const visitors = data.visitors.records
 
 const visitor = computed(() => visitorStats())
+
+// Focal Point gets real Sunday guests + welcome drafts; Cornerstone keeps demo.
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+const displayTouches = computed(() => (isFocalPoint.value ? focalPointVisitorTouches : recentVisitorTouches))
 
 interface CallEntry { time: string; from: string; topic: string; outcome: string; tone: 'success' | 'warn' | 'info' }
 const recentCalls: CallEntry[] = [
@@ -230,7 +235,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
     </section>
 
     <GraceApprovalQueue
-      :items="queueItems"
+      :items="isFocalPoint ? focalPointFrontDeskQueue : queueItems"
       :initial-resolved="5"
       assistant-name="Grace"
       heading="First-touch queue"
@@ -319,7 +324,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
         <div class="kpi-label mb-2">Recent Grace touches</div>
         <ul class="space-y-1.5">
           <li
-            v-for="(t, i) in recentVisitorTouches"
+            v-for="(t, i) in displayTouches"
             :key="i"
             class="flex items-center gap-2 text-xs"
           >
