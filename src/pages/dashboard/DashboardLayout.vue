@@ -132,7 +132,7 @@ const hasSettings = computed(() => visibleTabs.value.some((t) => t.key === 'sett
 // here so the nav shows "Calls 2" without each component knowing about
 // the others.
 function tabBadge(tabKey: string): TabBadge | null {
-  return badgesForTab(tabKey, enabledModuleKeys.value)
+  return badgesForTab(tabKey, enabledModuleKeys.value, props.slug)
 }
 
 function badgeClass(tone: TabBadge['tone']): string {
