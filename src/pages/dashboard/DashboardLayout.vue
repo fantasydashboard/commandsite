@@ -177,6 +177,7 @@ const DEMO_CLIENT_NAMES: Record<string, string> = {
   'apex': 'Apex Heating & Air',
   'apex-heating-and-air': 'Apex Heating & Air',
   'cornerstone-church': 'Cornerstone Community Church',
+  'focal-point-church': 'Focal Point Church',
   'commandsite': 'CommandSite',
   'commandsite-demo': 'CommandSite (demo snapshot)',
   'ultimate-fantasy-dashboard': 'Ultimate Fantasy Dashboard',

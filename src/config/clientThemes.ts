@@ -82,16 +82,15 @@ const CornerstoneTheme: ClientTheme = {
 }
 
 /**
- * Focal Point (TEST) — pre-pitch test client. Same default palette
- * as Cornerstone so the visual feels consistent during the walkthrough.
- * The (TEST) suffix on the wordmark prevents confusion with a real
- * customer if this slug ever leaks into a screenshot.
+ * Focal Point Church (Orlando, FL), Grace customer #1. Inherits the
+ * default Grace blue palette (same as Cornerstone) for now. A distinct
+ * brand color can be set here later via the rgb-triple CSS vars.
  */
-const FocalPointTestTheme: ClientTheme = {
+const FocalPointChurchTheme: ClientTheme = {
   vars: {},
   wordmark: {
     text: 'Focal Point',
-    suffix: 'Church · TEST',
+    suffix: 'Church',
   },
 }
 
@@ -118,7 +117,7 @@ export const clientThemes: Record<string, ClientTheme> = {
   'heritage-bath': HeritageBathTheme,
   'ultimate-fantasy-dashboard': UfdRedesignTheme,
   'cornerstone-church': CornerstoneTheme,
-  'focal-point-test': FocalPointTestTheme,
+  'focal-point-church': FocalPointChurchTheme,
   'josh-personal': JoshPersonalTheme,
 }
 

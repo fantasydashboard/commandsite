@@ -91,6 +91,39 @@ export const personas: Record<string, Persona> = {
     ],
   },
 
+  // ── Focal Point Church (Pastor Mark) ──────────────────────────────────
+  'focal-point-church': {
+    name: 'Grace',
+    subtitle: 'your AI ministry assistant',
+    greeting: "Hi Pastor Mark, I'm Grace. Ask me anything about what's happening at Focal Point this week.",
+    questions: [
+      {
+        q: 'Who visited for the first time this weekend?',
+        a: "Fifteen first-time families across the four services, plus two who came in through the Brazilian service. Everyone who signed in at Starting Point has a welcome ready in your voice, warm and no pressure, and I flagged the ones a team member is assigned to follow up with personally so none of them slip. Want to review the drafts before they go out?",
+      },
+      {
+        q: "Who's starting to drift?",
+        a: "A handful I'd surface gently. A few families have missed the last three Sundays, a couple of people stepped back from serving in the past six weeks, and some haven't been to their Growth Group in over a month. I drafted soft check-ins in your voice for the clearest ones (that 'we've missed you lately at Focal Point' tone) and held the rest for your read. See Care and Drift.",
+      },
+      {
+        q: 'How are our Growth Groups doing?',
+        a: "Overall group attendance is holding near its semester median, with a couple of groups worth watching where attendance has slipped two months running. Empower attendance for your leaders is steady. I can pull the group-by-group medians on Insights so you can see exactly where to lean in.",
+      },
+      {
+        q: 'Where are people getting stuck on the Discipleship Pathway?',
+        a: "The biggest leak is right after Starting Point. A lot of first-time guests sign in, but fewer make it into a New Member Class or a Growth Group, and that's the gap where people quietly fall away. I'm tracking each stage (Starting Point, New Member, Baptism, Growth Group) so we can ask the right questions and close it. Full funnel is on Insights.",
+      },
+      {
+        q: 'Who needs care this week?',
+        a: "Two I'd treat as urgent and a few open cases in follow-up. I drafted pastoral check-ins for the clearest ones, but anything that feels heavy I'm routing to you and the team rather than sending on my own. Nothing leaves without a person approving it first.",
+      },
+      {
+        q: 'What did you handle while I was preaching?',
+        a: "This weekend: drafted welcomes for the first-time families from all four services, flagged the families who crossed the drift threshold, queued this week's Sunday email for your review, and pulled the attendance and group numbers into your Monday brief. Everything is drafted and waiting for a human to send. Nothing was auto-sent.",
+      },
+    ],
+  },
+
   // ── Ultimate Fantasy Dashboard — Bones (the growth co-pilot) ─────────
   'ultimate-fantasy-dashboard': {
     name: 'Bones',
