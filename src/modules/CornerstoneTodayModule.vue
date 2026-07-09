@@ -16,10 +16,8 @@
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Client } from '@/types/database'
-import { todayPulse } from '@/lib/clients/cornerstone/today'
-import { givingStats } from '@/lib/clients/cornerstone/giving'
-import { peopleStats } from '@/lib/clients/cornerstone/people'
 import { graceRoles, getRole, type GraceRole } from '@/lib/clients/cornerstone/roles'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vue'
@@ -29,7 +27,14 @@ import { money, fmtAgo } from '@/lib/format'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 const router = useRouter()
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const todayPulse = data.today.pulse
+const givingStats = data.giving.stats
+const peopleStats = data.people.stats
 
 function onRoleClick(role: GraceRole) {
   router.push({

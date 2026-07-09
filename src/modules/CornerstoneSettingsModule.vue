@@ -7,18 +7,23 @@
 import { computed, reactive, ref } from 'vue'
 import type { Client } from '@/types/database'
 import {
-  teamMembers,
-  serviceTimes,
-  integrations,
-  privacySettings,
-  settingsStats,
   ROLE_LABEL,
   PERMISSION_LABEL,
   SERVICE_TYPE_LABEL,
   INTEGRATION_CATEGORY_LABEL,
 } from '@/lib/clients/cornerstone/settings'
+import { churchDataset } from '@/lib/clients/church/dataset'
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug. Names preserved so the rest of the
+// module and its template are unchanged. Types + *_LABEL stay shared above.
+const data = churchDataset(props.client.slug)
+const teamMembers = data.settings.team
+const serviceTimes = data.settings.serviceTimes
+const integrations = data.settings.integrations
+const privacySettings = data.settings.privacy
+const settingsStats = data.settings.stats
 
 const stats = computed(() => settingsStats())
 const intsLocal = reactive(integrations.map((i) => ({ ...i })))

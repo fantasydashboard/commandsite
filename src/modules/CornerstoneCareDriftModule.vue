@@ -6,11 +6,11 @@
 import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
 import {
-  households, people, peopleStats, peopleInHousehold,
-  STAGE_META, FLAG_META, totalFlagCount,
+  STAGE_META, FLAG_META,
   type Household, type HouseholdStage,
 } from '@/lib/clients/cornerstone/people'
-import { careCases, careStats, KIND_META as CARE_KIND_META, URGENCY_META, type CareCase } from '@/lib/clients/cornerstone/care'
+import { KIND_META as CARE_KIND_META, URGENCY_META, type CareCase } from '@/lib/clients/cornerstone/care'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
@@ -20,7 +20,18 @@ import GraceRecommendations, { type GraceRecommendation } from '@/components/cor
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const households = data.people.households
+const people = data.people.people
+const peopleStats = data.people.stats
+const peopleInHousehold = data.people.inHousehold
+const totalFlagCount = data.people.totalFlagCount
+const careCases = data.care.cases
+const careStats = data.care.stats
 
 const stats = computed(() => peopleStats())
 const care = computed(() => careStats())

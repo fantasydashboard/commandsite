@@ -15,11 +15,7 @@ import {
 import { Line, Bar, Doughnut } from 'vue-chartjs'
 import type { Client } from '@/types/database'
 import { lineDefaults, barDefaults, chartColors } from '@/lib/chartTheme'
-import {
-  weeklyAttendance, priorYearAttendance, attendanceStats,
-} from '@/lib/clients/cornerstone/attendance'
-import { givingStats, monthlyGiving } from '@/lib/clients/cornerstone/giving'
-import { peopleStats } from '@/lib/clients/cornerstone/people'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
@@ -33,7 +29,17 @@ Chart.register(
   CategoryScale, LinearScale, Tooltip, Legend, Filler,
 )
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const weeklyAttendance = data.attendance.weekly
+const priorYearAttendance = data.attendance.priorYear
+const attendanceStats = data.attendance.stats
+const givingStats = data.giving.stats
+const monthlyGiving = data.giving.monthly
+const peopleStats = data.people.stats
 
 const weeks = computed(() => weeklyAttendance())
 const priorWeeks = computed(() => priorYearAttendance())

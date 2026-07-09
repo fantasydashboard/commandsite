@@ -13,13 +13,8 @@ import {
 } from 'chart.js'
 import { Bar, Doughnut } from 'vue-chartjs'
 import type { Client } from '@/types/database'
-import {
-  monthlyGiving,
-  stoppedGivingHouseholds,
-  designatedFunds,
-  givingStats,
-  STOP_REASON_LABEL,
-} from '@/lib/clients/cornerstone/giving'
+import { STOP_REASON_LABEL } from '@/lib/clients/cornerstone/giving'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { getRole } from '@/lib/clients/cornerstone/roles'
 import { barDefaults, chartColors } from '@/lib/chartTheme'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
@@ -30,7 +25,15 @@ import { money } from '@/lib/format'
 
 Chart.register(BarController, BarElement, DoughnutController, ArcElement, CategoryScale, LinearScale, Tooltip)
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const monthlyGiving = data.giving.monthly
+const stoppedGivingHouseholds = data.giving.stoppedHouseholds
+const designatedFunds = data.giving.designatedFunds
+const givingStats = data.giving.stats
 
 const stats = computed(() => givingStats())
 const trend = computed(() => monthlyGiving())

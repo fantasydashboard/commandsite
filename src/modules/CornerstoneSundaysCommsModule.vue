@@ -5,8 +5,9 @@
  */
 import { computed } from 'vue'
 import type { Client } from '@/types/database'
-import { sundayStats, upcomingService, VOLUNTEER_ROLE_META } from '@/lib/clients/cornerstone/sundays'
-import { commsStats, posts, CHANNEL_META } from '@/lib/clients/cornerstone/comms'
+import { VOLUNTEER_ROLE_META } from '@/lib/clients/cornerstone/sundays'
+import { CHANNEL_META } from '@/lib/clients/cornerstone/comms'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
@@ -15,7 +16,15 @@ import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const sundayStats = data.sundays.stats
+const upcomingService = data.sundays.upcoming
+const commsStats = data.comms.stats
+const posts = data.comms.posts
 
 const sunday = computed(() => sundayStats())
 const comms = computed(() => commsStats())

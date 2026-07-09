@@ -5,7 +5,8 @@
  */
 import { computed } from 'vue'
 import type { Client } from '@/types/database'
-import { visitorStats, STAGE_META as VISITOR_STAGE_META, visitors } from '@/lib/clients/cornerstone/visitors'
+import { STAGE_META as VISITOR_STAGE_META } from '@/lib/clients/cornerstone/visitors'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
@@ -14,7 +15,13 @@ import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const visitorStats = data.visitors.stats
+const visitors = data.visitors.records
 
 const visitor = computed(() => visitorStats())
 
