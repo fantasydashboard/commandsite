@@ -22,6 +22,7 @@ import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vue'
 import { focalPointBrief, focalPointApproval } from '@/lib/clients/focal-point/today'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent, type LiveEvent } from '@/composables/useLiveActivity'
 import { money, fmtAgo } from '@/lib/format'
@@ -59,11 +60,10 @@ const attendanceTrend = computed(() => {
 
 const greeting = computed(() => {
   const hr = new Date().getHours()
-  // Generic greeting — the demo is for any visiting pastor, not "Pastor Mark"
-  // specifically. Keeps the warmth without assuming the viewer's identity.
-  if (hr < 12) return 'Good morning, Cornerstone'
-  if (hr < 17) return 'Good afternoon, Cornerstone'
-  return 'Good evening, Cornerstone'
+  const church = isFocalPoint.value ? 'Focal Point' : 'Cornerstone'
+  if (hr < 12) return `Good morning, ${church}`
+  if (hr < 17) return `Good afternoon, ${church}`
+  return `Good evening, ${church}`
 })
 
 // ── Approval queue: Grace's drafts awaiting sign-off ──────────────────
@@ -321,8 +321,8 @@ const todayRecommendations: GraceRecommendation[] = [
       </p>
     </section>
 
-    <!-- ── WHAT GRACE REPLACES — the cheat-code hero ───────────────── -->
-    <section v-if="mode === 'with-grace'" class="card overflow-hidden">
+    <!-- WHAT GRACE REPLACES (hidden for Focal Point: Cornerstone-specific size/price) -->
+    <section v-if="mode === 'with-grace' && !isFocalPoint" class="card overflow-hidden">
       <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">What Grace replaces</span>
@@ -416,6 +416,9 @@ const todayRecommendations: GraceRecommendation[] = [
          standard size below.
          Hidden in 'before-grace' mode since these roles don't exist
          without Grace. -->
+    <div v-if="isFocalPoint && mode === 'with-grace'" class="flex justify-end -mb-2">
+      <SampleBadge label="Sample roles" />
+    </div>
     <AdaAtWorkHub
       v-if="mode === 'with-grace'"
       :roles="graceRoles"
@@ -442,6 +445,9 @@ const todayRecommendations: GraceRecommendation[] = [
     </section>
 
     <!-- ── 2.5 Grace's recommendations — what to act on this week ─── -->
+    <div v-if="isFocalPoint && mode === 'with-grace'" class="flex justify-end -mb-2">
+      <SampleBadge label="Sample notes" />
+    </div>
     <GraceRecommendations v-if="mode === 'with-grace'" :recommendations="todayRecommendations" />
 
     <!-- ── 3. Today snapshot + Live activity (merged) ─────────────── -->
@@ -449,6 +455,7 @@ const todayRecommendations: GraceRecommendation[] = [
       <!-- Header: Cornerstone pulse stats -->
       <header class="border-b border-divider px-5 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 bg-surface-elevated/40">
         <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Today</span>
+        <SampleBadge v-if="isFocalPoint" />
         <div class="flex items-baseline gap-1.5">
           <span class="text-lg font-bold tabular-nums text-ink">{{ pulse.attendance_last_sunday }}</span>
           <span class="text-xs text-ink-muted">last Sun</span>
@@ -468,14 +475,14 @@ const todayRecommendations: GraceRecommendation[] = [
           >{{ people.at_risk_two_plus_flags }}</span>
           <span class="text-xs text-ink-muted">at-risk</span>
         </div>
-        <div class="flex items-baseline gap-1.5">
+        <div v-if="!isFocalPoint" class="flex items-baseline gap-1.5">
           <span class="text-lg font-bold tabular-nums text-ink">{{ money(giving.current_month_cents, { compact: true }) }}</span>
           <span class="text-xs text-ink-muted">giving this month</span>
         </div>
       </header>
 
-      <!-- Live activity feed -->
-      <div class="px-5 py-4">
+      <!-- Live activity feed (hidden for Focal Point: fictional stream) -->
+      <div v-if="!isFocalPoint" class="px-5 py-4">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-2">
             <span class="relative flex h-2 w-2">

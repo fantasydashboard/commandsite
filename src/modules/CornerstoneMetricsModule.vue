@@ -21,6 +21,7 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import DiscipleshipPathway from '@/components/cornerstone/DiscipleshipPathway.vue'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { money } from '@/lib/format'
 
@@ -317,6 +318,7 @@ const pageRoles = rolesOnTab('insights')
     />
 
     <GraceApprovalQueue
+      v-if="!isFocalPoint"
       :items="queueItems"
       :initial-resolved="2"
       assistant-name="Grace"
@@ -334,7 +336,8 @@ const pageRoles = rolesOnTab('insights')
         </p>
       </div>
       <div class="text-xs text-ink-muted">
-        <span class="inline-flex items-center gap-1">
+        <SampleBadge v-if="isFocalPoint" label="Sample metrics" />
+        <span v-else class="inline-flex items-center gap-1">
           <span class="h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
           Live
         </span>
@@ -379,7 +382,7 @@ const pageRoles = rolesOnTab('insights')
     <section class="card">
       <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div class="flex items-center gap-2">
-          <span class="eyebrow">Sunday Attendance</span>
+          <span class="eyebrow">Sunday Attendance</span> <SampleBadge v-if="isFocalPoint" />
           <span class="chip !py-0.5 !px-2 !text-[10px]">Last 26 weeks</span>
         </div>
         <div class="text-[11px] text-ink-disabled">
@@ -397,7 +400,7 @@ const pageRoles = rolesOnTab('insights')
       <section class="card lg:col-span-8">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-2">
-            <span class="eyebrow">Adults vs Kids</span>
+            <span class="eyebrow">Adults vs Kids</span> <SampleBadge v-if="isFocalPoint" />
             <span class="chip !py-0.5 !px-2 !text-[10px]">Last 12 Sundays</span>
           </div>
           <div class="text-[11px] text-ink-disabled">
@@ -412,7 +415,7 @@ const pageRoles = rolesOnTab('insights')
       <!-- Service split -->
       <section class="card lg:col-span-4">
         <div class="mb-3 flex items-center gap-2">
-          <span class="eyebrow">Service Times</span>
+          <span class="eyebrow">Service Times</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-[11px] text-ink-muted">12-wk share</span>
         </div>
         <div class="relative flex items-center justify-center h-44">
@@ -443,7 +446,7 @@ const pageRoles = rolesOnTab('insights')
       <section class="card lg:col-span-8">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-2">
-            <span class="eyebrow">Visitor Flow</span>
+            <span class="eyebrow">Visitor Flow</span> <SampleBadge v-if="isFocalPoint" />
             <span class="chip !py-0.5 !px-2 !text-[10px]">First-time + returning, last 26 weeks</span>
           </div>
         </div>
@@ -455,7 +458,7 @@ const pageRoles = rolesOnTab('insights')
       <!-- Engagement breadth -->
       <section class="card lg:col-span-4">
         <div class="mb-3 flex items-center gap-2">
-          <span class="eyebrow">Engagement Breadth</span>
+          <span class="eyebrow">Engagement Breadth</span> <SampleBadge v-if="isFocalPoint" />
         </div>
         <div class="space-y-3">
           <div v-for="b in breadth" :key="b.label">
@@ -477,8 +480,8 @@ const pageRoles = rolesOnTab('insights')
       </section>
     </div>
 
-    <!-- Giving compact line -->
-    <section class="card">
+    <!-- Giving compact line (hidden for Focal Point: no giving dollar amounts) -->
+    <section v-if="!isFocalPoint" class="card">
       <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div class="flex items-center gap-2">
           <span class="eyebrow">Giving Trend</span>
@@ -494,6 +497,7 @@ const pageRoles = rolesOnTab('insights')
     </section>
 
     <LiveActivityFeed
+      v-if="!isFocalPoint"
       :events="liveEvents"
       :fmt-ago="fmtLiveAgo"
       :get-role="getRole"

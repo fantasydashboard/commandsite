@@ -97,7 +97,8 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'cornerstone-care-drift' },
     { key: 'cornerstone-sundays-comms' },
     { key: 'cornerstone-metrics' },
-    { key: 'cornerstone-giving' },
+    // Giving tab intentionally omitted until Christina's PCO token enables
+    // real aggregate-only giving (the pastor is sensitive about giving data).
     { key: 'cornerstone-settings' },
   ],
   'ultimate-fantasy-dashboard': [

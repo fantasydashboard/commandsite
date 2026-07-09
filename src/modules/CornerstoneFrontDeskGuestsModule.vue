@@ -14,6 +14,7 @@ import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -189,8 +190,8 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
-    <!-- Grace's note on front desk + guest follow-up this week -->
-    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+    <!-- Grace's note (hidden for Focal Point: Cornerstone narrative, Mark-as-congregant) -->
+    <section v-if="!isFocalPoint" class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
       <header class="flex items-center gap-2.5 mb-2.5">
         <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
         <span class="text-xs font-bold text-ink">Grace's note on first-time visitors + the front desk</span>
@@ -206,7 +207,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
          families this week") so the same number reads the same way on
          both surfaces. -->
     <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
-      <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
+      <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page <SampleBadge v-if="isFocalPoint" /></div>
       <div class="flex items-baseline gap-2 mb-3">
         <AdaIcon name="qa_assistant" class="h-5 w-5 text-brand" />
         <span class="font-bold text-ink text-lg">Welcome</span>
@@ -271,7 +272,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
     <section id="front_desk" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Front Desk · Recent calls</span>
+          <span class="eyebrow">Front Desk · Recent calls</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">what Grace handled at the phone</span>
         </div>
       </div>
@@ -306,7 +307,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
         </div>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+      <div v-if="!isFocalPoint" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
         <div
           v-for="stage in (['first_time','returning','connected','membership_class','member'] as const)"
           :key="stage"
@@ -337,8 +338,8 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       </div>
     </section>
 
-    <!-- Story Engine -->
-    <section id="stories" class="card scroll-mt-24">
+    <!-- Story Engine (hidden for Focal Point: Cornerstone testimonials) -->
+    <section v-if="!isFocalPoint" id="stories" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">Story Engine · Recent</span>
@@ -365,6 +366,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
     </section>
 
     <LiveActivityFeed
+      v-if="!isFocalPoint"
       :events="liveEvents"
       :fmt-ago="fmtLiveAgo"
       :get-role="getRole"
@@ -372,8 +374,8 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       subtitle="Grace's stream scoped to this page · auto-updates"
     />
 
-    <!-- Grace's recommendations — what to act on this week -->
-    <GraceRecommendations :recommendations="frontDeskRecommendations" />
+    <!-- Grace's recommendations (hidden for Focal Point: Cornerstone narrative) -->
+    <GraceRecommendations v-if="!isFocalPoint" :recommendations="frontDeskRecommendations" />
 
     <!-- Quiet visitors used reference (silence ESLint via reference) -->
     <span v-if="false">{{ visitors.length }}</span>
