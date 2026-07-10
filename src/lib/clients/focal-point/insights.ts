@@ -1,0 +1,137 @@
+// Focal Point Church - Insights (real, aggregate). Safe to commit (no PII).
+// Kids Point weekly attendance + first-time visitor flow from Planning Center
+// Check-Ins and the Starting Point workflow. Adult worship attendance is not
+// tracked in PCO (adults do not check in), so the attendance chart is Kids
+// Point, the live leading indicator. Giving + group-attendance are pending
+// the full-access token. Source: scripts/pull-fp-insights.mjs + explore-drift.mjs.
+
+export const focalPointInsights = {
+  "kpis": {
+    "members": 1210,
+    "visitors": 3112,
+    "kidsAvg": 153,
+    "volunteers": 2168,
+    "baptisms": 129,
+    "groupLeaders": 93
+  },
+  "kidsAttendance": {
+    "labels": [
+      "Jan 11",
+      "Jan 18",
+      "Jan 25",
+      "Feb 1",
+      "Feb 8",
+      "Feb 15",
+      "Feb 22",
+      "Mar 1",
+      "Mar 8",
+      "Mar 15",
+      "Mar 22",
+      "Mar 29",
+      "Apr 5",
+      "Apr 12",
+      "Apr 19",
+      "Apr 26",
+      "May 3",
+      "May 10",
+      "May 17",
+      "May 24",
+      "May 31",
+      "Jun 7",
+      "Jun 14",
+      "Jun 21",
+      "Jun 28",
+      "Jul 5"
+    ],
+    "counts": [
+      141,
+      164,
+      147,
+      99,
+      132,
+      160,
+      148,
+      123,
+      125,
+      157,
+      140,
+      152,
+      184,
+      175,
+      174,
+      131,
+      175,
+      140,
+      167,
+      163,
+      159,
+      171,
+      166,
+      159,
+      168,
+      153
+    ]
+  },
+  "visitorFlow": {
+    "labels": [
+      "Jan 11",
+      "Jan 18",
+      "Jan 25",
+      "Feb 1",
+      "Feb 8",
+      "Feb 15",
+      "Feb 22",
+      "Mar 1",
+      "Mar 8",
+      "Mar 15",
+      "Mar 22",
+      "Mar 29",
+      "Apr 5",
+      "Apr 12",
+      "Apr 19",
+      "Apr 26",
+      "May 3",
+      "May 10",
+      "May 17",
+      "May 24",
+      "May 31",
+      "Jun 7",
+      "Jun 14",
+      "Jun 21",
+      "Jun 28",
+      "Jul 5"
+    ],
+    "counts": [
+      6,
+      17,
+      16,
+      8,
+      14,
+      3,
+      2,
+      17,
+      6,
+      5,
+      16,
+      10,
+      26,
+      10,
+      12,
+      7,
+      14,
+      10,
+      11,
+      8,
+      5,
+      14,
+      8,
+      6,
+      4,
+      7
+    ]
+  },
+  "serving": {
+    "volunteers": 2168,
+    "lapsed": 104
+  }
+} as const

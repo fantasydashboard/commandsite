@@ -21,6 +21,7 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import DiscipleshipPathway from '@/components/cornerstone/DiscipleshipPathway.vue'
+import FocalPointInsights from '@/components/cornerstone/FocalPointInsights.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { money } from '@/lib/format'
@@ -336,16 +337,15 @@ const pageRoles = rolesOnTab('insights')
         </p>
       </div>
       <div class="text-xs text-ink-muted">
-        <SampleBadge v-if="isFocalPoint" label="Sample metrics" />
-        <span v-else class="inline-flex items-center gap-1">
+        <span class="inline-flex items-center gap-1">
           <span class="h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
-          Live
+          {{ isFocalPoint ? 'Live from Planning Center' : 'Live' }}
         </span>
       </div>
     </div>
 
     <!-- Top KPI strip — attendance focus -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+    <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-5">
       <div class="card">
         <div class="kpi-label">Last Sunday</div>
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ att.last_sunday }}</div>
@@ -376,10 +376,11 @@ const pageRoles = rolesOnTab('insights')
     </div>
 
     <!-- Discipleship Pathway (Focal Point priority #1) -->
+    <FocalPointInsights v-if="isFocalPoint" />
     <DiscipleshipPathway v-if="isFocalPoint" />
 
-    <!-- Sunday attendance — hero chart -->
-    <section class="card">
+    <!-- Sunday attendance hero chart (hidden for Focal Point: adults do not check in) -->
+    <section v-if="!isFocalPoint" class="card">
       <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div class="flex items-center gap-2">
           <span class="eyebrow">Sunday Attendance</span> <SampleBadge v-if="isFocalPoint" />
@@ -395,7 +396,7 @@ const pageRoles = rolesOnTab('insights')
     </section>
 
     <!-- Adults vs Kids + Service-time split -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+    <div v-if="!isFocalPoint" class="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <!-- Adults vs Kids stacked -->
       <section class="card lg:col-span-8">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
@@ -441,7 +442,7 @@ const pageRoles = rolesOnTab('insights')
     </div>
 
     <!-- Visitor flow + Engagement breadth -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+    <div v-if="!isFocalPoint" class="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <!-- Visitor flow -->
       <section class="card lg:col-span-8">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
