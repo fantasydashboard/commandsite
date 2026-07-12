@@ -243,9 +243,9 @@ const careRecommendations: GraceRecommendation[] = [
           {{ t.label }} <span class="ml-1 text-xs opacity-70 tabular-nums">{{ t.count }}</span>
         </button>
       </div>
-      <DriftWatch v-show="careTab === 'families'" />
-      <PeopleDrift v-show="careTab === 'serving'" />
-      <BurnoutWatch v-show="careTab === 'burnout'" />
+      <DriftWatch v-if="careTab === 'families'" />
+      <PeopleDrift v-if="careTab === 'serving'" />
+      <BurnoutWatch v-if="careTab === 'burnout'" />
     </template>
     <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
