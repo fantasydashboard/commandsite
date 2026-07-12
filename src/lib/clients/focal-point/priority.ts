@@ -18,6 +18,7 @@ export interface PriorityItem {
   stat: string          // the one "why now" line
   standing: string      // tenure / role context
   draft: string         // the drafted note, in Pastor Mark's voice
+  routeTo: string       // ministry this routes to (serving/burnout); '' for family
 }
 
 export const focalPointPriority: {

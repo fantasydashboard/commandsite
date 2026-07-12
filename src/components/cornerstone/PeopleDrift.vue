@@ -38,7 +38,7 @@ const servingTone = (weeks: number) =>
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ focalPointServing.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
-      Serving is live now. Giving and group-attendance signals light up once those Planning Center scopes are enabled.
+      These route to the ministry leader, not the person: Grace emails each leader their team's list every Monday, so the person who knows them reaches out. Serving is live now; giving and group-attendance light up once those scopes are enabled.
     </p>
   </section>
 

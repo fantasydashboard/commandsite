@@ -31,7 +31,7 @@ function areaText(areas: string[]): string {
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ fb.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
-      Of {{ fb.activeVolunteers }} active volunteers, {{ fb.flaggedPeople }} serve more than twice a month and {{ fb.highRisk }} are in the high-load zone.
+      Of {{ fb.activeVolunteers }} active volunteers, {{ fb.flaggedPeople }} serve more than twice a month and {{ fb.highRisk }} are in the high-load zone. These route to each ministry leader in Monday's digest, so the person who knows them can give them a breather.
     </p>
   </section>
 

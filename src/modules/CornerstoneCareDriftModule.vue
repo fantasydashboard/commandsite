@@ -22,6 +22,9 @@ import CareDriftPriority from '@/components/cornerstone/CareDriftPriority.vue'
 import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
 import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
 import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
+import { focalPointDrift } from '@/lib/clients/focal-point/drift'
+import { focalPointServing } from '@/lib/clients/focal-point/serving'
+import { focalPointBurnout } from '@/lib/clients/focal-point/burnout'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
@@ -33,6 +36,14 @@ const data = churchDataset(props.client.slug)
 // Care & Drift is Sample for Focal Point until drift derivation (needs
 // giving/groups/check-in history) lands. Tag it clearly, hide the fake feeds.
 const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+
+// Tabbed directories below the priority feed (fixes the page length).
+const careTab = ref<'families' | 'serving' | 'burnout'>('families')
+const careTabs = [
+  { key: 'families' as const, label: 'Families drifting', count: focalPointDrift.flaggedFamilies },
+  { key: 'serving' as const, label: 'Stopped serving', count: focalPointServing.flaggedPeople },
+  { key: 'burnout' as const, label: 'Burnout risk', count: focalPointBurnout.flaggedPeople },
+]
 const households = data.people.households
 const people = data.people.people
 const peopleStats = data.people.stats
@@ -218,11 +229,24 @@ const careRecommendations: GraceRecommendation[] = [
 
     <!-- Drift Watch hero block: this is the page's headline product,
          mirroring the Welcome hero on the Front Desk & Guests page. -->
-    <!-- Focal Point: priority photo-card feed, then the three directories -->
-    <CareDriftPriority v-if="isFocalPoint" />
-    <DriftWatch v-if="isFocalPoint" />
-    <PeopleDrift v-if="isFocalPoint" />
-    <BurnoutWatch v-if="isFocalPoint" />
+    <!-- Focal Point: priority photo-card feed, then tabbed directories -->
+    <template v-if="isFocalPoint">
+      <CareDriftPriority />
+      <div class="card flex flex-wrap gap-1 !p-1.5">
+        <button
+          v-for="t in careTabs"
+          :key="t.key"
+          class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+          :class="careTab === t.key ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:bg-surface-elevated hover:text-ink'"
+          @click="careTab = t.key"
+        >
+          {{ t.label }} <span class="ml-1 text-xs opacity-70 tabular-nums">{{ t.count }}</span>
+        </button>
+      </div>
+      <DriftWatch v-show="careTab === 'families'" />
+      <PeopleDrift v-show="careTab === 'serving'" />
+      <BurnoutWatch v-show="careTab === 'burnout'" />
+    </template>
     <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
       <div class="flex items-baseline gap-2 mb-3">
