@@ -41,7 +41,7 @@ function initials(name: string): string {
       {{ active.length }} people and families to reach out to
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
-      The most urgent across drift, serving, and burnout, in one list with a note drafted for each. Co-sign to send, edit to revise, skip to resurface. The full directories are below.
+      The most urgent across drift, serving, and burnout. Families get a note you send; serving and burnout route to the ministry leader in Monday's digest. The full directories are in the tabs below.
     </p>
   </section>
 
@@ -69,19 +69,25 @@ function initials(name: string): string {
           <span class="text-sm font-semibold text-ink">{{ item.name }}</span>
         </div>
         <p class="mt-0.5 text-[12px] text-ink-muted">{{ item.standing }} · {{ item.stat }}</p>
-        <p class="mt-2 rounded-lg border border-divider bg-surface-elevated/40 px-3 py-2 text-[13px] italic leading-relaxed text-ink">
+        <p v-if="item.signal === 'drifting'" class="mt-2 rounded-lg border border-divider bg-surface-elevated/40 px-3 py-2 text-[13px] italic leading-relaxed text-ink">
           "{{ item.draft }}"
         </p>
+        <div v-else class="mt-2 rounded-lg border border-divider bg-surface-elevated/40 px-3 py-2 text-[12px] leading-relaxed text-ink-muted">
+          Routes to the <span class="font-medium text-ink">{{ item.routeTo }}</span> leader in Monday's digest, so the person who knows {{ item.name.split(' ')[0] }} reaches out. You don't need to send this one.
+        </div>
       </div>
 
       <!-- actions -->
       <div class="flex shrink-0 flex-row gap-2 sm:w-28 sm:flex-col">
-        <button
-          class="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink-inverse hover:bg-brand-hover"
-          @click="approve(item.id)"
-        >Approve &amp; send</button>
-        <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink">Edit</button>
-        <button class="px-3 py-1 text-xs text-ink-muted hover:text-ink">Skip</button>
+        <template v-if="item.signal === 'drifting'">
+          <button
+            class="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink-inverse hover:bg-brand-hover"
+            @click="approve(item.id)"
+          >Approve &amp; send</button>
+          <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink">Edit</button>
+          <button class="px-3 py-1 text-xs text-ink-muted hover:text-ink">Skip</button>
+        </template>
+        <span v-else class="inline-flex items-center justify-center rounded-md bg-surface-elevated px-2 py-1 text-center text-[10px] font-medium text-ink-muted">To leader ·<br />Mon digest</span>
       </div>
     </article>
 
