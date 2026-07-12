@@ -32,8 +32,8 @@ export const focalPointBurnout: {
   people: BurnoutPerson[]
   drafts: BurnoutDraft[]
 } = {
-  flaggedPeople: 253,
-  highRisk: 189,
+  flaggedPeople: 178,
+  highRisk: 115,
   activeVolunteers: 754,
   signal:
     'Volunteers serving more than twice a month, often across several ministries, and still going. The people most likely to burn out and drop next. Today\'s over-servers are next quarter\'s drift.',

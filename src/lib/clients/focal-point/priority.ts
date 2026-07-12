@@ -24,6 +24,6 @@ export const focalPointPriority: {
   total: number
   items: PriorityItem[]
 } = {
-  total: 410,
+  total: 335,
   items: [],
 }
