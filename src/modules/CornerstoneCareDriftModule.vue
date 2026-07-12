@@ -18,6 +18,7 @@ import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
+import CareDriftPriority from '@/components/cornerstone/CareDriftPriority.vue'
 import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
 import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
 import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
@@ -217,7 +218,8 @@ const careRecommendations: GraceRecommendation[] = [
 
     <!-- Drift Watch hero block: this is the page's headline product,
          mirroring the Welcome hero on the Front Desk & Guests page. -->
-    <!-- Focal Point: two real drift surfaces, family (kids) then individual (serving) -->
+    <!-- Focal Point: priority photo-card feed, then the three directories -->
+    <CareDriftPriority v-if="isFocalPoint" />
     <DriftWatch v-if="isFocalPoint" />
     <PeopleDrift v-if="isFocalPoint" />
     <BurnoutWatch v-if="isFocalPoint" />

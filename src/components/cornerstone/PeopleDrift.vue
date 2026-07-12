@@ -7,7 +7,6 @@
  * Planning Center scopes are enabled.
  */
 import { computed, ref } from 'vue'
-import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import { focalPointServing } from '@/lib/clients/focal-point/serving'
 
 const COLLAPSED = 12
@@ -23,21 +22,6 @@ function fmtDate(iso: string): string {
 }
 const servingTone = (weeks: number) =>
   weeks >= 9 ? 'bg-danger/12 text-danger' : 'bg-warn/15 text-warn'
-
-const queueItems = computed<ApprovalQueueItem[]>(() =>
-  focalPointServing.drafts.map((d) => ({
-    id: d.id,
-    role: 're_engagement',
-    icon: 'reactivation',
-    badge: 'Serving',
-    badgeClass: 'bg-warn/15 text-warn',
-    title: `Check-in: ${d.name}`,
-    recipient: d.context,
-    preview: `"${d.draft}"`,
-    approved_response: `Sent. I'll let you know if ${d.name.split(' ')[0]} steps back in to serve.`,
-    ticker_after_approval: `Serving check-in sent to ${d.name}`,
-  })),
-)
 </script>
 
 <template>
@@ -57,15 +41,6 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
       Serving is live now. Giving and group-attendance signals light up once those Planning Center scopes are enabled.
     </p>
   </section>
-
-  <GraceApprovalQueue
-    v-if="queueItems.length"
-    :items="queueItems"
-    :initial-resolved="0"
-    assistant-name="Grace"
-    heading="Drafted check-ins"
-    subtitle="Addressed to the individual, in your voice. Co-sign to send, edit to revise, skip to resurface."
-  />
 
   <section class="card">
     <div class="mb-3 flex items-center justify-between">

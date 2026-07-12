@@ -5,7 +5,6 @@
  * they burn out and drop. Real, from Planning Center volunteer check-ins.
  */
 import { computed, ref } from 'vue'
-import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import { focalPointBurnout as fb } from '@/lib/clients/focal-point/burnout'
 
 const COLLAPSED = 12
@@ -16,21 +15,6 @@ function areaText(areas: string[]): string {
   if (areas.length <= 2) return areas.join(', ')
   return `${areas.slice(0, 2).join(', ')} +${areas.length - 2} more`
 }
-
-const queueItems = computed<ApprovalQueueItem[]>(() =>
-  fb.drafts.map((d) => ({
-    id: d.id,
-    role: 'care_triage',
-    icon: 'zap',
-    badge: 'Burnout',
-    badgeClass: 'bg-warn/15 text-warn',
-    title: `A word of rest: ${d.name}`,
-    recipient: d.context,
-    preview: `"${d.draft}"`,
-    approved_response: `Sent. I'll keep an eye on ${d.name.split(' ')[0]}'s serving load and flag if it stays high.`,
-    ticker_after_approval: `Rest note sent to ${d.name}`,
-  })),
-)
 </script>
 
 <template>
@@ -50,15 +34,6 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
       Of {{ fb.activeVolunteers }} active volunteers, {{ fb.flaggedPeople }} serve more than twice a month and {{ fb.highRisk }} are in the high-load zone.
     </p>
   </section>
-
-  <GraceApprovalQueue
-    v-if="queueItems.length"
-    :items="queueItems"
-    :initial-resolved="0"
-    assistant-name="Grace"
-    heading="Drafted words of rest"
-    subtitle="Thank them and give them permission to rest, in your voice. Co-sign to send, edit to revise, skip."
-  />
 
   <section class="card">
     <div class="mb-3 flex items-center justify-between">

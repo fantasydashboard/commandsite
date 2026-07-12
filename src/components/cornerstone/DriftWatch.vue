@@ -7,7 +7,6 @@
  * are enabled; attendance drift stands on its own until then.
  */
 import { computed, ref } from 'vue'
-import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import { focalPointDrift } from '@/lib/clients/focal-point/drift'
 
 const COLLAPSED = 12
@@ -22,20 +21,6 @@ function fmtDate(iso: string): string {
   return `${months[m - 1]} ${d}`
 }
 
-const queueItems = computed<ApprovalQueueItem[]>(() =>
-  focalPointDrift.drafts.map((d) => ({
-    id: d.id,
-    role: 'drift_detection',
-    icon: 'alert-triangle',
-    badge: 'Drift Watch',
-    badgeClass: 'bg-warn/15 text-warn',
-    title: `Check-in: the ${d.family} family`,
-    recipient: d.context,
-    preview: `"${d.draft}"`,
-    approved_response: `Sent. I'll let you know if the ${d.family} family checks back in.`,
-    ticker_after_approval: `Check-in sent to the ${d.family} family`,
-  })),
-)
 </script>
 
 <template>
@@ -56,16 +41,6 @@ const queueItems = computed<ApprovalQueueItem[]>(() =>
       Giving-lapse and group-absence signals connect once those Planning Center scopes are enabled.
     </p>
   </section>
-
-  <!-- Drafted check-ins in Pastor Mark's voice, never auto-sent -->
-  <GraceApprovalQueue
-    v-if="queueItems.length"
-    :items="queueItems"
-    :initial-resolved="0"
-    assistant-name="Grace"
-    heading="Drafted check-ins"
-    subtitle="One per family, in your voice. Co-sign to send, edit to revise, skip to resurface."
-  />
 
   <!-- The full flagged list -->
   <section class="card">
