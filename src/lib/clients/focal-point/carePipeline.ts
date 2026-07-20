@@ -61,8 +61,15 @@ const brn = (i: number) => focalPointBurnout.people[i] as BurnoutPerson
 const grp = (i: number) => focalPointGroupDrift.people[i]
 const famName = (f: DriftFamily) => `The ${f.family} family`
 
-export const carePipeline: { cases: CareCase[] } = {
-  cases: [
+// Built lazily (getter + memo), NOT at module-init. Each case reads sibling
+// data modules by index (pri/fam/srv/brn/grp -> focalPointPriority.items[i]
+// etc.). Building the array at import time made it depend on those siblings
+// being initialized FIRST, which a bundler's module order does not guarantee:
+// the production build initialized carePipeline before priority, so pri(6) was
+// undefined and `.name` threw, crashing the whole dashboard chunk (blank page).
+// Deferring to first access runs after every module is initialized.
+function buildCarePipelineCases(): CareCase[] {
+  return [
     // ---------------- FAMILY (reconnect; owner = Pastor Mark / care team) ----------------
     // Two genuinely flagged families await the pastor's approval (they carry the
     // draft); the rest are already in motion at later stages. State is the single
@@ -100,5 +107,12 @@ export const carePipeline: { cases: CareCase[] } = {
     { id: 'cp-g2', track: 'groups', stage: 'flagged', name: grp(1).name, avatar: '', detail: `${grp(1).attended}x this season, quiet ${grp(1).weeksSince}w`, owner: 'Group leader', age: 'queued for fall' },
     { id: 'cp-g3', track: 'groups', stage: 'flagged', name: grp(5).name, avatar: '', detail: `${grp(5).attended}x this season, quiet ${grp(5).weeksSince}w`, owner: 'Group leader', age: 'queued for fall' },
     { id: 'cp-g4', track: 'groups', stage: 'reaching', name: grp(2).name, avatar: '', detail: `${grp(2).attended}x this season, quiet ${grp(2).weeksSince}w`, owner: 'Group leader', age: 'leader texted over summer' },
-  ],
+  ]
+}
+
+let _carePipelineCases: CareCase[] | null = null
+export const carePipeline: { readonly cases: CareCase[] } = {
+  get cases(): CareCase[] {
+    return (_carePipelineCases ??= buildCarePipelineCases())
+  },
 }
