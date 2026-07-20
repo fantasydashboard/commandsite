@@ -8,11 +8,26 @@
  */
 import { computed, ref } from 'vue'
 import { focalPointServing } from '@/lib/clients/focal-point/serving'
+import { useCareActions } from '@/stores/careActions'
+import { useCongregationLens } from '@/stores/congregationLens'
+import { servingFlag } from '@/lib/clients/focal-point/flags'
+import { duplicateInfo } from '@/lib/clients/focal-point/duplicates'
+import DuplicateBadge from '@/components/cornerstone/DuplicateBadge.vue'
 
+const care = useCareActions()
+const lens = useCongregationLens()
 const COLLAPSED = 12
 const showAll = ref(false)
+const dupOnly = ref(false)
+// Serving scopes by CAMPUS (which teams they served): the Brazilian ministry runs
+// its own teams. People who served both campuses show in both views.
+const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
+const active = computed(() =>
+  focalPointServing.people.filter((p) => !care.isHidden(`serving:${p.name}`) && inCampus(p.campus)),
+)
+const dups = computed(() => active.value.filter((p) => duplicateInfo(p.name)))
 const visible = computed(() =>
-  showAll.value ? focalPointServing.people : focalPointServing.people.slice(0, COLLAPSED),
+  dupOnly.value ? dups.value : showAll.value ? active.value : active.value.slice(0, COLLAPSED),
 )
 
 function fmtDate(iso: string): string {
@@ -34,18 +49,29 @@ const servingTone = (weeks: number) =>
       </span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">
-      {{ focalPointServing.flaggedPeople }} people to check in with
+      {{ active.length }} people to check in with
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ focalPointServing.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
-      These route to the ministry leader, not the person: Grace emails each leader their team's list every Monday, so the person who knows them reaches out. Serving is live now; giving and group-attendance light up once those scopes are enabled.
+      These route to the ministry leader, not the person: Grace emails each leader their team's list every Monday, so the person who knows them reaches out. Scoped by the teams they served, so the lens shows the {{ lens.scope === 'all' ? 'whole church' : lens.scope + ' ministry' }}.
     </p>
   </section>
 
   <section class="card">
-    <div class="mb-3 flex items-center justify-between">
-      <span class="eyebrow">Flagged individuals</span>
-      <span class="text-[11px] text-ink-muted">longest-serving first</span>
+    <div class="mb-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="eyebrow">Flagged individuals</span>
+        <button
+          v-if="dups.length"
+          class="inline-flex items-center gap-1 rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold text-warn transition-colors hover:bg-warn/25"
+          :class="dupOnly ? 'ring-1 ring-warn/50' : ''"
+          @click="dupOnly = !dupOnly"
+        >
+          <svg viewBox="0 0 16 16" class="h-2.5 w-2.5" fill="currentColor" aria-hidden="true"><path d="M8 1.5 15 14H1z" /></svg>
+          {{ dups.length }} possible duplicate{{ dups.length > 1 ? 's' : '' }}
+        </button>
+      </div>
+      <span class="text-[11px] text-ink-muted">{{ dupOnly ? 'possible duplicates only' : 'longest-serving first' }}</span>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
@@ -59,8 +85,8 @@ const servingTone = (weeks: number) =>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="p in visible" :key="p.name" class="border-b border-divider/60">
-            <td class="py-2 font-medium text-ink">{{ p.name }}</td>
+          <tr v-for="p in visible" :key="p.name" class="cursor-pointer border-b border-divider/60 transition-colors hover:bg-surface-elevated/50" @click="care.openDetail(servingFlag(p))">
+            <td class="py-2 font-medium text-ink">{{ p.name }} <DuplicateBadge :name="p.name" /></td>
             <td class="py-2 text-ink-muted">{{ p.area.trim() }}</td>
             <td class="py-2">
               <div class="flex flex-wrap gap-1">
@@ -81,13 +107,23 @@ const servingTone = (weeks: number) =>
         </tbody>
       </table>
     </div>
-    <button
-      v-if="focalPointServing.people.length > COLLAPSED"
-      class="mt-3 text-xs font-semibold text-brand hover:underline"
-      @click="showAll = !showAll"
-    >
-      {{ showAll ? 'Show fewer' : `Show all ${focalPointServing.flaggedPeople} flagged people` }}
-    </button>
+    <div class="mt-3 flex items-center justify-between">
+      <button
+        v-if="dupOnly"
+        class="text-xs font-semibold text-brand hover:underline"
+        @click="dupOnly = false"
+      >
+        Show all flagged people
+      </button>
+      <button
+        v-else-if="active.length > COLLAPSED"
+        class="text-xs font-semibold text-brand hover:underline"
+        @click="showAll = !showAll"
+      >
+        {{ showAll ? 'Show fewer' : `Show all ${active.length} flagged people` }}
+      </button>
+      <span class="text-[11px] text-ink-disabled">Click a row to see why, or to dismiss / snooze.</span>
+    </div>
     <p class="mt-3 text-[11px] text-ink-muted">
       The dim <span class="font-medium">Giving</span> and <span class="font-medium">Groups</span> flags light up once those Planning Center scopes are connected.
     </p>

@@ -31,7 +31,7 @@ const router = useRouter()
 function onHeroRoleClick(role: AdaRole) {
   router.push({
     name: 'dashboard.tab',
-    params: { slug: 'apex-heating-and-air', tab: role.tab },
+    params: { slug: 'heritage-bath', tab: role.tab },
     hash: `#${role.key}`,
   })
 }
@@ -85,20 +85,20 @@ onUnmounted(() => {
 interface Pain { headline: string; detail: string }
 const pains: Pain[] = [
   {
-    headline: 'Friday at 8 PM, your phone rings — and goes to voicemail.',
-    detail: 'That was a $400 service call. By Monday morning they\'ve already booked the next guy.',
+    headline: 'You sent the master bath quote three weeks ago.',
+    detail: 'Crickets. The homeowner probably did the kitchen too. Just not with you.',
   },
   {
-    headline: 'You sent a $4,500 quote three weeks ago.',
-    detail: 'Crickets. The customer probably did the work — just not with you.',
+    headline: 'Wednesday at 7pm, a Tampa homeowner calls about a kitchen reno.',
+    detail: 'You\'re mid-tear-down at a different job. The call goes to voicemail. By Monday she\'s already had three other contractors out.',
   },
   {
-    headline: 'You finished 47 jobs last month. You asked for 2 reviews.',
-    detail: 'Your competitors are at 200+ stars; you\'re at 48.',
+    headline: 'You wrapped 12 jobs last quarter. You asked for 3 reviews.',
+    detail: 'The other 9 customers loved the work and would have left 5 stars. You just never got around to asking.',
   },
   {
-    headline: 'You\'re paying for five different tools.',
-    detail: 'Phone system, scheduling, CRM, invoicing, review platform — and still feel like things slip through the cracks every week.',
+    headline: 'Past customers go quiet, and you don\'t notice.',
+    detail: 'The family you did a bath for 18 months ago is now talking to someone else about the kitchen. You\'ll find out when you see the project on Houzz.',
   },
 ]
 
@@ -245,16 +245,16 @@ const faqs: Faq[] = [
     </section>
 
     <!-- ── Hero product preview ──────────────────────────────────────────
-         Renders the actual Apex Today Hub component with real role data.
-         Same code that powers /dashboard/apex-heating-and-air; clicks
+         Renders the actual Heritage Today Hub component with real role data.
+         Same code that powers /dashboard/heritage-bath; clicks
          deep-link straight into the public demo. -->
     <section v-reveal class="mx-auto max-w-6xl px-4 sm:px-8 pb-20 sm:pb-28">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
-          Ada at work · Apex Heating &amp; Air
+          Ada at work · Heritage Bath &amp; Kitchen Co.
         </div>
         <RouterLink
-          to="/dashboard/apex-heating-and-air"
+          to="/dashboard/heritage-bath"
           class="text-xs text-brand font-medium hover:underline"
         >
           Open the full demo →
@@ -267,7 +267,7 @@ const faqs: Faq[] = [
         <div class="p-4 sm:p-6 space-y-4">
           <AdaAtWorkHub
             :roles="adaRoles"
-            owner-name="Brett"
+            owner-name="Marc"
             assistant-name="Ada"
             @role-click="onHeroRoleClick"
           />
@@ -281,7 +281,7 @@ const faqs: Faq[] = [
         </div>
       </div>
       <p class="mt-3 text-[11px] text-ink-disabled italic">
-        Click any role to drop into the demo. Apex is fictional. The dashboard is the real product.
+        Click any role to drop into the demo. Heritage is fictional. The dashboard is the real product.
       </p>
     </section>
 
@@ -298,7 +298,7 @@ const faqs: Faq[] = [
               Want to see Ada in action first? <span class="text-ink-muted font-normal">No call required.</span>
             </h2>
             <p class="text-sm text-ink-muted leading-relaxed mb-4 max-w-lg">
-              Walk through the same dashboard a real HVAC shop would use. Click every tab. Try the chat. Ada knows the demo data and answers like she would for your business.
+              Walk through the same dashboard a real bath/kitchen remodeling shop would use. Click every tab. Try the Before/After Ada toggle on the Today page. Ada knows the demo data and answers like she would for your business.
             </p>
             <ul class="space-y-1.5 text-sm text-ink mb-5">
               <li class="flex items-start gap-2">
@@ -315,10 +315,10 @@ const faqs: Faq[] = [
               </li>
             </ul>
             <div class="flex flex-wrap items-center gap-3">
-              <RouterLink to="/dashboard/apex-heating-and-air" class="btn-primary !text-sm">
+              <RouterLink to="/dashboard/heritage-bath" class="btn-primary !text-sm">
                 Tour the demo →
               </RouterLink>
-              <p class="text-[11px] text-ink-disabled italic">Demo data is for "Apex Heating &amp; Air" (fictional, fully click-through).</p>
+              <p class="text-[11px] text-ink-disabled italic">Demo data is for "Heritage Bath &amp; Kitchen Co." (fictional, fully click-through).</p>
             </div>
           </div>
         </div>

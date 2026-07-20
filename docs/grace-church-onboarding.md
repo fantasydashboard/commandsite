@@ -22,7 +22,7 @@ Fires the moment Stripe payment clears. A clear, gentle roadmap so the pastor (o
 > 4. Around two weeks in: once she sounds like you and you're comfortable, we flip her live. From there it's about 10 minutes a day of you approving what she's already drafted.
 >
 > Two links to start whenever you've got a sec:
-> - The quick intake: [intake link]
+> - The quick intake Doc (a per-church copy of the template): [questionnaire link]
 > - Grab your kickoff time: https://calendly.com/josh-commandsite/30-min-discovery-church-walkthrough
 >
 > Reply here anytime. I run all of this personally. I spent 20 years in church ministry before this, so if anything feels off, push back. We'll get it right.
@@ -120,7 +120,7 @@ The step-by-step for hand-running it. Keep shadow mode FAST. The research says c
 ## What Josh sets up outside this doc
 
 - **Stripe:** payment links for the three founding products (see `docs/grace-stripe-products.md`). Founding rate, setup waived.
-- **Intake form:** load Section 2 into Typeform with the labeled fields. Put the resulting link into the welcome email.
+- **Intake Doc:** master Google Doc template at `https://docs.google.com/document/d/1qiZMxk93wmDUExtkSnpC9oImTs_564vIUtScm80VnFk/edit`. Per-church workflow: File > Make a copy, rename to `[Church Name] · Grace Setup Questionnaire`, share with edit access to the primary contact, paste that share link into the welcome email. The structure mirrors `docs/focal-point-onboarding-intake.md`; keep the two in sync if the spec ever changes. See `docs/grace-welcome-email-template.md` for the full workflow.
 - **The trigger:** for now, send the three onboarding links by hand when payment clears. Later, the existing Stripe webhook fires the welcome email automatically off the paid event.
 
 ---

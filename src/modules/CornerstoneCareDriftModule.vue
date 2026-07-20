@@ -19,12 +19,19 @@ import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import CareDriftPriority from '@/components/cornerstone/CareDriftPriority.vue'
+import CarePipelineBoard from '@/components/cornerstone/CarePipelineBoard.vue'
+import LeaderDigestPreview from '@/components/cornerstone/LeaderDigestPreview.vue'
 import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
 import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
-import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
-import { focalPointDrift } from '@/lib/clients/focal-point/drift'
+import GroupDriftWatch from '@/components/cornerstone/GroupDriftWatch.vue'
+import RecentWins from '@/components/cornerstone/RecentWins.vue'
+import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
 import { focalPointServing } from '@/lib/clients/focal-point/serving'
-import { focalPointBurnout } from '@/lib/clients/focal-point/burnout'
+import { focalPointGroupDrift } from '@/lib/clients/focal-point/groupDrift'
+import { activeFamilies } from '@/lib/clients/focal-point/driftLive'
+import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { useCongregationLens } from '@/stores/congregationLens'
+import { useCareActions } from '@/stores/careActions'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
@@ -38,12 +45,30 @@ const data = churchDataset(props.client.slug)
 const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 
 // Tabbed directories below the priority feed (fixes the page length).
-const careTab = ref<'families' | 'serving' | 'burnout'>('families')
-const careTabs = [
-  { key: 'families' as const, label: 'Families drifting', count: focalPointDrift.flaggedFamilies },
-  { key: 'serving' as const, label: 'Stopped serving', count: focalPointServing.flaggedPeople },
-  { key: 'burnout' as const, label: 'Burnout risk', count: focalPointBurnout.flaggedPeople },
-]
+// Counts are lens- and reconciliation-aware so each tab badge MATCHES the list
+// beneath it: same congregation scope, same dismiss/snooze hiding, same
+// "came back" reconciliation the directories apply.
+const lens = useCongregationLens()
+const careActions = useCareActions()
+const inScope = (name: string) => lens.scope === 'all' || congregationOf(name) === lens.scope
+const familiesCount = computed(
+  () => activeFamilies().filter((f) => inScope(f.family) && !careActions.isHidden(`family:${f.family}`)).length,
+)
+// Serving scopes by CAMPUS (the teams a person served): Brazilian ministry teams
+// vs English/main. People who served both show in both views.
+const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
+const servingCount = computed(
+  () => focalPointServing.people.filter((p) => !careActions.isHidden(`serving:${p.name}`) && inCampus(p.campus)).length,
+)
+const groupsCount = computed(
+  () => focalPointGroupDrift.people.filter((p) => inScope(p.name) && !careActions.isHidden(`group:${p.name}`)).length,
+)
+const careTab = ref<'families' | 'serving' | 'groups'>('families')
+const careTabs = computed(() => [
+  { key: 'families' as const, label: 'Families drifting', count: familiesCount.value },
+  { key: 'serving' as const, label: 'Stopped serving', count: servingCount.value },
+  { key: 'groups' as const, label: 'Group drift', count: groupsCount.value },
+])
 const households = data.people.households
 const people = data.people.people
 const peopleStats = data.people.stats
@@ -232,7 +257,11 @@ const careRecommendations: GraceRecommendation[] = [
     <!-- Focal Point: priority photo-card feed, then tabbed directories -->
     <template v-if="isFocalPoint">
       <CareDriftPriority />
+      <RecentWins />
+      <CarePipelineBoard />
+      <LeaderDigestPreview />
       <div class="card flex flex-wrap gap-1 !p-1.5">
+        <div class="w-full px-1 pb-1 text-[11px] text-ink-muted">Full directories, the complete list behind each track. All three follow the lens: families and groups by the service they attend, serving by the teams they serve. Everyone who has come back drops off.</div>
         <button
           v-for="t in careTabs"
           :key="t.key"
@@ -245,7 +274,8 @@ const careRecommendations: GraceRecommendation[] = [
       </div>
       <DriftWatch v-if="careTab === 'families'" />
       <PeopleDrift v-if="careTab === 'serving'" />
-      <BurnoutWatch v-if="careTab === 'burnout'" />
+      <GroupDriftWatch v-if="careTab === 'groups'" />
+      <FlagDetailDrawer />
     </template>
     <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>

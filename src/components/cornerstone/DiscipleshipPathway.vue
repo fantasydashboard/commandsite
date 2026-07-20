@@ -6,7 +6,9 @@
  * pulled from Planning Center Workflows + Lists (aggregate, no PII).
  */
 import { pathwayStages, pathwayContext } from '@/lib/clients/focal-point/pathway'
+import { useCongregationLens } from '@/stores/congregationLens'
 
+const lens = useCongregationLens()
 const top = pathwayStages[0].count
 const maxCount = Math.max(...pathwayStages.map((s) => s.count))
 function pctOfTop(n: number): number {
@@ -20,7 +22,10 @@ function barWidth(n: number): number {
 <template>
   <section class="card">
     <div class="flex items-center justify-between">
-      <span class="eyebrow">Discipleship Pathway</span>
+      <div class="flex items-center gap-2">
+        <span class="eyebrow">Discipleship Pathway</span>
+        <span v-if="lens.scope !== 'all'" class="rounded bg-surface-elevated px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-disabled">church-wide</span>
+      </div>
       <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
         <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
         Live from Planning Center
@@ -54,18 +59,14 @@ function barWidth(n: number): number {
       </div>
     </div>
 
-    <div class="mt-4 grid grid-cols-3 gap-3 border-t border-divider pt-3">
+    <div class="mt-4 grid grid-cols-2 gap-3 border-t border-divider pt-3">
       <div>
-        <div class="text-lg font-semibold text-ink">{{ pathwayContext.members.toLocaleString() }}</div>
-        <div class="text-xs text-ink-muted">Members</div>
-      </div>
-      <div>
-        <div class="text-lg font-semibold text-ink">{{ pathwayContext.visitors.toLocaleString() }}</div>
-        <div class="text-xs text-ink-muted">Visitors on file</div>
+        <div class="text-lg font-semibold text-ink">{{ pathwayContext.startingPointToMember }}%</div>
+        <div class="text-xs text-ink-muted">Starting Point reach membership</div>
       </div>
       <div>
         <div class="text-lg font-semibold text-ink">{{ pathwayContext.groupLeaders }}</div>
-        <div class="text-xs text-ink-muted">Group leaders</div>
+        <div class="text-xs text-ink-muted">Group leaders (multiplying disciplers)</div>
       </div>
     </div>
 

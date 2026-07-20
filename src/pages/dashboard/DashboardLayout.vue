@@ -4,6 +4,7 @@ import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import ClientWordmark from '@/components/ClientWordmark.vue'
+import CongregationLens from '@/components/cornerstone/CongregationLens.vue'
 import AskAiFloatingButton from '@/components/AskAiFloatingButton.vue'
 import GraceToastContainer from '@/components/grace/GraceToastContainer.vue'
 import { personaForSlug } from '@/lib/personas/registry'
@@ -383,6 +384,9 @@ async function onLogout() {
         Dashboard not found.
       </div>
       <template v-else>
+        <!-- Focal Point: congregation lens, global so it scopes every page -->
+        <CongregationLens v-if="slug === 'focal-point-church'" class="mb-4" />
+
         <header
           v-if="!suppressLayoutHeader"
           class="mb-4 flex items-baseline justify-between gap-3"

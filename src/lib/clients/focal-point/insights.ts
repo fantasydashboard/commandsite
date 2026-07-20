@@ -163,10 +163,6 @@ export const focalPointInsights = {
   },
   "services": [
     {
-      "name": "Sat 5:30",
-      "avg": 78
-    },
-    {
       "name": "Sun 9:00",
       "avg": 193
     },
@@ -179,7 +175,7 @@ export const focalPointInsights = {
       "avg": 218
     },
     {
-      "name": "Sun 6:00",
+      "name": "Brazilian",
       "avg": 262
     }
   ],
@@ -392,5 +388,89 @@ export const focalPointInsights = {
   "serving": {
     "volunteers": 2168,
     "lapsed": 104
+  },
+  // The latest completed weekend, for the "This Weekend" Monday scorecard.
+  // Jul 5 2026 was the Fourth of July weekend: Saturday 5:30 and the Spanish /
+  // Brazilian service did not meet, which is why the grand total dips. Services
+  // that met are listed now-vs-prior-week. All from the weekly summary sheet.
+  "thisWeekend": {
+    "date": "Jul 5",
+    "prevDate": "Jun 28",
+    "grand": 862,
+    "prevGrand": 929,
+    "firstTimers": 7,
+    "volunteers": 133,
+    "servicesMet": [
+      { "name": "Sun 9:00", "now": 185, "prev": 221 },
+      { "name": "Sun 10:30", "now": 234, "prev": 278 },
+      { "name": "Sun 12:00", "now": 208, "prev": 168 },
+      { "name": "Brazilian", "now": 235, "prev": 262 }
+    ],
+    "servicesAbsent": ["Spanish"]
+  },
+  // Volunteer check-ins per weekend across all services (real serving load,
+  // distinct from the 2,168 six-month distinct roster). Aligned to weekendAttendance labels.
+  "weeklyVolunteers": {
+    "counts": [174, 134, 154, 163, 150, 143, 166, 87, 169, 143, 155, 147, 151, 198, 156, 78, 116, 148, 137, 136, 128, 116, 134, 123, 131, 132, 133]
+  },
+  // Body health: engagement penetration across the committed core (Members +
+  // Regular Attenders), not the 12k accumulated PCO records. Serving is real
+  // from volunteer check-ins; giving and groups light up with those scopes.
+  // See scripts/pull-demographics.mjs. Denominator = 1,385 core adults.
+  "bodyHealth": {
+    "coreAdults": 1385,
+    "serving": { "count": 398, "pct": 29, "live": true },
+    "groups": { "count": 932, "groupCount": 60, "live": true },
+    // growth-group snapshot (real, live from the Groups API). Attendance trend and
+    // group-drift come once groups resume meeting in the fall.
+    "groupSnapshot": {
+      "people": 932,
+      "groups": 60,
+      "avgAttendance": 8,
+      "byType": [
+        { "type": "English", "groups": 39, "members": 640, "avgAtt": 8 },
+        { "type": "Brazilian", "groups": 13, "members": 298, "avgAtt": 10 },
+        { "type": "Youth", "groups": 8, "members": 138, "avgAtt": null }
+      ]
+    },
+    "giving": { "pct": null, "live": false }
+  },
+  // Salvation responses (hands raised) by year, real, from the Metrics workbooks
+  // ("Challenge. Giving" sheet, Raised Hands row). 2026 is year to date (18 weeks),
+  // on pace to pass 2025. The mission outcome.
+  "salvations": {
+    "thisYearTotal": 249,
+    "thisYearWeeks": 18,
+    "pace": 719,
+    "byYear": [
+      { "year": 2024, "total": 510, "partial": false },
+      { "year": 2025, "total": 629, "partial": false },
+      { "year": 2026, "total": 249, "partial": true }
+    ]
+  },
+  // Average weekend attendance by year, real, from their Metrics workbooks
+  // (Grand Total row, each year's Weekly Summary sheet). 2024 pending; 2026 is
+  // year-to-date through July. The four-year arc: up about 67% since 2022.
+  "yearlyAttendance": [
+    { "year": 2022, "avg": 602, "partial": false },
+    { "year": 2023, "avg": 733, "partial": false },
+    { "year": 2024, "avg": 856, "partial": false },
+    { "year": 2025, "avg": 983, "partial": false },
+    { "year": 2026, "avg": 1008, "partial": true }
+  ],
+  // Age profile of the committed core adults (18+) who have a birthdate on file.
+  // Coverage is about half the core, stated honestly in the UI. The signal that
+  // matters: 18-24 is thin (young-adult gap), 35-54 is the center of gravity.
+  "ageProfile": {
+    "coverage": 49,
+    "sample": 680,
+    "bands": [
+      { "band": "18-24", "count": 26, "pct": 3.8 },
+      { "band": "25-34", "count": 109, "pct": 16.0 },
+      { "band": "35-44", "count": 185, "pct": 27.2 },
+      { "band": "45-54", "count": 166, "pct": 24.4 },
+      { "band": "55-64", "count": 107, "pct": 15.7 },
+      { "band": "65+", "count": 87, "pct": 12.8 }
+    ]
   }
 } as const

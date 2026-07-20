@@ -58,3 +58,14 @@ verify_jwt = false
 
 [functions.smartlead-reply]
 verify_jwt = false
+
+# PCO OAuth callback is hit by Planning Center's browser redirect with NO
+# Supabase JWT, so gateway verification must be off; the function validates the
+# OAuth code/state itself.
+[functions.pco-oauth-callback]
+verify_jwt = false
+
+# PCO OAuth start does its own admin-JWT check (with service-role bypass) in the
+# function body, same pattern as the send/draft functions above.
+[functions.pco-oauth-start]
+verify_jwt = false

@@ -8,11 +8,29 @@
  */
 import { computed, ref } from 'vue'
 import { focalPointDrift } from '@/lib/clients/focal-point/drift'
+import { activeFamilies as liveActiveFamilies, returnedFamilies } from '@/lib/clients/focal-point/driftLive'
+import { useCareActions } from '@/stores/careActions'
+import { useCongregationLens } from '@/stores/congregationLens'
+import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { familyFlag } from '@/lib/clients/focal-point/flags'
 
+const care = useCareActions()
+const lens = useCongregationLens()
 const COLLAPSED = 12
 const showAll = ref(false)
+const inScope = (family: string) => lens.scope === 'all' || congregationOf(family) === lens.scope
+// Reconciled against the latest check-ins: families who returned drop off.
+const activeFamilies = computed(() =>
+  liveActiveFamilies().filter((f) => !care.isHidden(`family:${f.family}`) && inScope(f.family)),
+)
+const reconnected = computed(() => returnedFamilies().filter((f) => inScope(f.family)).length)
 const visibleFamilies = computed(() =>
-  showAll.value ? focalPointDrift.families : focalPointDrift.families.slice(0, COLLAPSED),
+  showAll.value ? activeFamilies.value : activeFamilies.value.slice(0, COLLAPSED),
+)
+const unplaced = computed(() =>
+  lens.scope === 'all'
+    ? 0
+    : focalPointDrift.families.filter((f) => !care.isHidden(`family:${f.family}`) && congregationOf(f.family) === null).length,
 )
 
 function fmtDate(iso: string): string {
@@ -33,12 +51,19 @@ function fmtDate(iso: string): string {
       </span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">
-      {{ focalPointDrift.flaggedFamilies }} families to reach out to
+      {{ activeFamilies.length }} families to reach out to
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ focalPointDrift.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
       {{ focalPointDrift.onboardingExcluded }} first-time or occasional families are excluded (they belong in the welcome funnel, not here).
       Giving-lapse and group-absence signals connect once those Planning Center scopes are enabled.
+    </p>
+    <p v-if="unplaced" class="mt-1 text-[11px] text-warn">
+      Showing the {{ lens.scope }} congregation. {{ unplaced }} {{ unplaced === 1 ? 'family has' : 'families have' }} no service on record to place them, hidden in this view.
+    </p>
+    <p v-if="reconnected" class="mt-1 inline-flex items-center gap-1.5 text-[11px] text-success">
+      <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+      {{ reconnected }} {{ reconnected === 1 ? 'family' : 'families' }} checked back in on recent Sundays and cleared off this list on the last refresh.
     </p>
   </section>
 
@@ -60,7 +85,12 @@ function fmtDate(iso: string): string {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="f in visibleFamilies" :key="f.family" class="border-b border-divider/60">
+          <tr
+            v-for="f in visibleFamilies"
+            :key="f.family"
+            class="cursor-pointer border-b border-divider/60 transition-colors hover:bg-surface-elevated/50"
+            @click="care.openDetail(familyFlag(f))"
+          >
             <td class="py-2 font-medium text-ink">The {{ f.family }} family</td>
             <td class="py-2 text-ink-muted">{{ f.kids.join(', ') }}</td>
             <td class="py-2 text-ink-muted">~{{ f.monthsAttending }}mo · {{ f.totalSundays }} Sundays</td>
@@ -77,12 +107,15 @@ function fmtDate(iso: string): string {
         </tbody>
       </table>
     </div>
-    <button
-      v-if="focalPointDrift.families.length > COLLAPSED"
-      class="mt-3 text-xs font-semibold text-brand hover:underline"
-      @click="showAll = !showAll"
-    >
-      {{ showAll ? 'Show fewer' : `Show all ${focalPointDrift.flaggedFamilies} flagged families` }}
-    </button>
+    <div class="mt-3 flex items-center justify-between">
+      <button
+        v-if="activeFamilies.length > COLLAPSED"
+        class="text-xs font-semibold text-brand hover:underline"
+        @click="showAll = !showAll"
+      >
+        {{ showAll ? 'Show fewer' : `Show all ${activeFamilies.length} flagged families` }}
+      </button>
+      <span class="text-[11px] text-ink-disabled">Click a row to see why, or to dismiss / snooze.</span>
+    </div>
   </section>
 </template>

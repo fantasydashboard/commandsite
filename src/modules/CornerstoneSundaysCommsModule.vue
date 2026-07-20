@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Cornerstone — Sundays & Comms.
+ * Cornerstone Serving (volunteer scheduling, burnout, and weekly comms).
  * Grace's roles on this page: Volunteer Coordination + Communications.
  */
 import { computed } from 'vue'
@@ -15,10 +15,25 @@ import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
-import { scrubCornerstone } from '@/lib/clients/church/dataset'
+import SundayReadinessBoard from '@/components/cornerstone/SundayReadinessBoard.vue'
+import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
+import CommsDrafts from '@/components/cornerstone/CommsDrafts.vue'
+import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
+import { focalPointRoster } from '@/lib/clients/focal-point/roster'
+import { focalPointBurnout } from '@/lib/clients/focal-point/burnout'
+import { useCongregationLens } from '@/stores/congregationLens'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Over-serving scopes by campus like the Burnout Watch list below, so the KPI and
+// the list always agree. The other KPIs (spots to fill, fresh capacity) are the
+// church-wide roster, which does not scope.
+const lens = useCongregationLens()
+const overServing = computed(() => {
+  const s = lens.scope
+  return focalPointBurnout.people.filter((p) => s === 'all' || p.campus === 'both' || p.campus === s).length
+})
 
 // Client-varying data resolved by slug; names preserved so the rest of the
 // module and template are unchanged.
@@ -83,7 +98,7 @@ const queueItems: ApprovalQueueItem[] = [
     icon: 'calendar',
     badge: 'Volunteer Coord',
     badgeClass: 'bg-accent/15 text-accent',
-    title: 'Fill ask — Nursery Sunday 9 AM',
+    title: 'Fill ask: Nursery Sunday 9 AM',
     recipient: '2 spots open · Mia Pham + Amanda Foster suggested',
     preview: '"Hey Mia and Amanda — Linda and Aanya are both off this Sunday and we\'re short for the 9 AM nursery slot. You\'ve both filled in last-minute before and saved the day. Any chance one (or both) of you could swing it? Totally fine if not. — Pastor Mark (via Grace)"',
     approved_response: "Sent to both. Planning Center will auto-confirm if either says yes. I'll surface the result Saturday morning if no one bites — usually they reply same-day.",
@@ -220,10 +235,37 @@ const sundaysRecommendations: GraceRecommendation[] = [
          + outstanding actions in one glance. Operational page, so the
          answer to "are we ready for Sunday?" lives at the top, not
          buried in the KPI strip. -->
-    <div v-if="isFocalPoint" class="flex justify-end -mb-2">
-      <SampleBadge />
-    </div>
-    <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
+    <!-- Focal Point: real Sunday operations (staff Sunday without burning out your people) -->
+    <template v-if="isFocalPoint">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="card">
+          <div class="kpi-label">This Sunday</div>
+          <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ focalPointRoster.sundayLabel.replace('Sun ', '') }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">{{ focalPointRoster.daysAway }} days away</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Spots to fill</div>
+          <div class="mt-1 text-2xl font-bold text-warn tabular-nums">{{ focalPointRoster.totalShort }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">across {{ focalPointRoster.teamsShort }} teams</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Over-serving</div>
+          <div class="mt-1 text-2xl font-bold text-danger tabular-nums">{{ overServing }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">protect, do not add load</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Fresh capacity</div>
+          <div class="mt-1 text-2xl font-bold text-success tabular-nums">74%</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">of core do not serve yet</div>
+        </div>
+      </div>
+      <SundayReadinessBoard />
+      <BurnoutWatch />
+      <CommsDrafts />
+      <FlagDetailDrawer />
+    </template>
+
+    <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">This Sunday · readiness brief</div>
       <div class="flex flex-wrap items-end gap-x-8 gap-y-3 justify-between">
         <div class="min-w-0">
@@ -253,11 +295,9 @@ const sundaysRecommendations: GraceRecommendation[] = [
       </div>
     </section>
 
-    <div v-if="isFocalPoint" class="flex justify-end -mb-2">
-      <SampleBadge />
-    </div>
     <GraceApprovalQueue
-      :items="isFocalPoint ? scrubCornerstone(queueItems) : queueItems"
+      v-if="!isFocalPoint"
+      :items="queueItems"
       :initial-resolved="6"
       assistant-name="Grace"
       heading="Sunday + comms queue"
@@ -265,8 +305,8 @@ const sundaysRecommendations: GraceRecommendation[] = [
       @approved="onApproved"
     />
 
-    <!-- KPI strip -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <!-- KPI strip (Cornerstone demo) -->
+    <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card">
         <div class="kpi-label">Sunday readiness</div>
         <div class="mt-1 text-2xl font-bold tabular-nums" :class="readinessTone(sunday.filled_slots / sunday.total_slots)">
@@ -291,8 +331,8 @@ const sundaysRecommendations: GraceRecommendation[] = [
       </div>
     </div>
 
-    <!-- Volunteer Coordination — Sunday readiness + Grace's suggestions -->
-    <section id="volunteer_coord" class="card scroll-mt-24">
+    <!-- Volunteer Coordination — Sunday readiness (Cornerstone demo; Focal Point uses the real board above) -->
+    <section v-if="!isFocalPoint" id="volunteer_coord" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">Volunteer Coordination · This Sunday</span> <SampleBadge v-if="isFocalPoint" />
@@ -353,7 +393,7 @@ const sundaysRecommendations: GraceRecommendation[] = [
     </section>
 
     <!-- Communications — Drafts first (action surface), then Sent + Performance -->
-    <section id="communications" class="card scroll-mt-24">
+    <section v-if="!isFocalPoint" id="communications" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">Communications</span> <SampleBadge v-if="isFocalPoint" />

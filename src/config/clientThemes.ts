@@ -22,6 +22,8 @@ export interface ClientTheme {
     tracking?: string
     /** Subscript / suffix, e.g. "Heating & Air" */
     suffix?: string
+    /** Optional brand mark rendered as a small tile before the wordmark. */
+    mark?: 'focal-point'
   }
 }
 
@@ -91,6 +93,7 @@ const FocalPointChurchTheme: ClientTheme = {
   wordmark: {
     text: 'Focal Point',
     suffix: 'Church',
+    mark: 'focal-point',
   },
 }
 

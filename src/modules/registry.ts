@@ -101,7 +101,7 @@ export interface TabDefinition {
 // client. Order here is the source of truth for nav ordering.
 //
 // The "ops" tabs (calls/quotes/reviews/reactivation/settings) are
-// service-industry specific — they only appear for clients with those
+// service-industry specific: they only appear for clients with those
 // modules enabled (Apex Heating & Air etc.). UFD doesn't get them.
 export const dashboardTabs: TabDefinition[] = [
   { key: 'today', label: 'Today' },
@@ -126,7 +126,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'front-desk-quotes', label: 'Quotes' },
   { key: 'care-drift', label: 'Care & Drift' },
   { key: 'customer-care', label: 'Customers' },
-  { key: 'sundays-comms', label: 'Sundays & Comms' },
+  { key: 'sundays-comms', label: 'Serving' },
   { key: 'reputation-marketing', label: 'Reviews' },
   { key: 'lead-sources', label: 'Lead Sources' },
   { key: 'insights', label: 'Insights' },
@@ -794,8 +794,8 @@ export const moduleRegistry: ModuleDefinition[] = [
   },
   {
     key: 'cornerstone-sundays-comms',
-    label: 'Cornerstone Sundays & Comms',
-    description: "Grace's operational roles — Volunteer Coordination + Communications.",
+    label: 'Cornerstone Serving',
+    description: "Grace's operational roles: Volunteer Coordination + Communications.",
     component: CornerstoneSundaysCommsModule,
     fullWidth: true,
     tab: 'sundays-comms',

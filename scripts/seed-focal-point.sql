@@ -1,22 +1,27 @@
--- Seed a Focal Point test client modeled after Cornerstone Community
--- Church. Used to walk through the Grace experience before the real
--- Focal Point pitch lands. Two rows get created:
+-- Focal Point Church — the real Grace customer #1 (slug 'focal-point-church').
+-- ---------------------------------------------------------------------------
+-- Reconciles the database with the code. Every code path for Focal Point
+-- (theme in src/config/clientThemes.ts, module config in src/config/clients.ts,
+-- church data in src/lib/clients/church/dataset.ts, the Planning Center connect
+-- card, ~19 references) is keyed to slug 'focal-point-church'. This script
+-- creates the matching DB rows AND retires the old 'focal-point-test' seed that
+-- predated the real pitch, so /admin and login routing line up with the code.
 --
---   1. cs_customers — so it shows up in /admin Active Customers and
---      can be navigated to as a test customer. Seeded in 'shadow' stage
---      with the contract + discovery already marked done, so you can
---      see what the late-stage onboarding drawer looks like AND walk
---      through to 'live' without redoing every step.
---   2. clients (legacy registry) — so the dashboards-registry section
---      lists it too, in case you want quick navigation from there.
+-- Two rows get created (both keyed to 'focal-point-church'):
+--   1. cs_customers — shows in /admin Active Customers + the onboarding drawer.
+--   2. clients (legacy registry) — powers the dashboards registry + the slug
+--      that /dashboard/:slug and post-login routing resolve to.
 --
--- Module config + theme are wired in code (src/config/clients.ts +
--- src/config/clientThemes.ts) under slug 'focal-point-test'.
+-- NOTE: the onboarding stage + timeline fields below are a seed baseline, not a
+-- record of Focal Point's actual onboarding. Adjust them (or drive them from the
+-- onboarding UI) to reflect reality.
 --
--- Idempotent. Re-run to reset to a clean test state.
--- Delete with:
---   delete from cs_customers where slug = 'focal-point-test';
---   delete from clients where slug = 'focal-point-test';
+-- Idempotent. Run once in the Supabase SQL editor (or psql) against the linked
+-- project. Re-running is safe.
+--
+-- Remove entirely with:
+--   delete from cs_customers where slug = 'focal-point-church';
+--   delete from clients      where slug = 'focal-point-church';
 
 
 -- ── 1. cs_customers row ─────────────────────────────────────────────
@@ -27,9 +32,6 @@ insert into public.cs_customers (
   signed_at, billing_start_at,
   status, onboarding_stage, stage_entered_at,
   primary_color, contacts, enabled_roles, languages,
-  -- Pre-walk the early stages so the test starts in 'shadow' with
-  -- everything before that already done. Lets you focus on testing the
-  -- discovery/voice/shadow→live experience for the pitch.
   contract_status, contract_sent_at, contract_signed_at,
   payment_received_at, payment_method,
   kickoff_call_scheduled_at, kickoff_call_completed_at,
@@ -38,11 +40,11 @@ insert into public.cs_customers (
   shadow_drafts_approved_count, shadow_drafts_total_count
 )
 values (
-  'Focal Point (TEST)',
-  'focal-point-test',
+  'Focal Point Church',
+  'focal-point-church',
   'grace',
   'Church',
-  'Tampa', 'FL',
+  'Orlando', 'FL',
   'America/New_York',
   'founding', true, 'monthly', 0, 79900,
   now() - interval '21 days',
@@ -51,13 +53,13 @@ values (
   '#3B82F6',
   jsonb_build_array(
     jsonb_build_object(
-      'name', 'Pastor Test', 'role', 'Senior Pastor',
-      'email', 'josh@getinthelimelight.com',
-      'phone', '555-0199', 'primary', true
+      'name', 'Pastor Mark', 'role', 'Senior Pastor',
+      'email', 'TODO@focalpointchurch.com',
+      'phone', '', 'primary', true
     ),
     jsonb_build_object(
-      'name', 'Ops Director Test', 'role', 'Operations',
-      'email', 'josh@getinthelimelight.com',
+      'name', 'Christina', 'role', 'Operations',
+      'email', 'TODO@focalpointchurch.com',
       'phone', '', 'primary', false
     )
   ),
@@ -69,12 +71,12 @@ values (
   now() - interval '11 days', now() - interval '10 days',
   jsonb_build_object(
     'submitted_at', (now() - interval '10 days')::text,
-    'owner_tone', 'Warm, pastoral. We sign off with "Grace and peace,"',
-    'congregation_size', '~280 across two services',
+    'owner_tone', 'Warm, pastoral.',
+    'congregation_size', '~1000 across services',
     'ministries_active', 'Sunday worship, kids ministry, youth, small groups, missions',
     'visitor_volume', '~6-10 first-time visitors per week',
-    'care_team_size', '2 pastoral staff + 6 lay care volunteers',
-    'existing_chms', 'Planning Center, MailChimp, Tithe.ly',
+    'care_team_size', 'pastoral staff + lay care volunteers',
+    'existing_chms', 'Planning Center',
     'grace_roles', array['front_desk_guests', 'care_drift', 'sundays_comms', 'giving']
   ),
   now() - interval '8 days', now() - interval '6 days', now() - interval '5 days',
@@ -105,19 +107,37 @@ on conflict (slug) do update set
 
 
 -- ── 2. Legacy clients (dashboards registry) row ─────────────────────
+-- This is the row login routing + the admin registry resolve. Slug MUST match
+-- the code ('focal-point-church').
 
 insert into public.clients (slug, name, tier, active)
-values ('focal-point-test', 'Focal Point (TEST)', 'standard', true)
+values ('focal-point-church', 'Focal Point Church', 'standard', true)
 on conflict (slug) do update set
   name = excluded.name,
   tier = excluded.tier,
   active = excluded.active;
 
 
+-- ── 3. Retire the old TEST identity ('focal-point-test') ────────────
+-- Move any login users off the test client onto the real one (so nobody is
+-- orphaned by on-delete-set-null), then drop the test rows. No-op if the test
+-- client was never created.
+
+update public.users u
+  set client_id = (select id from public.clients where slug = 'focal-point-church')
+  where u.client_id = (select id from public.clients where slug = 'focal-point-test');
+
+delete from public.cs_customers where slug = 'focal-point-test';
+delete from public.clients      where slug = 'focal-point-test';
+
+
 -- ── Verify ──────────────────────────────────────────────────────────
 
 select 'cs_customers' as kind, org_name as label, status, onboarding_stage
-from public.cs_customers where slug = 'focal-point-test'
+from public.cs_customers where slug = 'focal-point-church'
 union all
 select 'clients (registry)' as kind, name as label, tier as status, null::text as onboarding_stage
+from public.clients where slug = 'focal-point-church'
+union all
+select 'leftover test rows' as kind, slug as label, null, null
 from public.clients where slug = 'focal-point-test';

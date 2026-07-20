@@ -20,7 +20,6 @@ import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
-import DiscipleshipPathway from '@/components/cornerstone/DiscipleshipPathway.vue'
 import FocalPointInsights from '@/components/cornerstone/FocalPointInsights.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
@@ -328,8 +327,8 @@ const pageRoles = rolesOnTab('insights')
       @approved="onApproved"
     />
 
-    <!-- Header -->
-    <div class="card flex flex-wrap items-center justify-between gap-3">
+    <!-- Header (hidden for Focal Point: the This Weekend hero opens the page instead) -->
+    <div v-if="!isFocalPoint" class="card flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold text-ink">Metrics</h2>
         <p class="text-sm text-ink-muted">
@@ -339,7 +338,7 @@ const pageRoles = rolesOnTab('insights')
       <div class="text-xs text-ink-muted">
         <span class="inline-flex items-center gap-1">
           <span class="h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
-          {{ isFocalPoint ? 'Live from Planning Center' : 'Live' }}
+          Live
         </span>
       </div>
     </div>
@@ -377,7 +376,6 @@ const pageRoles = rolesOnTab('insights')
 
     <!-- Discipleship Pathway (Focal Point priority #1) -->
     <FocalPointInsights v-if="isFocalPoint" />
-    <DiscipleshipPathway v-if="isFocalPoint" />
 
     <!-- Sunday attendance hero chart (hidden for Focal Point: adults do not check in) -->
     <section v-if="!isFocalPoint" class="card">

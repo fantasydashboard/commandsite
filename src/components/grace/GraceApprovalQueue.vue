@@ -7,7 +7,7 @@
  * chat on each action. Used on every Cornerstone page with that page's
  * own queue items.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useToasts } from './useToasts'
 import { useAssistantChat } from './useGraceChat'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
@@ -61,6 +61,18 @@ const queueItems = ref<ApprovalQueueItem[]>([...props.items])
 const recentlyResolved = ref<string[]>([])
 const processingId = ref<string | null>(null)
 const resolvedCounter = ref<number>(props.initialResolved ?? 0)
+
+// Resync when the items prop changes (e.g. the congregation lens switches the
+// guest queue). Without this the queue keeps its first snapshot and never updates.
+watch(
+  () => props.items,
+  (next) => {
+    queueItems.value = [...next]
+    recentlyResolved.value = []
+    processingId.value = null
+    resolvedCounter.value = props.initialResolved ?? 0
+  },
+)
 
 const heading = computed(() => props.heading ?? "Today's approvals")
 const assistantName = computed(() => props.assistantName ?? 'Grace')
