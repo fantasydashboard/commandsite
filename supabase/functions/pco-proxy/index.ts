@@ -2,14 +2,20 @@
 // ---------------------------------------------------------------------------
 // Thin proxy for Planning Center Online API calls. Exists because PCO's
 // API doesn't send CORS headers, so the browser can't call it directly.
-// The /admin/pco-test page sends { token, path, method } here, we forward
-// to PCO, and return the response untouched (status + body).
+// The /admin/pco-test page sends { path, method } plus ONE of two auth modes,
+// we forward to PCO, and return the response untouched (status + body).
 //
 // Auth:   Authorization: Bearer <admin user JWT>
 // Body:   {
-//           token: string   // PCO Personal Access Token in "app_id:secret"
-//                           //   format. Get one at:
-//                           //   https://api.planningcenteronline.com/oauth/applications
+//           // ── Auth mode A (preferred): a connected church's OAuth token,
+//           //    resolved server-side from pco_connections. No token ever
+//           //    reaches the browser. This is the multi-tenant path.
+//           tenant?: string  // church slug, e.g. "focal-point-church"
+//
+//           // ── Auth mode B (legacy): a pasted Personal Access Token in
+//           //    "app_id:secret" format. Basic auth, never persisted.
+//           token?: string
+//
 //           path: string    // e.g. "/people/v2/me" or "/check-ins/v2/check_ins?per_page=10"
 //           method?: string // GET (default), POST, PATCH, DELETE
 //           body?: unknown  // optional JSON body for POST/PATCH
@@ -22,14 +28,16 @@
 //     parsed?: unknown       // body parsed as JSON if possible
 //   }
 //
-// Token is never stored server-side. It travels in the request body,
-// is base64-encoded into a Basic Auth header, sent to PCO, and the
-// proxy returns. No persistence. No logging of the token itself.
+// In token mode the PAT is never stored server-side: it travels in the request
+// body, is base64-encoded into a Basic Auth header, sent to PCO, and discarded.
+// In tenant mode the church's OAuth token is loaded (and rotated if needed) by
+// pcoFetch and never leaves the server. Neither is logged.
 
 // deno-lint-ignore no-explicit-any
 declare const Deno: any
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { pcoFetch, PcoNotConnectedError } from '../_shared/pco-auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +54,7 @@ function json(body: unknown, status = 200): Response {
 
 interface ProxyRequest {
   token?: string
+  tenant?: string
   path?: string
   method?: string
   body?: unknown
@@ -88,35 +97,55 @@ Deno.serve(async (req: Request) => {
   }
 
   const token = (payload.token ?? '').trim()
+  const tenant = (payload.tenant ?? '').trim()
   const path = (payload.path ?? '').trim()
   const method = (payload.method ?? 'GET').toUpperCase()
-  if (!token || !path) {
-    return json({ error: 'token and path are required' }, 400)
+  if (!path) {
+    return json({ error: 'path is required' }, 400)
   }
-  if (!token.includes(':')) {
-    return json({ error: 'token must be in "app_id:secret" format (see PCO Personal Access Tokens)' }, 400)
+  if (!token && !tenant) {
+    return json({ error: 'Provide either a tenant (connected church slug) or a PAT token.' }, 400)
   }
 
-  // ── Forward to PCO
-  // PCO uses HTTP Basic Auth where the username is the application id
-  // and the password is the secret. Both come from the user's PAT.
-  const basicAuth = btoa(token)  // btoa("app_id:secret") -> base64
-  const pcoUrl = `https://api.planningcenteronline.com${path.startsWith('/') ? path : '/' + path}`
+  const outBody = payload.body !== undefined && (method === 'POST' || method === 'PATCH')
+    ? JSON.stringify(payload.body)
+    : undefined
 
+  // ── Forward to PCO, two ways:
+  //   • tenant mode (preferred): resolve the church's stored OAuth token
+  //     server-side via pcoFetch — no PAT ever leaves the browser.
+  //   • token mode (legacy): a pasted Personal Access Token, Basic auth.
   let pcoRes: Response
   try {
-    pcoRes = await fetch(pcoUrl, {
-      method,
-      headers: {
-        'Authorization': `Basic ${basicAuth}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: payload.body !== undefined && (method === 'POST' || method === 'PATCH')
-        ? JSON.stringify(payload.body)
-        : undefined,
-    })
+    if (tenant) {
+      if (!/^[a-z0-9][a-z0-9_-]*$/.test(tenant)) {
+        return json({ error: 'tenant must be a church slug, e.g. "focal-point-church".' }, 400)
+      }
+      pcoRes = await pcoFetch(tenant, path, { method, body: outBody })
+    } else {
+      if (!token.includes(':')) {
+        return json({ error: 'token must be in "app_id:secret" format (see PCO Personal Access Tokens)' }, 400)
+      }
+      // PCO uses HTTP Basic Auth where the username is the application id
+      // and the password is the secret. Both come from the user's PAT.
+      const basicAuth = btoa(token)  // btoa("app_id:secret") -> base64
+      const pcoUrl = `https://api.planningcenteronline.com${path.startsWith('/') ? path : '/' + path}`
+      pcoRes = await fetch(pcoUrl, {
+        method,
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: outBody,
+      })
+    }
   } catch (err) {
+    // A church slug with no (or a revoked) connection surfaces as a clean 400
+    // so the caller knows to connect first rather than reading a 500.
+    if (err instanceof PcoNotConnectedError) {
+      return json({ error: err.message }, 400)
+    }
     return json({
       status: 0,
       statusText: 'fetch failed',

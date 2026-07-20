@@ -15,15 +15,13 @@ import {
 import { Line, Bar, Doughnut } from 'vue-chartjs'
 import type { Client } from '@/types/database'
 import { lineDefaults, barDefaults, chartColors } from '@/lib/chartTheme'
-import {
-  weeklyAttendance, priorYearAttendance, attendanceStats,
-} from '@/lib/clients/cornerstone/attendance'
-import { givingStats, monthlyGiving } from '@/lib/clients/cornerstone/giving'
-import { peopleStats } from '@/lib/clients/cornerstone/people'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import FocalPointInsights from '@/components/cornerstone/FocalPointInsights.vue'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { money } from '@/lib/format'
 
@@ -33,7 +31,20 @@ Chart.register(
   CategoryScale, LinearScale, Tooltip, Legend, Filler,
 )
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const weeklyAttendance = data.attendance.weekly
+const priorYearAttendance = data.attendance.priorYear
+const attendanceStats = data.attendance.stats
+const givingStats = data.giving.stats
+const monthlyGiving = data.giving.monthly
+const peopleStats = data.people.stats
+
+// Focal Point-specific surfaces (their priority #1 is pathway visibility).
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 
 const weeks = computed(() => weeklyAttendance())
 const priorWeeks = computed(() => priorYearAttendance())
@@ -307,6 +318,7 @@ const pageRoles = rolesOnTab('insights')
     />
 
     <GraceApprovalQueue
+      v-if="!isFocalPoint"
       :items="queueItems"
       :initial-resolved="2"
       assistant-name="Grace"
@@ -315,8 +327,8 @@ const pageRoles = rolesOnTab('insights')
       @approved="onApproved"
     />
 
-    <!-- Header -->
-    <div class="card flex flex-wrap items-center justify-between gap-3">
+    <!-- Header (hidden for Focal Point: the This Weekend hero opens the page instead) -->
+    <div v-if="!isFocalPoint" class="card flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold text-ink">Metrics</h2>
         <p class="text-sm text-ink-muted">
@@ -332,7 +344,7 @@ const pageRoles = rolesOnTab('insights')
     </div>
 
     <!-- Top KPI strip — attendance focus -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+    <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-5">
       <div class="card">
         <div class="kpi-label">Last Sunday</div>
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ att.last_sunday }}</div>
@@ -362,11 +374,14 @@ const pageRoles = rolesOnTab('insights')
       </div>
     </div>
 
-    <!-- Sunday attendance — hero chart -->
-    <section class="card">
+    <!-- Discipleship Pathway (Focal Point priority #1) -->
+    <FocalPointInsights v-if="isFocalPoint" />
+
+    <!-- Sunday attendance hero chart (hidden for Focal Point: adults do not check in) -->
+    <section v-if="!isFocalPoint" class="card">
       <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div class="flex items-center gap-2">
-          <span class="eyebrow">Sunday Attendance</span>
+          <span class="eyebrow">Sunday Attendance</span> <SampleBadge v-if="isFocalPoint" />
           <span class="chip !py-0.5 !px-2 !text-[10px]">Last 26 weeks</span>
         </div>
         <div class="text-[11px] text-ink-disabled">
@@ -379,12 +394,12 @@ const pageRoles = rolesOnTab('insights')
     </section>
 
     <!-- Adults vs Kids + Service-time split -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+    <div v-if="!isFocalPoint" class="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <!-- Adults vs Kids stacked -->
       <section class="card lg:col-span-8">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-2">
-            <span class="eyebrow">Adults vs Kids</span>
+            <span class="eyebrow">Adults vs Kids</span> <SampleBadge v-if="isFocalPoint" />
             <span class="chip !py-0.5 !px-2 !text-[10px]">Last 12 Sundays</span>
           </div>
           <div class="text-[11px] text-ink-disabled">
@@ -399,7 +414,7 @@ const pageRoles = rolesOnTab('insights')
       <!-- Service split -->
       <section class="card lg:col-span-4">
         <div class="mb-3 flex items-center gap-2">
-          <span class="eyebrow">Service Times</span>
+          <span class="eyebrow">Service Times</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-[11px] text-ink-muted">12-wk share</span>
         </div>
         <div class="relative flex items-center justify-center h-44">
@@ -425,12 +440,12 @@ const pageRoles = rolesOnTab('insights')
     </div>
 
     <!-- Visitor flow + Engagement breadth -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+    <div v-if="!isFocalPoint" class="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <!-- Visitor flow -->
       <section class="card lg:col-span-8">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-2">
-            <span class="eyebrow">Visitor Flow</span>
+            <span class="eyebrow">Visitor Flow</span> <SampleBadge v-if="isFocalPoint" />
             <span class="chip !py-0.5 !px-2 !text-[10px]">First-time + returning, last 26 weeks</span>
           </div>
         </div>
@@ -442,7 +457,7 @@ const pageRoles = rolesOnTab('insights')
       <!-- Engagement breadth -->
       <section class="card lg:col-span-4">
         <div class="mb-3 flex items-center gap-2">
-          <span class="eyebrow">Engagement Breadth</span>
+          <span class="eyebrow">Engagement Breadth</span> <SampleBadge v-if="isFocalPoint" />
         </div>
         <div class="space-y-3">
           <div v-for="b in breadth" :key="b.label">
@@ -464,8 +479,8 @@ const pageRoles = rolesOnTab('insights')
       </section>
     </div>
 
-    <!-- Giving compact line -->
-    <section class="card">
+    <!-- Giving compact line (hidden for Focal Point: no giving dollar amounts) -->
+    <section v-if="!isFocalPoint" class="card">
       <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div class="flex items-center gap-2">
           <span class="eyebrow">Giving Trend</span>
@@ -481,6 +496,7 @@ const pageRoles = rolesOnTab('insights')
     </section>
 
     <LiveActivityFeed
+      v-if="!isFocalPoint"
       :events="liveEvents"
       :fmt-ago="fmtLiveAgo"
       :get-role="getRole"

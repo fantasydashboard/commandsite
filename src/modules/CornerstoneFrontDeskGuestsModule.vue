@@ -1,22 +1,64 @@
 <script setup lang="ts">
 /**
- * Cornerstone — Front Desk & Guests.
+ * Cornerstone Front Desk & Guests.
  * Grace's roles on this page: Front Desk + Guest Follow-Up + Story Engine.
  */
 import { computed } from 'vue'
 import type { Client } from '@/types/database'
-import { visitorStats, STAGE_META as VISITOR_STAGE_META, visitors } from '@/lib/clients/cornerstone/visitors'
+import { STAGE_META as VISITOR_STAGE_META } from '@/lib/clients/cornerstone/visitors'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
+import { focalPointVisitorTouches } from '@/lib/clients/focal-point/visitors'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
+import GuestPipelineBoard from '@/components/cornerstone/GuestPipelineBoard.vue'
+import { guestPipeline, guestKpis } from '@/lib/clients/focal-point/guestPipeline'
+import { useCongregationLens } from '@/stores/congregationLens'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Front Desk scopes by congregation: the two Starting Point workflows tag every
+// guest English (weekend) or Brazilian, so the KPIs, board, and welcome queue
+// all follow the lens.
+const lens = useCongregationLens()
+const gpInScope = (campus: string) => lens.scope === 'all' || campus === lens.scope
+const guestKpisScoped = computed(() => guestKpis(lens.scope))
+const pipelineCount = computed(() => guestPipeline.cases.filter((c) => gpInScope(c.campus)).length)
+// Welcome drafts awaiting approval: this week's first-time guests in scope.
+const guestQueue = computed<ApprovalQueueItem[]>(() =>
+  guestPipeline.cases
+    .filter((c) => c.draft && gpInScope(c.campus))
+    .slice(0, 8)
+    .map((c) => ({
+      id: c.id,
+      role: 'guest_followup',
+      icon: 'qa_assistant',
+      badge: 'Welcome',
+      badgeClass: 'bg-success/15 text-success',
+      title: `Welcome: ${c.name}`,
+      recipient: `First visit this week · ${c.campus === 'brazilian' ? 'Brazilian service' : 'weekend service'}`,
+      preview: `"${c.draft}"`,
+      approved_response: 'Sent. Grace will watch for a reply and flag it for you.',
+      ticker_after_approval: `Welcome sent to ${c.name}`,
+    })),
+)
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const visitorStats = data.visitors.stats
+const visitors = data.visitors.records
 
 const visitor = computed(() => visitorStats())
+
+// Focal Point gets real Sunday guests + welcome drafts; Cornerstone keeps demo.
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+const displayTouches = computed(() => (isFocalPoint.value ? focalPointVisitorTouches : recentVisitorTouches))
 
 interface CallEntry { time: string; from: string; topic: string; outcome: string; tone: 'success' | 'warn' | 'info' }
 const recentCalls: CallEntry[] = [
@@ -177,8 +219,8 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
-    <!-- Grace's note on front desk + guest follow-up this week -->
-    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+    <!-- Grace's note (hidden for Focal Point: Cornerstone narrative, Mark-as-congregant) -->
+    <section v-if="!isFocalPoint" class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
       <header class="flex items-center gap-2.5 mb-2.5">
         <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
         <span class="text-xs font-bold text-ink">Grace's note on first-time visitors + the front desk</span>
@@ -193,7 +235,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
          Headline metric matches Today exactly ("8 welcomes / first-time
          families this week") so the same number reads the same way on
          both surfaces. -->
-    <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
+    <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
       <div class="flex items-baseline gap-2 mb-3">
         <AdaIcon name="qa_assistant" class="h-5 w-5 text-brand" />
@@ -223,16 +265,40 @@ const frontDeskRecommendations: GraceRecommendation[] = [
     </section>
 
     <GraceApprovalQueue
-      :items="queueItems"
-      :initial-resolved="5"
+      :items="isFocalPoint ? guestQueue : queueItems"
+      :initial-resolved="isFocalPoint ? 0 : 5"
       assistant-name="Grace"
-      heading="First-touch queue"
-      subtitle="Visitor sequences + story permissions awaiting your eyes. Co-sign to send."
+      :heading="isFocalPoint ? 'Needs you this week' : 'First-touch queue'"
+      :subtitle="isFocalPoint ? 'Welcome notes for this week\'s first-time guests. Approve to send. Everyone else is tracked on the board below.' : 'Visitor sequences + story permissions awaiting your eyes. Co-sign to send.'"
       @approved="onApproved"
     />
 
-    <!-- KPI strip -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <!-- KPI strip (Focal Point: real, from Planning Center) -->
+    <div v-if="isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card">
+        <div class="kpi-label">First-timers (4 wks)</div>
+        <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ guestKpisScoped.firstTimers4w }}</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">signed in at Starting Point</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Still just visitors</div>
+        <div class="mt-1 text-2xl font-bold text-warn tabular-nums">{{ guestKpisScoped.stillVisitors }}</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">of {{ guestKpisScoped.recentGuests }} recent guests</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">In the pipeline</div>
+        <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ pipelineCount }}</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">guests Grace is walking in</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Finished welcome</div>
+        <div class="mt-1 text-2xl font-bold text-success tabular-nums">{{ guestKpisScoped.completedPct }}%</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">of recent guests</div>
+      </div>
+    </div>
+
+    <!-- KPI strip (Cornerstone demo) -->
+    <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card">
         <div class="kpi-label">Calls handled (7d)</div>
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">47</div>
@@ -255,11 +321,27 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       </div>
     </div>
 
-    <!-- Front Desk: recent calls Grace handled -->
-    <section id="front_desk" class="card scroll-mt-24">
+    <!-- Focal Point: real guest pipeline board (front-door mirror of Care & Drift).
+         Guests can't be scoped by the congregation lens; the page-aware lens bar
+         in the chrome says so, so no per-board note is needed here. -->
+    <GuestPipelineBoard v-if="isFocalPoint" />
+
+    <!-- Focal Point: phone answering is a real capability, honestly future-framed -->
+    <section v-if="isFocalPoint" class="card flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-0">
+        <span class="eyebrow">Front desk phone</span>
+        <p class="mt-1 max-w-2xl text-sm text-ink-muted">
+          When you are ready, Grace can answer your phone line too: capture the caller, text service info, book a visit, and escalate a pastoral request to you in real time. Not connected yet, and nothing here is invented.
+        </p>
+      </div>
+      <span class="shrink-0 rounded-md bg-surface-elevated px-2.5 py-1 text-[11px] font-medium text-ink-muted">Available when you want it</span>
+    </section>
+
+    <!-- Front Desk: recent calls Grace handled (Cornerstone demo only) -->
+    <section v-if="!isFocalPoint" id="front_desk" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Front Desk · Recent calls</span>
+          <span class="eyebrow">Front Desk · Recent calls</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">what Grace handled at the phone</span>
         </div>
       </div>
@@ -285,8 +367,8 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       </ul>
     </section>
 
-    <!-- Guest Follow-Up: visitor pipeline -->
-    <section id="guest_followup" class="card scroll-mt-24">
+    <!-- Guest Follow-Up: visitor pipeline (Cornerstone demo; Focal Point uses the board above) -->
+    <section v-if="!isFocalPoint" id="guest_followup" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">Welcome · Pipeline</span>
@@ -294,7 +376,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
         </div>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+      <div v-if="!isFocalPoint" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
         <div
           v-for="stage in (['first_time','returning','connected','membership_class','member'] as const)"
           :key="stage"
@@ -312,7 +394,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
         <div class="kpi-label mb-2">Recent Grace touches</div>
         <ul class="space-y-1.5">
           <li
-            v-for="(t, i) in recentVisitorTouches"
+            v-for="(t, i) in displayTouches"
             :key="i"
             class="flex items-center gap-2 text-xs"
           >
@@ -325,8 +407,8 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       </div>
     </section>
 
-    <!-- Story Engine -->
-    <section id="stories" class="card scroll-mt-24">
+    <!-- Story Engine (hidden for Focal Point: Cornerstone testimonials) -->
+    <section v-if="!isFocalPoint" id="stories" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">Story Engine · Recent</span>
@@ -353,6 +435,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
     </section>
 
     <LiveActivityFeed
+      v-if="!isFocalPoint"
       :events="liveEvents"
       :fmt-ago="fmtLiveAgo"
       :get-role="getRole"
@@ -360,8 +443,8 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       subtitle="Grace's stream scoped to this page · auto-updates"
     />
 
-    <!-- Grace's recommendations — what to act on this week -->
-    <GraceRecommendations :recommendations="frontDeskRecommendations" />
+    <!-- Grace's recommendations (hidden for Focal Point: Cornerstone narrative) -->
+    <GraceRecommendations v-if="!isFocalPoint" :recommendations="frontDeskRecommendations" />
 
     <!-- Quiet visitors used reference (silence ESLint via reference) -->
     <span v-if="false">{{ visitors.length }}</span>

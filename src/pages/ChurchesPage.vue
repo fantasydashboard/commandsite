@@ -200,7 +200,7 @@ const faqs: Faq[] = [
             <a :href="CTA_URL" class="btn-primary">
               {{ CTA_LABEL }} →
             </a>
-            <RouterLink to="/dashboard/cornerstone-community-church" class="btn-secondary">
+            <RouterLink to="/dashboard/cornerstone-church" class="btn-secondary">
               Tour the demo
             </RouterLink>
           </div>

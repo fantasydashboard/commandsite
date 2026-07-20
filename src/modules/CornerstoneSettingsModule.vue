@@ -1,24 +1,40 @@
 <script setup lang="ts">
 /**
- * Cornerstone — Settings.
+ * Cornerstone Settings.
  * Team + roles, service times, integrations (ChMS / giving / comms /
  * social / tech-AV / AI), and privacy / role-gating.
  */
 import { computed, reactive, ref } from 'vue'
 import type { Client } from '@/types/database'
 import {
-  teamMembers,
-  serviceTimes,
-  integrations,
-  privacySettings,
-  settingsStats,
   ROLE_LABEL,
   PERMISSION_LABEL,
   SERVICE_TYPE_LABEL,
   INTEGRATION_CATEGORY_LABEL,
 } from '@/lib/clients/cornerstone/settings'
+import { churchDataset } from '@/lib/clients/church/dataset'
+import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
+import PcoConnection from '@/components/cornerstone/PcoConnection.vue'
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// The possible-duplicates review list and the real Planning Center connection
+// run on Focal Point's live data; the Cornerstone demo has no equivalent, so
+// both are gated by slug.
+const showDuplicates = props.client.slug === 'focal-point-church'
+// Churches with a live Planning Center OAuth connection surface. Add a slug
+// here when a new church onboards; the public Cornerstone demo stays excluded.
+const PCO_CONNECT_CHURCHES = ['focal-point-church']
+const showPcoConnect = PCO_CONNECT_CHURCHES.includes(props.client.slug)
+
+// Client-varying data resolved by slug. Names preserved so the rest of the
+// module and its template are unchanged. Types + *_LABEL stay shared above.
+const data = churchDataset(props.client.slug)
+const teamMembers = data.settings.team
+const serviceTimes = data.settings.serviceTimes
+const integrations = data.settings.integrations
+const privacySettings = data.settings.privacy
+const settingsStats = data.settings.stats
 
 const stats = computed(() => settingsStats())
 const intsLocal = reactive(integrations.map((i) => ({ ...i })))
@@ -209,6 +225,12 @@ const intsByCategory = computed(() => {
         </div>
       </div>
     </section>
+
+    <!-- Real Planning Center connection (Focal Point live data only) -->
+    <PcoConnection v-if="showPcoConnect" :tenant="client.slug" :label="client.name" />
+
+    <!-- Possible duplicates (Focal Point real data only) -->
+    <DuplicatesSettings v-if="showDuplicates" />
 
     <!-- Privacy + role-gating -->
     <section class="card">

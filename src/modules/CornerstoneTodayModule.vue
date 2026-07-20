@@ -16,20 +16,40 @@
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Client } from '@/types/database'
-import { todayPulse } from '@/lib/clients/cornerstone/today'
-import { givingStats } from '@/lib/clients/cornerstone/giving'
-import { peopleStats } from '@/lib/clients/cornerstone/people'
 import { graceRoles, getRole, type GraceRole } from '@/lib/clients/cornerstone/roles'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vue'
+import MondayRollup from '@/components/cornerstone/MondayRollup.vue'
+import DuplicatesTodayCard from '@/components/cornerstone/DuplicatesTodayCard.vue'
+import PersonalTodayView from '@/components/cornerstone/PersonalTodayView.vue'
+import { focalPointStaff, staffById } from '@/lib/clients/focal-point/staff'
+import { focalPointBrief, focalPointApproval } from '@/lib/clients/focal-point/today'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import { useLiveActivity, seedEvent, type PoolEvent, type LiveEvent } from '@/composables/useLiveActivity'
 import { money, fmtAgo } from '@/lib/format'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 
 const router = useRouter()
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+const todayPulse = data.today.pulse
+const givingStats = data.giving.stats
+const peopleStats = data.people.stats
+
+// Focal Point gets its real brief + welcome drafts; Cornerstone keeps the demo.
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+
+// Per-user Today: super-user (leadership) previews any staff member's view.
+// 'all' = the full leadership rollup; any other id = that person's filtered Today.
+const viewAs = ref('all')
+const activeStaff = computed(() => staffById(viewAs.value))
+const isFullView = computed(() => viewAs.value === 'all')
 
 function onRoleClick(role: GraceRole) {
   router.push({
@@ -50,11 +70,10 @@ const attendanceTrend = computed(() => {
 
 const greeting = computed(() => {
   const hr = new Date().getHours()
-  // Generic greeting — the demo is for any visiting pastor, not "Pastor Mark"
-  // specifically. Keeps the warmth without assuming the viewer's identity.
-  if (hr < 12) return 'Good morning, Cornerstone'
-  if (hr < 17) return 'Good afternoon, Cornerstone'
-  return 'Good evening, Cornerstone'
+  const church = isFocalPoint.value ? 'Focal Point' : 'Cornerstone'
+  if (hr < 12) return `Good morning, ${church}`
+  if (hr < 17) return `Good afternoon, ${church}`
+  return `Good evening, ${church}`
 })
 
 // ── Approval queue: Grace's drafts awaiting sign-off ──────────────────
@@ -292,8 +311,46 @@ const todayRecommendations: GraceRecommendation[] = [
       </div>
     </div>
 
+    <!-- ── VIEWING AS (Focal Point per-user Today) ─────────────────────
+         Super-user preview: leadership can step into any staffer's view.
+         Each staffer logs in to just their own slice. -->
+    <div
+      v-if="isFocalPoint && mode === 'with-grace'"
+      class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-divider bg-surface-elevated px-4 py-2.5"
+    >
+      <div class="flex flex-wrap items-center gap-2.5">
+        <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Viewing as</span>
+        <div class="inline-flex flex-wrap items-center gap-0.5 rounded-full border border-divider bg-surface p-0.5">
+          <button
+            v-for="s in focalPointStaff"
+            :key="s.id"
+            type="button"
+            class="rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+            :class="viewAs === s.id ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:text-ink'"
+            :aria-pressed="viewAs === s.id"
+            @click="viewAs = s.id"
+          >{{ s.id === 'all' ? 'Everyone' : s.name }}</button>
+        </div>
+      </div>
+      <p class="text-[11px] leading-snug text-ink-muted">
+        <template v-if="isFullView">Leadership view. Each staffer logs in to just their own tasks, preview any above.</template>
+        <template v-else>Previewing {{ activeStaff.name }}'s login. Roles are a starting point; final setup comes from your staff list.</template>
+      </p>
+    </div>
+
+    <!-- Per-user view: one staffer's filtered Today -->
+    <PersonalTodayView
+      v-if="isFocalPoint && mode === 'with-grace' && !isFullView"
+      :staff="activeStaff"
+      :slug="client.slug"
+    />
+
     <!-- ── GRACE'S MORNING HANDOFF — the emotional cheat-code moment ─ -->
-    <GraceMorningHandoff v-if="mode === 'with-grace'" pastor-name="Pastor Andrew" />
+    <GraceMorningHandoff
+      v-if="mode === 'with-grace' && (!isFocalPoint || isFullView)"
+      :pastor-name="isFocalPoint ? 'Pastor Mark' : 'Pastor Andrew'"
+      :brief="isFocalPoint ? focalPointBrief : null"
+    />
 
     <section v-else class="rounded-card border border-danger/25 bg-danger/[0.04] px-5 py-5 sm:px-6 sm:py-6">
       <header class="flex items-center gap-3 mb-3">
@@ -308,8 +365,8 @@ const todayRecommendations: GraceRecommendation[] = [
       </p>
     </section>
 
-    <!-- ── WHAT GRACE REPLACES — the cheat-code hero ───────────────── -->
-    <section v-if="mode === 'with-grace'" class="card overflow-hidden">
+    <!-- WHAT GRACE REPLACES (hidden for Focal Point: Cornerstone-specific size/price) -->
+    <section v-if="mode === 'with-grace' && !isFocalPoint" class="card overflow-hidden">
       <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow">What Grace replaces</span>
@@ -363,7 +420,7 @@ const todayRecommendations: GraceRecommendation[] = [
       </p>
     </section>
 
-    <section v-else class="card overflow-hidden">
+    <section v-else-if="!isFocalPoint" class="card overflow-hidden">
       <header class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
           <span class="eyebrow text-danger">What you'd be absorbing</span>
@@ -403,8 +460,10 @@ const todayRecommendations: GraceRecommendation[] = [
          standard size below.
          Hidden in 'before-grace' mode since these roles don't exist
          without Grace. -->
+    <!-- Focal Point: real unified rollup of all four pages -->
+    <MondayRollup v-if="isFocalPoint && mode === 'with-grace' && isFullView" :slug="client.slug" />
     <AdaAtWorkHub
-      v-if="mode === 'with-grace'"
+      v-if="!isFocalPoint && mode === 'with-grace'"
       :roles="graceRoles"
       assistant-name="Grace"
       :headline-role-keys="['guest_followup', 'drift_detection']"
@@ -413,8 +472,8 @@ const todayRecommendations: GraceRecommendation[] = [
 
     <!-- ── 2. Approval queue — Grace's drafts awaiting pastoral sign-off ─ -->
     <GraceApprovalQueue
-      v-if="mode === 'with-grace'"
-      :items="queueItems"
+      v-if="mode === 'with-grace' && (!isFocalPoint || isFullView)"
+      :items="isFocalPoint ? focalPointApproval : queueItems"
       :initial-resolved="8"
       :subtitle="`${greeting}. Co-sign to send, edit to revise, skip to resurface tomorrow.`"
       @approved="onApproved"
@@ -428,14 +487,18 @@ const todayRecommendations: GraceRecommendation[] = [
       </header>
     </section>
 
-    <!-- ── 2.5 Grace's recommendations — what to act on this week ─── -->
-    <GraceRecommendations v-if="mode === 'with-grace'" :recommendations="todayRecommendations" />
+    <!-- ── 2.5 Grace's recommendations (Cornerstone demo; Focal Point uses the real rollup above) ─── -->
+    <GraceRecommendations v-if="mode === 'with-grace' && !isFocalPoint" :recommendations="todayRecommendations" />
 
-    <!-- ── 3. Today snapshot + Live activity (merged) ─────────────── -->
-    <section class="card overflow-hidden !p-0">
+    <!-- Focal Point: real data-cleanup recommendation (flagged people with duplicate profiles) -->
+    <DuplicatesTodayCard v-if="mode === 'with-grace' && isFocalPoint && isFullView" :slug="client.slug" />
+
+    <!-- ── 3. Today snapshot + Live activity (Cornerstone demo; Focal Point at-a-glance is in the rollup) ─── -->
+    <section v-if="!isFocalPoint" class="card overflow-hidden !p-0">
       <!-- Header: Cornerstone pulse stats -->
       <header class="border-b border-divider px-5 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 bg-surface-elevated/40">
         <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Today</span>
+        <SampleBadge v-if="isFocalPoint" />
         <div class="flex items-baseline gap-1.5">
           <span class="text-lg font-bold tabular-nums text-ink">{{ pulse.attendance_last_sunday }}</span>
           <span class="text-xs text-ink-muted">last Sun</span>
@@ -455,14 +518,14 @@ const todayRecommendations: GraceRecommendation[] = [
           >{{ people.at_risk_two_plus_flags }}</span>
           <span class="text-xs text-ink-muted">at-risk</span>
         </div>
-        <div class="flex items-baseline gap-1.5">
+        <div v-if="!isFocalPoint" class="flex items-baseline gap-1.5">
           <span class="text-lg font-bold tabular-nums text-ink">{{ money(giving.current_month_cents, { compact: true }) }}</span>
           <span class="text-xs text-ink-muted">giving this month</span>
         </div>
       </header>
 
-      <!-- Live activity feed -->
-      <div class="px-5 py-4">
+      <!-- Live activity feed (hidden for Focal Point: fictional stream) -->
+      <div v-if="!isFocalPoint" class="px-5 py-4">
         <div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-2">
             <span class="relative flex h-2 w-2">

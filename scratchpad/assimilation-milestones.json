@@ -1,0 +1,23 @@
+{
+  "all": {
+    "visited": 466,
+    "completedSP": 64,
+    "metPastor": 50,
+    "serving": 17,
+    "group": 57
+  },
+  "english": {
+    "visited": 283,
+    "completedSP": 45,
+    "metPastor": 46,
+    "serving": 10,
+    "group": 37
+  },
+  "brazilian": {
+    "visited": 183,
+    "completedSP": 19,
+    "metPastor": 4,
+    "serving": 7,
+    "group": 20
+  }
+}

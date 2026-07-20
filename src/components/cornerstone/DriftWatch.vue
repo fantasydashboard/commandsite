@@ -1,0 +1,121 @@
+<script setup lang="ts">
+/**
+ * Focal Point - real Drift Watch.
+ * Families whose children stopped checking into Kids Point for 3+ Sundays
+ * after attending regularly. Real signal from Planning Center Check-Ins.
+ * Giving-lapse and group-absence signals connect once those PCO scopes
+ * are enabled; attendance drift stands on its own until then.
+ */
+import { computed, ref } from 'vue'
+import { focalPointDrift } from '@/lib/clients/focal-point/drift'
+import { activeFamilies as liveActiveFamilies, returnedFamilies } from '@/lib/clients/focal-point/driftLive'
+import { useCareActions } from '@/stores/careActions'
+import { useCongregationLens } from '@/stores/congregationLens'
+import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { familyFlag } from '@/lib/clients/focal-point/flags'
+
+const care = useCareActions()
+const lens = useCongregationLens()
+const COLLAPSED = 12
+const showAll = ref(false)
+const inScope = (family: string) => lens.scope === 'all' || congregationOf(family) === lens.scope
+// Reconciled against the latest check-ins: families who returned drop off.
+const activeFamilies = computed(() =>
+  liveActiveFamilies().filter((f) => !care.isHidden(`family:${f.family}`) && inScope(f.family)),
+)
+const reconnected = computed(() => returnedFamilies().filter((f) => inScope(f.family)).length)
+const visibleFamilies = computed(() =>
+  showAll.value ? activeFamilies.value : activeFamilies.value.slice(0, COLLAPSED),
+)
+const unplaced = computed(() =>
+  lens.scope === 'all'
+    ? 0
+    : focalPointDrift.families.filter((f) => !care.isHidden(`family:${f.family}`) && congregationOf(f.family) === null).length,
+)
+
+function fmtDate(iso: string): string {
+  const [, m, d] = iso.split('-').map(Number)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${months[m - 1]} ${d}`
+}
+
+</script>
+
+<template>
+  <section class="card">
+    <div class="flex items-center justify-between">
+      <span class="eyebrow">Drift Watch</span>
+      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+        Live from Planning Center
+      </span>
+    </div>
+    <h3 class="mt-1 text-base font-semibold text-ink">
+      {{ activeFamilies.length }} families to reach out to
+    </h3>
+    <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ focalPointDrift.signal }}</p>
+    <p class="mt-1 text-[11px] text-ink-muted">
+      {{ focalPointDrift.onboardingExcluded }} first-time or occasional families are excluded (they belong in the welcome funnel, not here).
+      Giving-lapse and group-absence signals connect once those Planning Center scopes are enabled.
+    </p>
+    <p v-if="unplaced" class="mt-1 text-[11px] text-warn">
+      Showing the {{ lens.scope }} congregation. {{ unplaced }} {{ unplaced === 1 ? 'family has' : 'families have' }} no service on record to place them, hidden in this view.
+    </p>
+    <p v-if="reconnected" class="mt-1 inline-flex items-center gap-1.5 text-[11px] text-success">
+      <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+      {{ reconnected }} {{ reconnected === 1 ? 'family' : 'families' }} checked back in on recent Sundays and cleared off this list on the last refresh.
+    </p>
+  </section>
+
+  <!-- The full flagged list -->
+  <section class="card">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="eyebrow">Flagged families</span>
+      <span class="text-[11px] text-ink-muted">most-established families first</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-divider text-left text-[11px] uppercase tracking-wide text-ink-muted">
+            <th class="pb-2 font-medium">Family</th>
+            <th class="pb-2 font-medium">Kids at Kids Point</th>
+            <th class="pb-2 font-medium">Regular for</th>
+            <th class="pb-2 font-medium">Last checked in</th>
+            <th class="pb-2 text-right font-medium">Sundays missed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="f in visibleFamilies"
+            :key="f.family"
+            class="cursor-pointer border-b border-divider/60 transition-colors hover:bg-surface-elevated/50"
+            @click="care.openDetail(familyFlag(f))"
+          >
+            <td class="py-2 font-medium text-ink">The {{ f.family }} family</td>
+            <td class="py-2 text-ink-muted">{{ f.kids.join(', ') }}</td>
+            <td class="py-2 text-ink-muted">~{{ f.monthsAttending }}mo · {{ f.totalSundays }} Sundays</td>
+            <td class="py-2 text-ink-muted">{{ fmtDate(f.lastSeen) }}</td>
+            <td class="py-2 text-right font-semibold" :class="f.sundaysMissed >= 5 ? 'text-danger' : 'text-warn'">
+              {{ f.sundaysMissed }}
+            </td>
+          </tr>
+          <tr v-if="!focalPointDrift.families.length">
+            <td colspan="5" class="py-4 text-center text-ink-muted">
+              Family list loads from the local Planning Center pull.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-3 flex items-center justify-between">
+      <button
+        v-if="activeFamilies.length > COLLAPSED"
+        class="text-xs font-semibold text-brand hover:underline"
+        @click="showAll = !showAll"
+      >
+        {{ showAll ? 'Show fewer' : `Show all ${activeFamilies.length} flagged families` }}
+      </button>
+      <span class="text-[11px] text-ink-disabled">Click a row to see why, or to dismiss / snooze.</span>
+    </div>
+  </section>
+</template>

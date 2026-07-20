@@ -8,14 +8,25 @@ clarification email. It does double duty: welcomes them as a customer, answers
 their "what are the next steps?" question, and delivers the three action links
 in one send.
 
+**2026-06-27 update:** intake is now a per-church Google Doc, not a shared Google
+Form. The Form blocked delegation (sequential page completion, no save and
+resume, no async editing) and Focal Point's Christina Spoon hit the wall trying
+to route sections to staff. Doc lets the team fill in their pieces in parallel
+and @-mention each other. Per-church workflow: copy the master template, rename,
+share. See `feedback_grace_intake_via_doc.md` in memory for the rule.
+
 ## Production links (founding cohort)
 
 These are the live URLs. Reuse the same three for every new Grace church.
 
 - **Stripe payment link (Core $599/mo + Setup $1,249 bundled, 14-day trial)**:
   `https://buy.stripe.com/28E6oA7EUeRaa9N2GWcs800`
-- **Google Form questionnaire** (one form, all churches identify themselves in Q1):
-  `https://docs.google.com/forms/d/e/1FAIpQLSfvs8a7rHV34p_Y_NdQ-Yq2CDDTmR6H4FCtPWgqyOdL5yfHYw/viewform?usp=header`
+- **Google Doc questionnaire template** (master copy, make a per-church copy before sending):
+  `https://docs.google.com/document/d/1qiZMxk93wmDUExtkSnpC9oImTs_564vIUtScm80VnFk/edit?usp=sharing`
+  Per-church workflow: open the template, File > Make a copy, rename to
+  `[Church Name] · Grace Setup Questionnaire`, share with edit access to the
+  primary contact (`{{contact_email}}`), paste that copy's share link into the
+  email as `{{questionnaire_link}}`.
 - **Calendly kickoff call** (60-min, Grace Kickoff event):
   `https://calendly.com/josh-commandsite/commandsite-discovery-walkthrough-churches-clone`
 
@@ -51,9 +62,10 @@ onboarding window).
 Complete payment here: https://buy.stripe.com/28E6oA7EUeRaa9N2GWcs800
 
 STEP 2 - Questionnaire: Once payment is done, you and the team can fill in
-sections at your own pace. Whoever's around can answer their parts; the rest
-can complete theirs as they return.
-Complete the questionnaire here: https://docs.google.com/forms/d/e/1FAIpQLSfvs8a7rHV34p_Y_NdQ-Yq2CDDTmR6H4FCtPWgqyOdL5yfHYw/viewform?usp=header
+sections at your own pace. Each section has a suggested-owner tag so you can
+route the pieces; whoever's around can answer their parts and the rest can
+complete theirs as they return.
+Complete the questionnaire here: {{questionnaire_link}}
 
 {{phase_2_dates}} (kickoff with your full team):
 
@@ -88,6 +100,10 @@ Josh
 
 - `{{contact_first_name}}` — primary buyer's first name (e.g., Christina)
 - `{{church_name}}` — the church name (e.g., Focal Point)
+- `{{questionnaire_link}}` — share link to the per-church copy of the Doc
+  template. Make the copy first (see Production links above), rename it after
+  the church, share with edit access to the primary contact, then drop the
+  share URL here.
 - `{{optional_timing_note}}` — if they mentioned a vacation or constraint, lead
   with a sentence acknowledging it. Default for Focal Point was:
   "Your vacation window actually works in our favor."
@@ -145,7 +161,7 @@ Track in your head (or in CommandSite once #132 ships):
 | Trigger | Your move |
 | --- | --- |
 | Stripe webhook: payment succeeded | Tag them as a founding customer, create their cs_clients row |
-| Questionnaire response in Google Sheet | Start prepping their kickoff materials |
+| Questionnaire Doc filled in (or pinged complete) | Start prepping their kickoff materials |
 | Calendly booking confirmed | Block the 4-5 hours before the call for prep |
 | Day 3 with no payment | Send a soft nudge ("any questions on the Stripe link?") |
 | Day 5 with no questionnaire | Send a soft nudge ("any blockers on the questionnaire?") |

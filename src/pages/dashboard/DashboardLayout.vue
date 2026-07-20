@@ -4,6 +4,7 @@ import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import ClientWordmark from '@/components/ClientWordmark.vue'
+import CongregationLens from '@/components/cornerstone/CongregationLens.vue'
 import AskAiFloatingButton from '@/components/AskAiFloatingButton.vue'
 import GraceToastContainer from '@/components/grace/GraceToastContainer.vue'
 import { personaForSlug } from '@/lib/personas/registry'
@@ -132,7 +133,7 @@ const hasSettings = computed(() => visibleTabs.value.some((t) => t.key === 'sett
 // here so the nav shows "Calls 2" without each component knowing about
 // the others.
 function tabBadge(tabKey: string): TabBadge | null {
-  return badgesForTab(tabKey, enabledModuleKeys.value)
+  return badgesForTab(tabKey, enabledModuleKeys.value, props.slug)
 }
 
 function badgeClass(tone: TabBadge['tone']): string {
@@ -177,6 +178,7 @@ const DEMO_CLIENT_NAMES: Record<string, string> = {
   'apex': 'Apex Heating & Air',
   'apex-heating-and-air': 'Apex Heating & Air',
   'cornerstone-church': 'Cornerstone Community Church',
+  'focal-point-church': 'Focal Point Church',
   'commandsite': 'CommandSite',
   'commandsite-demo': 'CommandSite (demo snapshot)',
   'ultimate-fantasy-dashboard': 'Ultimate Fantasy Dashboard',
@@ -382,6 +384,9 @@ async function onLogout() {
         Dashboard not found.
       </div>
       <template v-else>
+        <!-- Focal Point: congregation lens, global so it scopes every page -->
+        <CongregationLens v-if="slug === 'focal-point-church'" class="mb-4" />
+
         <header
           v-if="!suppressLayoutHeader"
           class="mb-4 flex items-baseline justify-between gap-3"

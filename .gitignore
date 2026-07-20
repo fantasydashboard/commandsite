@@ -15,3 +15,6 @@ supabase/.temp/
 
 # Claude Code per-user settings (personal allowlist, not shared)
 .claude/settings.local.json
+
+# Planning Center raw pull output (member PII, never commit)
+scratchpad/pco-raw/

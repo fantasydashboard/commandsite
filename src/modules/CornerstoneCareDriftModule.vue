@@ -6,21 +6,76 @@
 import { computed, ref } from 'vue'
 import type { Client } from '@/types/database'
 import {
-  households, people, peopleStats, peopleInHousehold,
-  STAGE_META, FLAG_META, totalFlagCount,
+  STAGE_META, FLAG_META,
   type Household, type HouseholdStage,
 } from '@/lib/clients/cornerstone/people'
-import { careCases, careStats, KIND_META as CARE_KIND_META, URGENCY_META, type CareCase } from '@/lib/clients/cornerstone/care'
+import { KIND_META as CARE_KIND_META, URGENCY_META, type CareCase } from '@/lib/clients/cornerstone/care'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
+import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
+import CareDriftPriority from '@/components/cornerstone/CareDriftPriority.vue'
+import CarePipelineBoard from '@/components/cornerstone/CarePipelineBoard.vue'
+import LeaderDigestPreview from '@/components/cornerstone/LeaderDigestPreview.vue'
+import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
+import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
+import GroupDriftWatch from '@/components/cornerstone/GroupDriftWatch.vue'
+import RecentWins from '@/components/cornerstone/RecentWins.vue'
+import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
+import { focalPointServing } from '@/lib/clients/focal-point/serving'
+import { focalPointGroupDrift } from '@/lib/clients/focal-point/groupDrift'
+import { activeFamilies } from '@/lib/clients/focal-point/driftLive'
+import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { useCongregationLens } from '@/stores/congregationLens'
+import { useCareActions } from '@/stores/careActions'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
 
-defineProps<{ client: Client; config: Record<string, unknown> }>()
+const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Client-varying data resolved by slug; names preserved so the rest of the
+// module and template are unchanged.
+const data = churchDataset(props.client.slug)
+// Care & Drift is Sample for Focal Point until drift derivation (needs
+// giving/groups/check-in history) lands. Tag it clearly, hide the fake feeds.
+const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+
+// Tabbed directories below the priority feed (fixes the page length).
+// Counts are lens- and reconciliation-aware so each tab badge MATCHES the list
+// beneath it: same congregation scope, same dismiss/snooze hiding, same
+// "came back" reconciliation the directories apply.
+const lens = useCongregationLens()
+const careActions = useCareActions()
+const inScope = (name: string) => lens.scope === 'all' || congregationOf(name) === lens.scope
+const familiesCount = computed(
+  () => activeFamilies().filter((f) => inScope(f.family) && !careActions.isHidden(`family:${f.family}`)).length,
+)
+// Serving scopes by CAMPUS (the teams a person served): Brazilian ministry teams
+// vs English/main. People who served both show in both views.
+const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
+const servingCount = computed(
+  () => focalPointServing.people.filter((p) => !careActions.isHidden(`serving:${p.name}`) && inCampus(p.campus)).length,
+)
+const groupsCount = computed(
+  () => focalPointGroupDrift.people.filter((p) => inScope(p.name) && !careActions.isHidden(`group:${p.name}`)).length,
+)
+const careTab = ref<'families' | 'serving' | 'groups'>('families')
+const careTabs = computed(() => [
+  { key: 'families' as const, label: 'Families drifting', count: familiesCount.value },
+  { key: 'serving' as const, label: 'Stopped serving', count: servingCount.value },
+  { key: 'groups' as const, label: 'Group drift', count: groupsCount.value },
+])
+const households = data.people.households
+const people = data.people.people
+const peopleStats = data.people.stats
+const peopleInHousehold = data.people.inHousehold
+const totalFlagCount = data.people.totalFlagCount
+const careCases = data.care.cases
+const careStats = data.care.stats
 
 const stats = computed(() => peopleStats())
 const care = computed(() => careStats())
@@ -186,8 +241,8 @@ const careRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
     />
 
-    <!-- Grace's note on care + drift this week -->
-    <section class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
+    <!-- Grace's note (hidden for Focal Point) -->
+    <section v-if="!isFocalPoint" class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
       <header class="flex items-center gap-2.5 mb-2.5">
         <div class="h-7 w-7 rounded-full bg-brand text-ink-inverse flex items-center justify-center text-xs font-bold flex-shrink-0">G</div>
         <span class="text-xs font-bold text-ink">Grace's note on care + drift</span>
@@ -199,7 +254,30 @@ const careRecommendations: GraceRecommendation[] = [
 
     <!-- Drift Watch hero block: this is the page's headline product,
          mirroring the Welcome hero on the Front Desk & Guests page. -->
-    <section class="card border-2 border-brand bg-brand/[0.04] !p-5">
+    <!-- Focal Point: priority photo-card feed, then tabbed directories -->
+    <template v-if="isFocalPoint">
+      <CareDriftPriority />
+      <RecentWins />
+      <CarePipelineBoard />
+      <LeaderDigestPreview />
+      <div class="card flex flex-wrap gap-1 !p-1.5">
+        <div class="w-full px-1 pb-1 text-[11px] text-ink-muted">Full directories, the complete list behind each track. All three follow the lens: families and groups by the service they attend, serving by the teams they serve. Everyone who has come back drops off.</div>
+        <button
+          v-for="t in careTabs"
+          :key="t.key"
+          class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+          :class="careTab === t.key ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:bg-surface-elevated hover:text-ink'"
+          @click="careTab = t.key"
+        >
+          {{ t.label }} <span class="ml-1 text-xs opacity-70 tabular-nums">{{ t.count }}</span>
+        </button>
+      </div>
+      <DriftWatch v-if="careTab === 'families'" />
+      <PeopleDrift v-if="careTab === 'serving'" />
+      <GroupDriftWatch v-if="careTab === 'groups'" />
+      <FlagDetailDrawer />
+    </template>
+    <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">
       <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand mb-2">Headline role · this page</div>
       <div class="flex items-baseline gap-2 mb-3">
         <AdaIcon name="alert-triangle" class="h-5 w-5 text-brand" />
@@ -228,6 +306,7 @@ const careRecommendations: GraceRecommendation[] = [
     </section>
 
     <GraceApprovalQueue
+      v-if="!isFocalPoint"
       :items="queueItems"
       :initial-resolved="3"
       assistant-name="Grace"
@@ -236,8 +315,8 @@ const careRecommendations: GraceRecommendation[] = [
       @approved="onApproved"
     />
 
-    <!-- KPI strip -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <!-- KPI strip (hidden for Focal Point: Cornerstone care/giving counts) -->
+    <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card">
         <div class="kpi-label">2+ flag households</div>
         <div class="mt-1 text-2xl font-bold tabular-nums" :class="stats.at_risk_two_plus_flags > 0 ? 'text-danger' : 'text-ink'">{{ stats.at_risk_two_plus_flags }}</div>
@@ -261,10 +340,10 @@ const careRecommendations: GraceRecommendation[] = [
     </div>
 
     <!-- Care queue (urgent cases + Grace's drafts) -->
-    <section id="care_triage" class="card scroll-mt-24">
+    <section v-if="!isFocalPoint" id="care_triage" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Care Triage · Open cases</span>
+          <span class="eyebrow">Care Triage · Open cases</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">sorted by urgency</span>
         </div>
         <span class="text-[11px] text-ink-disabled">{{ openCareCases.length }} open · {{ care.drafts_pending }} drafted</span>
@@ -298,10 +377,10 @@ const careRecommendations: GraceRecommendation[] = [
     </section>
 
     <!-- Drift detection — household directory (filtered to at-risk by default) -->
-    <section id="drift_detection" class="card scroll-mt-24">
+    <section v-if="!isFocalPoint" id="drift_detection" class="card scroll-mt-24">
       <div class="mb-3 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-baseline gap-2">
-          <span class="eyebrow">Drift Watch · Household directory</span>
+          <span class="eyebrow">Drift Watch · Household directory</span> <SampleBadge v-if="isFocalPoint" />
           <span class="text-xs text-ink-muted">three-flag system, sorted by risk</span>
         </div>
       </div>
@@ -382,6 +461,7 @@ const careRecommendations: GraceRecommendation[] = [
     </section>
 
     <LiveActivityFeed
+      v-if="!isFocalPoint"
       :events="liveEvents"
       :fmt-ago="fmtLiveAgo"
       :get-role="getRole"
@@ -390,7 +470,7 @@ const careRecommendations: GraceRecommendation[] = [
     />
 
     <!-- Grace's recommendations — what to act on this week -->
-    <GraceRecommendations :recommendations="careRecommendations" />
+    <GraceRecommendations v-if="!isFocalPoint" :recommendations="careRecommendations" />
 
     <!-- Reference openCareCases is used; silence no-unused if needed -->
   </div>

@@ -64,9 +64,7 @@ import CornerstoneSundaysCommsModule from './CornerstoneSundaysCommsModule.vue'
 import CornerstoneMetricsModule from './CornerstoneMetricsModule.vue'
 import CornerstoneGivingModule from './CornerstoneGivingModule.vue'
 import CornerstoneSettingsModule from './CornerstoneSettingsModule.vue'
-import { households as cornerstoneHouseholds, totalFlagCount as cornerstoneFlagCount } from '@/lib/clients/cornerstone/people'
-import { careStats as cornerstoneCareStats } from '@/lib/clients/cornerstone/care'
-import { stoppedGivingHouseholds as cornerstoneStoppedGiving } from '@/lib/clients/cornerstone/giving'
+import { churchDataset } from '@/lib/clients/church/dataset'
 import { crossSellFlags as csCrossSell } from '@/lib/clients/commandsite/usage'
 import { reviews as csB2BReviews } from '@/lib/clients/commandsite/reputation'
 import { tickets as csTickets } from '@/lib/clients/commandsite/support'
@@ -103,7 +101,7 @@ export interface TabDefinition {
 // client. Order here is the source of truth for nav ordering.
 //
 // The "ops" tabs (calls/quotes/reviews/reactivation/settings) are
-// service-industry specific — they only appear for clients with those
+// service-industry specific: they only appear for clients with those
 // modules enabled (Apex Heating & Air etc.). UFD doesn't get them.
 export const dashboardTabs: TabDefinition[] = [
   { key: 'today', label: 'Today' },
@@ -128,7 +126,7 @@ export const dashboardTabs: TabDefinition[] = [
   { key: 'front-desk-quotes', label: 'Quotes' },
   { key: 'care-drift', label: 'Care & Drift' },
   { key: 'customer-care', label: 'Customers' },
-  { key: 'sundays-comms', label: 'Sundays & Comms' },
+  { key: 'sundays-comms', label: 'Serving' },
   { key: 'reputation-marketing', label: 'Reviews' },
   { key: 'lead-sources', label: 'Lead Sources' },
   { key: 'insights', label: 'Insights' },
@@ -178,7 +176,7 @@ export interface ModuleDefinition {
   // owner sees "3 things to look at" without entering the tab. If
   // multiple modules under one tab return badges, counts sum and the
   // strongest tone wins (danger > warn > info).
-  badge?: () => TabBadge | null
+  badge?: (slug: string) => TabBadge | null
 }
 
 // Single source of truth for available modules.
@@ -766,8 +764,9 @@ export const moduleRegistry: ModuleDefinition[] = [
     component: CornerstoneTodayModule,
     fullWidth: true,
     tab: 'today',
-    badge: () => {
-      const urgent = cornerstoneCareStats().urgent_cases
+    badge: (slug) => {
+      if (slug === 'focal-point-church') return null // Care data is Sample for FP
+      const urgent = churchDataset(slug).care.stats().urgent_cases
       return urgent > 0 ? { count: urgent, tone: 'danger' } : null
     },
   },
@@ -786,15 +785,17 @@ export const moduleRegistry: ModuleDefinition[] = [
     component: CornerstoneCareDriftModule,
     fullWidth: true,
     tab: 'care-drift',
-    badge: () => {
-      const atRisk = cornerstoneHouseholds.filter((h) => cornerstoneFlagCount(h) >= 2).length
+    badge: (slug) => {
+      if (slug === 'focal-point-church') return null // Drift data is Sample for FP
+      const d = churchDataset(slug)
+      const atRisk = d.people.households.filter((h) => d.people.totalFlagCount(h) >= 2).length
       return atRisk > 0 ? { count: atRisk, tone: 'warn' } : null
     },
   },
   {
     key: 'cornerstone-sundays-comms',
-    label: 'Cornerstone Sundays & Comms',
-    description: "Grace's operational roles — Volunteer Coordination + Communications.",
+    label: 'Cornerstone Serving',
+    description: "Grace's operational roles: Volunteer Coordination + Communications.",
     component: CornerstoneSundaysCommsModule,
     fullWidth: true,
     tab: 'sundays-comms',
@@ -814,8 +815,8 @@ export const moduleRegistry: ModuleDefinition[] = [
     component: CornerstoneGivingModule,
     fullWidth: true,
     tab: 'giving',
-    badge: () => {
-      const priority = cornerstoneStoppedGiving.filter((h) => h.also_kids_flag || h.also_serving_flag).length
+    badge: (slug) => {
+      const priority = churchDataset(slug).giving.stoppedHouseholds.filter((h) => h.also_kids_flag || h.also_serving_flag).length
       return priority > 0 ? { count: priority, tone: 'warn' } : null
     },
   },
@@ -838,6 +839,7 @@ export function getModule(key: string): ModuleDefinition | undefined {
 export function badgesForTab(
   tabKey: string,
   enabledModuleKeys: Set<string>,
+  slug: string,
 ): TabBadge | null {
   const tonePriority: Record<NonNullable<TabBadge['tone']>, number> = {
     info: 0, warn: 1, danger: 2,
@@ -846,7 +848,7 @@ export function badgesForTab(
   let tone: TabBadge['tone'] | undefined
   for (const m of moduleRegistry) {
     if (!enabledModuleKeys.has(m.key) || m.tab !== tabKey || !m.badge) continue
-    const b = m.badge()
+    const b = m.badge(slug)
     if (!b || b.count <= 0) continue
     total += b.count
     const t = b.tone ?? 'info'

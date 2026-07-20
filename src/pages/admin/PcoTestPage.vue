@@ -2,13 +2,15 @@
 /**
  * /admin/pco-test — Planning Center API sandbox.
  *
- * Lets the admin paste a Personal Access Token (app_id:secret) and
- * fire test calls against the PCO API to verify the integration works
- * end-to-end before wiring it into a real client surface.
+ * Two auth modes:
+ *  - Connected church (OAuth): pick a church slug and the pco-proxy resolves
+ *    that church's stored OAuth token server-side. No token in the browser.
+ *    This is how you verify a church's connection right after it authorizes.
+ *  - Personal Access Token: paste an app_id:secret PAT for ad-hoc probing.
+ *    Token lives in localStorage only, never in git, never in Supabase.
  *
- * Token lives in localStorage so it persists across reloads, never in
- * git, never in Supabase. Every API call goes through the pco-proxy
- * Edge Function (PCO doesn't allow CORS for browser-direct calls).
+ * Every API call goes through the pco-proxy Edge Function (PCO doesn't allow
+ * CORS for browser-direct calls).
  *
  * Tests cover the data shapes Grace actually needs:
  *  - People (members + visitors)
@@ -21,15 +23,36 @@
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '@/lib/supabase'
 
+// ── Auth mode: 'tenant' (connected church OAuth) or 'pat' (pasted token)
+type AuthMode = 'tenant' | 'pat'
+const AUTH_MODE_KEY = 'pco_test_auth_mode'
+const TENANT_STORAGE_KEY = 'pco_test_tenant'
+const authMode = ref<AuthMode>('tenant')
+const tenant = ref('focal-point-church')
+
 // ── Token: PAT in "app_id:secret" format, persisted in localStorage
 const TOKEN_STORAGE_KEY = 'pco_pat_test_only'
 const token = ref('')
 const showToken = ref(false)
 
 onMounted(() => {
+  const savedMode = localStorage.getItem(AUTH_MODE_KEY)
+  if (savedMode === 'tenant' || savedMode === 'pat') authMode.value = savedMode
+  const savedTenant = localStorage.getItem(TENANT_STORAGE_KEY)
+  if (savedTenant) tenant.value = savedTenant
   const saved = localStorage.getItem(TOKEN_STORAGE_KEY)
   if (saved) token.value = saved
 })
+
+function setMode(mode: AuthMode) {
+  authMode.value = mode
+  localStorage.setItem(AUTH_MODE_KEY, mode)
+}
+
+function saveTenant() {
+  if (tenant.value.trim()) localStorage.setItem(TENANT_STORAGE_KEY, tenant.value.trim())
+  else localStorage.removeItem(TENANT_STORAGE_KEY)
+}
 
 function saveToken() {
   if (token.value.trim()) {
@@ -40,6 +63,9 @@ function saveToken() {
 }
 
 const tokenIsValid = computed(() => token.value.includes(':') && token.value.trim().length > 5)
+const tenantIsValid = computed(() => /^[a-z0-9][a-z0-9_-]*$/.test(tenant.value.trim()))
+// Whether the current mode has enough to fire a call.
+const canRun = computed(() => (authMode.value === 'tenant' ? tenantIsValid.value : tokenIsValid.value))
 
 // ── One result per test slot (keyed by test id)
 interface TestResult {
@@ -55,19 +81,28 @@ const loading = ref<Record<string, boolean>>({})
 const errors = ref<Record<string, string>>({})
 
 async function runTest(slotId: string, path: string, method = 'GET') {
-  if (!tokenIsValid.value) {
-    errors.value[slotId] = 'Enter a PCO Personal Access Token first (format: app_id:secret).'
+  if (!canRun.value) {
+    errors.value[slotId] = authMode.value === 'tenant'
+      ? 'Enter a connected church slug first (e.g. focal-point-church).'
+      : 'Enter a PCO Personal Access Token first (format: app_id:secret).'
     return
   }
   loading.value[slotId] = true
   errors.value[slotId] = ''
   const startedAt = Date.now()
   try {
-    const { data, error } = await supabase.functions.invoke('pco-proxy', {
-      body: { token: token.value.trim(), path, method },
-    })
+    const body = authMode.value === 'tenant'
+      ? { tenant: tenant.value.trim(), path, method }
+      : { token: token.value.trim(), path, method }
+    const { data, error } = await supabase.functions.invoke('pco-proxy', { body })
     if (error) {
       errors.value[slotId] = error.message || 'Proxy call failed'
+      return
+    }
+    // Tenant mode with no connection returns { error } instead of a PCO shape.
+    const maybeErr = (data as { error?: string })?.error
+    if (maybeErr) {
+      errors.value[slotId] = maybeErr
       return
     }
     const res = data as { status: number; statusText: string; body: string; parsed: unknown }
@@ -183,54 +218,105 @@ const tests = [
     <header>
       <h1 class="text-2xl font-semibold text-ink tracking-tight">Planning Center · test sandbox</h1>
       <p class="text-sm text-ink-muted mt-1 max-w-3xl">
-        Paste a PCO Personal Access Token and fire test calls against the API to verify the integration shape Grace will use. Token lives in your browser only, never in Supabase, never in git.
+        Fire test calls against the PCO API to verify the integration shape Grace will use. Run as a connected church (its OAuth token, resolved server-side) or paste a Personal Access Token for ad-hoc probing.
       </p>
     </header>
 
-    <!-- ── Token input ────────────────────────────────────────────── -->
+    <!-- ── Auth mode ──────────────────────────────────────────────── -->
     <section class="card">
       <div class="mb-3">
-        <span class="eyebrow">Personal Access Token</span>
-        <p class="text-xs text-ink-muted">
-          Format: <code class="font-mono text-[11px] bg-surface-elevated px-1.5 py-0.5 rounded">app_id:secret</code>. Create one at
-          <a href="https://api.planningcenteronline.com/oauth/applications" target="_blank" class="text-brand hover:underline">api.planningcenteronline.com/oauth/applications</a> → "Personal Access Tokens" tab.
-        </p>
+        <span class="eyebrow">Auth mode</span>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <input
-          v-model="token"
-          :type="showToken ? 'text' : 'password'"
-          placeholder="app_id:secret"
-          class="flex-1 min-w-[300px] rounded-md border border-divider bg-surface-raised px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-          @change="saveToken"
-          @blur="saveToken"
-        />
+      <div class="inline-flex rounded-md border border-divider overflow-hidden mb-4">
         <button
           type="button"
-          class="text-xs text-ink-muted hover:text-ink px-2 py-1"
-          @click="showToken = !showToken"
+          class="px-3 py-1.5 text-xs font-medium transition-colors"
+          :class="authMode === 'tenant' ? 'bg-brand text-white' : 'bg-surface-raised text-ink-muted hover:text-ink'"
+          @click="setMode('tenant')"
         >
-          {{ showToken ? 'Hide' : 'Show' }}
+          Connected church
         </button>
         <button
           type="button"
-          class="text-xs text-danger hover:underline px-2 py-1"
-          @click="token = ''; saveToken()"
+          class="px-3 py-1.5 text-xs font-medium transition-colors border-l border-divider"
+          :class="authMode === 'pat' ? 'bg-brand text-white' : 'bg-surface-raised text-ink-muted hover:text-ink'"
+          @click="setMode('pat')"
         >
-          Clear
+          Personal Access Token
         </button>
-        <span
-          v-if="tokenIsValid"
-          class="text-[11px] text-success bg-success/10 px-2 py-1 rounded-full font-medium"
-        >
-          Looks valid
-        </span>
-        <span
-          v-else-if="token"
-          class="text-[11px] text-warn bg-warn/10 px-2 py-1 rounded-full font-medium"
-        >
-          Missing colon — should be app_id:secret
-        </span>
+      </div>
+
+      <!-- Tenant (OAuth) mode -->
+      <div v-if="authMode === 'tenant'">
+        <p class="text-xs text-ink-muted mb-2">
+          The church's slug (its dashboard URL segment). The proxy loads that church's stored OAuth token, refreshing it if needed. Nothing sensitive touches the browser. Connect a church first from its dashboard Settings.
+        </p>
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            v-model="tenant"
+            type="text"
+            placeholder="focal-point-church"
+            class="flex-1 min-w-[300px] rounded-md border border-divider bg-surface-raised px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            @change="saveTenant"
+            @blur="saveTenant"
+          />
+          <span
+            v-if="tenantIsValid"
+            class="text-[11px] text-success bg-success/10 px-2 py-1 rounded-full font-medium"
+          >
+            Slug looks valid
+          </span>
+          <span
+            v-else-if="tenant"
+            class="text-[11px] text-warn bg-warn/10 px-2 py-1 rounded-full font-medium"
+          >
+            Use a lowercase slug like focal-point-church
+          </span>
+        </div>
+      </div>
+
+      <!-- PAT mode -->
+      <div v-else>
+        <p class="text-xs text-ink-muted mb-2">
+          Format: <code class="font-mono text-[11px] bg-surface-elevated px-1.5 py-0.5 rounded">app_id:secret</code>. Create one at
+          <a href="https://api.planningcenteronline.com/oauth/applications" target="_blank" class="text-brand hover:underline">api.planningcenteronline.com/oauth/applications</a> → "Personal Access Tokens" tab. Lives in your browser only, never in Supabase, never in git.
+        </p>
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            v-model="token"
+            :type="showToken ? 'text' : 'password'"
+            placeholder="app_id:secret"
+            class="flex-1 min-w-[300px] rounded-md border border-divider bg-surface-raised px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            @change="saveToken"
+            @blur="saveToken"
+          />
+          <button
+            type="button"
+            class="text-xs text-ink-muted hover:text-ink px-2 py-1"
+            @click="showToken = !showToken"
+          >
+            {{ showToken ? 'Hide' : 'Show' }}
+          </button>
+          <button
+            type="button"
+            class="text-xs text-danger hover:underline px-2 py-1"
+            @click="token = ''; saveToken()"
+          >
+            Clear
+          </button>
+          <span
+            v-if="tokenIsValid"
+            class="text-[11px] text-success bg-success/10 px-2 py-1 rounded-full font-medium"
+          >
+            Looks valid
+          </span>
+          <span
+            v-else-if="token"
+            class="text-[11px] text-warn bg-warn/10 px-2 py-1 rounded-full font-medium"
+          >
+            Missing colon — should be app_id:secret
+          </span>
+        </div>
       </div>
     </section>
 
@@ -249,7 +335,7 @@ const tests = [
         <button
           type="button"
           class="btn-primary text-xs whitespace-nowrap"
-          :disabled="loading[test.id] || !tokenIsValid"
+          :disabled="loading[test.id] || !canRun"
           @click="runTest(test.id, test.path)"
         >
           {{ loading[test.id] ? 'Running…' : 'Run' }}
@@ -337,7 +423,7 @@ const tests = [
         <button
           type="button"
           class="btn-primary text-xs"
-          :disabled="loading['form-submissions'] || !tokenIsValid || !formIdForSubmissions"
+          :disabled="loading['form-submissions'] || !canRun || !formIdForSubmissions"
           @click="runTest('form-submissions', `/people/v2/forms/${formIdForSubmissions}/form_submissions?per_page=10&order=-created_at`)"
         >
           {{ loading['form-submissions'] ? 'Running…' : 'Run' }}
@@ -389,7 +475,7 @@ const tests = [
         <button
           type="button"
           class="btn-primary text-xs"
-          :disabled="loading['custom'] || !tokenIsValid || !customPath"
+          :disabled="loading['custom'] || !canRun || !customPath"
           @click="runTest('custom', customPath, customMethod)"
         >
           {{ loading['custom'] ? 'Running…' : 'Run' }}

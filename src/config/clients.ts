@@ -87,18 +87,18 @@ export const clientModuleConfigs: Record<ClientSlug, ClientModuleConfig[]> = {
     { key: 'cornerstone-giving' },
     { key: 'cornerstone-settings' },
   ],
-  'focal-point-test': [
-    // Focal Point (TEST) — pre-pitch test client modeled after
-    // Cornerstone. Same Grace module set + fixture data — used to walk
-    // through what Focal Point would experience before the real pitch.
-    // Swap fixture data for live Planning Center reads once integration
-    // is wired (cornerstone-settings has the Planning Center config form).
+  'focal-point-church': [
+    // Focal Point Church (Orlando, FL), Grace customer #1. Reuses the
+    // Cornerstone church module set; data resolves per slug via
+    // churchDataset(). Phase 1 renders passthrough data; Phase 2 swaps in
+    // real Planning Center reads (People, Check-Ins, Groups, Giving, Forms).
     { key: 'cornerstone-today' },
     { key: 'cornerstone-front-desk-guests' },
     { key: 'cornerstone-care-drift' },
     { key: 'cornerstone-sundays-comms' },
     { key: 'cornerstone-metrics' },
-    { key: 'cornerstone-giving' },
+    // Giving tab intentionally omitted until Christina's PCO token enables
+    // real aggregate-only giving (the pastor is sensitive about giving data).
     { key: 'cornerstone-settings' },
   ],
   'ultimate-fantasy-dashboard': [
