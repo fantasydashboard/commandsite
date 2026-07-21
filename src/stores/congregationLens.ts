@@ -23,11 +23,21 @@ function load(): CongregationScope {
 
 export const useCongregationLens = defineStore('congregationLens', () => {
   const scope = ref<CongregationScope>(load())
+  // When a user is scoped to one congregation, the lens locks to it: it can't be
+  // switched, and the picker shows only that congregation. Null = unlocked (admins
+  // and 'all'-scope users). Set from the dashboard shell via the auth profile.
+  const locked = ref<CongregationScope | null>(null)
 
   function set(next: CongregationScope) {
+    if (locked.value) return // scoped users cannot switch congregations
     scope.value = next
     try { localStorage.setItem(KEY, next) } catch { /* ignore */ }
   }
 
-  return { scope, set }
+  function lockTo(c: string | null | undefined) {
+    locked.value = c === 'english' || c === 'brazilian' ? c : null
+    if (locked.value) scope.value = locked.value
+  }
+
+  return { scope, set, locked, lockTo }
 })

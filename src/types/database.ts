@@ -27,6 +27,10 @@ export type UserProfile = {
   full_name: string | null
   role: Role
   client_id: string | null
+  /** Church-level role scope (full|finance|comms_only|volunteers|pastoral_care|member). Null = member. */
+  permission_scope: string | null
+  /** Congregation access (all|english|brazilian). Null = all. */
+  congregation_scope: string | null
   created_at: string
 }
 

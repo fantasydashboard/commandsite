@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, provide, ref, watch, watchEffect } from 'vue'
 import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
@@ -9,6 +9,8 @@ import AskAiFloatingButton from '@/components/AskAiFloatingButton.vue'
 import GraceToastContainer from '@/components/grace/GraceToastContainer.vue'
 import { personaForSlug } from '@/lib/personas/registry'
 import { modulesForClient } from '@/config/clients'
+import { modulesForUser } from '@/lib/clients/church/access'
+import { useCongregationLens } from '@/stores/congregationLens'
 import { themeForClient } from '@/config/clientThemes'
 import { visibleTabsFor, badgesForTab, type TabBadge } from '@/modules/registry'
 import type { Client } from '@/types/database'
@@ -27,8 +29,15 @@ const error = ref<string | null>(null)
 // Module enablement comes from src/config/clients.ts — edit that file to
 // add/remove modules for a client; no DB round-trip.
 const enabledModuleKeys = computed<Set<string>>(
-  () => new Set(modulesForClient(props.slug).map((m) => m.key)),
+  () => new Set(modulesForUser(props.slug, { role: auth.profile?.role, permissionScope: auth.permissionScope }).map((m) => m.key)),
 )
+
+// Lock the congregation lens to a scoped client user's congregation. Admins and
+// public demos stay unlocked (they see the full All/English/Brazilian picker).
+const lens = useCongregationLens()
+watchEffect(() => {
+  lens.lockTo(auth.profile?.role === 'client' ? auth.congregationScope : null)
+})
 
 // Per-client theme — CSS variable overrides. Applied to documentElement
 // (not the wrapper) so the body's page-wash gradient picks them up too.

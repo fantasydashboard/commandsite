@@ -36,6 +36,12 @@ const routes = [
     meta: { public: true },
   },
   {
+    path: '/set-password',
+    name: 'set-password',
+    component: () => import('@/pages/SetPasswordPage.vue'),
+    meta: { public: true },
+  },
+  {
     path: '/admin',
     component: () => import('@/pages/admin/AdminLayout.vue'),
     meta: { requiresAuth: true, requiresRole: 'admin' as const },

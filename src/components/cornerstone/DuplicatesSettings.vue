@@ -22,6 +22,13 @@ const visible = computed(() => {
   return rows.value
 })
 
+// The list can be 100+ rows. Show a preview and let the user expand, so the
+// review list does not push the rest of Settings far off-screen. Collapse resets
+// when the filter changes so a filtered view starts from the top.
+const PREVIEW = 12
+const showAll = ref(false)
+const shown = computed(() => (showAll.value ? visible.value : visible.value.slice(0, PREVIEW)))
+
 const open = ref<string | null>(null)
 function toggle(name: string) {
   open.value = open.value === name ? null : name
@@ -112,7 +119,7 @@ function fmtDate(iso: string): string {
         :key="f"
         class="rounded-md px-2.5 py-1 font-medium transition-colors"
         :class="filter === f ? 'bg-brand text-white' : 'border border-divider text-ink-muted hover:text-ink'"
-        @click="filter = f"
+        @click="filter = f; showAll = false"
       >
         {{ f === 'all' ? `All ${rows.length}` : f === 'high' ? 'High confidence' : `Needs review ${needsReview.length}` }}
       </button>
@@ -131,7 +138,7 @@ function fmtDate(iso: string): string {
           </tr>
         </thead>
         <tbody>
-          <template v-for="r in visible" :key="r.name">
+          <template v-for="r in shown" :key="r.name">
             <tr
               class="cursor-pointer border-b border-divider/60 transition-colors hover:bg-surface-elevated/40"
               :class="open === r.name ? 'bg-surface-elevated/40' : ''"
@@ -198,6 +205,15 @@ function fmtDate(iso: string): string {
           </template>
         </tbody>
       </table>
+    </div>
+    <div v-if="visible.length > PREVIEW" class="mt-2 flex justify-center">
+      <button
+        type="button"
+        class="rounded-md border border-divider px-3 py-1.5 text-xs font-semibold text-brand hover:border-brand"
+        @click="showAll = !showAll"
+      >
+        {{ showAll ? 'Show fewer' : `Show all ${visible.length}` }}
+      </button>
     </div>
     <p class="mt-2 text-[11px] text-ink-disabled">
       Click a row to see the individual profiles and open them in Planning Center. Grace does not merge anything, it only surfaces the likely matches.

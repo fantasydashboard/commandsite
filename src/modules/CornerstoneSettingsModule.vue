@@ -14,7 +14,9 @@ import {
 } from '@/lib/clients/cornerstone/settings'
 import { churchDataset } from '@/lib/clients/church/dataset'
 import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
-import PcoConnection from '@/components/cornerstone/PcoConnection.vue'
+import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
+import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vue'
+import PrivacySettings from '@/components/cornerstone/PrivacySettings.vue'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -26,6 +28,9 @@ const showDuplicates = props.client.slug === 'focal-point-church'
 // here when a new church onboards; the public Cornerstone demo stays excluded.
 const PCO_CONNECT_CHURCHES = ['focal-point-church']
 const showPcoConnect = PCO_CONNECT_CHURCHES.includes(props.client.slug)
+// showPcoConnect (PCO_CONNECT_CHURCHES) already marks a real church. Reuse it to
+// branch every section between real behavior and the Cornerstone demo's sample data.
+const isRealChurch = showPcoConnect
 
 // Client-varying data resolved by slug. Names preserved so the rest of the
 // module and its template are unchanged. Types + *_LABEL stay shared above.
@@ -88,7 +93,7 @@ const intsByCategory = computed(() => {
     </div>
 
     <!-- KPI strip -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div v-if="!isRealChurch" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card">
         <div class="kpi-label">Team</div>
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ stats.team_active }}</div>
@@ -115,8 +120,9 @@ const intsByCategory = computed(() => {
       </div>
     </div>
 
-    <!-- Team -->
-    <section class="card">
+    <!-- Team: real for live churches, sample for the demo -->
+    <TeamSettings v-if="isRealChurch" :tenant="client.slug" />
+    <section v-else class="card">
       <div class="mb-3 flex items-center justify-between">
         <span class="eyebrow">Team + Permissions</span>
         <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:border-brand hover:text-brand">+ Invite</button>
@@ -154,8 +160,8 @@ const intsByCategory = computed(() => {
       </div>
     </section>
 
-    <!-- Service times -->
-    <section class="card">
+    <!-- Service times: demo only (sample data, not wired). Hidden for real churches. -->
+    <section v-if="!isRealChurch" class="card">
       <div class="mb-3 flex items-center justify-between">
         <span class="eyebrow">Service Times</span>
         <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:border-brand hover:text-brand">+ Add service</button>
@@ -183,8 +189,9 @@ const intsByCategory = computed(() => {
       </div>
     </section>
 
-    <!-- Integrations -->
-    <section class="card">
+    <!-- Integrations: aspirational catalog for live churches, sample grid for the demo -->
+    <IntegrationsCatalog v-if="isRealChurch" :tenant="client.slug" :label="client.name" />
+    <section v-else class="card">
       <div class="mb-3 flex items-center gap-2">
         <span class="eyebrow">Integrations</span>
         <span class="text-xs text-ink-muted">{{ stats.integrations_connected }} of {{ stats.integrations_total }} connected</span>
@@ -226,17 +233,15 @@ const intsByCategory = computed(() => {
       </div>
     </section>
 
-    <!-- Real Planning Center connection (Focal Point live data only) -->
-    <PcoConnection v-if="showPcoConnect" :tenant="client.slug" :label="client.name" />
-
     <!-- Possible duplicates (Focal Point real data only) -->
     <DuplicatesSettings v-if="showDuplicates" />
 
-    <!-- Privacy + role-gating -->
-    <section class="card">
+    <!-- Privacy: real (persisted + enforced) for live churches, sample for the demo -->
+    <PrivacySettings v-if="isRealChurch" :client-id="client.id" />
+    <section v-else class="card">
       <div class="mb-3 flex items-center gap-2">
         <span class="eyebrow">🔒 Privacy + Role-Gating</span>
-        <span class="text-xs text-ink-muted">What different staff roles can and can\'t see</span>
+        <span class="text-xs text-ink-muted">What different staff roles can and cannot see</span>
       </div>
       <div class="space-y-2">
         <article

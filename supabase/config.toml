@@ -69,3 +69,6 @@ verify_jwt = false
 # function body, same pattern as the send/draft functions above.
 [functions.pco-oauth-start]
 verify_jwt = false
+
+[functions.church-user-admin]
+verify_jwt = false

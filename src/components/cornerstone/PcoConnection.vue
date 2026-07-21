@@ -11,7 +11,10 @@
 import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { getPcoConnection, startPcoConnect, disconnectPco, type PcoConnectionStatus } from '@/lib/pco/connect'
 
-const props = defineProps<{ tenant: string; label: string }>()
+// `embedded` drops the outer card + eyebrow so this can render as a row inside
+// the integrations list (the connection lives with the other integrations, not
+// in a separate section below).
+const props = defineProps<{ tenant: string; label: string; embedded?: boolean }>()
 
 const status = ref<PcoConnectionStatus | null>(null)
 const loading = ref(true)
@@ -93,8 +96,8 @@ onBeforeUnmount(stopPolling)
 </script>
 
 <template>
-  <section class="card">
-    <div class="mb-3 flex items-center gap-2">
+  <component :is="embedded ? 'div' : 'section'" :class="embedded ? '' : 'card'">
+    <div v-if="!embedded" class="mb-3 flex items-center gap-2">
       <span class="eyebrow">Planning Center</span>
       <span class="text-xs text-ink-muted">The church's own connection, not a shared password</span>
     </div>
@@ -136,7 +139,7 @@ onBeforeUnmount(stopPolling)
     <div v-else-if="!loading" class="rounded-md border border-divider bg-surface p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="flex items-start gap-3">
-          <span class="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-surface-elevated text-ink-disabled text-sm font-bold">·</span>
+          <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-divider bg-surface-elevated text-[11px] font-bold" style="color:#2C7BE5">PC</span>
           <div class="max-w-md">
             <div class="text-sm font-semibold text-ink">Not connected yet</div>
             <p class="text-[12px] leading-snug text-ink-muted">
@@ -159,5 +162,5 @@ onBeforeUnmount(stopPolling)
     </div>
 
     <p v-if="error" class="mt-2 text-xs text-danger">{{ error }}</p>
-  </section>
+  </component>
 </template>
