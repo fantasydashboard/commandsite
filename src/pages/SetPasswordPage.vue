@@ -7,12 +7,8 @@
  * Web Locks "another request stole it" error.
  */
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/stores/auth'
 
-const router = useRouter()
-const auth = useAuthStore()
 const password = ref('')
 const confirm = ref('')
 const error = ref<string | null>(null)
@@ -41,13 +37,15 @@ async function submit() {
       error.value = /session|missing|expired/i.test(err.message)
         ? 'This link has expired or was already used. Ask for a new invite, or use "Forgot password" on the sign-in page.'
         : err.message
+      saving.value = false
       return
     }
-    await auth.init()
-    router.replace(auth.redirectPath)
+    // Full reload to /login instead of an in-page auth.init(), which could
+    // deadlock on the auth token lock. The session persists in localStorage, and
+    // the login page forwards the now-authenticated user to their dashboard.
+    window.location.assign('/login')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Something went wrong.'
-  } finally {
     saving.value = false
   }
 }
