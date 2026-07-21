@@ -11,7 +11,6 @@ export interface CatalogItem {
 }
 
 export const INTEGRATION_GROUPS: { key: string; label: string }[] = [
-  { key: 'chms', label: 'Source of truth' },
   { key: 'comms', label: 'How Grace reaches people' },
   { key: 'coordination', label: 'Staff coordination' },
   { key: 'social', label: 'Outbound presence' },
@@ -20,7 +19,6 @@ export const INTEGRATION_GROUPS: { key: string; label: string }[] = [
 ]
 
 export const CATALOG: CatalogItem[] = [
-  { key: 'planning_center', label: 'Planning Center', category: 'chms', description: 'People, Check-Ins, Services, Groups. The church\'s source of truth.', live: true },
   { key: 'email', label: 'Email sending', category: 'comms', description: 'Send Grace\'s drafted welcome and care emails from your church address.' },
   { key: 'sms', label: 'Text messaging', category: 'comms', description: 'Send opt-in texts to guests and volunteers.' },
   { key: 'slack', label: 'Slack', category: 'coordination', description: 'Grace posts the morning brief and escalations to a staff channel.' },

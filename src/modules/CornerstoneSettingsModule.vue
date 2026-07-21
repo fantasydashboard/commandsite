@@ -14,7 +14,6 @@ import {
 } from '@/lib/clients/cornerstone/settings'
 import { churchDataset } from '@/lib/clients/church/dataset'
 import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
-import PcoConnection from '@/components/cornerstone/PcoConnection.vue'
 import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
 import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vue'
 
@@ -232,11 +231,6 @@ const intsByCategory = computed(() => {
         </div>
       </div>
     </section>
-
-    <!-- Real Planning Center connection (Focal Point live data only) -->
-    <div id="planning-center">
-      <PcoConnection v-if="showPcoConnect" :tenant="client.slug" :label="client.name" />
-    </div>
 
     <!-- Possible duplicates (Focal Point real data only) -->
     <DuplicatesSettings v-if="showDuplicates" />
