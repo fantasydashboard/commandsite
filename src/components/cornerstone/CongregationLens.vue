@@ -20,6 +20,8 @@ const options: { key: CongregationScope; label: string }[] = [
   { key: 'english', label: 'English' },
   { key: 'brazilian', label: 'Brazilian' },
 ]
+// A congregation-scoped user sees only their own congregation (the lens is locked).
+const visibleOptions = computed(() => (lens.locked ? options.filter((o) => o.key === lens.locked) : options))
 
 // Tabs whose PEOPLE lists the lens reshapes. On Serving, the burnout list scopes
 // by campus (Brazilian teams vs main) while the Sunday roster stays church-wide;
@@ -47,7 +49,7 @@ const pageLabel = computed(() => TAB_LABEL[currentTab.value] ?? 'This page')
       <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Congregation</span>
       <div class="inline-flex items-center rounded-full border border-divider bg-surface p-0.5" role="group" aria-label="Congregation lens">
         <button
-          v-for="opt in options"
+          v-for="opt in visibleOptions"
           :key="opt.key"
           type="button"
           class="rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"

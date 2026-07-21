@@ -17,6 +17,9 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!session.value && !!profile.value)
   const isAdmin = computed(() => profile.value?.role === 'admin')
   const clientSlug = computed(() => profile.value?.client?.slug ?? null)
+  // Church-level access context (UI-level gating; admins bypass everything).
+  const permissionScope = computed(() => profile.value?.permission_scope ?? null)
+  const congregationScope = computed(() => profile.value?.congregation_scope ?? null)
 
   const redirectPath = computed(() => {
     if (!profile.value) return '/login'
@@ -85,6 +88,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     clientSlug,
+    permissionScope,
+    congregationScope,
     redirectPath,
     init,
     login,

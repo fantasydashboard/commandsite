@@ -6,12 +6,14 @@ import {
   visibleTabsFor,
   type ModuleDefinition,
 } from '@/modules/registry'
-import { modulesForClient } from '@/config/clients'
+import { modulesForUser } from '@/lib/clients/church/access'
 import { useDashboardContext } from './context'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ tab?: string; subtab?: string }>()
 const { client } = useDashboardContext()
 const router = useRouter()
+const auth = useAuthStore()
 
 interface ResolvedModule {
   key: string
@@ -21,7 +23,7 @@ interface ResolvedModule {
 
 const allModules = computed<ResolvedModule[]>(() => {
   if (!client.value) return []
-  return modulesForClient(client.value.slug)
+  return modulesForUser(client.value.slug, { role: auth.profile?.role, permissionScope: auth.permissionScope })
     .map((m) => {
       const def = getModule(m.key)
       if (!def) return null

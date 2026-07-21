@@ -16,6 +16,7 @@ import { churchDataset } from '@/lib/clients/church/dataset'
 import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
 import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
 import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vue'
+import PrivacySettings from '@/components/cornerstone/PrivacySettings.vue'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -235,8 +236,9 @@ const intsByCategory = computed(() => {
     <!-- Possible duplicates (Focal Point real data only) -->
     <DuplicatesSettings v-if="showDuplicates" />
 
-    <!-- Privacy + role-gating -->
-    <section class="card">
+    <!-- Privacy: real (persisted + enforced) for live churches, sample for the demo -->
+    <PrivacySettings v-if="isRealChurch" :client-id="client.id" />
+    <section v-else class="card">
       <div class="mb-3 flex items-center gap-2">
         <span class="eyebrow">🔒 Privacy + Role-Gating</span>
         <span class="text-xs text-ink-muted">What different staff roles can and cannot see</span>
