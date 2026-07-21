@@ -93,8 +93,8 @@ const intsByCategory = computed(() => {
     </div>
 
     <!-- KPI strip -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div v-if="!isRealChurch" class="card">
+    <div v-if="!isRealChurch" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card">
         <div class="kpi-label">Team</div>
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ stats.team_active }}</div>
         <div class="text-[11px] text-ink-disabled mt-0.5">active members</div>
@@ -104,7 +104,7 @@ const intsByCategory = computed(() => {
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ stats.services_active }}</div>
         <div class="text-[11px] text-ink-disabled mt-0.5">active per week</div>
       </div>
-      <div v-if="!isRealChurch" class="card">
+      <div class="card">
         <div class="kpi-label">Integrations</div>
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">
           {{ stats.integrations_connected }} <span class="text-base text-ink-muted">/ {{ stats.integrations_total }}</span>
@@ -245,7 +245,7 @@ const intsByCategory = computed(() => {
     <section class="card">
       <div class="mb-3 flex items-center gap-2">
         <span class="eyebrow">🔒 Privacy + Role-Gating</span>
-        <span class="text-xs text-ink-muted">What different staff roles can and can\'t see</span>
+        <span class="text-xs text-ink-muted">What different staff roles can and cannot see</span>
       </div>
       <div class="space-y-2">
         <article

@@ -82,7 +82,7 @@ onMounted(refresh)
     </div>
 
     <div v-if="loading" class="rounded-md border border-divider p-4 text-xs text-ink-muted">Loading team...</div>
-    <div v-else-if="!members.length" class="rounded-md border border-divider p-4 text-sm text-ink-muted">No team members yet. Use Invite to add your first staff login.</div>
+    <div v-else-if="!members.length && !error" class="rounded-md border border-divider p-4 text-sm text-ink-muted">No team members yet. Use Invite to add your first staff login.</div>
     <div v-else class="space-y-2">
       <article v-for="m in members" :key="m.id" class="flex flex-wrap items-center gap-3 rounded-md border border-divider p-3">
         <div class="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15 text-brand text-sm font-bold">{{ initials(m) }}</div>
