@@ -50,8 +50,11 @@ export async function listTeam(tenant: string): Promise<ChurchTeamMember[]> {
   return res.members ?? []
 }
 
-export async function inviteMember(tenant: string, email: string, name: string, scope: string, congregation: string): Promise<void> {
-  await invoke({ action: 'invite', tenant, email, name, scope, congregation })
+// Returns a set-password link to share with the new member (email delivery is
+// decoupled; wire SMTP later to also send it automatically).
+export async function inviteMember(tenant: string, email: string, name: string, scope: string, congregation: string): Promise<string | null> {
+  const res = await invoke<{ invite_link?: string | null }>({ action: 'invite', tenant, email, name, scope, congregation })
+  return res.invite_link ?? null
 }
 
 export async function setScope(tenant: string, userId: string, scope: string): Promise<void> {
