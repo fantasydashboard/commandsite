@@ -139,7 +139,7 @@ onBeforeUnmount(stopPolling)
     <div v-else-if="!loading" class="rounded-md border border-divider bg-surface p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="flex items-start gap-3">
-          <span class="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-surface-elevated text-ink-disabled text-sm font-bold">·</span>
+          <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-[11px] font-bold" style="background-color:#2C7BE51a;color:#2C7BE5">PC</span>
           <div class="max-w-md">
             <div class="text-sm font-semibold text-ink">Not connected yet</div>
             <p class="text-[12px] leading-snug text-ink-muted">
