@@ -159,8 +159,8 @@ const intsByCategory = computed(() => {
       </div>
     </section>
 
-    <!-- Service times -->
-    <section class="card">
+    <!-- Service times: demo only (sample data, not wired). Hidden for real churches. -->
+    <section v-if="!isRealChurch" class="card">
       <div class="mb-3 flex items-center justify-between">
         <span class="eyebrow">Service Times</span>
         <button type="button" class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:border-brand hover:text-brand">+ Add service</button>
