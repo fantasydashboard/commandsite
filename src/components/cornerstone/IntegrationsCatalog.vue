@@ -18,7 +18,6 @@ const groups = computed(() =>
 )
 
 function href(item: CatalogItem) { return askEmailHref(props.label, item) }
-function tile(item: CatalogItem) { return { backgroundColor: item.color + '1a', color: item.color } }
 </script>
 
 <template>
@@ -39,7 +38,10 @@ function tile(item: CatalogItem) { return { backgroundColor: item.color + '1a', 
         <div class="text-[10px] uppercase tracking-wider font-semibold text-ink-muted mb-2">{{ g.label }}</div>
         <div class="space-y-2">
           <div v-for="i in g.items" :key="i.key" class="flex items-center gap-3 rounded-md border border-divider bg-surface p-3">
-            <span class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-[11px] font-bold" :style="tile(i)">{{ i.mono }}</span>
+            <span class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-divider bg-surface-elevated">
+              <img v-if="i.logo" :src="`/logos/${i.logo}.svg`" :alt="i.label" class="h-5 w-5" />
+              <span v-else class="text-[11px] font-bold" :style="{ color: i.color }">{{ i.mono }}</span>
+            </span>
             <div class="min-w-0 flex-1">
               <div class="text-sm font-semibold text-ink">{{ i.label }}</div>
               <div class="text-xs text-ink-muted">{{ i.description }}</div>
