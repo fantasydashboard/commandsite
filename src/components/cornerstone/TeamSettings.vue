@@ -6,7 +6,7 @@
  * parent module; the Cornerstone demo keeps its inline sample rendering.
  */
 import { onMounted, ref } from 'vue'
-import { listTeam, inviteMember, setScope, sendReset, PERMISSION_SCOPES, type ChurchTeamMember } from '@/lib/clients/church/team'
+import { listTeam, inviteMember, setScope, setCongregation, sendReset, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
 
 const props = defineProps<{ tenant: string }>()
 
@@ -19,6 +19,7 @@ const showInvite = ref(false)
 const inviteEmail = ref('')
 const inviteName = ref('')
 const inviteScope = ref('member')
+const inviteCongregation = ref('all')
 const working = ref(false)
 
 async function refresh() {
@@ -31,16 +32,25 @@ async function refresh() {
 async function changeScope(m: ChurchTeamMember, scope: string) {
   const prev = m.permission_scope
   m.permission_scope = scope
+  // Church admins see everything; keep congregation consistent locally.
+  if (scope === 'full') m.congregation_scope = 'all'
   try { await setScope(props.tenant, m.id, scope); flash(`Updated ${m.email}`) }
   catch (e) { m.permission_scope = prev; error.value = e instanceof Error ? e.message : String(e) }
+}
+
+async function changeCongregation(m: ChurchTeamMember, congregation: string) {
+  const prev = m.congregation_scope
+  m.congregation_scope = congregation
+  try { await setCongregation(props.tenant, m.id, congregation); flash(`Updated ${m.email}`) }
+  catch (e) { m.congregation_scope = prev; error.value = e instanceof Error ? e.message : String(e) }
 }
 
 async function submitInvite() {
   working.value = true; error.value = null
   try {
-    await inviteMember(props.tenant, inviteEmail.value.trim(), inviteName.value.trim(), inviteScope.value)
+    await inviteMember(props.tenant, inviteEmail.value.trim(), inviteName.value.trim(), inviteScope.value, inviteCongregation.value)
     flash(`Invite sent to ${inviteEmail.value.trim()}`)
-    inviteEmail.value = ''; inviteName.value = ''; inviteScope.value = 'member'; showInvite.value = false
+    inviteEmail.value = ''; inviteName.value = ''; inviteScope.value = 'member'; inviteCongregation.value = 'all'; showInvite.value = false
     await refresh()
   } catch (e) { error.value = e instanceof Error ? e.message : String(e) }
   finally { working.value = false }
@@ -76,9 +86,12 @@ onMounted(refresh)
         <select v-model="inviteScope" class="rounded-md border border-divider bg-surface-raised px-3 py-1.5 text-sm">
           <option v-for="s in PERMISSION_SCOPES" :key="s.key" :value="s.key">{{ s.label }}</option>
         </select>
+        <select v-if="inviteScope !== 'full'" v-model="inviteCongregation" class="rounded-md border border-divider bg-surface-raised px-3 py-1.5 text-sm" title="Which congregation this person can access">
+          <option v-for="c in CONGREGATIONS" :key="c.key" :value="c.key">{{ c.label }}</option>
+        </select>
         <button type="button" class="rounded-md bg-brand text-white px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90" :disabled="working || !inviteEmail" @click="submitInvite">{{ working ? 'Sending...' : 'Send invite' }}</button>
       </div>
-      <p class="text-[11px] text-ink-disabled">They get an email to set a password. New members join as role client, scoped to this church.</p>
+      <p class="text-[11px] text-ink-disabled">They get an email to set a password. New members join as role client, scoped to this church. Full access sees every congregation; narrower roles can be scoped to one.</p>
     </div>
 
     <div v-if="loading" class="rounded-md border border-divider p-4 text-xs text-ink-muted">Loading team...</div>
@@ -93,6 +106,10 @@ onMounted(refresh)
         <select :value="m.permission_scope ?? 'member'" @change="changeScope(m, ($event.target as HTMLSelectElement).value)"
           class="rounded-md border border-divider bg-surface-raised px-2 py-1 text-xs text-ink">
           <option v-for="s in PERMISSION_SCOPES" :key="s.key" :value="s.key">{{ s.label }}</option>
+        </select>
+        <select v-if="(m.permission_scope ?? 'member') !== 'full'" :value="m.congregation_scope ?? 'all'" @change="changeCongregation(m, ($event.target as HTMLSelectElement).value)"
+          class="rounded-md border border-divider bg-surface-raised px-2 py-1 text-xs text-ink" title="Congregation access">
+          <option v-for="c in CONGREGATIONS" :key="c.key" :value="c.key">{{ c.label }}</option>
         </select>
         <button type="button" class="text-xs text-ink-muted hover:text-brand hover:underline" @click="reset(m)">Send reset</button>
       </article>

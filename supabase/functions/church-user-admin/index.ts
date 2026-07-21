@@ -27,6 +27,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://commandsite.io'
 const SCOPES = ['full', 'pastoral_care', 'finance', 'volunteers', 'comms_only', 'member']
+const CONGREGATIONS = ['all', 'english', 'brazilian']
 
 function svc() { return createClient(SUPABASE_URL, SERVICE_ROLE_KEY) }
 
@@ -38,7 +39,7 @@ Deno.serve(async (req: Request) => {
   const token = auth.replace(/^Bearer\s+/i, '')
   if (!token) return json({ error: 'Missing Authorization' }, 401)
 
-  let body: { action?: string; tenant?: string; email?: string; name?: string; scope?: string; user_id?: string } = {}
+  let body: { action?: string; tenant?: string; email?: string; name?: string; scope?: string; user_id?: string; congregation?: string } = {}
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON body' }, 400) }
   const action = body.action ?? ''
   const tenant = (body.tenant ?? '').trim()
@@ -68,7 +69,7 @@ Deno.serve(async (req: Request) => {
   // ── list
   if (action === 'list') {
     const { data, error } = await db.from('users')
-      .select('id, email, full_name, permission_scope, created_at')
+      .select('id, email, full_name, permission_scope, congregation_scope, created_at')
       .eq('client_id', clientId).order('created_at', { ascending: true })
     if (error) return json({ error: error.message }, 500)
     return json({ members: data ?? [] })
@@ -93,8 +94,11 @@ Deno.serve(async (req: Request) => {
     const email = (body.email ?? '').trim().toLowerCase()
     const name = (body.name ?? '').trim()
     const scope = (body.scope ?? 'member').trim()
+    // Church admins (full) implicitly see every congregation.
+    const congregation = scope === 'full' ? 'all' : (body.congregation ?? 'all').trim()
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'A valid email is required' }, 400)
     if (!SCOPES.includes(scope)) return json({ error: 'Invalid scope' }, 400)
+    if (!CONGREGATIONS.includes(congregation)) return json({ error: 'Invalid congregation' }, 400)
 
     const { data: invited, error: inviteErr } = await db.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${APP_URL}/set-password`,
@@ -108,10 +112,24 @@ Deno.serve(async (req: Request) => {
     const newId = invited?.user?.id
     if (!newId) return json({ error: 'Invite returned no user id' }, 500)
     const { error: rowErr } = await db.from('users').insert({
-      id: newId, email, full_name: name || null, role: 'client', client_id: clientId, permission_scope: scope,
+      id: newId, email, full_name: name || null, role: 'client', client_id: clientId, permission_scope: scope, congregation_scope: congregation,
     })
     if (rowErr) return json({ error: `Invited but profile insert failed: ${rowErr.message}` }, 500)
     return json({ ok: true, user_id: newId })
+  }
+
+  // ── set-congregation
+  if (action === 'set-congregation') {
+    const userId = (body.user_id ?? '').trim()
+    const congregation = (body.congregation ?? '').trim()
+    if (!userId || !CONGREGATIONS.includes(congregation)) return json({ error: 'user_id and a valid congregation required' }, 400)
+    const { data: target } = await db.from('users').select('id, client_id, role').eq('id', userId).maybeSingle()
+    const t = target as { client_id?: string; role?: string } | null
+    if (!t || t.client_id !== clientId) return json({ error: 'User not found in this church' }, 404)
+    if (t.role !== 'client') return json({ error: 'Cannot change congregation of a non-client user' }, 400)
+    const { error } = await db.from('users').update({ congregation_scope: congregation }).eq('id', userId)
+    if (error) return json({ error: error.message }, 500)
+    return json({ ok: true })
   }
 
   return json({ error: `Unknown action "${action}"` }, 400)

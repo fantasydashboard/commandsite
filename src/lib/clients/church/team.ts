@@ -8,7 +8,20 @@ export interface ChurchTeamMember {
   email: string
   full_name: string | null
   permission_scope: string | null
+  congregation_scope: string | null
   created_at: string
+}
+
+// Focal Point runs an English and a Brazilian ministry. (Per-church congregation
+// config is a later generalization; this is the one live church today.)
+export const CONGREGATIONS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All congregations' },
+  { key: 'english', label: 'English' },
+  { key: 'brazilian', label: 'Brazilian' },
+]
+
+export function congregationLabel(c: string | null): string {
+  return CONGREGATIONS.find((x) => x.key === c)?.label ?? 'All congregations'
 }
 
 export const PERMISSION_SCOPES: { key: string; label: string }[] = [
@@ -37,12 +50,16 @@ export async function listTeam(tenant: string): Promise<ChurchTeamMember[]> {
   return res.members ?? []
 }
 
-export async function inviteMember(tenant: string, email: string, name: string, scope: string): Promise<void> {
-  await invoke({ action: 'invite', tenant, email, name, scope })
+export async function inviteMember(tenant: string, email: string, name: string, scope: string, congregation: string): Promise<void> {
+  await invoke({ action: 'invite', tenant, email, name, scope, congregation })
 }
 
 export async function setScope(tenant: string, userId: string, scope: string): Promise<void> {
   await invoke({ action: 'set-scope', tenant, user_id: userId, scope })
+}
+
+export async function setCongregation(tenant: string, userId: string, congregation: string): Promise<void> {
+  await invoke({ action: 'set-congregation', tenant, user_id: userId, congregation })
 }
 
 export async function sendReset(email: string): Promise<void> {
