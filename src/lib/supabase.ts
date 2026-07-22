@@ -151,6 +151,13 @@ export const supabase = createClient<Database>(url, anonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // Disable the Web Locks API guard. Concurrent auth calls (the router's
+    // session check, recovery-token processing, updateUser, functions.invoke)
+    // were contending for the token lock and surfacing "lock ... was released
+    // because another request stole it", hanging set-password and invites. This
+    // app is single-user-per-tab and does not need cross-tab token coordination,
+    // so a no-op lock (just run the operation) removes the contention entirely.
+    lock: async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => fn(),
   },
   global: {
     fetch: timedFetch,
