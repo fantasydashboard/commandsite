@@ -21,6 +21,12 @@ const inviteName = ref('')
 const inviteScope = ref('member')
 const inviteCongregation = ref('all')
 const working = ref(false)
+const inviteLink = ref<string | null>(null)
+
+async function copyLink() {
+  if (!inviteLink.value) return
+  try { await navigator.clipboard.writeText(inviteLink.value); flash('Link copied') } catch { /* clipboard unavailable */ }
+}
 
 async function refresh() {
   loading.value = true; error.value = null
@@ -46,11 +52,14 @@ async function changeCongregation(m: ChurchTeamMember, congregation: string) {
 }
 
 async function submitInvite() {
-  working.value = true; error.value = null
+  working.value = true; error.value = null; inviteLink.value = null
   try {
-    await inviteMember(props.tenant, inviteEmail.value.trim(), inviteName.value.trim(), inviteScope.value, inviteCongregation.value)
-    flash(`Invite sent to ${inviteEmail.value.trim()}`)
-    inviteEmail.value = ''; inviteName.value = ''; inviteScope.value = 'member'; inviteCongregation.value = 'all'; showInvite.value = false
+    const email = inviteEmail.value.trim()
+    const link = await inviteMember(props.tenant, email, inviteName.value.trim(), inviteScope.value, inviteCongregation.value)
+    inviteLink.value = link
+    flash(`Created ${email}`)
+    inviteEmail.value = ''; inviteName.value = ''; inviteScope.value = 'member'; inviteCongregation.value = 'all'
+    // Keep the invite panel open so the set-password link stays visible to copy.
     await refresh()
   } catch (e) { error.value = e instanceof Error ? e.message : String(e) }
   finally { working.value = false }
@@ -91,7 +100,14 @@ onMounted(refresh)
         </select>
         <button type="button" class="rounded-md bg-brand text-white px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90" :disabled="working || !inviteEmail" @click="submitInvite">{{ working ? 'Sending...' : 'Send invite' }}</button>
       </div>
-      <p class="text-[11px] text-ink-disabled">They get an email to set a password. New members join as role client, scoped to this church. Full access sees every congregation; narrower roles can be scoped to one.</p>
+      <p class="text-[11px] text-ink-disabled">Creates their login and gives you a set-password link to send them. New members join scoped to this church. Full access sees every congregation; narrower roles can be scoped to one.</p>
+      <div v-if="inviteLink" class="rounded-md border border-success/30 bg-success/5 p-2">
+        <p class="mb-1 text-[11px] font-semibold text-success">User created. Send them this link to set their password:</p>
+        <div class="flex items-center gap-2">
+          <input :value="inviteLink" readonly class="min-w-0 flex-1 rounded border border-divider bg-surface-raised px-2 py-1 text-[11px] font-mono" />
+          <button type="button" class="flex-shrink-0 rounded-md border border-divider px-2 py-1 text-[11px] font-medium text-brand hover:border-brand" @click="copyLink">Copy</button>
+        </div>
+      </div>
     </div>
 
     <div v-if="loading" class="rounded-md border border-divider p-4 text-xs text-ink-muted">Loading team...</div>

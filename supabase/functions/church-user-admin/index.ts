@@ -100,22 +100,39 @@ Deno.serve(async (req: Request) => {
     if (!SCOPES.includes(scope)) return json({ error: 'Invalid scope' }, 400)
     if (!CONGREGATIONS.includes(congregation)) return json({ error: 'Invalid congregation' }, 400)
 
-    const { data: invited, error: inviteErr } = await db.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${APP_URL}/set-password`,
-      data: { full_name: name },
+    // Create the user directly (no email dependency, so this never stalls on
+    // Supabase's built-in email / rate limits).
+    const { data: created, error: createErr } = await db.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { full_name: name },
     })
-    if (inviteErr) {
-      const msg = inviteErr.message || 'Invite failed'
-      const status = /already been registered|already exists/i.test(msg) ? 409 : 500
+    if (createErr) {
+      const msg = createErr.message || 'Could not create user'
+      const status = /already|registered|exists/i.test(msg) ? 409 : 500
       return json({ error: msg }, status)
     }
-    const newId = invited?.user?.id
-    if (!newId) return json({ error: 'Invite returned no user id' }, 500)
+    const newId = created?.user?.id
+    if (!newId) return json({ error: 'Create returned no user id' }, 500)
     const { error: rowErr } = await db.from('users').insert({
       id: newId, email, full_name: name || null, role: 'client', client_id: clientId, permission_scope: scope, congregation_scope: congregation,
     })
-    if (rowErr) return json({ error: `Invited but profile insert failed: ${rowErr.message}` }, 500)
-    return json({ ok: true, user_id: newId })
+    if (rowErr) return json({ error: `Created but profile insert failed: ${rowErr.message}` }, 500)
+
+    // Generate a set-password link and RETURN it to the admin to share. No
+    // dependency on email delivery. (Wire SMTP later to also email it.)
+    let inviteLink: string | null = null
+    try {
+      const { data: linkData } = await db.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo: `${APP_URL}/set-password` },
+      })
+      // deno-lint-ignore no-explicit-any
+      inviteLink = (linkData as any)?.properties?.action_link ?? null
+    } catch { /* link is best-effort; the user already exists either way */ }
+
+    return json({ ok: true, user_id: newId, invite_link: inviteLink })
   }
 
   // ── set-congregation

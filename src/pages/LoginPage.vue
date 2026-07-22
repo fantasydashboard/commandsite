@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import BrandLogo from '@/components/BrandLogo.vue'
@@ -11,6 +11,15 @@ const submitting = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+
+// Forward an already-authenticated visitor to their dashboard. This is also how
+// the set-password page lands a new user cleanly: it does a full reload to /login
+// (avoiding in-page auth lock contention), and this sends them onward.
+onMounted(() => {
+  if (auth.isAuthenticated) {
+    router.replace((route.query.redirect as string | undefined) ?? auth.redirectPath)
+  }
+})
 
 async function onSubmit() {
   submitting.value = true
