@@ -149,5 +149,27 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true })
   }
 
+  // ── reset-link: generate a fresh set-password link for an existing church
+  //    user, returned to the admin to share (no email dependency).
+  if (action === 'reset-link') {
+    const userId = (body.user_id ?? '').trim()
+    if (!userId) return json({ error: 'user_id required' }, 400)
+    const { data: target } = await db.from('users').select('id, email, client_id').eq('id', userId).maybeSingle()
+    const t = target as { email?: string; client_id?: string } | null
+    if (!t || t.client_id !== clientId || !t.email) return json({ error: 'User not found in this church' }, 404)
+    let link: string | null = null
+    try {
+      const { data: linkData } = await db.auth.admin.generateLink({
+        type: 'recovery',
+        email: t.email,
+        options: { redirectTo: `${APP_URL}/set-password` },
+      })
+      // deno-lint-ignore no-explicit-any
+      link = (linkData as any)?.properties?.action_link ?? null
+    } catch { /* fall through to error below */ }
+    if (!link) return json({ error: 'Could not generate a link' }, 500)
+    return json({ ok: true, reset_link: link })
+  }
+
   return json({ error: `Unknown action "${action}"` }, 400)
 })

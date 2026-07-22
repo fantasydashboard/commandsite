@@ -65,8 +65,9 @@ export async function setCongregation(tenant: string, userId: string, congregati
   await invoke({ action: 'set-congregation', tenant, user_id: userId, congregation })
 }
 
-export async function sendReset(email: string): Promise<void> {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://commandsite.io'
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/set-password` })
-  if (error) throw new Error(error.message)
+// Returns a fresh set-password link for an existing member (email-independent,
+// so the admin can share it directly). Wire SMTP later to also email it.
+export async function resetLink(tenant: string, userId: string): Promise<string | null> {
+  const res = await invoke<{ reset_link?: string | null }>({ action: 'reset-link', tenant, user_id: userId })
+  return res.reset_link ?? null
 }
