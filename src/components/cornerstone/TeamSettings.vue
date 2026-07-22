@@ -6,7 +6,7 @@
  * parent module; the Cornerstone demo keeps its inline sample rendering.
  */
 import { onMounted, ref } from 'vue'
-import { listTeam, inviteMember, setScope, setCongregation, sendReset, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
+import { listTeam, inviteMember, setScope, setCongregation, resetLink, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
 
 const props = defineProps<{ tenant: string }>()
 
@@ -21,11 +21,11 @@ const inviteName = ref('')
 const inviteScope = ref('member')
 const inviteCongregation = ref('all')
 const working = ref(false)
-const inviteLink = ref<string | null>(null)
+const actionLink = ref<{ text: string; url: string } | null>(null)
 
 async function copyLink() {
-  if (!inviteLink.value) return
-  try { await navigator.clipboard.writeText(inviteLink.value); flash('Link copied') } catch { /* clipboard unavailable */ }
+  if (!actionLink.value) return
+  try { await navigator.clipboard.writeText(actionLink.value.url); flash('Link copied') } catch { /* clipboard unavailable */ }
 }
 
 async function refresh() {
@@ -52,11 +52,11 @@ async function changeCongregation(m: ChurchTeamMember, congregation: string) {
 }
 
 async function submitInvite() {
-  working.value = true; error.value = null; inviteLink.value = null
+  working.value = true; error.value = null; actionLink.value = null
   try {
     const email = inviteEmail.value.trim()
     const link = await inviteMember(props.tenant, email, inviteName.value.trim(), inviteScope.value, inviteCongregation.value)
-    inviteLink.value = link
+    actionLink.value = link ? { text: 'Send them this link to set their password:', url: link } : null
     flash(`Created ${email}`)
     inviteEmail.value = ''; inviteName.value = ''; inviteScope.value = 'member'; inviteCongregation.value = 'all'
     // Keep the invite panel open so the set-password link stays visible to copy.
@@ -66,8 +66,12 @@ async function submitInvite() {
 }
 
 async function reset(m: ChurchTeamMember) {
-  try { await sendReset(m.email); flash(`Password reset sent to ${m.email}`) }
-  catch (e) { error.value = e instanceof Error ? e.message : String(e) }
+  error.value = null
+  try {
+    const link = await resetLink(props.tenant, m.id)
+    actionLink.value = link ? { text: `Set-password link for ${m.email}:`, url: link } : null
+    flash(`Link ready for ${m.email}`)
+  } catch (e) { error.value = e instanceof Error ? e.message : String(e) }
 }
 
 function flash(msg: string) { notice.value = msg; setTimeout(() => { notice.value = null }, 4000) }
@@ -88,6 +92,14 @@ onMounted(refresh)
     <p v-if="notice" class="mb-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-xs text-success">{{ notice }}</p>
     <p v-if="error" class="mb-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{{ error }}</p>
 
+    <div v-if="actionLink" class="mb-2 rounded-md border border-success/30 bg-success/5 p-2">
+      <p class="mb-1 text-[11px] font-semibold text-success">{{ actionLink.text }}</p>
+      <div class="flex items-center gap-2">
+        <input :value="actionLink.url" readonly class="min-w-0 flex-1 rounded border border-divider bg-surface-raised px-2 py-1 text-[11px] font-mono" />
+        <button type="button" class="flex-shrink-0 rounded-md border border-divider px-2 py-1 text-[11px] font-medium text-brand hover:border-brand" @click="copyLink">Copy</button>
+      </div>
+    </div>
+
     <div v-if="showInvite" class="mb-3 rounded-md border border-divider p-3 space-y-2">
       <div class="flex flex-wrap gap-2">
         <input v-model="inviteEmail" type="email" placeholder="email@church.org" class="flex-1 min-w-[200px] rounded-md border border-divider bg-surface-raised px-3 py-1.5 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
@@ -101,13 +113,6 @@ onMounted(refresh)
         <button type="button" class="rounded-md bg-brand text-white px-4 py-1.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90" :disabled="working || !inviteEmail" @click="submitInvite">{{ working ? 'Sending...' : 'Send invite' }}</button>
       </div>
       <p class="text-[11px] text-ink-disabled">Creates their login and gives you a set-password link to send them. New members join scoped to this church. Full access sees every congregation; narrower roles can be scoped to one.</p>
-      <div v-if="inviteLink" class="rounded-md border border-success/30 bg-success/5 p-2">
-        <p class="mb-1 text-[11px] font-semibold text-success">User created. Send them this link to set their password:</p>
-        <div class="flex items-center gap-2">
-          <input :value="inviteLink" readonly class="min-w-0 flex-1 rounded border border-divider bg-surface-raised px-2 py-1 text-[11px] font-mono" />
-          <button type="button" class="flex-shrink-0 rounded-md border border-divider px-2 py-1 text-[11px] font-medium text-brand hover:border-brand" @click="copyLink">Copy</button>
-        </div>
-      </div>
     </div>
 
     <div v-if="loading" class="rounded-md border border-divider p-4 text-xs text-ink-muted">Loading team...</div>
