@@ -50,11 +50,12 @@ export async function listTeam(tenant: string): Promise<ChurchTeamMember[]> {
   return res.members ?? []
 }
 
-// Returns a set-password link to share with the new member (email delivery is
-// decoupled; wire SMTP later to also send it automatically).
-export async function inviteMember(tenant: string, email: string, name: string, scope: string, congregation: string): Promise<string | null> {
-  const res = await invoke<{ invite_link?: string | null }>({ action: 'invite', tenant, email, name, scope, congregation })
-  return res.invite_link ?? null
+// Creates the church login (via the edge function), then emails a set-password
+// link through the configured SMTP. Creation is reliable; the email is a
+// follow-up call, so a delivery hiccup never blocks the account being created.
+export async function inviteMember(tenant: string, email: string, name: string, scope: string, congregation: string): Promise<void> {
+  await invoke({ action: 'invite', tenant, email, name, scope, congregation })
+  await sendReset(email)
 }
 
 export async function setScope(tenant: string, userId: string, scope: string): Promise<void> {
@@ -65,9 +66,9 @@ export async function setCongregation(tenant: string, userId: string, congregati
   await invoke({ action: 'set-congregation', tenant, user_id: userId, congregation })
 }
 
-// Returns a fresh set-password link for an existing member (email-independent,
-// so the admin can share it directly). Wire SMTP later to also email it.
-export async function resetLink(tenant: string, userId: string): Promise<string | null> {
-  const res = await invoke<{ reset_link?: string | null }>({ action: 'reset-link', tenant, user_id: userId })
-  return res.reset_link ?? null
+// Emails a set-password / reset link to the member via the configured SMTP.
+export async function sendReset(email: string): Promise<void> {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://commandsite.io'
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/set-password` })
+  if (error) throw new Error(error.message)
 }

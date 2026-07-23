@@ -118,21 +118,8 @@ Deno.serve(async (req: Request) => {
       id: newId, email, full_name: name || null, role: 'client', client_id: clientId, permission_scope: scope, congregation_scope: congregation,
     })
     if (rowErr) return json({ error: `Created but profile insert failed: ${rowErr.message}` }, 500)
-
-    // Generate a set-password link and RETURN it to the admin to share. No
-    // dependency on email delivery. (Wire SMTP later to also email it.)
-    let inviteLink: string | null = null
-    try {
-      const { data: linkData } = await db.auth.admin.generateLink({
-        type: 'recovery',
-        email,
-        options: { redirectTo: `${APP_URL}/set-password` },
-      })
-      // deno-lint-ignore no-explicit-any
-      inviteLink = (linkData as any)?.properties?.action_link ?? null
-    } catch { /* link is best-effort; the user already exists either way */ }
-
-    return json({ ok: true, user_id: newId, invite_link: inviteLink })
+    // The frontend emails the set-password link via SMTP (resetPasswordForEmail).
+    return json({ ok: true, user_id: newId })
   }
 
   // ── set-congregation
@@ -147,28 +134,6 @@ Deno.serve(async (req: Request) => {
     const { error } = await db.from('users').update({ congregation_scope: congregation }).eq('id', userId)
     if (error) return json({ error: error.message }, 500)
     return json({ ok: true })
-  }
-
-  // ── reset-link: generate a fresh set-password link for an existing church
-  //    user, returned to the admin to share (no email dependency).
-  if (action === 'reset-link') {
-    const userId = (body.user_id ?? '').trim()
-    if (!userId) return json({ error: 'user_id required' }, 400)
-    const { data: target } = await db.from('users').select('id, email, client_id').eq('id', userId).maybeSingle()
-    const t = target as { email?: string; client_id?: string } | null
-    if (!t || t.client_id !== clientId || !t.email) return json({ error: 'User not found in this church' }, 404)
-    let link: string | null = null
-    try {
-      const { data: linkData } = await db.auth.admin.generateLink({
-        type: 'recovery',
-        email: t.email,
-        options: { redirectTo: `${APP_URL}/set-password` },
-      })
-      // deno-lint-ignore no-explicit-any
-      link = (linkData as any)?.properties?.action_link ?? null
-    } catch { /* fall through to error below */ }
-    if (!link) return json({ error: 'Could not generate a link' }, 500)
-    return json({ ok: true, reset_link: link })
   }
 
   return json({ error: `Unknown action "${action}"` }, 400)
