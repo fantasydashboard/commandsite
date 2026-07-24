@@ -25,10 +25,21 @@ export const careMeta = (moduleKey: string): CareMeta | null => store.meta[modul
 
 // church_dashboard_data is not in the generated Database types (added after
 // codegen), so query it through an untyped handle, mirroring privacy.ts.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any
 
 export async function loadCareData(slug: string): Promise<void> {
-  const { data: client } = await sb.from('clients').select('id').eq('slug', slug).maybeSingle()
+  // Reset first so navigating between churches never leaks one church's live
+  // data into another (the store is a module-level singleton). A church with no
+  // live 'ok' row then correctly falls back to the baked snapshot.
+  store.serving = null
+  store.burnout = null
+  store.groupDrift = null
+  store.meta = {}
+  store.loaded = false
+
+  const { data: client, error: clientErr } = await sb.from('clients').select('id').eq('slug', slug).maybeSingle()
+  if (clientErr) { console.error(`careDataLoader: client lookup failed for ${slug}: ${clientErr.message}`); return }
   if (!client) return
   const { data, error } = await sb.from('church_dashboard_data')
     .select('module_key, payload, computed_at, source_freshness, status, error')
