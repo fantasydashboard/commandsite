@@ -8,7 +8,7 @@ export interface GroupInput {
 }
 
 const DAY = 864e5
-const normGroup = (n: string) => n.replace(/\s*-\s*/g, ' · ').replace(/'s|'s/g, '').slice(0, 38)
+const normGroup = (n: string) => n.replace(/\s*-\s*/g, ' · ').replace(/’s|'s/g, '').slice(0, 38)
 
 export function computeGroupDrift(groups: GroupInput[], cfg: GroupDriftCfg): GroupDriftPayload {
   let groupsWithData = 0
