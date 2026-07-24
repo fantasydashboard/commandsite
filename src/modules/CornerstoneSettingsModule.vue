@@ -18,6 +18,7 @@ import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
 import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
 import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vue'
 import PrivacySettings from '@/components/cornerstone/PrivacySettings.vue'
+import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -91,6 +92,15 @@ const intsByCategory = computed(() => {
           @click="saveAll"
         >Save changes</button>
       </div>
+    </div>
+
+    <!-- Live data sync: real churches only, sits above the KPI/team sections. -->
+    <div v-if="isRealChurch" class="card flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <span class="eyebrow">Live data sync</span>
+        <p class="text-xs text-ink-muted mt-0.5">Pull the latest from Planning Center on demand instead of waiting for the scheduled sync.</p>
+      </div>
+      <RefreshNowButton :slug="client.slug" />
     </div>
 
     <!-- KPI strip -->

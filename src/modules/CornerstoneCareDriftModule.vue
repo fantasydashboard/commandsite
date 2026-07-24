@@ -25,6 +25,7 @@ import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
 import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
 import GroupDriftWatch from '@/components/cornerstone/GroupDriftWatch.vue'
 import RecentWins from '@/components/cornerstone/RecentWins.vue'
+import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
 import { activeFamilies } from '@/lib/clients/focal-point/driftLive'
 import { congregationOf } from '@/lib/clients/focal-point/congregation'
@@ -43,6 +44,9 @@ const data = churchDataset(props.client.slug)
 // Care & Drift is Sample for Focal Point until drift derivation (needs
 // giving/groups/check-in history) lands. Tag it clearly, hide the fake feeds.
 const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+// Refresh-now button only for churches with a live Planning Center sync;
+// never shows for the Cornerstone demo.
+const isLiveChurch = computed(() => LIVE_CHURCHES.includes(props.client?.slug))
 
 // Live churches get their serving/burnout/group-drift signals from the real
 // Planning Center pull; everyone else keeps the baked demo snapshot (the
@@ -268,7 +272,10 @@ const careRecommendations: GraceRecommendation[] = [
       <CarePipelineBoard />
       <LeaderDigestPreview />
       <div class="card flex flex-wrap gap-1 !p-1.5">
-        <div class="w-full px-1 pb-1 text-[11px] text-ink-muted">Full directories, the complete list behind each track. All three follow the lens: families and groups by the service they attend, serving by the teams they serve. Everyone who has come back drops off.</div>
+        <div class="w-full flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
+          <span class="text-[11px] text-ink-muted">Full directories, the complete list behind each track. All three follow the lens: families and groups by the service they attend, serving by the teams they serve. Everyone who has come back drops off.</span>
+          <RefreshNowButton v-if="isLiveChurch" :slug="props.client.slug" />
+        </div>
         <button
           v-for="t in careTabs"
           :key="t.key"
