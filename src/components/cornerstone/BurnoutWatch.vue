@@ -5,7 +5,7 @@
  * they burn out and drop. Real, from Planning Center volunteer check-ins.
  */
 import { computed, ref } from 'vue'
-import { focalPointBurnout as fb } from '@/lib/clients/focal-point/burnout'
+import { burnoutData } from '@/lib/clients/church/careDataLoader'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { burnoutFlag } from '@/lib/clients/focal-point/flags'
@@ -20,7 +20,8 @@ const dupOnly = ref(false)
 // Serving scopes by CAMPUS (which teams a person serves): the Brazilian ministry
 // runs its own teams. People who serve both campuses show in both views.
 const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
-const active = computed(() => fb.people.filter((p) => !care.isHidden(`burnout:${p.name}`) && inCampus(p.campus)))
+const fb = computed(() => burnoutData())
+const active = computed(() => fb.value.people.filter((p) => !care.isHidden(`burnout:${p.name}`) && inCampus(p.campus)))
 const highRiskShown = computed(() => active.value.filter((p) => p.tier === 'high').length)
 const dups = computed(() => active.value.filter((p) => duplicateInfo(p.name)))
 const visible = computed(() =>

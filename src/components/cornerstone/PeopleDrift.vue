@@ -7,7 +7,7 @@
  * Planning Center scopes are enabled.
  */
 import { computed, ref } from 'vue'
-import { focalPointServing } from '@/lib/clients/focal-point/serving'
+import { servingData } from '@/lib/clients/church/careDataLoader'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { servingFlag } from '@/lib/clients/focal-point/flags'
@@ -22,8 +22,9 @@ const dupOnly = ref(false)
 // Serving scopes by CAMPUS (which teams they served): the Brazilian ministry runs
 // its own teams. People who served both campuses show in both views.
 const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
+const focalPointServing = computed(() => servingData())
 const active = computed(() =>
-  focalPointServing.people.filter((p) => !care.isHidden(`serving:${p.name}`) && inCampus(p.campus)),
+  focalPointServing.value.people.filter((p) => !care.isHidden(`serving:${p.name}`) && inCampus(p.campus)),
 )
 const dups = computed(() => active.value.filter((p) => duplicateInfo(p.name)))
 const visible = computed(() =>

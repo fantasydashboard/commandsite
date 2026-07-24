@@ -3,7 +3,7 @@
  * Cornerstone Serving (volunteer scheduling, burnout, and weekly comms).
  * Grace's roles on this page: Volunteer Coordination + Communications.
  */
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import type { Client } from '@/types/database'
 import { VOLUNTEER_ROLE_META } from '@/lib/clients/cornerstone/sundays'
 import { CHANNEL_META } from '@/lib/clients/cornerstone/comms'
@@ -20,11 +20,21 @@ import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
 import CommsDrafts from '@/components/cornerstone/CommsDrafts.vue'
 import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
 import { focalPointRoster } from '@/lib/clients/focal-point/roster'
-import { focalPointBurnout } from '@/lib/clients/focal-point/burnout'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
+import { loadCareData, burnoutData } from '@/lib/clients/church/careDataLoader'
+import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Live churches get Burnout Watch's real Planning Center pull; everyone else
+// keeps the baked demo snapshot (the loader getter falls back automatically).
+// The Care & Drift module may have already loaded this church's data, but the
+// loader is idempotent and cheap, so calling it here too keeps this module
+// correct even when a user lands here first.
+onMounted(() => {
+  if (LIVE_CHURCHES.includes(props.client?.slug)) loadCareData(props.client.slug)
+})
 
 // Over-serving scopes by campus like the Burnout Watch list below, so the KPI and
 // the list always agree. The other KPIs (spots to fill, fresh capacity) are the
@@ -32,7 +42,7 @@ const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 const lens = useCongregationLens()
 const overServing = computed(() => {
   const s = lens.scope
-  return focalPointBurnout.people.filter((p) => s === 'all' || p.campus === 'both' || p.campus === s).length
+  return burnoutData().people.filter((p) => s === 'all' || p.campus === 'both' || p.campus === s).length
 })
 
 // Client-varying data resolved by slug; names preserved so the rest of the
