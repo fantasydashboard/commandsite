@@ -10,7 +10,7 @@ import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 function json(body: unknown, status = 200): Response {
@@ -109,7 +109,14 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
-  if (!token) return json({ error: 'Missing Authorization' }, 401)
+  // pg_cron's net.http_post sends only Content-Type and X-Cron-Secret, no
+  // Authorization header, so the cron secret must be checked before the
+  // "missing Authorization" gate, not after it (the gate would otherwise
+  // 401 the cron before it ever reaches the cron path below).
+  const cronSecret = req.headers.get('X-Cron-Secret') ?? req.headers.get('x-cron-secret') ?? ''
+  const expectedCron = Deno.env.get('PCO_SYNC_CRON_SECRET') ?? ''
+  const isCron = !!expectedCron && cronSecret === expectedCron
+  if (!token && !isCron) return json({ error: 'Missing Authorization' }, 401)
 
   let body: { tenant?: string; modules?: string[] } = {}
   try { body = await req.json() } catch { /* empty body = cron all-churches */ }
@@ -136,10 +143,11 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // Cron path: no tenant. Service role only. Sync every church that has a PCO
-  // connection. Each church is wrapped so one church's failure cannot abort the
-  // batch (every later church still runs).
-  if (!isServiceRole) return json({ error: 'Full sync requires the service role' }, 403)
+  // Cron path: no tenant. Accept the pg_cron trigger (shared X-Cron-Secret header,
+  // checked above) or a direct service-role call. Sync every church that has a
+  // PCO connection. Each church is wrapped so one church's failure cannot abort
+  // the batch (every later church still runs).
+  if (!isServiceRole && !isCron) return json({ error: 'Full sync requires the service role or a valid cron secret' }, 403)
   const { data: conns } = await db.from('pco_connections').select('tenant_key')
   const all: Record<string, unknown> = {}
   for (const c of conns ?? []) {
