@@ -21,3 +21,19 @@ Deno.test('pcoAll follows links.next and retries 429', async () => {
   const rows = await pcoAll('t', '/x?per_page=2')
   assertEquals(rows, [1, 2, 3])
 })
+
+Deno.test('pcoUntil stops at the cutoff and does not over-fetch later pages', async () => {
+  const pages: Record<string, any> = {
+    '/p': { data: [{ d: '2026-05-10' }, { d: '2026-05-03' }, { d: '2026-04-01' }], links: { next: 'https://api.planningcenteronline.com/p?o=3' } },
+    '/p?o=3': { data: [{ d: '2026-03-01' }], links: {} },
+  }
+  let page2fetched = false
+  const fetcher = async (_tenant: string, path: string): Promise<Response> => {
+    if (path === '/p?o=3') page2fetched = true
+    return new Response(JSON.stringify(pages[path]), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+  const { pcoUntil } = makePager(fetcher)
+  const rows = await pcoUntil('t', '/p', (r: any) => r.d < '2026-05-01')
+  assertEquals(rows.map((r: any) => r.d), ['2026-05-10', '2026-05-03'])
+  assertEquals(page2fetched, false)
+})

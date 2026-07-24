@@ -1,5 +1,5 @@
 // fetchGroups.ts
-import { pcoAll, pcoGet } from '../pco-paginate.ts'
+import { pcoAll, pcoAllPages } from '../pco-paginate.ts'
 import type { GroupDriftCfg } from './types.ts'
 import type { GroupInput } from './groupDrift.ts'
 
@@ -27,10 +27,11 @@ export async function fetchGroupInputs(tenant: string, cfg: GroupDriftCfg): Prom
           if (pid) (attendanceByPid[pid] ??= []).push(e.date)
         }
       }
-      const mj = await pcoGet(tenant, `/groups/v2/groups/${g.id}/memberships?per_page=100&include=person`)
+      const memberPages = await pcoAllPages(tenant, `/groups/v2/groups/${g.id}/memberships?per_page=100&include=person`)
       const nm: Record<string, string> = {}
-      for (const inc of mj.included ?? []) if (inc.type === 'Person') nm[inc.id] = `${inc.attributes?.first_name ?? ''} ${inc.attributes?.last_name ?? ''}`.trim()
-      const members = (mj.data ?? []).map((m: any) => ({ pid: m.relationships?.person?.data?.id, name: nm[m.relationships?.person?.data?.id] || 'Member' })).filter((m: any) => m.pid)
+      for (const page of memberPages) for (const inc of page.included ?? []) if (inc.type === 'Person') nm[inc.id] = `${inc.attributes?.first_name ?? ''} ${inc.attributes?.last_name ?? ''}`.trim()
+      const members: { pid: string; name: string }[] = []
+      for (const page of memberPages) for (const m of (page.data ?? [])) { const pid = m.relationships?.person?.data?.id; if (pid) members.push({ pid, name: nm[pid] || 'Member' }) }
       out.push({ name: g.attributes?.name ?? 'Group', events, attendanceByPid, members })
     }
   }

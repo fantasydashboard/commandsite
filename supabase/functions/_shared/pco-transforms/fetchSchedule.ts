@@ -1,5 +1,5 @@
 // fetchSchedule.ts
-import { pcoAll, pcoAllPages } from '../pco-paginate.ts'
+import { pcoAll, pcoAllPages, pcoUntil } from '../pco-paginate.ts'
 import { monthsAgo } from './serving.ts'
 import type { ByPerson, ServingCfg } from './types.ts'
 
@@ -10,16 +10,13 @@ export async function fetchServingSchedule(tenant: string, cfg: ServingCfg, toda
   const serviceTypes = await pcoAll(tenant, '/services/v2/service_types?per_page=100')
   const plans: { id: string; date: string }[] = []
   for (const st of serviceTypes) {
-    const stName = st.attributes?.name ?? 'Service'
-    const past = await pcoAll(tenant, `/services/v2/service_types/${st.id}/plans?filter=past&per_page=50&order=-sort_date`)
-    for (const p of past) {
-      const date = (p.attributes?.sort_date ?? '').slice(0, 10)
-      if (date && date < cutoff) break // pages are date-desc; stop at cutoff
-      plans.push({ id: p.id, date })
-    }
+    const past = await pcoUntil(tenant, `/services/v2/service_types/${st.id}/plans?filter=past&per_page=50&order=-sort_date`, (p: any) => {
+      const d = (p.attributes?.sort_date ?? '').slice(0, 10)
+      return !!d && d < cutoff
+    })
+    for (const p of past) plans.push({ id: p.id, date: (p.attributes?.sort_date ?? '').slice(0, 10) })
     const future = await pcoAll(tenant, `/services/v2/service_types/${st.id}/plans?filter=future&per_page=50&order=sort_date`)
     for (const p of future) plans.push({ id: p.id, date: (p.attributes?.sort_date ?? '').slice(0, 10) })
-    void stName
   }
   const byPerson: ByPerson = {}
   for (const plan of plans) {
