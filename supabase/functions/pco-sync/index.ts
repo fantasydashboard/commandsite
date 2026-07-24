@@ -6,6 +6,7 @@ import { fetchServingSchedule } from '../_shared/pco-transforms/fetchSchedule.ts
 import { fetchGroupInputs } from '../_shared/pco-transforms/fetchGroups.ts'
 import { computeServing, computeBurnout } from '../_shared/pco-transforms/serving.ts'
 import { computeGroupDrift } from '../_shared/pco-transforms/groupDrift.ts'
+import { pcoAll } from '../_shared/pco-paginate.ts'
 import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
@@ -118,10 +119,30 @@ Deno.serve(async (req: Request) => {
   const isCron = !!expectedCron && cronSecret === expectedCron
   if (!token && !isCron) return json({ error: 'Missing Authorization' }, 401)
 
-  let body: { tenant?: string; modules?: string[] } = {}
+  let body: { tenant?: string; modules?: string[]; debug?: boolean } = {}
   try { body = await req.json() } catch { /* empty body = cron all-churches */ }
   const db = svc()
   const isServiceRole = token === SERVICE_ROLE_KEY
+
+  // Diagnostic: report what the connected PCO token can actually read across
+  // products (no storage, no transforms). Gated to service role or the cron
+  // secret. Used to distinguish an empty pull (permissions/org) from a bug.
+  if (body.debug && (isServiceRole || isCron)) {
+    const t = (body.tenant ?? 'focal-point-church').trim()
+    const probe: Record<string, unknown> = {}
+    async function check(label: string, path: string, name: (x: any) => unknown) {
+      try {
+        const rows = await pcoAll(t, path)
+        probe[label] = { count: rows.length, sample: rows.slice(0, 8).map(name) }
+      } catch (e) {
+        probe[label] = { error: e instanceof Error ? e.message : String(e) }
+      }
+    }
+    await check('service_types', '/services/v2/service_types?per_page=25', (x) => x.attributes?.name)
+    await check('group_types', '/groups/v2/group_types?per_page=25', (x) => x.attributes?.name)
+    await check('people', '/people/v2/people?per_page=3', (x) => x.attributes?.name ?? x.id)
+    return json({ ok: true, tenant: t, probe })
+  }
 
   // Resolve target churches: a tenant given => that one (with authz); none => all connected (service role only).
   if (body.tenant) {
