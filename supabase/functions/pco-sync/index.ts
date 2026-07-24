@@ -21,37 +21,77 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const svc = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 const todayUtc = () => new Date().toISOString().slice(0, 10)
 
-// Compute one church. Each unit is isolated so one failure does not sink others.
+// Compute one church. Each module write is isolated so one failure does not sink
+// the others, and every DB write result is checked so a failed write is never
+// reported as success.
 async function syncChurch(db: any, slug: string, clientId: string, cfg: PcoConfig, modules?: string[]) {
-  const staff = new Set(cfg.staffNames ?? [])
+  const staff = new Set(Array.isArray(cfg.staffNames) ? cfg.staffNames : [])
   const today = todayUtc()
   const want = (k: string) => !modules || modules.includes(k)
   const results: Record<string, string> = {}
 
+  // Success write: full upsert including the fresh payload. Checks the write
+  // result so a silent PostgREST error is not mislabeled 'ok'.
   async function writeOk(moduleKey: string, payload: unknown, freshness: string) {
-    await db.from('church_dashboard_data').upsert({
-      client_id: clientId, module_key: moduleKey, payload, status: 'ok', error: null,
-      computed_at: new Date().toISOString(), source_freshness: freshness, synced_attempt_at: new Date().toISOString(),
-    }, { onConflict: 'client_id,module_key' })
-    results[moduleKey] = 'ok'
-  }
-  async function writeErr(moduleKey: string, e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    // Preserve last-good payload: update status/error only.
-    await db.from('church_dashboard_data').update({ status: 'error', error: msg, synced_attempt_at: new Date().toISOString() })
-      .eq('client_id', clientId).eq('module_key', moduleKey)
-    results[moduleKey] = 'error'
+    try {
+      const { error } = await db.from('church_dashboard_data').upsert({
+        client_id: clientId, module_key: moduleKey, payload, status: 'ok', error: null,
+        computed_at: new Date().toISOString(), source_freshness: freshness, synced_attempt_at: new Date().toISOString(),
+      }, { onConflict: 'client_id,module_key' })
+      if (error) { results[moduleKey] = 'error'; console.error(`pco-sync write ${slug}/${moduleKey} failed: ${error.message}`); return }
+      results[moduleKey] = 'ok'
+    } catch (e) {
+      results[moduleKey] = 'error'
+      console.error(`pco-sync write ${slug}/${moduleKey} threw: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
-  // Unit 1: serving + burnout share one schedule pull.
-  if (want('serving') || want('burnout')) {
+  // Failure write: preserve the last-good payload (UPDATE status/error only). If
+  // no row exists yet (first sync for this module), insert a visible error row
+  // with an empty payload so the failure shows in the table, not just the HTTP
+  // response. Never throws (its own DB errors are logged and swallowed).
+  async function writeErr(moduleKey: string, e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    results[moduleKey] = 'error'
     try {
-      const byPerson = await fetchServingSchedule(slug, cfg.serving, today)
-      if (want('serving')) await writeOk('serving', computeServing(byPerson, staff, cfg.serving, today), today)
-      if (want('burnout')) await writeOk('burnout', computeBurnout(byPerson, staff, cfg.burnout, today), today)
+      const { data: existing } = await db.from('church_dashboard_data')
+        .select('module_key').eq('client_id', clientId).eq('module_key', moduleKey).maybeSingle()
+      const stamp = new Date().toISOString()
+      if (existing) {
+        const { error } = await db.from('church_dashboard_data')
+          .update({ status: 'error', error: msg, synced_attempt_at: stamp })
+          .eq('client_id', clientId).eq('module_key', moduleKey)
+        if (error) console.error(`pco-sync error-write ${slug}/${moduleKey} failed: ${error.message}`)
+      } else {
+        const { error } = await db.from('church_dashboard_data')
+          .insert({ client_id: clientId, module_key: moduleKey, payload: {}, status: 'error', error: msg, synced_attempt_at: stamp })
+        if (error) console.error(`pco-sync error-insert ${slug}/${moduleKey} failed: ${error.message}`)
+      }
+    } catch (writeError) {
+      console.error(`pco-sync writeErr ${slug}/${moduleKey} threw: ${writeError instanceof Error ? writeError.message : String(writeError)}`)
+    }
+  }
+
+  // Unit 1: serving + burnout share one schedule pull. A pull failure marks both
+  // error; otherwise each module computes and writes independently so a burnout
+  // failure cannot clobber a successful serving write (and vice versa).
+  if (want('serving') || want('burnout')) {
+    let byPerson: Awaited<ReturnType<typeof fetchServingSchedule>> | null = null
+    try {
+      byPerson = await fetchServingSchedule(slug, cfg.serving, today)
     } catch (e) {
       if (want('serving')) await writeErr('serving', e)
       if (want('burnout')) await writeErr('burnout', e)
+    }
+    if (byPerson) {
+      if (want('serving')) {
+        try { await writeOk('serving', computeServing(byPerson, staff, cfg.serving, today), today) }
+        catch (e) { await writeErr('serving', e) }
+      }
+      if (want('burnout')) {
+        try { await writeOk('burnout', computeBurnout(byPerson, staff, cfg.burnout, today), today) }
+        catch (e) { await writeErr('burnout', e) }
+      }
     }
   }
   // Unit 2: group drift.
@@ -88,18 +128,28 @@ Deno.serve(async (req: Request) => {
       const ok = me?.role === 'admin' || (me?.role === 'client' && me?.client_id === client.id && me?.permission_scope === 'full')
       if (!ok) return json({ error: 'You do not have permission to refresh this church.' }, 403)
     }
-    const results = await syncChurch(db, body.tenant, client.id, (client.pco_config ?? {}) as PcoConfig, body.modules)
-    return json({ ok: true, results })
+    try {
+      const results = await syncChurch(db, body.tenant, client.id, (client.pco_config ?? {}) as PcoConfig, body.modules)
+      return json({ ok: true, results })
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : String(e) }, 500)
+    }
   }
 
-  // Cron path: no tenant. Service role only. Sync every church that has a PCO connection.
+  // Cron path: no tenant. Service role only. Sync every church that has a PCO
+  // connection. Each church is wrapped so one church's failure cannot abort the
+  // batch (every later church still runs).
   if (!isServiceRole) return json({ error: 'Full sync requires the service role' }, 403)
   const { data: conns } = await db.from('pco_connections').select('tenant_key')
   const all: Record<string, unknown> = {}
   for (const c of conns ?? []) {
-    const { data: client } = await db.from('clients').select('id, pco_config').eq('slug', c.tenant_key).maybeSingle()
-    if (!client) continue
-    all[c.tenant_key] = await syncChurch(db, c.tenant_key, client.id, (client.pco_config ?? {}) as PcoConfig, body.modules)
+    try {
+      const { data: client } = await db.from('clients').select('id, pco_config').eq('slug', c.tenant_key).maybeSingle()
+      if (!client) { all[c.tenant_key] = { error: 'no matching client row' }; continue }
+      all[c.tenant_key] = await syncChurch(db, c.tenant_key, client.id, (client.pco_config ?? {}) as PcoConfig, body.modules)
+    } catch (e) {
+      all[c.tenant_key] = { error: e instanceof Error ? e.message : String(e) }
+    }
   }
   return json({ ok: true, results: all })
 })
