@@ -63,9 +63,10 @@ export async function fetchScheduleChunk(
         }
       }
       if (rows.length) {
-        const { error } = await db.from('pco_serving_assignments').upsert(rows, { onConflict: 'client_id,person_id,date,team' })
+        const deduped = [...new Map(rows.map((r: any) => [`${r.person_id}|${r.date}|${r.team}`, r])).values()]
+        const { error } = await db.from('pco_serving_assignments').upsert(deduped, { onConflict: 'client_id,person_id,date,team' })
         if (error) throw new Error(`upsert assignments failed: ${error.message}`)
-        lastDate = rows.reduce((mx: string, r: any) => (r.date > mx ? r.date : mx), lastDate ?? '')
+        lastDate = deduped.reduce((mx: string, r: any) => (r.date > mx ? r.date : mx), lastDate ?? '')
       }
       planIndex++
     }
