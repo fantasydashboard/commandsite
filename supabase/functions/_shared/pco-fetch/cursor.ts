@@ -1,4 +1,4 @@
-export interface ScheduleCursor { serviceTypeIds: string[]; stIndex: number; planIds: string[]; planIndex: number }
+export interface ScheduleCursor { serviceTypeIds: string[]; stIndex: number; planIds: { id: string; date: string }[]; planIndex: number }
 export interface GroupsCursor { groups: { id: string; name: string }[]; gIndex: number }
 
 // Returns a function that reports whether the time budget has elapsed. Check it
