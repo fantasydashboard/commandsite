@@ -1,5 +1,5 @@
 // fetchGroupsChunk.ts
-import { pcoAll, pcoGet } from '../pco-paginate.ts'
+import { pcoAll, pcoAllPages } from '../pco-paginate.ts'
 import type { GroupsCursor } from './cursor.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -41,16 +41,20 @@ export async function fetchGroupsChunk(
         if (pid) attRows.push({ client_id: clientId, group_id: g.id, group_name: g.name, event_id: e.id, event_date: e.date, person_id: pid, name: '' })
       }
     }
-    const mj = await pcoGet(tenant, `/groups/v2/groups/${g.id}/memberships?per_page=100&include=person`)
+    const memberPages = await pcoAllPages(tenant, `/groups/v2/groups/${g.id}/memberships?per_page=100&include=person`)
     const nm: Record<string, string> = {}
-    for (const inc of mj.included ?? []) if (inc.type === 'Person') nm[inc.id] = `${inc.attributes?.first_name ?? ''} ${inc.attributes?.last_name ?? ''}`.trim()
-    const memRows = (mj.data ?? []).map((m: any) => ({ client_id: clientId, group_id: g.id, group_name: g.name, person_id: m.relationships?.person?.data?.id, name: nm[m.relationships?.person?.data?.id] || 'Member' })).filter((m: any) => m.person_id)
+    for (const page of memberPages) for (const inc of page.included ?? []) if (inc.type === 'Person') nm[inc.id] = `${inc.attributes?.first_name ?? ''} ${inc.attributes?.last_name ?? ''}`.trim()
+    const memRowsRaw: any[] = []
+    for (const page of memberPages) for (const m of (page.data ?? [])) {
+      const pid = m.relationships?.person?.data?.id
+      if (pid) memRowsRaw.push({ client_id: clientId, group_id: g.id, group_name: g.name, person_id: pid, name: nm[pid] || 'Member' })
+    }
     // Fill attendance names from membership where known.
     for (const r of attRows) r.name = nm[r.person_id] || 'Member'
     // Dedupe on conflict key before upserting; a person could plausibly appear
-    // twice in a membership response, or attend-marked twice for the same event.
+    // twice across paginated membership responses, or attend-marked twice for the same event.
     const dedupedAtt = [...new Map(attRows.map((r: any) => [`${r.group_id}|${r.event_id}|${r.person_id}`, r])).values()]
-    const dedupedMem = [...new Map(memRows.map((r: any) => [`${r.group_id}|${r.person_id}`, r])).values()]
+    const dedupedMem = [...new Map(memRowsRaw.map((r: any) => [`${r.group_id}|${r.person_id}`, r])).values()]
     if (dedupedAtt.length) { const { error } = await db.from('pco_group_attendance').upsert(dedupedAtt, { onConflict: 'client_id,group_id,event_id,person_id' }); if (error) throw new Error(`att upsert: ${error.message}`) }
     if (dedupedMem.length) { const { error } = await db.from('pco_group_members').upsert(dedupedMem, { onConflict: 'client_id,group_id,person_id' }); if (error) throw new Error(`mem upsert: ${error.message}`) }
     gIndex++
