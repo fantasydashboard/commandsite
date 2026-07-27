@@ -9,11 +9,12 @@
  */
 import { computed } from 'vue'
 import { asOfLabel } from '@/lib/clients/focal-point/dataFreshness'
-import { careMeta } from '@/lib/clients/church/careDataLoader'
+import { careMeta, careSyncing } from '@/lib/clients/church/careDataLoader'
 import { fmtAgo } from '@/lib/format'
 
 const STALE_MS = 36 * 60 * 60 * 1000
 
+const syncing = computed(() => careSyncing())
 const meta = computed(() => careMeta('serving'))
 const isLive = computed(() => !!meta.value?.computedAt)
 const isStale = computed(() => {
@@ -37,6 +38,15 @@ const hoverText = computed(() =>
 
 <template>
   <span
+    v-if="syncing"
+    class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted"
+    title="Grace is pulling your Planning Center history for the first time. Some lists may be incomplete until this finishes."
+  >
+    <span class="h-1.5 w-1.5 rounded-full bg-warn"></span>
+    Syncing with Planning Center, catching up
+  </span>
+  <span
+    v-else
     class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted"
     :title="hoverText"
   >

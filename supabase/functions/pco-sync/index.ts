@@ -6,7 +6,7 @@ import { fetchServingSchedule } from '../_shared/pco-transforms/fetchSchedule.ts
 import { fetchGroupInputs } from '../_shared/pco-transforms/fetchGroups.ts'
 import { computeServing, computeBurnout } from '../_shared/pco-transforms/serving.ts'
 import { computeGroupDrift } from '../_shared/pco-transforms/groupDrift.ts'
-import { pcoAll } from '../_shared/pco-paginate.ts'
+import { pcoGet } from '../_shared/pco-paginate.ts'
 import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
@@ -132,8 +132,8 @@ Deno.serve(async (req: Request) => {
     const probe: Record<string, unknown> = {}
     async function check(label: string, path: string, name: (x: any) => unknown) {
       try {
-        const rows = await pcoAll(t, path)
-        probe[label] = { count: rows.length, sample: rows.slice(0, 8).map(name) }
+        const j = await pcoGet(t, path)
+        probe[label] = { count: (j.data ?? []).length, sample: (j.data ?? []).slice(0, 8).map(name) }
       } catch (e) {
         probe[label] = { error: e instanceof Error ? e.message : String(e) }
       }
