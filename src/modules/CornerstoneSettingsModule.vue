@@ -13,10 +13,12 @@ import {
   INTEGRATION_CATEGORY_LABEL,
 } from '@/lib/clients/cornerstone/settings'
 import { churchDataset } from '@/lib/clients/church/dataset'
+import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
 import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
 import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vue'
 import PrivacySettings from '@/components/cornerstone/PrivacySettings.vue'
+import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -25,10 +27,10 @@ const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 // both are gated by slug.
 const showDuplicates = props.client.slug === 'focal-point-church'
 // Churches with a live Planning Center OAuth connection surface. Add a slug
-// here when a new church onboards; the public Cornerstone demo stays excluded.
-const PCO_CONNECT_CHURCHES = ['focal-point-church']
-const showPcoConnect = PCO_CONNECT_CHURCHES.includes(props.client.slug)
-// showPcoConnect (PCO_CONNECT_CHURCHES) already marks a real church. Reuse it to
+// to LIVE_CHURCHES (src/lib/clients/church/liveChurches.ts) when a new church
+// onboards; the public Cornerstone demo stays excluded.
+const showPcoConnect = LIVE_CHURCHES.includes(props.client.slug)
+// showPcoConnect (LIVE_CHURCHES) already marks a real church. Reuse it to
 // branch every section between real behavior and the Cornerstone demo's sample data.
 const isRealChurch = showPcoConnect
 
@@ -90,6 +92,15 @@ const intsByCategory = computed(() => {
           @click="saveAll"
         >Save changes</button>
       </div>
+    </div>
+
+    <!-- Live data sync: real churches only, sits above the KPI/team sections. -->
+    <div v-if="isRealChurch" class="card flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <span class="eyebrow">Live data sync</span>
+        <p class="text-xs text-ink-muted mt-0.5">Pull the latest from Planning Center on demand instead of waiting for the scheduled sync.</p>
+      </div>
+      <RefreshNowButton :slug="client.slug" />
     </div>
 
     <!-- KPI strip -->

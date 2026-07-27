@@ -3,7 +3,7 @@
  * Cornerstone — Care & Drift.
  * Grace's roles on this page: Re-engagement + Drift Detection + Care Triage.
  */
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { Client } from '@/types/database'
 import {
   STAGE_META, FLAG_META,
@@ -25,15 +25,16 @@ import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
 import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
 import GroupDriftWatch from '@/components/cornerstone/GroupDriftWatch.vue'
 import RecentWins from '@/components/cornerstone/RecentWins.vue'
+import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
-import { focalPointServing } from '@/lib/clients/focal-point/serving'
-import { focalPointGroupDrift } from '@/lib/clients/focal-point/groupDrift'
 import { activeFamilies } from '@/lib/clients/focal-point/driftLive'
 import { congregationOf } from '@/lib/clients/focal-point/congregation'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { useCareActions } from '@/stores/careActions'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
+import { loadCareData, servingData, groupDriftData } from '@/lib/clients/church/careDataLoader'
+import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 
@@ -43,6 +44,16 @@ const data = churchDataset(props.client.slug)
 // Care & Drift is Sample for Focal Point until drift derivation (needs
 // giving/groups/check-in history) lands. Tag it clearly, hide the fake feeds.
 const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+// Refresh-now button only for churches with a live Planning Center sync;
+// never shows for the Cornerstone demo.
+const isLiveChurch = computed(() => LIVE_CHURCHES.includes(props.client?.slug))
+
+// Live churches get their serving/burnout/group-drift signals from the real
+// Planning Center pull; everyone else keeps the baked demo snapshot (the
+// loader getters fall back automatically).
+onMounted(() => {
+  if (LIVE_CHURCHES.includes(props.client?.slug)) loadCareData(props.client.slug)
+})
 
 // Tabbed directories below the priority feed (fixes the page length).
 // Counts are lens- and reconciliation-aware so each tab badge MATCHES the list
@@ -58,10 +69,10 @@ const familiesCount = computed(
 // vs English/main. People who served both show in both views.
 const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
 const servingCount = computed(
-  () => focalPointServing.people.filter((p) => !careActions.isHidden(`serving:${p.name}`) && inCampus(p.campus)).length,
+  () => servingData().people.filter((p) => !careActions.isHidden(`serving:${p.name}`) && inCampus(p.campus)).length,
 )
 const groupsCount = computed(
-  () => focalPointGroupDrift.people.filter((p) => inScope(p.name) && !careActions.isHidden(`group:${p.name}`)).length,
+  () => groupDriftData().people.filter((p) => inScope(p.name) && !careActions.isHidden(`group:${p.name}`)).length,
 )
 const careTab = ref<'families' | 'serving' | 'groups'>('families')
 const careTabs = computed(() => [
@@ -261,7 +272,10 @@ const careRecommendations: GraceRecommendation[] = [
       <CarePipelineBoard />
       <LeaderDigestPreview />
       <div class="card flex flex-wrap gap-1 !p-1.5">
-        <div class="w-full px-1 pb-1 text-[11px] text-ink-muted">Full directories, the complete list behind each track. All three follow the lens: families and groups by the service they attend, serving by the teams they serve. Everyone who has come back drops off.</div>
+        <div class="w-full flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
+          <span class="text-[11px] text-ink-muted">Full directories, the complete list behind each track. All three follow the lens: families and groups by the service they attend, serving by the teams they serve. Everyone who has come back drops off.</span>
+          <RefreshNowButton v-if="isLiveChurch" :slug="props.client.slug" />
+        </div>
         <button
           v-for="t in careTabs"
           :key="t.key"

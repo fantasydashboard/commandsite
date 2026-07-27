@@ -72,3 +72,9 @@ verify_jwt = false
 
 [functions.church-user-admin]
 verify_jwt = false
+
+[functions.pco-sync]
+verify_jwt = false
+
+[functions.pco-fetch]
+verify_jwt = false

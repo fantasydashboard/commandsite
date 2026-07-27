@@ -7,7 +7,7 @@
  * check-in before groups restart in the fall.
  */
 import { computed, ref } from 'vue'
-import { focalPointGroupDrift as g } from '@/lib/clients/focal-point/groupDrift'
+import { groupDriftData } from '@/lib/clients/church/careDataLoader'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { congregationOf } from '@/lib/clients/focal-point/congregation'
@@ -19,8 +19,9 @@ const lens = useCongregationLens()
 const COLLAPSED = 12
 const showAll = ref(false)
 const inScope = (name: string) => lens.scope === 'all' || congregationOf(name) === lens.scope
+const g = computed(() => groupDriftData())
 const active = computed(() =>
-  g.people.filter((p) => !care.isHidden(`group:${p.name}`) && inScope(p.name)),
+  g.value.people.filter((p) => !care.isHidden(`group:${p.name}`) && inScope(p.name)),
 )
 const visible = computed(() => (showAll.value ? active.value : active.value.slice(0, COLLAPSED)))
 </script>
