@@ -95,13 +95,13 @@ async function syncResource(
     const r = await fetchScheduleChunk(db, clientId, tenant, cfg.serving, {} as any, isOver, cutoff)
     await computeServingBurnout(db, clientId, cfg)
     const { error } = await db.from('pco_sync_state')
-      .update({ last_synced_date: r.lastDate ?? row.last_synced_date, updated_at: now })
+      .update({ last_synced_date: r.lastDate ?? row.last_synced_date, updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
   } else {
     await computeGroups(db, clientId, cfg)
     const { error } = await db.from('pco_sync_state')
-      .update({ updated_at: now })
+      .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
   }
@@ -163,9 +163,10 @@ Deno.serve(async (req: Request) => {
   // Tenant-scoped path: a specific church, either the cron/service role or an
   // admin / full-scope client user of that church (mirrors pco-sync).
   if (body.tenant) {
-    const { data: client } = await db.from('clients').select('id, pco_config').eq('slug', body.tenant).maybeSingle()
+    const { data: client, error: clientErr } = await db.from('clients').select('id, pco_config').eq('slug', body.tenant).maybeSingle()
+    if (clientErr) return json({ error: `lookup failed: ${clientErr.message}` }, 500)
     if (!client) return json({ error: `Unknown tenant "${body.tenant}"` }, 404)
-    if (!isServiceRole && !isCron) {
+    if (!isServiceRole) {
       const userClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } })
       const { data: userData } = await userClient.auth.getUser()
       if (!userData?.user) return json({ error: 'Invalid auth token' }, 401)
@@ -185,7 +186,8 @@ Deno.serve(async (req: Request) => {
   // or a valid cron secret. Each church is wrapped so one church's failure
   // cannot abort the batch (every later church still runs).
   if (!isServiceRole && !isCron) return json({ error: 'Full sync requires the service role or a valid cron secret' }, 403)
-  const { data: conns } = await db.from('pco_connections').select('tenant_key')
+  const { data: conns, error: connsErr } = await db.from('pco_connections').select('tenant_key')
+  if (connsErr) return json({ error: `connections lookup failed: ${connsErr.message}` }, 500)
   const all: Record<string, unknown> = {}
   for (const c of conns ?? []) {
     try {

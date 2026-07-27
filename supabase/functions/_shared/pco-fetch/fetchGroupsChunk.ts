@@ -4,7 +4,7 @@ import type { GroupsCursor } from './cursor.ts'
 
 // deno-lint-ignore no-explicit-any
 type Db = any
-interface GroupDriftCfg { seasonStart: string; seasonEnd: string; groupTypeMatch: string; eventsPerGroup: number }
+interface GroupDriftCfg { seasonStart: string; seasonEnd: string; groupTypeMatch: string; eventsPerGroup?: number }
 
 export async function fetchGroupsChunk(
   db: Db, clientId: string, tenant: string, cfg: GroupDriftCfg, cursor: GroupsCursor, isOver: () => boolean,
@@ -31,7 +31,7 @@ export async function fetchGroupsChunk(
     const events = (await pcoAll(tenant, `/groups/v2/groups/${g.id}/events?per_page=100&order=-starts_at`))
       .map((e: any) => ({ id: e.id, date: (e.attributes?.starts_at ?? '').slice(0, 10), t: Date.parse(e.attributes?.starts_at ?? '') }))
       .filter((e: any) => e.t >= start && e.t <= end)
-      .slice(0, cfg.eventsPerGroup)
+      .slice(0, cfg.eventsPerGroup ?? 12)
     const attRows: any[] = []
     for (const e of events) {
       const att = await pcoAll(tenant, `/groups/v2/events/${e.id}/attendances?per_page=200`)

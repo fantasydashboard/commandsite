@@ -7,7 +7,7 @@ export interface ServingCfg { regularMin: number; gapWeeks: number; lookbackMont
 export interface BurnoutCfg { seasonMonths: number }
 export interface GroupDriftCfg {
   seasonStart: string; seasonEnd: string; minEvents: number;
-  minAttendance: number; minGapWeeks: number; groupTypeMatch: string; eventsPerGroup: number
+  minAttendance: number; minGapWeeks: number; groupTypeMatch: string; eventsPerGroup?: number
 }
 export interface FetchCfg { timeBudgetSeconds?: number; incrementalWindowDays?: number }
 export interface PcoConfig {
