@@ -2,6 +2,7 @@
 import { assignmentsToByPerson, groupRowsToInputs } from '../pco-transforms/fromStaging.ts'
 import { computeServing, computeBurnout, monthsAgo } from '../pco-transforms/serving.ts'
 import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
+import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -59,4 +60,14 @@ export async function computeGroups(db: Db, clientId: string, cfg: PcoConfig) {
     'members')
   const inputs = groupRowsToInputs(att, mem)
   await writeOk(db, clientId, 'groupDrift', computeGroupDrift(inputs, cfg.groupDrift))
+}
+
+export async function computeDrift(db: Db, clientId: string, cfg: PcoConfig) {
+  const rows = await readAll(
+    (from, to) => db.from('pco_kids_checkins')
+      .select('person_id,first,last,checkin_date,kind').eq('client_id', clientId)
+      .order('person_id').order('checkin_date').range(from, to),
+    'kids checkins')
+  const families = checkinsToFamilies(rows)
+  await writeOk(db, clientId, 'drift', computeFamilyDrift(families, cfg.drift!, today()))
 }
