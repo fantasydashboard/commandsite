@@ -5,8 +5,10 @@
 -- Both jobs POST to the pco-fetch function with hardcoded URL and X-Cron-Secret header.
 -- The pco-fetch orchestrator reads body.mode to decide behavior (backfill vs. incremental).
 
--- Retire the Layer 1 single-shot nightly sync.
-select cron.unschedule('pco-sync-nightly');
+-- Retire the Layer 1 single-shot nightly sync. Guarded so this migration does
+-- not fail if that job was never created (cron.unschedule throws on a missing job).
+select cron.unschedule('pco-sync-nightly')
+where exists (select 1 from cron.job where jobname = 'pco-sync-nightly');
 
 -- Rapid backfill driver: advance any church still catching up. Cheap no-op once
 -- all resources are in the incremental phase.
