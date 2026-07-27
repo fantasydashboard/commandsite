@@ -5,7 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { makeDeadline } from '../_shared/pco-fetch/cursor.ts'
 import { fetchScheduleChunk } from '../_shared/pco-fetch/fetchScheduleChunk.ts'
 import { fetchGroupsChunk } from '../_shared/pco-fetch/fetchGroupsChunk.ts'
-import { computeServingBurnout, computeGroups } from '../_shared/pco-fetch/computeFromCache.ts'
+import { fetchKidsCheckinsChunk } from '../_shared/pco-fetch/fetchKidsChunk.ts'
+import { computeServingBurnout, computeGroups, computeDrift } from '../_shared/pco-fetch/computeFromCache.ts'
 import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
@@ -20,7 +21,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const svc = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-type Resource = 'schedule' | 'groups'
+type Resource = 'schedule' | 'groups' | 'kids'
 type Mode = 'backfill' | 'incremental'
 // deno-lint-ignore no-explicit-any
 type Db = any
@@ -69,9 +70,20 @@ async function syncResource(
         updated_at: now, error: null,
       }, { onConflict: 'client_id,resource' })
       if (error) throw new Error(`write sync state: ${error.message}`)
-    } else {
+    } else if (resource === 'groups') {
       const r = await fetchGroupsChunk(db, clientId, tenant, cfg.groupDrift, (row.cursor ?? {}) as any, isOver)
       if (r.done) await computeGroups(db, clientId, cfg)
+      const { error } = await db.from('pco_sync_state').upsert({
+        client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
+        phase: r.done ? 'incremental' : 'backfill',
+        last_synced_date: row.last_synced_date,
+        updated_at: now, error: null,
+      }, { onConflict: 'client_id,resource' })
+      if (error) throw new Error(`write sync state: ${error.message}`)
+    } else {
+      // kids
+      const r = await fetchKidsCheckinsChunk(db, clientId, tenant, cfg.drift!, (row.cursor ?? {}) as any, isOver)
+      if (r.done) await computeDrift(db, clientId, cfg)
       const { error } = await db.from('pco_sync_state').upsert({
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
@@ -98,8 +110,20 @@ async function syncResource(
       .update({ last_synced_date: r.lastDate ?? row.last_synced_date, updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
-  } else {
+  } else if (resource === 'groups') {
     await computeGroups(db, clientId, cfg)
+    const { error } = await db.from('pco_sync_state')
+      .update({ updated_at: now, error: null })
+      .eq('client_id', clientId).eq('resource', resource)
+    if (error) throw new Error(`write sync state: ${error.message}`)
+  } else {
+    // kids: re-fetch the recent window, then recompute
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - (cfg.fetch?.incrementalWindowDays ?? DEFAULT_INCREMENTAL_WINDOW_DAYS))
+    const cutoff = d.toISOString().slice(0, 10)
+    const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
+    await fetchKidsCheckinsChunk(db, clientId, tenant, cfg.drift!, {} as any, isOver, cutoff)
+    await computeDrift(db, clientId, cfg)
     const { error } = await db.from('pco_sync_state')
       .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
@@ -132,7 +156,7 @@ async function syncChurchResource(
 
 async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConfig, mode: Mode) {
   const results: Record<string, string> = {}
-  for (const resource of ['schedule', 'groups'] as Resource[]) {
+  for (const resource of ['schedule', 'groups', 'kids'] as Resource[]) {
     results[resource] = await syncChurchResource(db, clientId, tenant, cfg, resource, mode)
   }
   return results
