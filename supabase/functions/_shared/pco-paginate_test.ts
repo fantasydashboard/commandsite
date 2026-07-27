@@ -37,3 +37,16 @@ Deno.test('pcoUntil stops at the cutoff and does not over-fetch later pages', as
   assertEquals(rows.map((r: any) => r.d), ['2026-05-10', '2026-05-03'])
   assertEquals(page2fetched, false)
 })
+
+Deno.test('pcoUntilPages returns full pages and stops at the boundary page', async () => {
+  const pages: Record<string, any> = {
+    '/c': { data: [{ d: '2026-05-10' }, { d: '2026-05-03' }], included: [{ x: 1 }], links: { next: 'https://api.planningcenteronline.com/c?o=2' } },
+    '/c?o=2': { data: [{ d: '2026-04-01' }], included: [{ x: 2 }], links: {} },
+  }
+  const fetcher = async (_t: string, path: string): Promise<Response> =>
+    new Response(JSON.stringify(pages[path]), { status: 200, headers: { 'content-type': 'application/json' } })
+  const { pcoUntilPages } = makePager(fetcher)
+  const got = await pcoUntilPages('t', '/c', (r: any) => r.d < '2026-05-01')
+  assertEquals(got.length, 2)                 // page 1 (no boundary) + page 2 (has 2026-04-01 boundary)
+  assertEquals(got[0].included, [{ x: 1 }])   // included preserved
+})

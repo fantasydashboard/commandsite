@@ -54,7 +54,21 @@ export function makePager(fetcher: Fetcher) {
     }
     return out
   }
-  return { pcoGet: getRaw, pcoAll: all, pcoAllPages: allPages, pcoUntil: until }
+  // Like `until`, but returns full page objects (data + included) rather than
+  // flattened rows. Stops after the page that first contains a `stop` row.
+  async function untilPages(tenant: string, path: string, stop: (row: any) => boolean): Promise<any[]> {
+    const out: any[] = []
+    let next: string | null = path
+    while (next) {
+      const j = await getRaw(tenant, next)
+      out.push(j)
+      if ((j.data ?? []).some(stop)) break
+      next = j?.links?.next ? rel(j.links.next) : null
+      if (next) await sleep(100)
+    }
+    return out
+  }
+  return { pcoGet: getRaw, pcoAll: all, pcoAllPages: allPages, pcoUntil: until, pcoUntilPages: untilPages }
 }
 
 const prod = makePager(pcoFetch)
@@ -62,3 +76,4 @@ export const pcoGet = prod.pcoGet
 export const pcoAll = prod.pcoAll
 export const pcoAllPages = prod.pcoAllPages
 export const pcoUntil = prod.pcoUntil
+export const pcoUntilPages = prod.pcoUntilPages
