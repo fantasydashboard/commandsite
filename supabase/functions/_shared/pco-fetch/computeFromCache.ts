@@ -37,7 +37,8 @@ export async function computeServingBurnout(db: Db, clientId: string, cfg: PcoCo
   const cutoff = monthsAgo(today(), cfg.serving.lookbackMonths)
   const data = await readAll(
     (from, to) => db.from('pco_serving_assignments')
-      .select('person_id,name,date,team,status').eq('client_id', clientId).gte('date', cutoff).range(from, to),
+      .select('person_id,name,date,team,status').eq('client_id', clientId).gte('date', cutoff)
+      .order('person_id').order('date').order('team').range(from, to),
     'assignments')
   const staff = new Set(Array.isArray(cfg.staffNames) ? cfg.staffNames : [])
   const byPerson = assignmentsToByPerson(data)
@@ -48,11 +49,13 @@ export async function computeServingBurnout(db: Db, clientId: string, cfg: PcoCo
 export async function computeGroups(db: Db, clientId: string, cfg: PcoConfig) {
   const att = await readAll(
     (from, to) => db.from('pco_group_attendance')
-      .select('group_id,group_name,event_id,event_date,person_id,name').eq('client_id', clientId).range(from, to),
+      .select('group_id,group_name,event_id,event_date,person_id,name').eq('client_id', clientId)
+      .order('group_id').order('event_id').order('person_id').range(from, to),
     'attendance')
   const mem = await readAll(
     (from, to) => db.from('pco_group_members')
-      .select('group_id,group_name,person_id,name').eq('client_id', clientId).range(from, to),
+      .select('group_id,group_name,person_id,name').eq('client_id', clientId)
+      .order('group_id').order('person_id').range(from, to),
     'members')
   const inputs = groupRowsToInputs(att, mem)
   await writeOk(db, clientId, 'groupDrift', computeGroupDrift(inputs, cfg.groupDrift))

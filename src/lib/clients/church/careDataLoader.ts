@@ -76,7 +76,7 @@ export async function loadCareData(slug: string): Promise<void> {
 
 // Triggers a live PCO sync, then reloads. Used by the refresh-now button.
 export async function refreshCareData(slug: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('pco-sync', { body: { tenant: slug } })
+  const { error } = await supabase.functions.invoke('pco-fetch', { body: { tenant: slug } })
   if (error) throw new Error(error.message ?? 'Refresh failed')
   await loadCareData(slug)
 }

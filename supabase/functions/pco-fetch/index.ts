@@ -61,6 +61,7 @@ async function syncResource(
     const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
     if (resource === 'schedule') {
       const r = await fetchScheduleChunk(db, clientId, tenant, cfg.serving, (row.cursor ?? {}) as any, isOver)
+      if (r.done) await computeServingBurnout(db, clientId, cfg)
       const { error } = await db.from('pco_sync_state').upsert({
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
@@ -68,9 +69,9 @@ async function syncResource(
         updated_at: now, error: null,
       }, { onConflict: 'client_id,resource' })
       if (error) throw new Error(`write sync state: ${error.message}`)
-      if (r.done) await computeServingBurnout(db, clientId, cfg)
     } else {
       const r = await fetchGroupsChunk(db, clientId, tenant, cfg.groupDrift, (row.cursor ?? {}) as any, isOver)
+      if (r.done) await computeGroups(db, clientId, cfg)
       const { error } = await db.from('pco_sync_state').upsert({
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
@@ -78,7 +79,6 @@ async function syncResource(
         updated_at: now, error: null,
       }, { onConflict: 'client_id,resource' })
       if (error) throw new Error(`write sync state: ${error.message}`)
-      if (r.done) await computeGroups(db, clientId, cfg)
     }
     return 'backfill'
   }
