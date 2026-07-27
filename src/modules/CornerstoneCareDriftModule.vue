@@ -27,13 +27,12 @@ import GroupDriftWatch from '@/components/cornerstone/GroupDriftWatch.vue'
 import RecentWins from '@/components/cornerstone/RecentWins.vue'
 import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
-import { activeFamilies } from '@/lib/clients/focal-point/driftLive'
 import { congregationOf } from '@/lib/clients/focal-point/congregation'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { useCareActions } from '@/stores/careActions'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { fmtAgoCoarse } from '@/lib/format'
-import { loadCareData, servingData, groupDriftData } from '@/lib/clients/church/careDataLoader'
+import { loadCareData, servingData, groupDriftData, driftData } from '@/lib/clients/church/careDataLoader'
 import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -63,7 +62,7 @@ const lens = useCongregationLens()
 const careActions = useCareActions()
 const inScope = (name: string) => lens.scope === 'all' || congregationOf(name) === lens.scope
 const familiesCount = computed(
-  () => activeFamilies().filter((f) => inScope(f.family) && !careActions.isHidden(`family:${f.family}`)).length,
+  () => driftData().families.filter((f) => inScope(f.family) && !careActions.isHidden(`family:${f.family}`)).length,
 )
 // Serving scopes by CAMPUS (the teams a person served): Brazilian ministry teams
 // vs English/main. People who served both show in both views.
