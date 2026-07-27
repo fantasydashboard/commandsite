@@ -7,9 +7,8 @@
 // Returned families are reconciled off by driftLive (handled where these render).
 // This is the single source of truth for families across the board, the priority
 // feed, and the directory, so their counts and names can never disagree again.
-import { activeFamilies, type LiveFamily } from './driftLive'
-import { focalPointServing } from './serving'
-import { focalPointGroupDrift } from './groupDrift'
+import { servingData, groupDriftData, driftData } from '@/lib/clients/church/careDataLoader'
+import type { DriftFamily } from './drift'
 import type { CareCase } from './carePipeline'
 
 export const ESTABLISHED_SUNDAYS = 15
@@ -27,7 +26,7 @@ function joinKids(kids: string[]): string {
 
 // Grace's drafted check-in note, personalized per family (the curated Hart/Gonzalez
 // wording, generalized so every flagged family has a real draft to approve).
-export function familyDraft(f: LiveFamily): string {
+export function familyDraft(f: DriftFamily): string {
   const kids = joinKids(f.kids)
   const verb = f.kids.length === 1 ? 'has' : 'have'
   return `Hey ${f.family} family, I noticed ${kids} ${verb} not been at Kids Point the last few Sundays. After ${f.monthsAttending} months of seeing you all so regularly, I just wanted to check in. No agenda and no pressure, we simply miss you and your family is thought of and prayed for. If there is anything going on that we can support you with, I would love to know. Hope to see you soon. Blessings, Pastor Mark`
@@ -38,7 +37,7 @@ export function familyDraft(f: LiveFamily): string {
 // state exists yet for these tracks, so everyone sits at "flagged"; they route to
 // ministry / group leaders, not the pastor's action queue.
 export function servingCases(): CareCase[] {
-  return focalPointServing.people.map((p) => ({
+  return servingData().people.map((p) => ({
     id: `serving:${p.name}`,
     track: 'serving' as const,
     stage: 'flagged' as const,
@@ -51,7 +50,7 @@ export function servingCases(): CareCase[] {
 }
 
 export function groupCases(): CareCase[] {
-  return focalPointGroupDrift.people.map((p) => ({
+  return groupDriftData().people.map((p) => ({
     id: `group:${p.name}`,
     track: 'groups' as const,
     stage: 'flagged' as const,
@@ -65,7 +64,7 @@ export function groupCases(): CareCase[] {
 
 // All active (non-returned) families as pipeline cards, most urgent first.
 export function familyCases(): CareCase[] {
-  return activeFamilies()
+  return driftData().families
     .slice()
     .sort((a, b) => b.sundaysMissed - a.sundaysMissed || b.totalSundays - a.totalSundays)
     .map((f) => {
