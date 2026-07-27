@@ -7,8 +7,7 @@
  * are enabled; attendance drift stands on its own until then.
  */
 import { computed, ref } from 'vue'
-import { focalPointDrift } from '@/lib/clients/focal-point/drift'
-import { activeFamilies as liveActiveFamilies, returnedFamilies } from '@/lib/clients/focal-point/driftLive'
+import { driftData } from '@/lib/clients/church/careDataLoader'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { congregationOf } from '@/lib/clients/focal-point/congregation'
@@ -19,18 +18,22 @@ const lens = useCongregationLens()
 const COLLAPSED = 12
 const showAll = ref(false)
 const inScope = (family: string) => lens.scope === 'all' || congregationOf(family) === lens.scope
-// Reconciled against the latest check-ins: families who returned drop off.
+const drift = computed(() => driftData())
+// The live payload is already current against the latest check-ins, so no
+// separate reconciliation pass is needed here (unlike the old static snapshot).
 const activeFamilies = computed(() =>
-  liveActiveFamilies().filter((f) => !care.isHidden(`family:${f.family}`) && inScope(f.family)),
+  drift.value.families.filter((f) => !care.isHidden(`family:${f.family}`) && inScope(f.family)),
 )
-const reconnected = computed(() => returnedFamilies().filter((f) => inScope(f.family)).length)
+// No separate "returned" list in the live payload: a family drops off the
+// active list on its own once check-ins put it back under the threshold.
+const reconnected = computed(() => 0)
 const visibleFamilies = computed(() =>
   showAll.value ? activeFamilies.value : activeFamilies.value.slice(0, COLLAPSED),
 )
 const unplaced = computed(() =>
   lens.scope === 'all'
     ? 0
-    : focalPointDrift.families.filter((f) => !care.isHidden(`family:${f.family}`) && congregationOf(f.family) === null).length,
+    : drift.value.families.filter((f) => !care.isHidden(`family:${f.family}`) && congregationOf(f.family) === null).length,
 )
 
 function fmtDate(iso: string): string {
@@ -53,9 +56,9 @@ function fmtDate(iso: string): string {
     <h3 class="mt-1 text-base font-semibold text-ink">
       {{ activeFamilies.length }} families to reach out to
     </h3>
-    <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ focalPointDrift.signal }}</p>
+    <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ drift.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
-      {{ focalPointDrift.onboardingExcluded }} first-time or occasional families are excluded (they belong in the welcome funnel, not here).
+      {{ drift.onboardingExcluded }} first-time or occasional families are excluded (they belong in the welcome funnel, not here).
       Giving-lapse and group-absence signals connect once those Planning Center scopes are enabled.
     </p>
     <p v-if="unplaced" class="mt-1 text-[11px] text-warn">
@@ -99,7 +102,7 @@ function fmtDate(iso: string): string {
               {{ f.sundaysMissed }}
             </td>
           </tr>
-          <tr v-if="!focalPointDrift.families.length">
+          <tr v-if="!drift.families.length">
             <td colspan="5" class="py-4 text-center text-ink-muted">
               Family list loads from the local Planning Center pull.
             </td>
