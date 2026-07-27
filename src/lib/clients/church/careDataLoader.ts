@@ -74,9 +74,12 @@ export async function loadCareData(slug: string): Promise<void> {
   store.loaded = true
 }
 
-// Triggers a live PCO sync, then reloads. Used by the refresh-now button.
+// Triggers a live PCO sync in the BACKGROUND. The incremental sync re-pulls the
+// schedule and can run longer than the browser fetch timeout, so we do not block
+// the button on it: fire it, reload whatever data is current now, and the sync's
+// result lands on a later load (the nightly cron is the safety net). Errors are
+// swallowed here so a slow or failed sync can never hang the button.
 export async function refreshCareData(slug: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('pco-fetch', { body: { tenant: slug } })
-  if (error) throw new Error(error.message ?? 'Refresh failed')
+  void supabase.functions.invoke('pco-fetch', { body: { tenant: slug } }).catch(() => {})
   await loadCareData(slug)
 }
