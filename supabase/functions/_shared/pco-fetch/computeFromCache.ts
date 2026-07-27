@@ -8,6 +8,23 @@ import type { PcoConfig } from '../pco-transforms/types.ts'
 type Db = any
 const today = () => new Date().toISOString().slice(0, 10)
 
+const PAGE = 1000
+// Reads all rows for a filtered select, paging past PostgREST's default 1000-row
+// cap. `build` receives the from/to range and returns the query for that page.
+// deno-lint-ignore no-explicit-any
+async function readAll(build: (from: number, to: number) => any, label: string): Promise<any[]> {
+  // deno-lint-ignore no-explicit-any
+  const out: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build(from, from + PAGE - 1)
+    if (error) throw new Error(`read ${label}: ${error.message}`)
+    const rows = data ?? []
+    out.push(...rows)
+    if (rows.length < PAGE) break
+  }
+  return out
+}
+
 async function writeOk(db: Db, clientId: string, moduleKey: string, payload: unknown) {
   const now = new Date().toISOString()
   const { error } = await db.from('church_dashboard_data').upsert(
@@ -18,22 +35,25 @@ async function writeOk(db: Db, clientId: string, moduleKey: string, payload: unk
 
 export async function computeServingBurnout(db: Db, clientId: string, cfg: PcoConfig) {
   const cutoff = monthsAgo(today(), cfg.serving.lookbackMonths)
-  const { data, error } = await db.from('pco_serving_assignments')
-    .select('person_id,name,date,team,status').eq('client_id', clientId).gte('date', cutoff)
-  if (error) throw new Error(`read assignments: ${error.message}`)
+  const data = await readAll(
+    (from, to) => db.from('pco_serving_assignments')
+      .select('person_id,name,date,team,status').eq('client_id', clientId).gte('date', cutoff).range(from, to),
+    'assignments')
   const staff = new Set(Array.isArray(cfg.staffNames) ? cfg.staffNames : [])
-  const byPerson = assignmentsToByPerson(data ?? [])
+  const byPerson = assignmentsToByPerson(data)
   await writeOk(db, clientId, 'serving', computeServing(byPerson, staff, cfg.serving, today()))
   await writeOk(db, clientId, 'burnout', computeBurnout(byPerson, staff, cfg.burnout, today()))
 }
 
 export async function computeGroups(db: Db, clientId: string, cfg: PcoConfig) {
-  const { data: att, error: e1 } = await db.from('pco_group_attendance')
-    .select('group_id,group_name,event_id,event_date,person_id,name').eq('client_id', clientId)
-  if (e1) throw new Error(`read attendance: ${e1.message}`)
-  const { data: mem, error: e2 } = await db.from('pco_group_members')
-    .select('group_id,group_name,person_id,name').eq('client_id', clientId)
-  if (e2) throw new Error(`read members: ${e2.message}`)
-  const inputs = groupRowsToInputs(att ?? [], mem ?? [])
+  const att = await readAll(
+    (from, to) => db.from('pco_group_attendance')
+      .select('group_id,group_name,event_id,event_date,person_id,name').eq('client_id', clientId).range(from, to),
+    'attendance')
+  const mem = await readAll(
+    (from, to) => db.from('pco_group_members')
+      .select('group_id,group_name,person_id,name').eq('client_id', clientId).range(from, to),
+    'members')
+  const inputs = groupRowsToInputs(att, mem)
   await writeOk(db, clientId, 'groupDrift', computeGroupDrift(inputs, cfg.groupDrift))
 }
