@@ -7,10 +7,11 @@ export interface ServingCfg { regularMin: number; gapWeeks: number; lookbackMont
 export interface BurnoutCfg { seasonMonths: number }
 export interface GroupDriftCfg {
   seasonStart: string; seasonEnd: string; minEvents: number;
-  minAttendance: number; minGapWeeks: number; groupTypeMatch: string
+  minAttendance: number; minGapWeeks: number; groupTypeMatch: string; eventsPerGroup: number
 }
+export interface FetchCfg { timeBudgetSeconds?: number; incrementalWindowDays?: number }
 export interface PcoConfig {
-  staffNames: string[]; serving: ServingCfg; burnout: BurnoutCfg; groupDrift: GroupDriftCfg
+  staffNames: string[]; serving: ServingCfg; burnout: BurnoutCfg; groupDrift: GroupDriftCfg; fetch?: FetchCfg
 }
 
 export interface ServingPerson { name: string; area: string; campus: Campus; monthsServing: number; totalServed: number; lastServed: string; weeksSince: number }
