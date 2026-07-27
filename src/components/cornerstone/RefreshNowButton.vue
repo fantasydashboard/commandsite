@@ -12,7 +12,7 @@ const note = ref<string | null>(null)
 async function run() {
   if (busy.value) return
   busy.value = true; note.value = null
-  try { await refreshCareData(props.slug); note.value = 'Updated just now' }
+  try { await refreshCareData(props.slug); note.value = 'Syncing in the background, updates shortly' }
   catch (e) { note.value = e instanceof Error ? e.message : 'Refresh failed' }
   finally { busy.value = false }
 }
