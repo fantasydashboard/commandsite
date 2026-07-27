@@ -54,12 +54,17 @@ export const STAGES: { key: Stage; label: string }[] = [
   { key: 'resolved', label: 'Resolved' },
 ]
 
-const pri = (i: number) => focalPointPriority.items[i]
-const fam = (i: number) => focalPointDrift.families[i] as DriftFamily
-const srv = (i: number) => focalPointServing.people[i] as ServingDriftPerson
-const brn = (i: number) => focalPointBurnout.people[i] as BurnoutPerson
-const grp = (i: number) => focalPointGroupDrift.people[i]
-const famName = (f: DriftFamily) => `The ${f.family} family`
+// Any out-of-range index returns a blank stand-in (every property reads as '')
+// so a trimmed baked array can never make `.name` throw and crash the board. A
+// case that resolves to blank data is filtered out in the getter below.
+// deno-lint-ignore no-explicit-any
+const blank: any = new Proxy({}, { get: () => '' })
+const pri = (i: number) => focalPointPriority.items[i] ?? blank
+const fam = (i: number) => (focalPointDrift.families[i] ?? blank) as DriftFamily
+const srv = (i: number) => (focalPointServing.people[i] ?? blank) as ServingDriftPerson
+const brn = (i: number) => (focalPointBurnout.people[i] ?? blank) as BurnoutPerson
+const grp = (i: number) => focalPointGroupDrift.people[i] ?? blank
+const famName = (f: DriftFamily) => (f.family ? `The ${f.family} family` : '')
 
 // Built lazily (getter + memo), NOT at module-init. Each case reads sibling
 // data modules by index (pri/fam/srv/brn/grp -> focalPointPriority.items[i]
@@ -113,6 +118,15 @@ function buildCarePipelineCases(): CareCase[] {
 let _carePipelineCases: CareCase[] | null = null
 export const carePipeline: { readonly cases: CareCase[] } = {
   get cases(): CareCase[] {
-    return (_carePipelineCases ??= buildCarePipelineCases())
+    if (_carePipelineCases) return _carePipelineCases
+    try {
+      // Drop any case whose baked source was missing (blank name), so a trimmed
+      // data file yields a smaller board instead of a crash.
+      _carePipelineCases = buildCarePipelineCases().filter((c) => c.name && c.name.trim().length > 0)
+    } catch (e) {
+      console.warn('carePipeline: could not build cases, showing empty board', e)
+      _carePipelineCases = []
+    }
+    return _carePipelineCases
   },
 }
