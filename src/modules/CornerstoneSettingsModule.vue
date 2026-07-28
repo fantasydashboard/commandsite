@@ -4,7 +4,7 @@
  * Team + roles, service times, integrations (ChMS / giving / comms /
  * social / tech-AV / AI), and privacy / role-gating.
  */
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import type { Client } from '@/types/database'
 import {
   ROLE_LABEL,
@@ -13,6 +13,7 @@ import {
   INTEGRATION_CATEGORY_LABEL,
 } from '@/lib/clients/cornerstone/settings'
 import { churchDataset } from '@/lib/clients/church/dataset'
+import { loadCareData } from '@/lib/clients/church/careDataLoader'
 import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
 import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
@@ -59,6 +60,10 @@ function fmtAgo(iso?: string): string {
   if (day < 365) return `${Math.floor(day / 30)}mo ago`
   return `${(day / 365).toFixed(1)}yr ago`
 }
+
+onMounted(() => {
+  if (LIVE_CHURCHES.includes(props.client?.slug)) loadCareData(props.client.slug)
+})
 
 const intsByCategory = computed(() => {
   const groups = new Map<string, typeof intsLocal>()

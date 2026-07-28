@@ -6,7 +6,8 @@ import type { ServingDriftPerson } from './serving'
 import type { GroupDrifter } from './groupDrift'
 import type { BurnoutPerson } from './burnout'
 import type { CareCase } from './carePipeline'
-import { duplicateInfo, type DupInfo } from './duplicates'
+import { duplicateInfo } from './duplicateReview'
+import type { DupInfo } from './duplicates'
 
 export type FlagSignal = 'family' | 'serving' | 'group' | 'burnout'
 

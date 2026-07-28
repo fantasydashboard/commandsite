@@ -7,10 +7,11 @@
  * false alarm). Planning Center owns the merge; each profile deep-links there.
  */
 import { computed, ref } from 'vue'
-import { focalPointDuplicateStats as stats, type DupInfo } from '@/lib/clients/focal-point/duplicates'
-import { allDuplicateRows } from '@/lib/clients/focal-point/duplicateReview'
+import { type DupInfo } from '@/lib/clients/focal-point/duplicates'
+import { allDuplicateRows, duplicateStats } from '@/lib/clients/focal-point/duplicateReview'
 
 const rows = computed(() => allDuplicateRows())
+const stats = computed(() => duplicateStats())
 const needsReview = computed(() => rows.value.filter((r) => r.flags.length))
 const falseAlarms = computed(() => needsReview.value.filter((r) => r.reconcile?.verdict === 'review'))
 

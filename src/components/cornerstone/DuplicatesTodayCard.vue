@@ -8,13 +8,13 @@
  */
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { flaggedDuplicates } from '@/lib/clients/focal-point/duplicateReview'
-import { focalPointDuplicateStats as stats } from '@/lib/clients/focal-point/duplicates'
+import { flaggedDuplicates, duplicateStats } from '@/lib/clients/focal-point/duplicateReview'
 
 const props = defineProps<{ slug: string }>()
 const router = useRouter()
 
 const flagged = computed(() => flaggedDuplicates())
+const stats = computed(() => duplicateStats())
 const reviewCount = computed(() => flagged.value.filter((r) => r.reconcile?.verdict === 'review').length)
 const confirmedCount = computed(() => flagged.value.length - reviewCount.value)
 

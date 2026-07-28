@@ -11,7 +11,7 @@ import { servingData } from '@/lib/clients/church/careDataLoader'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { servingFlag } from '@/lib/clients/focal-point/flags'
-import { duplicateInfo } from '@/lib/clients/focal-point/duplicates'
+import { duplicateInfo } from '@/lib/clients/focal-point/duplicateReview'
 import DuplicateBadge from '@/components/cornerstone/DuplicateBadge.vue'
 
 const care = useCareActions()

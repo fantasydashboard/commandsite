@@ -18,6 +18,8 @@ import { useRouter } from 'vue-router'
 import type { Client } from '@/types/database'
 import { graceRoles, getRole, type GraceRole } from '@/lib/clients/cornerstone/roles'
 import { churchDataset } from '@/lib/clients/church/dataset'
+import { loadCareData } from '@/lib/clients/church/careDataLoader'
+import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 import AdaAtWorkHub from '@/components/ada/AdaAtWorkHub.vue'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vue'
@@ -202,6 +204,7 @@ const nowTick = ref(0)
 let tickInterval: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   tickInterval = setInterval(() => { nowTick.value++ }, 60_000)
+  if (LIVE_CHURCHES.includes(props.client?.slug)) loadCareData(props.client.slug)
 })
 onBeforeUnmount(() => {
   if (tickInterval) clearInterval(tickInterval)

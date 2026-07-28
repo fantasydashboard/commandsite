@@ -6,7 +6,7 @@
  * detail drawer. Planning Center owns the actual merge.
  */
 import { computed } from 'vue'
-import { duplicateInfo } from '@/lib/clients/focal-point/duplicates'
+import { duplicateInfo } from '@/lib/clients/focal-point/duplicateReview'
 
 const props = defineProps<{ name: string }>()
 const dup = computed(() => duplicateInfo(props.name))
