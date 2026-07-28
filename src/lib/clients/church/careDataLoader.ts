@@ -8,6 +8,7 @@ import { focalPointServing } from '@/lib/clients/focal-point/serving'
 import { focalPointBurnout } from '@/lib/clients/focal-point/burnout'
 import { focalPointGroupDrift } from '@/lib/clients/focal-point/groupDrift'
 import { focalPointDrift } from '@/lib/clients/focal-point/drift'
+import { guestPipeline as focalPointGuestPipeline } from '@/lib/clients/focal-point/guestPipeline'
 
 export interface CareMeta { computedAt: string | null; sourceFreshness: string | null; status: string; error: string | null }
 export interface SyncStateRow { resource: string; phase: string | null; backfill_complete: boolean }
@@ -17,6 +18,7 @@ const store = reactive({
   burnout: null as typeof focalPointBurnout | null,
   groupDrift: null as typeof focalPointGroupDrift | null,
   drift: null as typeof focalPointDrift | null,
+  guestPipeline: null as typeof focalPointGuestPipeline | null,
   meta: {} as Record<string, CareMeta>,
   syncStates: [] as SyncStateRow[],
 })
@@ -26,6 +28,7 @@ export const servingData = () => store.serving ?? focalPointServing
 export const burnoutData = () => store.burnout ?? focalPointBurnout
 export const groupDriftData = () => store.groupDrift ?? focalPointGroupDrift
 export const driftData = () => store.drift ?? focalPointDrift
+export const guestPipelineData = () => store.guestPipeline ?? focalPointGuestPipeline
 export const careMeta = (moduleKey: string): CareMeta | null => store.meta[moduleKey] ?? null
 // True when at least one PCO resource is still in its initial backfill (has
 // not yet reached backfill_complete). Drives the "catching up" badge state.
@@ -44,6 +47,7 @@ export async function loadCareData(slug: string): Promise<void> {
   store.burnout = null
   store.groupDrift = null
   store.drift = null
+  store.guestPipeline = null
   store.meta = {}
   store.syncStates = []
   store.loaded = false
@@ -66,7 +70,7 @@ export async function loadCareData(slug: string): Promise<void> {
   const { data, error } = await sb.from('church_dashboard_data')
     .select('module_key, payload, computed_at, source_freshness, status, error')
     .eq('client_id', client.id)
-    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift'])
+    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline'])
   if (error || !data) return
   for (const row of data as any[]) {
     store.meta[row.module_key] = { computedAt: row.computed_at, sourceFreshness: row.source_freshness, status: row.status, error: row.error }
@@ -75,6 +79,7 @@ export async function loadCareData(slug: string): Promise<void> {
     else if (row.module_key === 'burnout') store.burnout = row.payload
     else if (row.module_key === 'groupDrift') store.groupDrift = row.payload
     else if (row.module_key === 'drift') store.drift = row.payload
+    else if (row.module_key === 'guestPipeline') store.guestPipeline = row.payload
   }
   store.loaded = true
 }
