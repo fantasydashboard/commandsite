@@ -3,6 +3,7 @@ import { assignmentsToByPerson, groupRowsToInputs } from '../pco-transforms/from
 import { computeServing, computeBurnout, monthsAgo } from '../pco-transforms/serving.ts'
 import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
+import { buildGuestPipeline } from '../pco-transforms/guestPipeline.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -70,4 +71,15 @@ export async function computeDrift(db: Db, clientId: string, cfg: PcoConfig) {
     'kids checkins')
   const families = checkinsToFamilies(rows)
   await writeOk(db, clientId, 'drift', computeFamilyDrift(families, cfg.drift!, today()))
+}
+
+export async function computeGuestPipeline(db: Db, clientId: string, cfg: PcoConfig) {
+  const cutoff = monthsAgo(today(), cfg.guests!.windowMonths)
+  const rows = await readAll(
+    (from, to) => db.from('pco_workflow_cards')
+      .select('card_id,campus,name,created_date,completed_date,step_name').eq('client_id', clientId)
+      .gte('created_date', cutoff)
+      .order('card_id').range(from, to),
+    'workflow cards')
+  await writeOk(db, clientId, 'guestPipeline', buildGuestPipeline(rows, today()))
 }
