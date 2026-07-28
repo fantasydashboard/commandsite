@@ -3,7 +3,7 @@
  * Cornerstone Front Desk & Guests.
  * Grace's roles on this page: Front Desk + Guest Follow-Up + Story Engine.
  */
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import type { Client } from '@/types/database'
 import { STAGE_META as VISITOR_STAGE_META } from '@/lib/clients/cornerstone/visitors'
 import { churchDataset } from '@/lib/clients/church/dataset'
@@ -16,7 +16,8 @@ import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import GuestPipelineBoard from '@/components/cornerstone/GuestPipelineBoard.vue'
-import { guestPipeline, guestKpis } from '@/lib/clients/focal-point/guestPipeline'
+import { guestPipelineData, loadCareData } from '@/lib/clients/church/careDataLoader'
+import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
@@ -27,11 +28,18 @@ const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
 // all follow the lens.
 const lens = useCongregationLens()
 const gpInScope = (campus: string) => lens.scope === 'all' || campus === lens.scope
-const guestKpisScoped = computed(() => guestKpis(lens.scope))
-const pipelineCount = computed(() => guestPipeline.cases.filter((c) => gpInScope(c.campus)).length)
+
+// Live churches load their guest pipeline from the real Planning Center pull;
+// everyone else keeps the baked demo snapshot (the getter falls back).
+onMounted(() => {
+  if (LIVE_CHURCHES.includes(props.client?.slug)) loadCareData(props.client.slug)
+})
+
+const guestKpisScoped = computed(() => guestPipelineData().kpis[lens.scope])
+const pipelineCount = computed(() => guestPipelineData().cases.filter((c) => gpInScope(c.campus)).length)
 // Welcome drafts awaiting approval: this week's first-time guests in scope.
 const guestQueue = computed<ApprovalQueueItem[]>(() =>
-  guestPipeline.cases
+  guestPipelineData().cases
     .filter((c) => c.draft && gpInScope(c.campus))
     .slice(0, 8)
     .map((c) => ({

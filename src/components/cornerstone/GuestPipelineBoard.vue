@@ -7,16 +7,17 @@
  * Auto-advance (return detection from check-ins) is the week-one build.
  */
 import { computed } from 'vue'
-import { guestPipeline, guestKpis, GUEST_STAGES, type GuestCase } from '@/lib/clients/focal-point/guestPipeline'
+import { GUEST_STAGES, type GuestCase } from '@/lib/clients/focal-point/guestPipeline'
+import { guestPipelineData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
 
 const lens = useCongregationLens()
 const CAP = 6
 const inScope = (c: GuestCase) => lens.scope === 'all' || c.campus === lens.scope
-const scoped = (stage: string) => guestPipeline.cases.filter((c) => c.stage === stage && inScope(c))
+const scoped = (stage: string) => guestPipelineData().cases.filter((c) => c.stage === stage && inScope(c))
 const casesFor = (stage: string) => scoped(stage).slice(0, CAP)
 const moreIn = (stage: string) => Math.max(0, scoped(stage).length - CAP)
-const kpis = computed(() => guestKpis(lens.scope))
+const kpis = computed(() => guestPipelineData().kpis[lens.scope])
 
 function initials(name: string): string {
   const clean = name.replace(/^The\s+/i, '').replace(/\s+family$/i, '')
