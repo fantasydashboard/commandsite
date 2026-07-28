@@ -13,6 +13,7 @@ export interface FetchCfg { timeBudgetSeconds?: number; incrementalWindowDays?: 
 export interface PcoConfig {
   staffNames: string[]; serving: ServingCfg; burnout: BurnoutCfg; groupDrift: GroupDriftCfg; fetch?: FetchCfg
   drift?: { windowMonths: number; sundaysMissed: number; minEstablishedSundays: number; kidsEventMatch: string }
+  guests?: { englishWorkflowId: string; brazilianWorkflowId: string; windowMonths: number }
 }
 
 export interface ServingPerson { name: string; area: string; campus: Campus; monthsServing: number; totalServed: number; lastServed: string; weeksSince: number }
