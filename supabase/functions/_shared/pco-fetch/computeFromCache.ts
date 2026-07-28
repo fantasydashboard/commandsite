@@ -97,7 +97,12 @@ export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig
       .order('person_id').order('date').range(from, to),
     'serving dates')
   const datesByPerson = new Map<string, string[]>()
+  const seenDatesByPerson = new Map<string, Set<string>>()
   for (const a of assignments) {
+    let seen = seenDatesByPerson.get(a.person_id)
+    if (!seen) { seen = new Set<string>(); seenDatesByPerson.set(a.person_id, seen) }
+    if (seen.has(a.date)) continue
+    seen.add(a.date)
     const arr = datesByPerson.get(a.person_id)
     if (arr) arr.push(a.date); else datesByPerson.set(a.person_id, [a.date])
   }

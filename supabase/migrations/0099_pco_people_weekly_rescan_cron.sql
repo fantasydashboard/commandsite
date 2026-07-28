@@ -4,6 +4,6 @@
 -- clears clusters the church has merged in Planning Center.
 select cron.schedule('pco-people-weekly-rescan', '0 3 * * 0', $cron$
   update public.pco_sync_state
-  set phase = 'backfill', backfill_complete = false, cursor = '{}'::jsonb, updated_at = now()
+  set phase = 'backfill', backfill_complete = false, cursor = '{}'::jsonb, updated_at = now(), error = null
   where resource = 'people';
 $cron$);

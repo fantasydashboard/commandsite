@@ -103,7 +103,21 @@ async function syncResource(
       }, { onConflict: 'client_id,resource' })
       if (error) throw new Error(`write sync state: ${error.message}`)
     } else {
-      // people (duplicate detection roster)
+      // people (duplicate detection roster). computeDuplicates reconciles against
+      // the serving/burnout payloads the schedule resource produces; during the
+      // initial backfill people can finish before schedule, so defer the scan and
+      // compute until schedule has completed its backfill. On the weekly reset
+      // schedule is already complete, so this passes immediately.
+      const { data: sched } = await db.from('pco_sync_state')
+        .select('backfill_complete').eq('client_id', clientId).eq('resource', 'schedule').maybeSingle()
+      if (!sched?.backfill_complete) {
+        const { error } = await db.from('pco_sync_state').upsert({
+          client_id: clientId, resource, phase: 'backfill', backfill_complete: false,
+          cursor: (row.cursor ?? {}), updated_at: now, error: null,
+        }, { onConflict: 'client_id,resource' })
+        if (error) throw new Error(`write sync state: ${error.message}`)
+        return 'waiting'
+      }
       const r = await fetchPeopleChunk(db, clientId, tenant, (row.cursor ?? {}) as any, isOver)
       if (r.done) await computeDuplicates(db, clientId, cfg)
       const { error } = await db.from('pco_sync_state').upsert({
