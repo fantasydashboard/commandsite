@@ -7,7 +7,8 @@ import { fetchScheduleChunk } from '../_shared/pco-fetch/fetchScheduleChunk.ts'
 import { fetchGroupsChunk } from '../_shared/pco-fetch/fetchGroupsChunk.ts'
 import { fetchKidsCheckinsChunk } from '../_shared/pco-fetch/fetchKidsChunk.ts'
 import { fetchGuestCardsChunk } from '../_shared/pco-fetch/fetchGuestCardsChunk.ts'
-import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline } from '../_shared/pco-fetch/computeFromCache.ts'
+import { fetchPeopleChunk } from '../_shared/pco-fetch/fetchPeopleChunk.ts'
+import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates } from '../_shared/pco-fetch/computeFromCache.ts'
 import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
@@ -22,7 +23,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const svc = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-type Resource = 'schedule' | 'groups' | 'kids' | 'guests'
+type Resource = 'schedule' | 'groups' | 'kids' | 'guests' | 'people'
 type Mode = 'backfill' | 'incremental'
 // deno-lint-ignore no-explicit-any
 type Db = any
@@ -91,10 +92,20 @@ async function syncResource(
         updated_at: now, error: null,
       }, { onConflict: 'client_id,resource' })
       if (error) throw new Error(`write sync state: ${error.message}`)
-    } else {
-      // guests
+    } else if (resource === 'guests') {
       const r = await fetchGuestCardsChunk(db, clientId, tenant, cfg.guests!, (row.cursor ?? {}) as any, isOver)
       if (r.done) await computeGuestPipeline(db, clientId, cfg)
+      const { error } = await db.from('pco_sync_state').upsert({
+        client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
+        phase: r.done ? 'incremental' : 'backfill',
+        last_synced_date: row.last_synced_date,
+        updated_at: now, error: null,
+      }, { onConflict: 'client_id,resource' })
+      if (error) throw new Error(`write sync state: ${error.message}`)
+    } else {
+      // people (duplicate detection roster)
+      const r = await fetchPeopleChunk(db, clientId, tenant, (row.cursor ?? {}) as any, isOver)
+      if (r.done) await computeDuplicates(db, clientId, cfg)
       const { error } = await db.from('pco_sync_state').upsert({
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
@@ -139,13 +150,20 @@ async function syncResource(
       .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
-  } else {
+  } else if (resource === 'guests') {
     // guests: re-pull the full active window (stage and completion changes
     // land on older cards, so a short created_at window would miss them),
     // then recompute.
     const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
     await fetchGuestCardsChunk(db, clientId, tenant, cfg.guests!, {} as any, isOver)
     await computeGuestPipeline(db, clientId, cfg)
+    const { error } = await db.from('pco_sync_state')
+      .update({ updated_at: now, error: null })
+      .eq('client_id', clientId).eq('resource', resource)
+    if (error) throw new Error(`write sync state: ${error.message}`)
+  } else {
+    // people: no incremental work; the weekly rescan cron resets this resource
+    // to backfill for a full re-scan. Just stamp the row so it is not treated as failed.
     const { error } = await db.from('pco_sync_state')
       .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
@@ -178,7 +196,7 @@ async function syncChurchResource(
 
 async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConfig, mode: Mode) {
   const results: Record<string, string> = {}
-  for (const resource of ['schedule', 'groups', 'kids', 'guests'] as Resource[]) {
+  for (const resource of ['schedule', 'groups', 'kids', 'guests', 'people'] as Resource[]) {
     results[resource] = await syncChurchResource(db, clientId, tenant, cfg, resource, mode)
   }
   return results

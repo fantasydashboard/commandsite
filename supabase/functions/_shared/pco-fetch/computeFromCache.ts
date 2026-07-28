@@ -4,6 +4,7 @@ import { computeServing, computeBurnout, monthsAgo } from '../pco-transforms/ser
 import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
 import { buildGuestPipeline } from '../pco-transforms/guestPipeline.ts'
+import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -82,4 +83,36 @@ export async function computeGuestPipeline(db: Db, clientId: string, cfg: PcoCon
       .order('card_id').range(from, to),
     'workflow cards')
   await writeOk(db, clientId, 'guestPipeline', buildGuestPipeline(rows, today()))
+}
+
+export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig) {
+  const people = await readAll(
+    (from, to) => db.from('pco_people')
+      .select('person_id,first,last,name,emails,phones,membership,created').eq('client_id', clientId)
+      .order('person_id').range(from, to),
+    'people')
+  const assignments = await readAll(
+    (from, to) => db.from('pco_serving_assignments')
+      .select('person_id,date').eq('client_id', clientId)
+      .order('person_id').order('date').range(from, to),
+    'serving dates')
+  const datesByPerson = new Map<string, string[]>()
+  for (const a of assignments) {
+    const arr = datesByPerson.get(a.person_id)
+    if (arr) arr.push(a.date); else datesByPerson.set(a.person_id, [a.date])
+  }
+  // Live flag lists from the serving/burnout module payloads computed earlier this pass.
+  const norm = (n: string) => n.toLowerCase().replace(/\s+/g, ' ').trim()
+  const { data: mods } = await db.from('church_dashboard_data')
+    .select('module_key,payload,status').eq('client_id', clientId).in('module_key', ['serving', 'burnout'])
+  const servingFlags = new Map<string, ServingFlag>()
+  const burnoutFlags = new Set<string>()
+  for (const m of mods ?? []) {
+    if (m.status !== 'ok') continue
+    if (m.module_key === 'serving') for (const p of m.payload?.people ?? []) servingFlags.set(norm(p.name), { lastServed: p.lastServed ?? '' })
+    if (m.module_key === 'burnout') for (const p of m.payload?.people ?? []) burnoutFlags.add(norm(p.name))
+  }
+  const cfg2 = cfg.duplicates ?? { keepTopClusters: 120, minNameLen: 3 }
+  const peopleRows = people.map((p: any) => ({ person_id: p.person_id, first: p.first ?? '', last: p.last ?? '', name: p.name ?? '', emails: p.emails ?? [], phones: p.phones ?? [], membership: p.membership ?? 'none', created: p.created ?? '' }))
+  await writeOk(db, clientId, 'duplicates', buildDuplicates(peopleRows, datesByPerson, servingFlags, burnoutFlags, cfg2))
 }
