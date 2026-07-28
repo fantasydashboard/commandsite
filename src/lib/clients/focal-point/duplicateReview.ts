@@ -1,28 +1,35 @@
-// Focal Point - shared duplicate-review logic. Cross-references the likely
-// duplicate clusters with the live care/drift lists so both the Settings review
-// list and the Today cleanup card annotate each cluster with the flag(s) it
-// affects (and Grace's reconciliation verdict rides along on `reconcile`).
-import { focalPointDuplicateList, type DupInfo } from './duplicates'
-import { focalPointServing } from './serving'
-import { focalPointBurnout } from './burnout'
-import { focalPointGroupDrift } from './groupDrift'
+// Focal Point - live duplicate read-layer. Reads the live-or-baked duplicates
+// payload from careDataLoader and cross-references the LIVE care/drift lists so the
+// Settings review list, Today cleanup card, badges, and flag drawers all annotate
+// each cluster with the flag(s) it affects. Grace's reconcile verdict rides on
+// `reconcile`; Planning Center owns the actual merge.
+import { duplicatesData, servingData, burnoutData, groupDriftData } from '@/lib/clients/church/careDataLoader'
+import type { DupInfo } from './duplicates'
 
 const norm = (n: string) => n.toLowerCase().replace(/\s+/g, ' ').trim()
 
 export interface DupReviewRow extends DupInfo {
-  flags: string[] // which live lists this person is on right now
+  flags: string[]
 }
 
-// normalized name -> the care lists it appears on
+export function duplicateInfo(name: string): DupInfo | null {
+  return duplicatesData().groups[norm(name)] ?? null
+}
+
+export function duplicateStats() {
+  return duplicatesData().stats
+}
+
+// normalized name -> the live care lists it appears on
 function flaggedIndex(): Map<string, string[]> {
   const map = new Map<string, string[]>()
   const add = (name: string, tag: string) => {
     const k = norm(name)
     map.set(k, [...(map.get(k) ?? []), tag])
   }
-  focalPointServing.people.forEach((p) => add(p.name, 'Stopped serving'))
-  focalPointBurnout.people.forEach((p) => add(p.name, 'Burnout risk'))
-  focalPointGroupDrift.people.forEach((p) => add(p.name, 'Group drift'))
+  servingData().people.forEach((p) => add(p.name, 'Stopped serving'))
+  burnoutData().people.forEach((p) => add(p.name, 'Burnout risk'))
+  groupDriftData().people.forEach((p) => add(p.name, 'Group drift'))
   return map
 }
 
@@ -30,7 +37,7 @@ function flaggedIndex(): Map<string, string[]> {
 // (review verdict above confirmed), then high-confidence, then most profiles.
 export function allDuplicateRows(): DupReviewRow[] {
   const idx = flaggedIndex()
-  return focalPointDuplicateList
+  return Object.values(duplicatesData().groups)
     .map((d) => ({ ...d, flags: idx.get(norm(d.name)) ?? [] }))
     .sort((a, b) => {
       if (!!b.flags.length !== !!a.flags.length) return b.flags.length ? 1 : -1
