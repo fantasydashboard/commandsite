@@ -8,6 +8,7 @@
 import { computed } from 'vue'
 import { CATALOG, INTEGRATION_GROUPS, askEmailHref, type CatalogItem } from '@/lib/clients/church/integrationsCatalog'
 import PcoConnection from '@/components/cornerstone/PcoConnection.vue'
+import GoogleConnection from '@/components/cornerstone/GoogleConnection.vue'
 
 const props = defineProps<{ tenant: string; label: string }>()
 
@@ -31,6 +32,7 @@ function href(item: CatalogItem) { return askEmailHref(props.label, item) }
       <div>
         <div class="text-[10px] uppercase tracking-wider font-semibold text-ink-muted mb-2">Source of truth</div>
         <PcoConnection :tenant="tenant" :label="label" embedded />
+        <GoogleConnection :tenant="tenant" :label="label" embedded class="mt-2" />
       </div>
 
       <!-- Everything else: aspirational, ask about adding -->
