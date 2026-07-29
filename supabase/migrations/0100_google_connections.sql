@@ -1,0 +1,50 @@
+-- CommandSite · Google (Gmail) per-church OAuth connections
+-- Multi-tenant mirror of pco_connections (see 0081). Each church authorizes
+-- CommandSite through Google's consent screen; encrypted send-capable tokens
+-- land here, one row per church. Tokens are AES-GCM ciphertext (crypto.ts,
+-- TOKEN_ENC_KEY); RLS restricts to admins + the service role.
+create table public.google_connections (
+  tenant_key         text primary key check (tenant_key ~ '^[a-z0-9][a-z0-9_-]*$'),
+  display_label      text not null,
+  access_token_enc   text not null,
+  refresh_token_enc  text not null,
+  expires_at         timestamptz not null,
+  scopes             text not null,
+  org_name           text,
+  connected_by       text,
+  connected_email    text,
+  customer_id        uuid references public.cs_customers(id) on delete cascade,
+  connected_at       timestamptz not null default now(),
+  last_refreshed_at  timestamptz,
+  notes              text,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create index google_connections_customer_id_idx
+  on public.google_connections (customer_id)
+  where customer_id is not null;
+
+alter table public.google_connections enable row level security;
+
+create policy "admins manage google_connections"
+  on public.google_connections for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "service role manages google_connections"
+  on public.google_connections for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create or replace function public.touch_google_connections()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger google_connections_touch
+  before update on public.google_connections
+  for each row execute function public.touch_google_connections();
