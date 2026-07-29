@@ -78,3 +78,14 @@ verify_jwt = false
 
 [functions.pco-fetch]
 verify_jwt = false
+
+# Google OAuth callback is hit by Google's browser redirect with NO
+# Supabase JWT, so gateway verification must be off; the function validates the
+# OAuth code/state itself.
+[functions.google-oauth-callback]
+verify_jwt = false
+
+# Google OAuth start does its own admin-JWT check (with service-role bypass) in the
+# function body, same pattern as pco-oauth-start.
+[functions.google-oauth-start]
+verify_jwt = false
