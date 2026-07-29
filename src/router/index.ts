@@ -15,6 +15,20 @@ const routes = [
     meta: { public: true },
   },
   {
+    // Legal pages, hosted on commandsite.io so they can be the privacy-policy
+    // and terms URLs on the Google OAuth consent screen (gmail.send review).
+    path: '/privacy',
+    name: 'privacy',
+    component: () => import('@/pages/PrivacyPolicyPage.vue'),
+    meta: { public: true },
+  },
+  {
+    path: '/terms',
+    name: 'terms',
+    component: () => import('@/pages/TermsPage.vue'),
+    meta: { public: true },
+  },
+  {
     // Staci Daniel Music, separate-brand landing page. Lives in this
     // repo to share the build pipeline + Tailwind setup; will move to
     // its own domain (stacidanielmusic.com) when Phase 2 (student
