@@ -135,7 +135,7 @@ onBeforeUnmount(stopPolling)
             type="button"
             class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink-muted hover:border-danger hover:text-danger disabled:opacity-50"
             :disabled="working"
-            @click="disconnect(conn.connected_email as string)"
+            @click="disconnect(conn.connected_email)"
           >Disconnect</button>
         </div>
         <div v-if="conn.is_default && scopeChips(conn.scopes).length" class="mt-3 flex flex-wrap items-center gap-1.5">

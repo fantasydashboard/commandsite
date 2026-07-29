@@ -59,3 +59,33 @@ $$;
 create trigger google_connections_touch
   before update on public.google_connections
   for each row execute function public.touch_google_connections();
+
+-- If the default connection is deleted, promote the oldest remaining
+-- connection for that church to default so getGoogleAccessToken(tenant)'s
+-- no-email lookup (is_default = true) never comes up empty. Safe against the
+-- google_connections_one_default partial unique index: we only promote when
+-- zero defaults remain for the tenant.
+create or replace function public.google_connections_promote_default()
+returns trigger language plpgsql as $$
+begin
+  if old.is_default then
+    if not exists (select 1 from public.google_connections where tenant_key = old.tenant_key and is_default)
+       and exists (select 1 from public.google_connections where tenant_key = old.tenant_key) then
+      update public.google_connections
+      set is_default = true
+      where tenant_key = old.tenant_key
+        and connected_email = (
+          select connected_email from public.google_connections
+          where tenant_key = old.tenant_key
+          order by connected_at asc, connected_email asc
+          limit 1
+        );
+    end if;
+  end if;
+  return old;
+end;
+$$;
+
+create trigger google_connections_promote_default_trg
+  after delete on public.google_connections
+  for each row execute function public.google_connections_promote_default();

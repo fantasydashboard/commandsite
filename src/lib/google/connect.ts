@@ -9,7 +9,7 @@ export interface GoogleConnectionStatus {
   display_label: string
   org_name: string | null
   connected_by: string | null
-  connected_email: string | null
+  connected_email: string
   connected_at: string
   expires_at: string
   scopes: string
