@@ -22,10 +22,12 @@ function admin() {
 
 interface ConnectionRow {
   tenant_key: string
+  connected_email: string
   access_token_enc: string
   refresh_token_enc: string
   expires_at: string
   scopes: string
+  is_default: boolean
 }
 
 export class GoogleNotConnectedError extends Error {
@@ -35,13 +37,14 @@ export class GoogleNotConnectedError extends Error {
   }
 }
 
-export async function getGoogleAccessToken(tenant: string): Promise<string> {
+export async function getGoogleAccessToken(tenant: string, email?: string): Promise<string> {
   const db = admin()
-  const { data, error } = await db
+  let query = db
     .from('google_connections')
-    .select('tenant_key, access_token_enc, refresh_token_enc, expires_at, scopes')
+    .select('tenant_key, connected_email, access_token_enc, refresh_token_enc, expires_at, scopes, is_default')
     .eq('tenant_key', tenant)
-    .maybeSingle()
+  query = email ? query.eq('connected_email', email) : query.eq('is_default', true)
+  const { data, error } = await query.maybeSingle()
 
   if (error) throw new Error(`Failed to load Google connection: ${error.message}`)
   if (!data) throw new GoogleNotConnectedError(tenant)
@@ -95,6 +98,7 @@ async function refreshAndStore(
       last_refreshed_at: new Date().toISOString(),
     })
     .eq('tenant_key', row.tenant_key)
+    .eq('connected_email', row.connected_email)
 
   if (error) throw new Error(`Failed to persist refreshed Google token: ${error.message}`)
   return t.access_token

@@ -1,10 +1,11 @@
 -- CommandSite · Google (Gmail) per-church OAuth connections
 -- Multi-tenant mirror of pco_connections (see 0081). Each church authorizes
 -- CommandSite through Google's consent screen; encrypted send-capable tokens
--- land here, one row per church. Tokens are AES-GCM ciphertext (crypto.ts,
--- TOKEN_ENC_KEY); RLS restricts to admins + the service role.
+-- land here, one row per church PER connected address (multiple staff can
+-- each connect their own sending address). Tokens are AES-GCM ciphertext
+-- (crypto.ts, TOKEN_ENC_KEY); RLS restricts to admins + the service role.
 create table public.google_connections (
-  tenant_key         text primary key check (tenant_key ~ '^[a-z0-9][a-z0-9_-]*$'),
+  tenant_key         text not null check (tenant_key ~ '^[a-z0-9][a-z0-9_-]*$'),
   display_label      text not null,
   access_token_enc   text not null,
   refresh_token_enc  text not null,
@@ -12,18 +13,28 @@ create table public.google_connections (
   scopes             text not null,
   org_name           text,
   connected_by       text,
-  connected_email    text,
+  connected_email    text not null,
   customer_id        uuid references public.cs_customers(id) on delete cascade,
+  is_default         boolean not null default false,
+  user_id            uuid references public.users(id) on delete set null,
   connected_at       timestamptz not null default now(),
   last_refreshed_at  timestamptz,
   notes              text,
   created_at         timestamptz not null default now(),
-  updated_at         timestamptz not null default now()
+  updated_at         timestamptz not null default now(),
+  primary key (tenant_key, connected_email)
 );
 
 create index google_connections_customer_id_idx
   on public.google_connections (customer_id)
   where customer_id is not null;
+
+create index google_connections_tenant_idx
+  on public.google_connections (tenant_key);
+
+create unique index google_connections_one_default
+  on public.google_connections (tenant_key)
+  where is_default;
 
 alter table public.google_connections enable row level security;
 

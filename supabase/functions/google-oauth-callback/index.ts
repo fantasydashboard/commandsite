@@ -159,6 +159,12 @@ Deno.serve(async (req: Request) => {
     }
   } catch { /* identity is optional */ }
 
+  if (!connectedEmail) {
+    return htmlPage(`<div class="icon">⚠️</div><h1>Missing email address</h1>
+       <p>Google did not return an email address for this account. Make sure the
+       userinfo/email scope is granted and try again.</p>`, true)
+  }
+
   // ── 3. Encrypt + persist
   let accessEnc: string
   let refreshEnc: string
@@ -171,6 +177,16 @@ Deno.serve(async (req: Request) => {
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  // A church's first connection becomes its default sender. Re-connecting an
+  // existing address (count >= 1) must NOT flip an existing default back to
+  // false, so is_default is only included in the upsert payload when true.
+  const { count } = await admin
+    .from('google_connections')
+    .select('tenant_key', { count: 'exact', head: true })
+    .eq('tenant_key', tenant)
+  const isDefault = (count ?? 0) === 0
+
   const { error: dbErr } = await admin
     .from('google_connections')
     .upsert({
@@ -185,7 +201,8 @@ Deno.serve(async (req: Request) => {
       connected_email: connectedEmail,
       connected_at: new Date().toISOString(),
       last_refreshed_at: null,
-    }, { onConflict: 'tenant_key' })
+      ...(isDefault ? { is_default: true } : {}),
+    }, { onConflict: 'tenant_key,connected_email' })
 
   if (dbErr) {
     return htmlPage(`<div class="icon">⚠️</div><h1>Couldn't save the connection</h1>
