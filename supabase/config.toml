@@ -79,6 +79,9 @@ verify_jwt = false
 [functions.pco-fetch]
 verify_jwt = false
 
+[functions.grace-send]
+verify_jwt = false
+
 # Google OAuth callback is hit by Google's browser redirect with NO
 # Supabase JWT, so gateway verification must be off; the function validates the
 # OAuth code/state itself.
