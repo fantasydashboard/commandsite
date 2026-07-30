@@ -3,8 +3,10 @@
  * Cornerstone Front Desk & Guests.
  * Grace's roles on this page: Front Desk + Guest Follow-Up + Story Engine.
  */
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { Client } from '@/types/database'
+import { supabase } from '@/lib/supabase'
+import { graceSend } from '@/lib/grace/send'
 import { STAGE_META as VISITOR_STAGE_META } from '@/lib/clients/cornerstone/visitors'
 import { churchDataset } from '@/lib/clients/church/dataset'
 import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
@@ -31,30 +33,88 @@ const gpInScope = (campus: string) => lens.scope === 'all' || campus === lens.sc
 
 // Live churches load their guest pipeline from the real Planning Center pull;
 // everyone else keeps the baked demo snapshot (the getter falls back).
-onMounted(() => {
-  if (LIVE_CHURCHES.includes(props.client?.slug)) loadCareData(props.client.slug)
+// church_settings.messaging isn't in the generated Database types (added
+// after codegen), so it's read through an untyped handle, mirroring
+// privacy.ts / careDataLoader.ts.
+interface MessagingSettings { enabled: boolean; testMode: boolean }
+const messagingSettings = ref<MessagingSettings | null>(null)
+
+onMounted(async () => {
+  if (!LIVE_CHURCHES.includes(props.client?.slug)) return
+  loadCareData(props.client.slug)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+  const { data, error } = await sb
+    .from('church_settings')
+    .select('messaging')
+    .eq('client_id', props.client.id)
+    .maybeSingle()
+  if (!error && data?.messaging) {
+    messagingSettings.value = {
+      enabled: data.messaging.enabled ?? false,
+      testMode: data.messaging.testMode ?? true,
+    }
+  }
+})
+
+// Staff need to know whether an approve actually reaches the guest before
+// they click it: sending off means every approval is logged-only, and test
+// mode means it lands in the team's test inbox, not the guest's.
+const messagingBannerText = computed(() => {
+  const m = messagingSettings.value
+  if (!m) return null
+  if (!m.enabled) return 'Sending is off, approvals are logged only.'
+  if (m.testMode) return 'Test mode: sends go to your test address, not the guest.'
+  return null
 })
 
 const guestKpisScoped = computed(() => guestPipelineData().kpis[lens.scope])
 const pipelineCount = computed(() => guestPipelineData().cases.filter((c) => gpInScope(c.campus)).length)
 // Welcome drafts awaiting approval: this week's first-time guests in scope.
+// person_id / cardId come from the live PCO payload (Task 3); the baked demo
+// snapshot doesn't carry them, so they're read through a widened local type
+// rather than added to the shared GuestCase type.
 const guestQueue = computed<ApprovalQueueItem[]>(() =>
   guestPipelineData().cases
     .filter((c) => c.draft && gpInScope(c.campus))
     .slice(0, 8)
-    .map((c) => ({
-      id: c.id,
-      role: 'guest_followup',
-      icon: 'qa_assistant',
-      badge: 'Welcome',
-      badgeClass: 'bg-success/15 text-success',
-      title: `Welcome: ${c.name}`,
-      recipient: `First visit this week · ${c.campus === 'brazilian' ? 'Brazilian service' : 'weekend service'}`,
-      preview: `"${c.draft}"`,
-      approved_response: 'Sent. Grace will watch for a reply and flag it for you.',
-      ticker_after_approval: `Welcome sent to ${c.name}`,
-    })),
+    .map((c) => {
+      const live = c as typeof c & { person_id?: string; cardId?: string }
+      return {
+        id: c.id,
+        role: 'guest_followup',
+        icon: 'qa_assistant',
+        badge: 'Welcome',
+        badgeClass: 'bg-success/15 text-success',
+        title: `Welcome: ${c.name}`,
+        recipient: `First visit this week · ${c.campus === 'brazilian' ? 'Brazilian service' : 'weekend service'}`,
+        preview: c.draft ?? '',
+        approved_response: 'Sent. Grace will watch for a reply and flag it for you.',
+        ticker_after_approval: `Welcome sent to ${c.name}`,
+        person_id: live.person_id,
+        card_id: live.cardId,
+        message_type: 'guest_welcome',
+        subject: c.campus === 'brazilian' ? 'Foi bom te conhecer na Focal Point' : 'Great to meet you at Focal Point',
+      }
+    }),
 )
+
+// Real send path: only wired for Focal Point (the queue's message_type +
+// person_id/card_id are only populated there). Cornerstone's demo queueItems
+// never carry message_type, so GraceApprovalQueue's approve stays cosmetic
+// for them even if this were passed unconditionally, but we still gate it
+// explicitly so the prop is simply absent on the demo path.
+async function sendGuestWelcome(item: ApprovalQueueItem) {
+  return graceSend({
+    tenant: props.client.slug,
+    messageType: item.message_type!,
+    cardId: item.card_id!,
+    personId: item.person_id!,
+    subject: item.subject!,
+    body: item.preview,
+  })
+}
+const guestSendHandler = computed(() => (isFocalPoint.value ? sendGuestWelcome : undefined))
 
 // Client-varying data resolved by slug; names preserved so the rest of the
 // module and template are unchanged.
@@ -272,12 +332,20 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       </div>
     </section>
 
+    <div
+      v-if="isFocalPoint && messagingBannerText"
+      class="rounded-card border border-warn/20 bg-warn/10 px-4 py-2.5 text-xs text-ink-muted"
+    >
+      {{ messagingBannerText }}
+    </div>
+
     <GraceApprovalQueue
       :items="isFocalPoint ? guestQueue : queueItems"
       :initial-resolved="isFocalPoint ? 0 : 5"
       assistant-name="Grace"
       :heading="isFocalPoint ? 'Needs you this week' : 'First-touch queue'"
       :subtitle="isFocalPoint ? 'Welcome notes for this week\'s first-time guests. Approve to send. Everyone else is tracked on the board below.' : 'Visitor sequences + story permissions awaiting your eyes. Co-sign to send.'"
+      :send-handler="guestSendHandler"
       @approved="onApproved"
     />
 

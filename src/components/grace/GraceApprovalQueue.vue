@@ -26,6 +26,13 @@ export interface ApprovalQueueItem {
   /** Ada role key this item belongs to. Used by parents to tag the live-feed
    *  event when this item is approved (replaces per-module badge inference). */
   role?: string
+  /** Real-send fields. When both `sendHandler` (prop) and `message_type` are
+   *  present, approve routes through the real send path instead of the
+   *  cosmetic demo timeout. Omitted entirely on demo queues. */
+  person_id?: string
+  message_type?: string
+  card_id?: string
+  subject?: string
 }
 
 const props = withDefaults(defineProps<{
@@ -44,6 +51,11 @@ const props = withDefaults(defineProps<{
    *  store on approve. Cornerstone renders that chat (floating widget),
    *  so the chime-in works; Apex doesn't, so its consumers pass `false`. */
   pushApprovedToChat?: boolean
+  /** When set (and the approved item has a `message_type`), approve calls
+   *  this instead of the cosmetic 350ms timeout and reacts to the real
+   *  send outcome. Demo queues (Apex, Cornerstone) never pass this, so
+   *  their approve flow is unchanged. */
+  sendHandler?: (item: ApprovalQueueItem) => Promise<{ ok: boolean; status: string; detail: string }>
 }>(), {
   pushApprovedToChat: true,
 })
@@ -91,9 +103,49 @@ const queueLabel = computed(() => {
   return `${done} handled today · ${pending} waiting on you`
 })
 
+// Real send path: this item has a message_type AND the parent gave us a
+// sendHandler. Demo queues never satisfy both, so their approve flow keeps
+// the cosmetic timeout below untouched.
+async function approveWithRealSend(item: ApprovalQueueItem, sendHandler: NonNullable<typeof props.sendHandler>) {
+  const res = await sendHandler(item)
+
+  const success = res.status === 'sent' || res.status === 'redirected_to_test'
+  const hardFailure = res.status === 'failed' || res.status === 'blocked'
+  // rate_limited / deferred_quiet_hours are retryable later, so keep the row.
+  // suppressed / already_sent are terminal but not a failure, so clear it.
+  const removeRow = !hardFailure && !(res.status === 'rate_limited' || res.status === 'deferred_quiet_hours')
+
+  if (removeRow) {
+    recentlyResolved.value.push(item.id)
+    queueItems.value = queueItems.value.filter((q) => q.id !== item.id)
+    recentlyResolved.value = recentlyResolved.value.filter((id) => id !== item.id)
+  }
+
+  if (success) {
+    resolvedCounter.value++
+    toasts.push(res.status === 'redirected_to_test' ? 'Sent to your test address' : 'Sent', 'success')
+    if (props.pushApprovedToChat) {
+      setTimeout(() => {
+        chat.addAiMessage(item.approved_response)
+      }, 900)
+    }
+    emit('approved', item)
+  } else if (hardFailure) {
+    toasts.push(res.detail, 'warn')
+  } else {
+    toasts.push(res.detail, 'info')
+  }
+}
+
 async function actOnItem(item: ApprovalQueueItem, action: 'approve' | 'edit' | 'skip') {
   if (processingId.value) return
   processingId.value = item.id
+
+  if (action === 'approve' && props.sendHandler && item.message_type) {
+    await approveWithRealSend(item, props.sendHandler)
+    processingId.value = null
+    return
+  }
 
   if (action === 'approve') {
     recentlyResolved.value.push(item.id)
