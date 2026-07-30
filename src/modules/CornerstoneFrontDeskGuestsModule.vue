@@ -80,6 +80,14 @@ const guestQueue = computed<ApprovalQueueItem[]>(() =>
     .slice(0, 8)
     .map((c) => {
       const live = c as typeof c & { person_id?: string; cardId?: string }
+      // Real send is only meaningful when both identifiers are present
+      // (live PCO payload). Before live data lands, or on the baked
+      // fallback, these are undefined; omitting message_type here (rather
+      // than sending it with undefined ids) keeps GraceApprovalQueue's
+      // `sendHandler && item.message_type` guard truthful, so approve
+      // falls through to the cosmetic path instead of a doomed grace-send
+      // call. Self-heals once live data lands and the queue re-renders.
+      const canSend = Boolean(live.person_id && live.cardId)
       return {
         id: c.id,
         role: 'guest_followup',
@@ -91,10 +99,14 @@ const guestQueue = computed<ApprovalQueueItem[]>(() =>
         preview: c.draft ?? '',
         approved_response: 'Sent. Grace will watch for a reply and flag it for you.',
         ticker_after_approval: `Welcome sent to ${c.name}`,
-        person_id: live.person_id,
-        card_id: live.cardId,
-        message_type: 'guest_welcome',
-        subject: c.campus === 'brazilian' ? 'Foi bom te conhecer na Focal Point' : 'Great to meet you at Focal Point',
+        ...(canSend
+          ? {
+              person_id: live.person_id,
+              card_id: live.cardId,
+              message_type: 'guest_welcome' as const,
+              subject: c.campus === 'brazilian' ? 'Foi bom te conhecer na Focal Point' : 'Great to meet you at Focal Point',
+            }
+          : {}),
       }
     }),
 )
