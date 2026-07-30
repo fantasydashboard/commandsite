@@ -29,14 +29,6 @@ const routes = [
     meta: { public: true },
   },
   {
-    // Canonical CommandSite "home / about" page, used as the Application home
-    // page URL on the Google OAuth consent screen (names the app + purpose).
-    path: '/about',
-    name: 'about',
-    component: () => import('@/pages/AboutPage.vue'),
-    meta: { public: true },
-  },
-  {
     // Staci Daniel Music, separate-brand landing page. Lives in this
     // repo to share the build pipeline + Tailwind setup; will move to
     // its own domain (stacidanielmusic.com) when Phase 2 (student
