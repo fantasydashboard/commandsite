@@ -3,7 +3,7 @@ import { buildGuestPipeline, type GuestCardRow } from './guestPipeline.ts'
 
 const TODAY = '2026-07-27'
 function card(over: Partial<GuestCardRow>): GuestCardRow {
-  return { card_id: 'c1', campus: 'english', name: 'Jane Doe', created_date: '2026-07-25', completed_date: null, step_name: 'Welcome Phone Call', ...over }
+  return { card_id: 'c1', campus: 'english', name: 'Jane Doe', created_date: '2026-07-25', completed_date: null, step_name: 'Welcome Phone Call', person_id: 'pp1', ...over }
 }
 
 Deno.test('completed card -> belongs', () => {
@@ -33,6 +33,11 @@ Deno.test('brazilian draft is portuguese', () => {
 })
 Deno.test('id is gp-{card_id}', () => {
   assertEquals(buildGuestPipeline([card({ card_id: '99887' })], TODAY).cases[0].id, 'gp-99887')
+})
+Deno.test('cardId and person_id carry through to the case', () => {
+  const c = buildGuestPipeline([card({ card_id: '99887', person_id: 'pp42' })], TODAY).cases[0]
+  assertEquals(c.cardId, '99887')
+  assertEquals(c.person_id, 'pp42')
 })
 Deno.test('kpis and weighted all.completedPct', () => {
   const rows = [

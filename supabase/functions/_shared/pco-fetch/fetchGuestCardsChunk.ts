@@ -47,6 +47,7 @@ export async function fetchGuestCardsChunk(
           created_date: created,
           completed_date: c.attributes?.completed_at ? c.attributes.completed_at.slice(0, 10) : null,
           step_name: steps[c.relationships?.current_step?.data?.id] ?? '',
+          person_id: c.relationships?.person?.data?.id ?? null,
         })
       }
     }

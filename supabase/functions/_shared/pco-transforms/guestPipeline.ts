@@ -16,9 +16,10 @@ export interface GuestCardRow {
   created_date: string
   completed_date: string | null
   step_name: string
+  person_id: string
 }
 export interface GuestCase {
-  id: string; name: string; campus: GuestCampus; stage: GuestStage
+  id: string; cardId: string; person_id: string; name: string; campus: GuestCampus; stage: GuestStage
   detail: string; owner: string; age: string; note?: string; draft?: string
 }
 export interface GuestKpis { recentGuests: number; firstTimers4w: number; stillVisitors: number; completedPct: number }
@@ -75,6 +76,8 @@ export function buildGuestPipeline(rows: GuestCardRow[], today: string): GuestPi
       const thisWeek = days <= 7
       cases.push({
         id: `gp-${x.card_id}`,
+        cardId: x.card_id,
+        person_id: x.person_id,
         name: x.name,
         campus,
         stage,

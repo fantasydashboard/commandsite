@@ -78,11 +78,12 @@ export async function computeGuestPipeline(db: Db, clientId: string, cfg: PcoCon
   const cutoff = monthsAgo(today(), cfg.guests!.windowMonths)
   const rows = await readAll(
     (from, to) => db.from('pco_workflow_cards')
-      .select('card_id,campus,name,created_date,completed_date,step_name').eq('client_id', clientId)
+      .select('card_id,campus,name,created_date,completed_date,step_name,person_id').eq('client_id', clientId)
       .gte('created_date', cutoff)
       .order('card_id').range(from, to),
     'workflow cards')
-  await writeOk(db, clientId, 'guestPipeline', buildGuestPipeline(rows, today()))
+  const cardRows = rows.map((r: any) => ({ ...r, person_id: r.person_id ?? '' }))
+  await writeOk(db, clientId, 'guestPipeline', buildGuestPipeline(cardRows, today()))
 }
 
 export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig) {
