@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy | CommandSite</title>
+  <meta name="description" content="How CommandSite collects, uses, and protects information, including specific disclosures about Google user data and the gmail.send scope." />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/legal.css" />
+</head>
+<!--
+  CommandSite - Privacy Policy (public, /privacy).
+
+  STATIC HTML ON PURPOSE. This is the privacy-policy URL on the Google OAuth
+  consent screen, and Google's review tooling must be able to read the
+  disclosures without executing JavaScript. This file is the single source of
+  truth; there is deliberately no Vue route for /privacy.
+
+  Contains the disclosures Google requires for a restricted scope (gmail.send):
+  what Google user data is accessed, send-only (no inbox reading), token
+  encryption at rest, revocation, and the verbatim Limited Use disclosure.
+
+  NOTE FOR JOSH: confirm the legal entity name (currently "CommandSite") and
+  have counsel glance at this before relying on it for a real business.
+-->
+<body>
+  <header>
+    <div class="wrap">
+      <a href="/about" aria-label="CommandSite home"><img class="logo" src="/logo.png" alt="CommandSite" /></a>
+      <nav><a href="/about">About</a><a href="/terms">Terms</a></nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <p class="eyebrow">Legal</p>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated July 29, 2026</p>
+
+      <p>
+        CommandSite ("CommandSite," "we," "us") operates the CommandSite platform at commandsite.io,
+        including the Grace and Ada AI assistants used by our customers (churches and local service
+        businesses). This Privacy Policy explains what information we collect, how we use it, and the
+        choices you have. It includes specific disclosures about our use of Google user data.
+      </p>
+
+      <h2>Who this covers</h2>
+      <p>
+        This policy covers our customers (organizations that subscribe to CommandSite) and the
+        authorized users who connect accounts and use the dashboard on their organization's behalf.
+      </p>
+
+      <h2>Information we collect</h2>
+      <ul>
+        <li><span class="term">Account information:</span> name, email, organization, role, and login credentials managed through our authentication provider.</li>
+        <li><span class="term">Connected-service data:</span> when you connect a third-party account (for example, Planning Center or Google), we access data from that service, as described below, to provide the features you enable.</li>
+        <li><span class="term">Usage data:</span> standard logs needed to operate and secure the service.</li>
+      </ul>
+
+      <div class="callout">
+        <h2>Google user data (Gmail)</h2>
+        <p>
+          When an authorized user connects a Google account, CommandSite requests these Google OAuth scopes:
+        </p>
+        <ul>
+          <li><code>gmail.send</code> to send emails on your behalf.</li>
+          <li><code>openid</code> and <code>userinfo.email</code> to identify which email address you connected.</li>
+        </ul>
+
+        <h3>How we use this access</h3>
+        <ul>
+          <li>We use <code>gmail.send</code> only to send emails that a member of your organization has reviewed and approved (for example, a guest welcome or a follow-up note). We send from the address you connected, so replies go to your own inbox.</li>
+          <li>We use the account email only to display and route which connected address a message is sent from.</li>
+        </ul>
+
+        <h3>What we do not do</h3>
+        <ul>
+          <li>We do not read, download, index, or store the contents of your Gmail mailbox. The <code>gmail.send</code> scope is send-only and does not grant, and we do not request, read access to your email.</li>
+          <li>We do not use Google user data for advertising, and we do not sell it.</li>
+          <li>We do not allow humans to read your Google data, except as necessary for security purposes (such as investigating abuse), to comply with applicable law, or where you have given us explicit consent.</li>
+        </ul>
+
+        <h3>Storage and security</h3>
+        <ul>
+          <li>Your Google OAuth tokens are encrypted at rest using AES-256-GCM and are accessible only to our secured server processes. They are never exposed to the browser or to other customers.</li>
+          <li>You can revoke CommandSite's access at any time from your dashboard (Settings, then Integrations, then Disconnect) or from your Google Account security settings at <a class="link" href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. Revoking access stops all sending and deletes the stored connection.</li>
+        </ul>
+
+        <h3>Limited Use disclosure</h3>
+        <p>
+          CommandSite's use and transfer of information received from Google APIs to any other app will
+          adhere to the <a class="link" href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.
+        </p>
+      </div>
+
+      <h2>Other connected services</h2>
+      <p>
+        When you connect other services (such as Planning Center), we access only the data needed to
+        provide the features you turn on, and we handle it under the same security and non-sale
+        commitments described above.
+      </p>
+
+      <h2>How we use information</h2>
+      <p>
+        To provide, secure, and improve the service, to send communications you or your organization
+        have approved, and to comply with legal obligations.
+      </p>
+
+      <h2>Sharing</h2>
+      <p>
+        We do not sell personal information. We share information only with service providers that help
+        us operate the platform (such as our hosting and database providers), under contracts that
+        protect it, or where required by law.
+      </p>
+
+      <h2>Data retention</h2>
+      <p>
+        We keep information for as long as your organization uses the service, and delete or anonymize
+        it on request or when it is no longer needed, subject to legal requirements.
+      </p>
+
+      <h2>Your choices</h2>
+      <p>
+        You can disconnect any connected service, request access to or deletion of your information, and
+        contact us with any privacy question.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        We may update this policy. We will post the updated version here with a new "Last updated" date.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions about this policy or your data:
+        <a class="link" href="mailto:josh@commandsite.io">josh@commandsite.io</a>.
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>CommandSite</span>
+      <nav><a class="link" href="/privacy">Privacy</a><a class="link" href="/terms">Terms</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

@@ -14,20 +14,11 @@ const routes = [
     component: () => import('@/pages/ChurchesPage.vue'),
     meta: { public: true },
   },
-  {
-    // Legal pages, hosted on commandsite.io so they can be the privacy-policy
-    // and terms URLs on the Google OAuth consent screen (gmail.send review).
-    path: '/privacy',
-    name: 'privacy',
-    component: () => import('@/pages/PrivacyPolicyPage.vue'),
-    meta: { public: true },
-  },
-  {
-    path: '/terms',
-    name: 'terms',
-    component: () => import('@/pages/TermsPage.vue'),
-    meta: { public: true },
-  },
+  // NOTE: /about, /privacy and /terms are deliberately NOT Vue routes. They are
+  // the app-home, privacy-policy and terms URLs on the Google OAuth consent
+  // screen (gmail.send review), and Google's review tooling has to read them
+  // without executing JavaScript. They are static files in public/ served by the
+  // vercel.json rewrites, which take precedence over the SPA catch-all.
   {
     // Staci Daniel Music, separate-brand landing page. Lives in this
     // repo to share the build pipeline + Tailwind setup; will move to

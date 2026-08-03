@@ -6,45 +6,19 @@
   <title>CommandSite | AI assistant platform for small teams</title>
   <meta name="description" content="CommandSite is an AI assistant platform that connects to the tools a team already uses, like Google Workspace (Gmail) and Planning Center, and helps them draft and, with approval, send follow-up messages, surface who needs attention, and keep records clean." />
   <link rel="icon" href="/favicon.png" />
-  <style>
-    :root { color-scheme: light; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #f6f7f9;
-      color: #1a1f2e;
-      line-height: 1.6;
-    }
-    header, footer { border-color: #e2e5ea; }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
-    header { border-bottom: 1px solid #e2e5ea; }
-    header .wrap { display: flex; align-items: center; justify-content: space-between; padding-top: 18px; padding-bottom: 18px; }
-    .brand { font-weight: 800; font-size: 20px; letter-spacing: -0.01em; color: #1a1f2e; text-decoration: none; }
-    nav a { color: #5b6478; text-decoration: none; margin-left: 18px; font-size: 14px; }
-    nav a:hover { color: #1e40af; }
-    main { padding: 56px 0; }
-    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #1e40af; margin: 0; }
-    h1 { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; margin: 8px 0 0; color: #1a1f2e; }
-    .lead { font-size: 18px; color: #4b5563; margin: 18px 0 0; }
-    h2 { font-size: 19px; font-weight: 700; margin: 40px 0 10px; color: #1a1f2e; }
-    ul { padding-left: 20px; margin: 0; }
-    li { margin: 8px 0; color: #4b5563; }
-    li strong { color: #1a1f2e; }
-    .callout { margin-top: 40px; border: 1px solid rgba(30,64,175,0.25); background: rgba(30,64,175,0.04); border-radius: 14px; padding: 20px 22px; }
-    .callout p { margin: 0; color: #4b5563; }
-    code { background: #eef0f4; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
-    a.link { color: #1e40af; text-decoration: none; }
-    a.link:hover { text-decoration: underline; }
-    footer { border-top: 1px solid #e2e5ea; }
-    footer .wrap { display: flex; align-items: center; justify-content: space-between; padding-top: 22px; padding-bottom: 22px; font-size: 13px; color: #5b6478; }
-    footer nav a { margin-left: 0; margin-right: 16px; }
-  </style>
+  <link rel="stylesheet" href="/legal.css" />
 </head>
+<!--
+  CommandSite - public "what this app is" page (/about).
+
+  STATIC HTML ON PURPOSE. This is the app home page on the Google OAuth consent
+  screen, and Google's review tooling must be able to read the purpose text
+  without executing JavaScript. Shares /legal.css with /privacy and /terms.
+-->
 <body>
   <header>
     <div class="wrap">
-      <a class="brand" href="/about">CommandSite</a>
+      <a href="/about" aria-label="CommandSite home"><img class="logo" src="/logo.png" alt="CommandSite" /></a>
       <nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
     </div>
   </header>
@@ -69,7 +43,7 @@
       </ul>
 
       <div class="callout">
-        <h2 style="margin-top:0">How CommandSite uses Google data</h2>
+        <h2>How CommandSite uses Google data</h2>
         <p>
           When you connect a Google account, CommandSite requests send-only access (the <code>gmail.send</code>
           scope) so it can send the emails you approve, from your own address, so replies land in your inbox.
@@ -80,7 +54,7 @@
       </div>
 
       <h2>Contact</h2>
-      <p style="color:#4b5563;margin:0">
+      <p>
         <a class="link" href="mailto:josh@commandsite.io">josh@commandsite.io</a>
       </p>
     </div>

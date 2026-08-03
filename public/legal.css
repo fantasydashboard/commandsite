@@ -1,0 +1,112 @@
+/* CommandSite - shared chrome for the STATIC public pages (/about, /privacy, /terms).
+ *
+ * These three pages are plain HTML on purpose: they are the URLs on the Google
+ * OAuth consent screen, and Google's reviewer tooling must be able to read the
+ * text without executing JavaScript. Keeping the styles here means the set stays
+ * visually consistent without triplicating CSS in every file.
+ *
+ * Values are the literal design tokens from tailwind.config / main.css. They are
+ * hardcoded here (the one place in the repo where that is correct) because these
+ * files ship outside the Vue bundle and cannot resolve Tailwind utilities or the
+ * per-client CSS custom properties.
+ */
+
+:root {
+  color-scheme: light;
+  --brand: #1e40af;        /* Builder's Blue */
+  --brand-hover: #1d4ed8;
+  --ink: #0f172a;
+  --ink-muted: #64748b;
+  --surface: #f4f7fb;
+  --surface-elevated: #f1f5f9;
+  --divider: #e2e8f0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--surface);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 768px; margin: 0 auto; padding: 0 24px; }
+
+/* Header + footer -------------------------------------------------------- */
+
+header { border-bottom: 1px solid var(--divider); background: #fff; }
+header .wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 16px; padding-bottom: 16px;
+}
+header img.logo { height: 32px; width: auto; display: block; }
+.brand {
+  font-weight: 800; font-size: 20px; letter-spacing: -0.01em;
+  color: var(--ink); text-decoration: none;
+}
+nav a {
+  color: var(--ink-muted); text-decoration: none; font-size: 14px; margin-left: 18px;
+}
+nav a:hover { color: var(--brand); }
+
+footer { border-top: 1px solid var(--divider); margin-top: 24px; }
+footer .wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 22px; padding-bottom: 22px; font-size: 13px; color: var(--ink-muted);
+}
+footer nav a { margin-left: 16px; margin-right: 0; }
+
+/* Type ------------------------------------------------------------------- */
+
+main { padding: 48px 0 8px; }
+
+/* The Builder's Blue eyebrow is the system's signature. Matches the brand-register
+   spec in CLAUDE.md: 10px, 600, uppercase, 0.18em tracking. */
+.eyebrow {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--brand); margin: 0;
+}
+
+h1 {
+  font-size: 34px; font-weight: 800; letter-spacing: -0.02em;
+  margin: 8px 0 0; color: var(--ink);
+}
+h2 { font-size: 18px; font-weight: 700; margin: 34px 0 8px; color: var(--ink); }
+h3 { font-size: 15px; font-weight: 600; margin: 20px 0 6px; color: var(--ink); }
+
+p { font-size: 15px; color: var(--ink-muted); margin: 10px 0 0; }
+.lead { font-size: 18px; color: var(--ink-muted); margin: 18px 0 0; }
+.updated { font-size: 14px; color: var(--ink-muted); margin: 8px 0 0; }
+
+ul { padding-left: 20px; margin: 10px 0 0; }
+li { font-size: 15px; margin: 7px 0; color: var(--ink-muted); }
+li strong, li .term { color: var(--ink); font-weight: 600; }
+
+a.link { color: var(--brand); text-decoration: none; }
+a.link:hover { text-decoration: underline; }
+
+code {
+  background: var(--surface-elevated); padding: 1px 5px;
+  border-radius: 4px; font-size: 0.9em; color: var(--ink);
+}
+
+/* Callout: the Google-data disclosure block reviewers look for -------------- */
+
+.callout {
+  margin-top: 34px;
+  border: 1px solid rgba(30, 64, 175, 0.25);
+  background: rgba(30, 64, 175, 0.04);
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+.callout h2 { margin-top: 0; }
+.callout > :first-child { margin-top: 0; }
+
+@media (max-width: 560px) {
+  h1 { font-size: 28px; }
+  main { padding-top: 36px; }
+  header .wrap, footer .wrap { gap: 12px; }
+}
