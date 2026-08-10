@@ -74,7 +74,7 @@ const faqs = [
   },
   {
     q: 'We do not own a piano. Can my child still start?',
-    a: 'Yes, with a caveat. For the first 2 to 3 months a full-size 88-key digital keyboard with weighted keys is fine. Beyond that, a real piano (acoustic or a quality digital) is needed for the kind of practice that builds technique. I will help you figure out what to buy.',
+    a: 'Yes, of course! For the first year, a digital keyboard. Beyond that, a real piano (acoustic or a quality digital) is needed for the kind of practice that builds technique. I am happy to help you figure out what to buy!',
   },
   {
     q: 'What method do you teach from?',
@@ -85,16 +85,8 @@ const faqs = [
     a: 'In-person lessons in Kissimmee are the default. Online lessons are possible for established students, but I rarely take new students online — too much is lost without being in the room together, especially in the first year.',
   },
   {
-    q: 'What about vacations? Do I still pay if we miss a lesson?',
-    a: 'Lessons are billed monthly. Planned absences with advance notice (vacations, school events) are not billed. Same-day cancellations are billed. I keep the schedule consistent because consistency is most of what makes piano lessons work.',
-  },
-  {
     q: 'Do you accept Step Up For Students scholarships?',
     a: 'Yes. The studio is an approved Step Up For Students provider, so families with a Florida scholarship can use those funds to pay for lessons. The rate is the same either way: $125 per lesson for every student, scholarship or not. Mention it when you book and I will walk you through how to set it up on your end.',
-  },
-  {
-    q: 'I am an adult. Will I be the only adult in your studio?',
-    a: 'No. Adult students are a meaningful part of my studio. Returning players, total beginners, parents who started after watching their kids learn. You will not be the only one.',
   },
   {
     q: 'My child is shy. Do they have to do recitals?',
@@ -208,8 +200,8 @@ const faqs = [
         </p>
         <p class="mt-6 text-lg text-[#fbf8f3]/80 leading-relaxed max-w-3xl">
           Some of my students fall in love with piano and play for their
-          whole lives. Some go on to win regional competitions. Both are
-          wins. The thing they have in common is that they stayed with it,
+          whole lives. Some go on to compete in competitions. Both are
+          wins! The thing they have in common is that they stayed with it,
           which in piano teaching is the actual hard part.
         </p>
 
@@ -295,10 +287,9 @@ const faqs = [
               </p>
               <p>
                 In that time the studio has welcomed every kind of student.
-                Five-year-olds who had never touched a keyboard. Forty-year-olds
-                returning to piano after thirty years away. Teenagers
-                preparing for college auditions. Adults learning to play
-                the one piece they always wanted to.
+                Four-year-olds who had never touched a keyboard. Forty-year-olds
+                returning to piano after thirty years away. Teens preparing
+                for high school auditions.
               </p>
               <p>
                 What I am proudest of is something quieter. Students who
@@ -347,7 +338,7 @@ const faqs = [
           What students have done
         </div>
         <h2 class="font-serif text-3xl md:text-5xl leading-[1.1] tracking-tight max-w-4xl mb-16">
-          Four kinds of wins. They all count.
+          Three kinds of wins. They all count.
         </h2>
 
         <div class="grid md:grid-cols-2 gap-10 md:gap-16 max-w-5xl mb-20">
@@ -357,14 +348,6 @@ const faqs = [
               Students who worked through music that intimidated them on
               first read, then sat down and performed it. That breakthrough
               is what private lessons are really for.
-            </p>
-          </div>
-          <div class="border-l-2 border-[#2d4a3e] pl-6">
-            <div class="font-serif text-xl mb-2">Continued into college music programs.</div>
-            <p class="text-[#1a2421]/70 leading-relaxed">
-              Students who chose to study music in college, including
-              music education and performance. The foundation built in
-              private lessons matters at that level.
             </p>
           </div>
           <div class="border-l-2 border-[#2d4a3e] pl-6">
