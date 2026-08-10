@@ -46,7 +46,6 @@ function scrollTo(id: string) {
 // Nav items with anchor IDs
 const navItems = [
   { id: 'approach',   label: 'Approach' },
-  { id: 'who',        label: 'Who I teach' },
   { id: 'about',      label: 'About' },
   { id: 'students',   label: 'Students' },
   { id: 'lessons',    label: 'Lessons' },
@@ -252,56 +251,6 @@ const faqs = [
             <p class="text-[#fbf8f3]/75 leading-relaxed">
               Piano is a long game. I track each student's progress across
               years, not lessons. We are building toward something.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════════════════════════════
-         WHO — three audiences served
-         ════════════════════════════════════════════════════════════════ -->
-    <section
-      id="who"
-      class="mx-auto max-w-6xl px-6 py-20 md:py-28"
-      data-reveal
-    >
-      <div
-        class="transition-opacity duration-700"
-        :class="revealedSections.has('who') ? 'opacity-100' : 'opacity-0'"
-      >
-        <div class="text-[11px] uppercase tracking-[0.22em] text-[#2d4a3e] font-semibold mb-8">
-          Who I teach
-        </div>
-        <h2 class="font-serif text-3xl md:text-5xl leading-[1.1] tracking-tight max-w-4xl mb-16">
-          Beginners through advanced. Ages five through seventy.
-        </h2>
-
-        <div class="grid md:grid-cols-3 gap-10 md:gap-16">
-          <div class="border-t border-[#1a2421]/15 pt-6">
-            <div class="font-serif text-2xl mb-3">Kids · ages 5 to 12</div>
-            <p class="text-[#1a2421]/75 leading-relaxed">
-              Beginners through intermediate. Parents stay involved for
-              the first year, then gradually step back as the student
-              takes ownership of practice. Piano Adventures curriculum
-              from the start.
-            </p>
-          </div>
-          <div class="border-t border-[#1a2421]/15 pt-6">
-            <div class="font-serif text-2xl mb-3">Teens · ages 13 to 18</div>
-            <p class="text-[#1a2421]/75 leading-relaxed">
-              Including students preparing for college music auditions or
-              regional performance competitions. Advanced repertoire, music
-              theory at a deeper level, recital pieces that stretch them.
-            </p>
-          </div>
-          <div class="border-t border-[#1a2421]/15 pt-6">
-            <div class="font-serif text-2xl mb-3">Adults · any age</div>
-            <p class="text-[#1a2421]/75 leading-relaxed">
-              Returning players who have not touched a piano in decades.
-              Total beginners. Parents who watched their kids learn and
-              decided it was their turn. You are not too old. You are
-              not too rusty.
             </p>
           </div>
         </div>
