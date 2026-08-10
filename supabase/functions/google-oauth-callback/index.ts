@@ -6,7 +6,9 @@
 //   2. Hit the userinfo endpoint to learn who connected (best-effort identity).
 //   3. Encrypt both tokens (AES-GCM) and upsert the google_connections row for
 //      this church (tenant = slug packed into state).
-//   4. Return a "Connected!" HTML page that closes the tab.
+//   4. Redirect to /connected on our own domain, which renders the outcome and
+//      offers a "Close tab" button. See the note on `finish` for why this
+//      function cannot render that page itself.
 //
 // Trigger:  GET (Google's redirect)
 // Query:    code (required), state (tenant + nonce), error (on decline)
@@ -25,46 +27,39 @@ const CLIENT_SECRET = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET')
 
 const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/google-oauth-callback`
 
-function htmlPage(body: string, isError = false): Response {
-  const color = isError ? '#dc2626' : '#16a34a'
-  const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8" />
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<title>Google | CommandSite</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    display: flex; align-items: center; justify-content: center; min-height: 100vh;
-    margin: 0; background: #f6f7f9; color: #1a1f2e; }
-  .card { background: white; padding: 2rem 2.5rem; border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.08); max-width: 440px; text-align: center; }
-  h1 { color: ${color}; margin: 0 0 .5rem; font-size: 1.5rem; }
-  p { color: #5b6478; line-height: 1.5; margin: .5rem 0; }
-  code { background: #f0f1f4; padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
-  .icon { font-size: 3rem; margin-bottom: .5rem; }
-  button { background: #1a1f2e; color: white; border: 0; padding: .75rem 1.5rem;
-    border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 1rem; }
-</style></head>
-<body><div class="card">${body}
-<button onclick="window.close()">Close tab</button>
-</div></body></html>`
-  const headers = new Headers()
-  headers.set('Content-Type', 'text/html; charset=UTF-8')
-  headers.set('X-Content-Type-Options', 'nosniff')
-  headers.set('Cache-Control', 'no-store')
-  return new Response(html, { status: isError ? 400 : 200, headers })
-}
+// This function CANNOT render its own confirmation page. Supabase Edge Functions
+// rewrite a `text/html` Content-Type to a bare `text/plain` (it stops functions
+// being used to host phishing pages on the shared supabase.co domain), so the
+// browser shows the markup as source, and with no charset it decodes the UTF-8
+// emoji as mojibake. No combination of response headers gets around it;
+// pco-oauth-callback has the same code and the same symptom.
+//
+// So finish the OAuth hop with a redirect to a static page on our own domain
+// (public/connected.html, routed by the vercel.json rewrite) and let that render
+// the outcome. Google's registered redirect_uri still points here and is
+// unchanged, so this needs no Cloud Console edit.
+const APP_ORIGIN = Deno.env.get('APP_ORIGIN') ?? 'https://www.commandsite.io'
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+function finish(title: string, detail: string, isError = false): Response {
+  const params = new URLSearchParams({
+    status: isError ? 'error' : 'ok',
+    title,
+    detail,
+  })
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `${APP_ORIGIN}/connected?${params.toString()}`,
+      'Cache-Control': 'no-store',
+    },
+  })
 }
 
 Deno.serve(async (req: Request) => {
   if (!CLIENT_ID || !CLIENT_SECRET) {
-    return htmlPage(
-      `<div class="icon">⚠️</div><h1>Configuration missing</h1>
-       <p>Supabase secrets <code>GOOGLE_OAUTH_CLIENT_ID</code> and
-       <code>GOOGLE_OAUTH_CLIENT_SECRET</code> aren't set yet.</p>`,
+    return finish(
+      'Configuration missing',
+      "Supabase secrets GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET aren't set yet.",
       true,
     )
   }
@@ -89,20 +84,19 @@ Deno.serve(async (req: Request) => {
   }
 
   if (errorParam) {
-    return htmlPage(
-      `<div class="icon">⚠️</div><h1>Authorization declined</h1>
-       <p>Google returned: <code>${escapeHtml(errorParam)}</code></p>
-       <p>You can try again from the dashboard when you're ready.</p>`,
+    return finish(
+      'Authorization declined',
+      `Google returned: ${errorParam}. You can try again from the dashboard when you're ready.`,
       true,
     )
   }
   if (!code) {
-    return htmlPage(`<div class="icon">⚠️</div><h1>Missing code</h1>
-       <p>No authorization code in the callback URL. Start again from the dashboard.</p>`, true)
+    return finish('Missing code',
+      'No authorization code in the callback URL. Start again from the dashboard.', true)
   }
   if (!tenant) {
-    return htmlPage(`<div class="icon">⚠️</div><h1>Missing church</h1>
-       <p>The callback state didn't identify a church. Start again from the dashboard.</p>`, true)
+    return finish('Missing church',
+      "The callback state didn't identify a church. Start again from the dashboard.", true)
   }
   if (!displayLabel) displayLabel = tenant
 
@@ -121,12 +115,8 @@ Deno.serve(async (req: Request) => {
 
   if (!tokenRes.ok) {
     const errText = await tokenRes.text()
-    return htmlPage(
-      `<div class="icon">⚠️</div><h1>Token exchange failed</h1>
-       <p>Google said: <code>${tokenRes.status}</code></p>
-       <pre style="text-align:left;font-size:.75rem;white-space:pre-wrap">${escapeHtml(errText)}</pre>`,
-      true,
-    )
+    return finish('Token exchange failed',
+      `Google said ${tokenRes.status}: ${errText}`, true)
   }
 
   const tokens = (await tokenRes.json()) as {
@@ -138,8 +128,8 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!tokens.access_token || !tokens.refresh_token) {
-    return htmlPage(`<div class="icon">⚠️</div><h1>Incomplete token response</h1>
-       <p>Google didn't return both tokens. Try connecting again.</p>`, true)
+    return finish('Incomplete token response',
+      "Google didn't return both tokens. Try connecting again.", true)
   }
 
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
@@ -160,9 +150,8 @@ Deno.serve(async (req: Request) => {
   } catch { /* identity is optional */ }
 
   if (!connectedEmail) {
-    return htmlPage(`<div class="icon">⚠️</div><h1>Missing email address</h1>
-       <p>Google did not return an email address for this account. Make sure the
-       userinfo/email scope is granted and try again.</p>`, true)
+    return finish('Missing email address',
+      'Google did not return an email address for this account. Make sure the userinfo/email scope is granted and try again.', true)
   }
 
   // ── 3. Encrypt + persist
@@ -172,8 +161,8 @@ Deno.serve(async (req: Request) => {
     accessEnc = await encryptToken(tokens.access_token)
     refreshEnc = await encryptToken(tokens.refresh_token)
   } catch (err) {
-    return htmlPage(`<div class="icon">⚠️</div><h1>Encryption not configured</h1>
-       <p><code>${escapeHtml(err instanceof Error ? err.message : String(err))}</code></p>`, true)
+    return finish('Encryption not configured',
+      err instanceof Error ? err.message : String(err), true)
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
@@ -205,13 +194,12 @@ Deno.serve(async (req: Request) => {
     }, { onConflict: 'tenant_key,connected_email' })
 
   if (dbErr) {
-    return htmlPage(`<div class="icon">⚠️</div><h1>Couldn't save the connection</h1>
-       <p>Database write failed: <code>${escapeHtml(dbErr.message)}</code></p>`, true)
+    return finish("Couldn't save the connection",
+      `Database write failed: ${dbErr.message}`, true)
   }
 
-  return htmlPage(
-    `<div class="icon">✅</div><h1>${escapeHtml(connectedEmail ?? displayLabel)} connected</h1>
-     <p>Google is linked${connectedBy ? ` (authorized by <strong>${escapeHtml(connectedBy)}</strong>)` : ''}.</p>
-     <p>Grace can now send email as this address on your behalf. She never reads your inbox. You can close this tab.</p>`,
+  return finish(
+    `${connectedEmail ?? displayLabel} connected`,
+    `Google is linked${connectedBy ? ` (authorized by ${connectedBy})` : ''}. Grace can now send email as this address on your behalf. She never reads your inbox.`,
   )
 })

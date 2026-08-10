@@ -3,6 +3,7 @@
     { "source": "/about", "destination": "/about.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/connected", "destination": "/connected.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
