@@ -90,6 +90,10 @@ const faqs = [
     a: 'Lessons are billed monthly. Planned absences with advance notice (vacations, school events) are not billed. Same-day cancellations are billed. I keep the schedule consistent because consistency is most of what makes piano lessons work.',
   },
   {
+    q: 'Do you accept Step Up For Students scholarships?',
+    a: 'Yes. The studio is an approved Step Up For Students provider, so families with a Florida scholarship can use those funds to pay for lessons. The rate is the same either way: $125 per lesson for every student, scholarship or not. Mention it when you book and I will walk you through how to set it up on your end.',
+  },
+  {
     q: 'I am an adult. Will I be the only adult in your studio?',
     a: 'No. Adult students are a meaningful part of my studio. Returning players, total beginners, parents who started after watching their kids learn. You will not be the only one.',
   },
@@ -450,7 +454,7 @@ const faqs = [
           Lessons
         </div>
         <h2 class="font-serif text-3xl md:text-5xl leading-[1.1] tracking-tight max-w-4xl mb-16">
-          Weekly. In person. $135 per lesson.
+          Weekly. In person. $125 per lesson.
         </h2>
 
         <div class="grid md:grid-cols-12 gap-12 max-w-5xl">
@@ -470,16 +474,23 @@ const faqs = [
               Curriculum is Piano Adventures by Faber, supplemented with
               classical repertoire and student-choice pieces as students grow.
             </p>
+            <p>
+              Every student pays the same $125 per lesson. The studio is an
+              approved Step Up For Students provider, which means families
+              with a Florida scholarship can use those funds to pay for
+              lessons at that same rate. Mention it when you book and I will
+              walk you through the setup.
+            </p>
           </div>
           <div class="md:col-span-5">
             <div class="border border-[#a8c4b3]/30 rounded-sm p-8 bg-[#1f3329]">
               <div class="text-[10px] uppercase tracking-[0.22em] text-[#a8c4b3] font-semibold mb-2">
                 Per lesson
               </div>
-              <div class="font-serif text-5xl text-[#fbf8f3] mb-1">$135</div>
+              <div class="font-serif text-5xl text-[#fbf8f3] mb-1">$125</div>
               <div class="text-sm text-[#fbf8f3]/60 mb-6">Weekly · billed monthly</div>
               <div class="border-t border-[#a8c4b3]/20 pt-6 space-y-2 text-sm text-[#fbf8f3]/70">
-                <div class="flex justify-between"><span>Lesson length</span><span class="text-[#fbf8f3]">45-60 min</span></div>
+                <div class="flex justify-between"><span>Lesson length</span><span class="text-[#fbf8f3]">30 min</span></div>
                 <div class="flex justify-between"><span>Format</span><span class="text-[#fbf8f3]">In-person</span></div>
                 <div class="flex justify-between"><span>Location</span><span class="text-[#fbf8f3]">Kissimmee, FL</span></div>
                 <div class="flex justify-between"><span>Recitals</span><span class="text-[#fbf8f3]">Included</span></div>
@@ -490,6 +501,22 @@ const faqs = [
                 @click="scrollTo('book')"
               >Book a trial lesson</button>
             </div>
+          </div>
+        </div>
+
+        <!-- Step Up sits OUTSIDE the price card on purpose. Inside it, the
+             callout read as though $125 were a scholarship-only rate. It is a
+             way to pay, not a different price. -->
+        <div class="max-w-5xl mt-12 border border-[#a8c4b3]/30 rounded-sm bg-[#1f3329] px-6 py-5 md:px-8 md:py-6">
+          <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-8">
+            <div class="text-[10px] uppercase tracking-[0.22em] text-[#a8c4b3] font-semibold md:flex-shrink-0">
+              Step Up For Students
+            </div>
+            <p class="text-base text-[#fbf8f3]/80 leading-relaxed m-0">
+              <span class="text-[#fbf8f3]">Approved provider.</span>
+              Florida scholarship funds can be used to pay for lessons at the
+              same $125 per lesson everyone pays.
+            </p>
           </div>
         </div>
       </div>
