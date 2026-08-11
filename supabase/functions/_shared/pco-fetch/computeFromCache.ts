@@ -3,7 +3,7 @@ import { assignmentsToByPerson, groupRowsToInputs } from '../pco-transforms/from
 import { computeServing, computeBurnout, monthsAgo } from '../pco-transforms/serving.ts'
 import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
-import { buildGuestPipeline } from '../pco-transforms/guestPipeline.ts'
+import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS } from '../pco-transforms/guestPipeline.ts'
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
@@ -83,7 +83,11 @@ export async function computeGuestPipeline(db: Db, clientId: string, cfg: PcoCon
       .order('card_id').range(from, to),
     'workflow cards')
   const cardRows = rows.map((r: any) => ({ ...r, person_id: r.person_id ?? '' }))
-  await writeOk(db, clientId, 'guestPipeline', buildGuestPipeline(cardRows, today()))
+  // windowMonths is RETENTION (history for the monthly trend); activeDays is the
+  // WORKLIST span the board and KPIs run on. Keeping them separate is what stops
+  // a 24-month retention window from reporting 788 guests "in the pipeline".
+  await writeOk(db, clientId, 'guestPipeline',
+    buildGuestPipeline(cardRows, today(), cfg.guests!.activeDays ?? DEFAULT_ACTIVE_DAYS))
 }
 
 export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig) {

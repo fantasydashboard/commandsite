@@ -31,6 +31,8 @@
 import { computed } from 'vue'
 import { guestPipelineData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
 /**
  * Mirrors GuestMonthPoint in the edge transform
@@ -52,6 +54,7 @@ interface GuestMonthPoint {
 }
 
 const lens = useCongregationLens()
+const props = defineProps<{ clientName: string }>()
 
 // Cap at 13 so the axis is "this month plus the twelve before it".
 const MAX_MONTHS = 13
@@ -67,6 +70,12 @@ const MONTH_LABEL = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 function label(month: string): string {
   const [, m] = month.split('-').map(Number)
   return MONTH_LABEL[m - 1] ?? month
+}
+// The axis ends need the year. A 13-month span starts and ends in the same
+// calendar month, so a bare "Aug ... Aug" reads as a rendering bug.
+function labelWithYear(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${MONTH_LABEL[m - 1] ?? month} '${String(y).slice(2)}`
 }
 
 interface Metric {
@@ -98,6 +107,8 @@ const tiles = computed(() =>
         partial: p.partial,
         pctOfMax: Math.round((p[mt.key] / max) * 100),
       })),
+      axisStart: pts.length ? labelWithYear(pts[0].month) : '',
+      axisEnd: pts.length ? labelWithYear(pts[pts.length - 1].month) : '',
       headline: lastComplete ? lastComplete[mt.key] : 0,
       headlineMonth: lastComplete ? label(lastComplete.month) : '',
       partialValue: current?.partial ? current[mt.key] : null,
@@ -105,16 +116,34 @@ const tiles = computed(() =>
     }
   }),
 )
+
+// Aggregate only: month + two counts, no names. Exports exactly the scope on
+// screen, so a file pulled under the Brazilian lens is that congregation's.
+function onExport() {
+  exportCsv(
+    series.value,
+    [
+      { header: 'Month', value: (r) => r.month },
+      { header: 'First visits', value: (r) => r.firstVisits },
+      { header: 'Completed Starting Point', value: (r) => r.completedSP },
+      { header: 'Month complete', value: (r) => (r.partial ? 'no, in progress' : 'yes') },
+    ],
+    { client: props.clientName, dataset: 'guest-pulse-monthly', scope: lens.scope },
+  )
+}
 </script>
 
 <template>
   <section v-if="hasData" class="card">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="eyebrow">Guest pulse</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Live from Planning Center · by month
-      </span>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+          Live from Planning Center · by month
+        </span>
+        <ExportButton :count="series.length" @export="onExport" />
+      </div>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">How each month is running</h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
@@ -148,8 +177,8 @@ const tiles = computed(() =>
           ></div>
         </div>
         <div class="mt-1 flex justify-between text-[10px] text-ink-disabled">
-          <span>{{ t.bars[0]?.label }}</span>
-          <span>{{ t.bars[t.bars.length - 1]?.label }}</span>
+          <span>{{ t.axisStart }}</span>
+          <span>{{ t.axisEnd }}</span>
         </div>
 
         <div class="mt-2 text-[11px] text-ink-disabled">{{ t.sub }}</div>

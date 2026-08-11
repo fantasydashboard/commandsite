@@ -54,6 +54,43 @@ Deno.test('kpis and weighted all.completedPct', () => {
   assertEquals(p.kpis.all.firstTimers4w, 2)
   assertEquals(p.kpis.all.completedPct, 33)
 })
+// ── active window ──────────────────────────────────────────────────────────
+// Retention (how far back we KEEP cards, for the trend) and the worklist (who
+// Grace is actually working) are different spans. Widening retention to 24
+// months must not inflate "in the pipeline" into a two-year archive.
+Deno.test('cases and kpis cover only the active window; monthly still sees everything', () => {
+  const rows = [
+    card({ card_id: 'recent', created_date: '2026-07-01' }),
+    card({ card_id: 'old', created_date: '2025-09-01' }), // inside retention, outside the worklist
+  ]
+  const p = buildGuestPipeline(rows, TODAY, 90)
+  assertEquals(p.cases.map((c) => c.cardId), ['recent'])
+  assertEquals(p.kpis.all.recentGuests, 1)
+  // The old card still contributes to the trend it belongs to.
+  assertEquals(p.monthly.all.find((m) => m.month === '2025-09')!.firstVisits, 1)
+})
+Deno.test('active window boundary is inclusive', () => {
+  const on = buildGuestPipeline([card({ card_id: 'on', created_date: '2026-04-28' })], TODAY, 90)
+  const off = buildGuestPipeline([card({ card_id: 'off', created_date: '2026-04-27' })], TODAY, 90)
+  assertEquals(on.cases.length, 1)
+  assertEquals(off.cases.length, 0)
+})
+
+// ── the queue must not contradict the board ────────────────────────────────
+Deno.test('a card with a pending draft never also claims the welcome was sent', () => {
+  // Week-2 step (stage 'welcomed') but created inside the draft window, which
+  // previously rendered "welcome sent" and "awaiting your approval" together.
+  const c = buildGuestPipeline([card({ step_name: 'Week 2', created_date: '2026-07-24' })], TODAY).cases[0]
+  assertEquals(typeof c.draft, 'string')
+  assertEquals(c.detail.includes('welcome sent'), false)
+  assertEquals(c.detail, 'first visit · welcome drafted, not sent yet')
+})
+Deno.test('a welcomed card with no pending draft keeps the sent wording', () => {
+  const c = buildGuestPipeline([card({ step_name: 'Week 2', created_date: '2026-06-01' })], TODAY).cases[0]
+  assertEquals(c.draft, undefined)
+  assertEquals(c.detail, 'welcome sent · in the week-2 follow-up')
+})
+
 // ── monthly pulse ──────────────────────────────────────────────────────────
 // Flow metrics, deliberately separate from the cohort KPIs above: a card
 // COMPLETED in July was almost never CREATED in July, so these two series must

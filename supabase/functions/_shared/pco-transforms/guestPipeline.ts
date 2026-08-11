@@ -120,12 +120,26 @@ function monthlyFor(list: GuestCardRow[], today: string): GuestMonthPoint[] {
   }))
 }
 
-export function buildGuestPipeline(rows: GuestCardRow[], today: string): GuestPipelinePayload {
+/** How far back the WORKLIST reaches. Distinct from pco_config.guests.
+ *  windowMonths, which is retention: how far back cards are KEPT so the monthly
+ *  trend has history. Conflating the two turned "in the pipeline" into a
+ *  two-year archive of 788 people the moment retention went from 5 to 24 months.
+ *  Guests older than this age out of the front door; Care & Drift is the back
+ *  door and picks up long-term disengagement. */
+export const DEFAULT_ACTIVE_DAYS = 90
+
+export function buildGuestPipeline(
+  rows: GuestCardRow[],
+  today: string,
+  activeDays: number = DEFAULT_ACTIVE_DAYS,
+): GuestPipelinePayload {
   const cases: GuestCase[] = []
   const kpis = {} as Record<'all' | GuestCampus, GuestKpis>
   const monthly = {} as Record<'all' | GuestCampus, GuestMonthPoint[]>
+  // Worklist rows only. `monthly` deliberately reads the FULL set below.
+  const active = rows.filter((r) => daysAgo(today, r.created_date) <= activeDays)
   for (const campus of ['english', 'brazilian'] as GuestCampus[]) {
-    const list = rows
+    const list = active
       .filter((r) => r.campus === campus)
       .sort((a, b) => (a.created_date < b.created_date ? 1 : -1))
     for (const x of list) {
@@ -139,7 +153,13 @@ export function buildGuestPipeline(rows: GuestCardRow[], today: string): GuestPi
         name: x.name,
         campus,
         stage,
-        detail: STAGE_DETAIL[stage],
+        // A card can sit on a later PCO step (stage 'welcomed', "welcome sent")
+        // while Grace still holds an UNSENT draft for it, because the step
+        // advances on the church's schedule and the draft is keyed off card age.
+        // Rendering both put "welcome sent" and "awaiting your approval" on the
+        // same card, so staff could not tell whether anything had gone out.
+        // The pending draft wins: it is the one statement we know is true.
+        detail: thisWeek ? 'first visit · welcome drafted, not sent yet' : STAGE_DETAIL[stage],
         owner: ownerOf(stage),
         age: days < 7 ? 'this week' : `${Math.round(days / 7)}w ago`,
         ...(thisWeek ? { note: 'Grace drafted a welcome, awaiting your approval', draft: draftOf(x.name, campus) } : {}),

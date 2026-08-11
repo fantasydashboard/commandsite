@@ -31,8 +31,11 @@
 import { computed } from 'vue'
 import { assimilation, type Milestones } from '@/lib/clients/focal-point/assimilation'
 import { useCongregationLens } from '@/stores/congregationLens'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
 const lens = useCongregationLens()
+const props = defineProps<{ clientName: string }>()
 const m = computed<Milestones>(() => assimilation[lens.scope])
 
 interface Step {
@@ -67,16 +70,37 @@ const notReached = computed(() => m.value.visited - firstStep.value.count)
 const scopeLabel = computed(() =>
   lens.scope === 'all' ? 'across both congregations' : `in the ${lens.scope} congregation`,
 )
+
+// Aggregate only: milestone, count, share. Safe for a board report, which is
+// most of why this one exists as its own file rather than bundled with people.
+function onExport() {
+  const rows = [
+    { label: 'First visit', count: m.value.visited, pct: 100 },
+    ...steps.value.map((s) => ({ label: s.label, count: s.count, pct: s.pct })),
+  ]
+  exportCsv(
+    rows,
+    [
+      { header: 'Milestone', value: (r) => r.label },
+      { header: 'People', value: (r) => r.count },
+      { header: '% of first visits', value: (r) => r.pct },
+    ],
+    { client: props.clientName, dataset: 'visitor-milestones-12mo', scope: lens.scope },
+  )
+}
 </script>
 
 <template>
   <section class="card">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="eyebrow">Where visitors fall out</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Last 12 months
-      </span>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+          Last 12 months
+        </span>
+        <ExportButton :count="steps.length + 1" @export="onExport" />
+      </div>
     </div>
 
     <h3 class="mt-1 text-base font-semibold text-ink">How far your visitors get</h3>
@@ -93,33 +117,33 @@ const scopeLabel = computed(() =>
     <!-- Baseline. Shown as a full bar so every step below is read against
          something concrete rather than an invisible 100%. -->
     <div class="mt-5">
-      <div class="mb-1 flex items-baseline justify-between gap-3">
-        <span class="text-sm font-medium text-ink">First visit</span>
+      <div class="mb-1 text-sm font-medium text-ink">First visit</div>
+      <div class="flex items-center gap-3">
+        <div class="h-3 w-full max-w-[26rem] overflow-hidden rounded-full bg-surface-elevated">
+          <div class="h-full w-full rounded-full bg-brand/25"></div>
+        </div>
         <span class="shrink-0 text-xs tabular-nums text-ink-muted">
           <span class="font-semibold text-ink">{{ m.visited }}</span>
           <span class="ml-1 text-ink-disabled">100%</span>
         </span>
-      </div>
-      <div class="h-3 w-full max-w-[38rem] overflow-hidden rounded-full bg-surface-elevated">
-        <div class="h-full w-full rounded-full bg-brand/25"></div>
       </div>
       <div class="mt-0.5 text-[11px] text-ink-disabled">everyone who signed in for the first time</div>
     </div>
 
     <ul class="mt-4 space-y-4 border-t border-divider pt-4">
       <li v-for="s in steps" :key="s.key">
-        <div class="mb-1 flex items-baseline justify-between gap-3">
-          <span class="text-sm font-medium text-ink">{{ s.label }}</span>
+        <div class="mb-1 text-sm font-medium text-ink">{{ s.label }}</div>
+        <div class="flex items-center gap-3">
+          <div class="h-3 w-full max-w-[26rem] overflow-hidden rounded-full bg-surface-elevated">
+            <div
+              class="h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
+              :style="{ width: Math.max(1.5, s.pct) + '%' }"
+            ></div>
+          </div>
           <span class="shrink-0 text-xs tabular-nums text-ink-muted">
             <span class="font-semibold text-ink">{{ s.count }}</span>
             <span class="ml-1 text-ink-disabled">{{ s.pct }}% of first visits</span>
           </span>
-        </div>
-        <div class="h-3 w-full max-w-[38rem] overflow-hidden rounded-full bg-surface-elevated">
-          <div
-            class="h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
-            :style="{ width: Math.max(1.5, s.pct) + '%' }"
-          ></div>
         </div>
         <div class="mt-0.5 text-[11px] text-ink-disabled">{{ s.sub }}</div>
       </li>

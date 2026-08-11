@@ -13,7 +13,9 @@ export interface FetchCfg { timeBudgetSeconds?: number; incrementalWindowDays?: 
 export interface PcoConfig {
   staffNames: string[]; serving: ServingCfg; burnout: BurnoutCfg; groupDrift: GroupDriftCfg; fetch?: FetchCfg
   drift?: { windowMonths: number; sundaysMissed: number; minEstablishedSundays: number; kidsEventMatch: string }
-  guests?: { englishWorkflowId: string; brazilianWorkflowId: string; windowMonths: number }
+  // windowMonths = RETENTION (history kept for the monthly trend).
+// activeDays  = the WORKLIST span the board + KPIs run on. Different spans on purpose.
+  guests?: { englishWorkflowId: string; brazilianWorkflowId: string; windowMonths: number; activeDays?: number }
   duplicates?: { keepTopClusters: number; minNameLen: number }
 }
 

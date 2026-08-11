@@ -10,14 +10,40 @@ import { computed } from 'vue'
 import { GUEST_STAGES, type GuestCase } from '@/lib/clients/focal-point/guestPipeline'
 import { guestPipelineData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
 const lens = useCongregationLens()
+const props = defineProps<{ clientName: string }>()
 const CAP = 6
 const inScope = (c: GuestCase) => lens.scope === 'all' || c.campus === lens.scope
 const scoped = (stage: string) => guestPipelineData().cases.filter((c) => c.stage === stage && inScope(c))
 const casesFor = (stage: string) => scoped(stage).slice(0, CAP)
 const moreIn = (stage: string) => Math.max(0, scoped(stage).length - CAP)
 const kpis = computed(() => guestPipelineData().kpis[lens.scope])
+
+// The only export on this page that carries NAMES, so ExportButton is marked
+// sensitive and gates it to full permission scope. Exports every guest in the
+// current lens, not just the six per column the board renders, because a
+// worklist you can only see the top of is not a worklist.
+const allScoped = computed(() =>
+  GUEST_STAGES.flatMap((s) => scoped(s.key).map((c) => ({ ...c, stageLabel: s.label }))),
+)
+function onExport() {
+  exportCsv(
+    allScoped.value,
+    [
+      { header: 'Name', value: (c) => c.name },
+      { header: 'Congregation', value: (c) => (c.campus === 'brazilian' ? 'Brazilian' : 'English') },
+      { header: 'Stage', value: (c) => c.stageLabel },
+      { header: 'Status', value: (c) => c.detail },
+      { header: 'Owner', value: (c) => c.owner },
+      { header: 'Last activity', value: (c) => c.age },
+      { header: 'Awaiting approval', value: (c) => (c.draft ? 'yes' : 'no') },
+    ],
+    { client: props.clientName, dataset: 'guest-pipeline', scope: lens.scope },
+  )
+}
 
 function initials(name: string): string {
   const clean = name.replace(/^The\s+/i, '').replace(/\s+family$/i, '')
@@ -29,10 +55,18 @@ function initials(name: string): string {
   <section class="card">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="eyebrow">Guest pipeline</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Live from Planning Center
-      </span>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+          Live from Planning Center
+        </span>
+        <ExportButton
+          label="Download guest list"
+          sensitive
+          :count="allScoped.length"
+          @export="onExport"
+        />
+      </div>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">Where every first-time guest is on the way to belonging</h3>
 

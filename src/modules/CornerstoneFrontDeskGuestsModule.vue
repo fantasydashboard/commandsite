@@ -396,7 +396,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
          month running"), not analysis. Self-hides until the live payload carries
          a `monthly` series, so the Cornerstone demo and the baked fallback are
          unaffected. -->
-    <GuestPulseStrip v-if="isFocalPoint" />
+    <GuestPulseStrip v-if="isFocalPoint" :client-name="client.name" />
 
     <!-- KPI strip (Cornerstone demo) -->
     <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -425,13 +425,13 @@ const frontDeskRecommendations: GraceRecommendation[] = [
     <!-- Focal Point: real guest pipeline board (front-door mirror of Care & Drift).
          Guests can't be scoped by the congregation lens; the page-aware lens bar
          in the chrome says so, so no per-board note is needed here. -->
-    <GuestPipelineBoard v-if="isFocalPoint" />
+    <GuestPipelineBoard v-if="isFocalPoint" :client-name="client.name" />
 
     <!-- Where the pipeline leaks, AFTER the operational path. The order on this
          page is deliberate: queue (this week's work), KPIs (state), board
          (everyone), then this (why it matters). An analysis card above the board
          interrupts someone who came here to work the list. -->
-    <VisitorDropOff v-if="isFocalPoint" />
+    <VisitorDropOff v-if="isFocalPoint" :client-name="client.name" />
 
     <!-- Focal Point: phone answering is a real capability, honestly future-framed -->
     <section v-if="isFocalPoint" class="card flex flex-wrap items-center justify-between gap-3">

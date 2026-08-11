@@ -173,11 +173,16 @@ function scrollChatToBottom() {
 
 <template>
   <Teleport to="body">
-    <!-- Floating bubble button (only when there's a persona for this client) -->
+    <!-- Floating bubble button (only when there's a persona for this client).
+         Do NOT add `relative` to the class list. It was there, presumably to
+         anchor the unread badge, but Tailwind emits .relative AFTER .fixed, so
+         it won and the button was never fixed at all: it sat in the document
+         flow at the foot of the page and got clipped. `fixed` already
+         establishes the containing block the absolute badge needs. -->
     <button
       v-if="persona && !isOpen"
       type="button"
-      class="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-full bg-brand text-ink-inverse pl-3 pr-4 py-2.5 shadow-raised hover:shadow-card hover:opacity-95 transition-all relative"
+      class="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-full bg-brand text-ink-inverse pl-3 pr-4 py-2.5 shadow-raised hover:shadow-card hover:opacity-95 transition-all"
       :aria-label="`Open chat with ${persona.name}`"
       @click="open"
     >
