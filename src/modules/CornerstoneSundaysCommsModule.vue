@@ -18,7 +18,6 @@ import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import SundayReadinessBoard from '@/components/cornerstone/SundayReadinessBoard.vue'
 import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
 import ServingLoad from '@/components/cornerstone/ServingLoad.vue'
-import CommsDrafts from '@/components/cornerstone/CommsDrafts.vue'
 import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
 import { focalPointRoster } from '@/lib/clients/focal-point/roster'
 import { useCongregationLens } from '@/stores/congregationLens'
@@ -291,7 +290,6 @@ const sundaysRecommendations: GraceRecommendation[] = [
       <!-- Above Burnout Watch on purpose: the shape first, then the names. -->
       <ServingLoad :client-name="client.name" />
       <BurnoutWatch :client-name="client.name" />
-      <CommsDrafts />
       <FlagDetailDrawer />
     </template>
 

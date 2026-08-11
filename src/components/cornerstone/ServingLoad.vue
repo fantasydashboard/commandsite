@@ -53,10 +53,14 @@ const heavyShare = computed(() => {
 })
 
 const BUCKETS = [
-  { label: '3 a month', min: 3, max: 3 },
-  { label: '4 a month', min: 4, max: 4 },
-  { label: '5 a month', min: 5, max: 5 },
-  { label: '6 or more', min: 6, max: Number.MAX_SAFE_INTEGER },
+  // Flagged for BREADTH rather than frequency: computeBurnout includes anyone on
+  // 2+ teams even at one or two shifts. Omitting them made the bars sum to a
+  // third of the headline count.
+  { label: '1-2x/month', min: 0, max: 2 },
+  { label: '3x/month', min: 3, max: 3 },
+  { label: '4x/month', min: 4, max: 4 },
+  { label: '5x/month', min: 5, max: 5 },
+  { label: '6x+/month', min: 6, max: Number.MAX_SAFE_INTEGER },
 ]
 
 const buckets = computed(() => {
@@ -116,7 +120,7 @@ function onExport() {
     <div class="mt-5 grid gap-5 md:grid-cols-[minmax(0,1fr)_16rem]">
       <div class="space-y-2">
         <div v-for="b in buckets" :key="b.label" class="flex items-center gap-3">
-          <span class="w-20 shrink-0 text-[11px] text-ink-muted">{{ b.label }}</span>
+          <span class="w-24 shrink-0 text-[11px] text-ink-muted">{{ b.label }}</span>
           <div class="h-2.5 w-full max-w-[22rem] overflow-hidden rounded-full bg-surface-elevated">
             <div
               class="h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
@@ -125,7 +129,10 @@ function onExport() {
           </div>
           <span class="shrink-0 text-xs font-semibold tabular-nums text-ink">{{ b.count }}</span>
         </div>
-        <p class="pt-1 text-[11px] text-ink-disabled">Shifts per month, this season.</p>
+        <p class="pt-1 text-[11px] text-ink-disabled">
+          Shifts per month, this season. The 1-2x row is people flagged for serving on
+          several teams rather than for frequency.
+        </p>
       </div>
 
       <div class="space-y-3 text-[12px] leading-relaxed">
@@ -145,7 +152,7 @@ function onExport() {
           </p>
         </div>
         <p v-if="busiest" class="text-[11px] text-ink-disabled">
-          Heaviest right now: {{ busiest.name }}, {{ busiest.perMonth }}x a month across
+          Heaviest right now: {{ busiest.name }}, {{ busiest.perMonth }}x/month across
           {{ busiest.areas.length }} {{ busiest.areas.length === 1 ? 'team' : 'teams' }}.
         </p>
       </div>
