@@ -119,7 +119,7 @@ function avatarBlock(c: CareCase) { return c.avatar }
         <div class="flex flex-wrap items-center gap-2">
           <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" :class="TRACK_CLS[c.track]">{{ TRACK_LABEL[c.track] }}</span>
           <span class="text-sm font-semibold text-ink">{{ c.name }}</span>
-          <span v-if="c.promotedFrom" class="rounded bg-brand/12 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Promoted from {{ c.promotedFrom }}</span>
+          <span v-if="c.promotedFrom" class="rounded bg-brand/12 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Two signals at once</span>
         </div>
         <p class="mt-0.5 text-[12px] text-ink-muted">{{ c.detail }}</p>
         <p v-if="c.note" class="mt-1 text-[12px] leading-snug text-ink">{{ c.note }}</p>

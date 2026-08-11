@@ -2,7 +2,9 @@
 /**
  * Focal Point - "came back this week" wins. The other side of Care & Drift: the
  * families who returned to Sunday and the volunteers who started serving again
- * since they were flagged. These cleared off the drift lists on the last refresh;
+ * since they were flagged. Grace clears these off the drift lists in the nightly
+ * sync (pco-fetch-nightly, 04:00 UTC), so the copy says "overnight" rather than
+ * "on the last refresh": the old wording implied someone had to press a button.
  * this surface makes that visible so the pastor sees the good news, not just the
  * to-do list. Real, from the same reconciliation (driftLive + servingLive).
  */
@@ -49,7 +51,7 @@ const wins = computed<Win[]>(() => {
   <section v-if="wins.length" class="card border border-success/25 bg-success/[0.03]">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-success">Came back</span>
-      <span class="text-[11px] text-ink-muted">cleared off your lists on the last refresh</span>
+      <span class="text-[11px] text-ink-muted">cleared off your lists overnight</span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">
       {{ wins.length }} {{ wins.length === 1 ? 'person or family' : 'people and families' }} reconnected

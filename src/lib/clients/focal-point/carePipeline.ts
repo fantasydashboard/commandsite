@@ -88,7 +88,7 @@ function buildCarePipelineCases(): CareCase[] {
     // Real cross-track promotion: a volunteer genuinely on BOTH the stopped-serving
     // and group-drift lists, escalated to the pastor. (Was Manuel, who the serving
     // rebuild proved is still actively serving; JR Rivera is a true two-signal case.)
-    { id: 'cp-f6', track: 'family', stage: 'escalated', name: 'JR Rivera', avatar: '', detail: 'stopped serving Safety Team, and quiet in his group', owner: 'Pastor Mark', age: 'promoted today', channel: 'Pastor to call', promotedFrom: 'serving', note: 'Two signals at once: he stopped serving and went quiet in his group. Worth your call before he drifts further.' },
+    { id: 'cp-f6', track: 'family', stage: 'escalated', name: 'JR Rivera', avatar: '', detail: 'stopped serving Safety Team, and quiet in his group', owner: 'Pastor Mark', age: 'flagged today', channel: 'Pastor to call', promotedFrom: 'serving', note: 'Two signals at once: he stopped serving and went quiet in his group. Worth your call before he drifts further.' },
     { id: 'cp-f7', track: 'family', stage: 'resolved', name: famName(fam(6)), avatar: '', detail: `back after ${fam(6).sundaysMissed} missed Sundays`, owner: 'Care team', age: 'returned Jun 29', outcome: 'Reconnected' },
 
     // ---------------- SERVING (re-engage; owner = ministry leader) ----------------

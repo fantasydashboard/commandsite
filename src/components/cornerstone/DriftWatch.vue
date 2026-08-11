@@ -87,7 +87,7 @@ function onExport() {
     </p>
     <p v-if="reconnected" class="mt-1 inline-flex items-center gap-1.5 text-[11px] text-success">
       <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-      {{ reconnected }} {{ reconnected === 1 ? 'family' : 'families' }} checked back in on recent Sundays and cleared off this list on the last refresh.
+      {{ reconnected }} {{ reconnected === 1 ? 'family' : 'families' }} checked back in on recent Sundays and cleared off this list overnight.
     </p>
   </section>
 

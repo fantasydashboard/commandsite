@@ -193,7 +193,7 @@ function initials(name: string): string {
             >
               <!-- promotion ribbon -->
               <div v-if="c.promotedFrom" class="mb-1.5 -mx-2 -mt-2 rounded-t-lg bg-brand/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-brand">
-                Promoted from {{ c.promotedFrom }}
+                Two signals at once
               </div>
 
               <div class="flex items-center gap-2">
@@ -229,7 +229,7 @@ function initials(name: string): string {
 
     <!-- legend + honesty -->
     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-ink-muted">
-      <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-brand"></span> promoted across tracks</span>
+      <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-brand"></span> flagged by two signals at once</span>
       <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-danger"></span> Grace predicted the drop</span>
       <span class="text-ink-disabled">Grace advances stages automatically; you act only at the approval and escalation gates.</span>
     </div>
