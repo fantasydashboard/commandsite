@@ -13,6 +13,7 @@ import { duplicateInfo } from '@/lib/clients/focal-point/duplicateReview'
 import DuplicateBadge from '@/components/cornerstone/DuplicateBadge.vue'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
+import { heavyLoad, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
 
 const props = defineProps<{ clientName?: string }>()
 const care = useCareActions()
@@ -26,6 +27,9 @@ const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === le
 const fb = computed(() => burnoutData())
 const active = computed(() => fb.value.people.filter((p) => !care.isHidden(`burnout:${p.name}`) && inCampus(p.campus)))
 const highRiskShown = computed(() => active.value.filter((p) => p.tier === 'high').length)
+// "Serving too often" is only true of the frequency group. The rest of the
+// flagged set is on 2+ teams at one or two shifts a month.
+const heavy = computed(() => heavyLoad(active.value))
 const dups = computed(() => active.value.filter((p) => duplicateInfo(p.name)))
 const visible = computed(() =>
   dupOnly.value ? dups.value : showAll.value ? active.value : active.value.slice(0, COLLAPSED),
@@ -62,12 +66,15 @@ function onExport() {
       </span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">
-      {{ active.length }} volunteers serving too often
+      {{ heavy.length }} volunteers serving too often
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ fb.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
-      <template v-if="lens.scope === 'all'">Of {{ fb.activeVolunteers }} active volunteers, {{ active.length }} serve often and {{ highRiskShown }} are in the high-load zone.</template>
-      <template v-else>In the {{ lens.scope }} ministry's teams, {{ active.length }} serve often and {{ highRiskShown }} are in the high-load zone.</template>
+      <template v-if="lens.scope === 'all'">Of {{ fb.activeVolunteers }} active volunteers, {{ heavy.length }} serve {{ HEAVY_PER_MONTH }}+ times a month and {{ highRiskShown }} are in the high-load zone.</template>
+      <template v-else>In the {{ lens.scope }} ministry's teams, {{ heavy.length }} serve {{ HEAVY_PER_MONTH }}+ times a month and {{ highRiskShown }} are in the high-load zone.</template>
+      <template v-if="active.length > heavy.length">
+        Another {{ active.length - heavy.length }} are on several teams but only serve once or twice a month; they are in the list below, ranked lower.
+      </template>
       These route to each ministry leader in Monday's digest, so the person who knows them can give them a breather.
     </p>
   </section>

@@ -23,6 +23,7 @@ import { focalPointRoster } from '@/lib/clients/focal-point/roster'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 import { loadCareData, burnoutData } from '@/lib/clients/church/careDataLoader'
+import { heavyLoad, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
 import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -49,9 +50,13 @@ onMounted(() => {
 // the list always agree. The other KPIs (spots to fill, fresh capacity) are the
 // church-wide roster, which does not scope.
 const lens = useCongregationLens()
-const overServing = computed(() => {
+// Lens-scoped, matching the burnout list below. Counts only the frequency group:
+// the raw flagged set also includes people on two teams at one or two shifts a
+// month, for whom "do not add load" is bad advice.
+const heavyLoadCount = computed(() => {
   const s = lens.scope
-  return burnoutData().people.filter((p) => s === 'all' || p.campus === 'both' || p.campus === s).length
+  const scoped = burnoutData().people.filter((p) => s === 'all' || p.campus === 'both' || p.campus === s)
+  return heavyLoad(scoped).length
 })
 
 // Client-varying data resolved by slug; names preserved so the rest of the
@@ -275,15 +280,15 @@ const sundaysRecommendations: GraceRecommendation[] = [
         </div>
         <div class="card">
           <div class="kpi-label">Over-serving</div>
-          <div class="mt-1 text-2xl font-bold text-danger tabular-nums">{{ overServing }}</div>
-          <div class="text-[11px] text-ink-disabled mt-0.5">protect, do not add load</div>
+          <div class="mt-1 text-2xl font-bold text-danger tabular-nums">{{ heavyLoadCount }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">{{ HEAVY_PER_MONTH }}x+ a month, do not add load</div>
         </div>
         <!-- Was a hardcoded "74%". Now derived from the live burnout payload:
              active volunteers minus those already flagged as over-serving. -->
         <div class="card">
           <div class="kpi-label">Active volunteers</div>
           <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ activeVolunteers }}</div>
-          <div class="text-[11px] text-ink-disabled mt-0.5">{{ overServing }} of them carrying heavy load</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">{{ heavyLoadCount }} of them carrying heavy load</div>
         </div>
       </div>
       <SundayReadinessBoard :client-name="client.name" />

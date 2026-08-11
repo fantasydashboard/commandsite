@@ -26,6 +26,7 @@ import { useCongregationLens } from '@/stores/congregationLens'
 import { useCareActions } from '@/stores/careActions'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
+import { heavyLoad, spreadThin, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
 
 const props = defineProps<{ clientName: string }>()
 
@@ -44,12 +45,18 @@ const people = computed(() =>
 
 const activeVolunteers = computed(() => payload.value.activeVolunteers ?? 0)
 
+// The headline counts the people actually carrying frequency. The rest of the
+// flagged set is on 2+ teams at one or two shifts a month, which is a much
+// softer signal and was inflating this number roughly threefold.
+const heavy = computed(() => heavyLoad(people.value))
+const spread = computed(() => spreadThin(people.value))
+
 // Share of the volunteer base carrying a heavy load. Only meaningful at 'all'
 // scope: activeVolunteers is a church-wide count with no campus breakdown, so
 // dividing a campus-filtered numerator by it would overstate every time.
 const heavyShare = computed(() => {
   if (lens.scope !== 'all' || !activeVolunteers.value) return null
-  return Math.round((people.value.length / activeVolunteers.value) * 100)
+  return Math.round((heavy.value.length / activeVolunteers.value) * 100)
 })
 
 const BUCKETS = [
@@ -108,9 +115,9 @@ function onExport() {
 
     <h3 class="mt-1 text-base font-semibold text-ink">
       <template v-if="heavyShare !== null">
-        {{ people.length }} of your {{ activeVolunteers }} volunteers are carrying the heavy weeks
+        {{ heavy.length }} of your {{ activeVolunteers }} volunteers are carrying the heavy weeks
       </template>
-      <template v-else>{{ people.length }} volunteers are carrying the heavy weeks</template>
+      <template v-else>{{ heavy.length }} volunteers are carrying the heavy weeks</template>
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
       The roster shows who is on this Sunday. It never shows how often the same names come
@@ -140,15 +147,20 @@ function onExport() {
           <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">Grace's read</span>
           <p class="mt-1 text-ink">
             That is <span class="font-semibold">{{ heavyShare }}%</span> of everyone who serves,
-            absorbing the weeks nobody else covers. Every name you add to a rota this Sunday
-            is most likely already on this list.
+            at {{ HEAVY_PER_MONTH }}+ shifts a month, absorbing the weeks nobody else covers.
+            Check this list before you add anyone to a rota.
           </p>
         </div>
         <div v-if="multiTeam" class="rounded-lg border border-divider px-3 py-2.5">
           <p class="text-ink-muted">
-            <span class="font-semibold text-ink">{{ multiTeam }}</span> of them serve on three or
-            more teams. Four shifts on one team is a rhythm; four shifts across four teams is
-            four sets of expectations.
+            <span class="font-semibold text-ink">{{ multiTeam }}</span> serve on three or more
+            teams. Four shifts on one team is a rhythm; four shifts across four teams is four
+            sets of expectations.
+            <template v-if="spread.length">
+              <span class="font-semibold text-ink">{{ spread.length }}</span> of those are spread
+              that wide while only serving once or twice a month, which is a softer signal than
+              the heavy-load group above.
+            </template>
           </p>
         </div>
         <p v-if="busiest" class="text-[11px] text-ink-disabled">
@@ -159,9 +171,11 @@ function onExport() {
     </div>
 
     <p class="mt-4 text-[11px] leading-relaxed text-ink-disabled">
-      Counts everyone already past the load threshold. Volunteers serving once or twice a
-      month are included in the {{ activeVolunteers }} total but not broken out here, so this
-      shows where the weight sits rather than a full share-of-all-shifts figure.
+      Bars cover everyone the burnout rule flags, which includes people on two teams at one
+      or two shifts a month. The headline deliberately counts only the {{ HEAVY_PER_MONTH }}+
+      a month group, because "serving too often" is not true of the rest. Volunteers below the
+      flag are in the {{ activeVolunteers }} total but not broken out, so this shows where the
+      weight sits rather than a full share-of-all-shifts figure.
     </p>
   </section>
 </template>
