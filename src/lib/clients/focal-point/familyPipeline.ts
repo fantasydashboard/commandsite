@@ -14,6 +14,26 @@ import type { CareCase } from './carePipeline'
 export const ESTABLISHED_SUNDAYS = 15
 export const LONG_GONE_SUNDAYS = 8
 
+/**
+ * Upper bound on the WORKING board, in Sundays missed.
+ *
+ * Family drift previously had no ceiling, so a family four Sundays out and one
+ * forty Sundays out sat in the same lane looking equally actionable. They are
+ * not: recoverability decays hard with time. A family a month out usually
+ * answers the phone; a family six months out has generally landed somewhere
+ * else, and a pastoral "we miss you" note reads as careless rather than caring.
+ *
+ * ~17 Sundays is about four months. Past that a family leaves the weekly
+ * worklist and moves to the long-drifted review (longDriftedFamilies below),
+ * which is a decide-what-to-do list rather than a this-week list. Nobody is
+ * deleted or hidden; the two lists together are always the full flagged set.
+ */
+export const LONG_DRIFTED_SUNDAYS = 17
+
+export function isLongDrifted(f: { sundaysMissed: number }): boolean {
+  return f.sundaysMissed >= LONG_DRIFTED_SUNDAYS
+}
+
 export function isEscalatedFamily(f: { totalSundays: number; sundaysMissed: number }): boolean {
   return f.totalSundays >= ESTABLISHED_SUNDAYS && f.sundaysMissed >= LONG_GONE_SUNDAYS
 }
@@ -62,9 +82,12 @@ export function groupCases(): CareCase[] {
   }))
 }
 
-// All active (non-returned) families as pipeline cards, most urgent first.
+/** Families still inside the working window, most urgent first. Everything at or
+ *  beyond LONG_DRIFTED_SUNDAYS is deliberately excluded here and surfaced by
+ *  longDriftedFamilies() instead. */
 export function familyCases(): CareCase[] {
   return driftData().families
+    .filter((f) => !isLongDrifted(f))
     .slice()
     .sort((a, b) => b.sundaysMissed - a.sundaysMissed || b.totalSundays - a.totalSundays)
     .map((f) => {
@@ -86,3 +109,49 @@ export function familyCases(): CareCase[] {
       }
     })
 }
+
+/**
+ * Families past the working window: still flagged, but too far gone to belong in
+ * a weekly outreach queue. Surfaced as their own review list so the church can
+ * make a decision (reach out anyway, mark as moved on, snooze) rather than
+ * having them silently pad the board or silently disappear.
+ *
+ * Sorted longest-gone first, and carries the tenure figures, because the
+ * pastoral weight is completely different for a family that attended two years
+ * before going quiet versus one that came a handful of times.
+ */
+export interface LongDriftedFamily {
+  key: string
+  family: string
+  kids: string[]
+  lastSeen: string
+  sundaysMissed: number
+  monthsAttending: number
+  totalSundays: number
+  established: boolean
+}
+
+export function longDriftedFamilies(): LongDriftedFamily[] {
+  return driftData().families
+    .filter(isLongDrifted)
+    .slice()
+    .sort((a, b) => b.sundaysMissed - a.sundaysMissed || b.totalSundays - a.totalSundays)
+    .map((f) => ({
+      key: `family:${f.family}`,
+      family: f.family,
+      kids: f.kids,
+      lastSeen: f.lastSeen,
+      sundaysMissed: f.sundaysMissed,
+      monthsAttending: f.monthsAttending,
+      totalSundays: f.totalSundays,
+      established: f.totalSundays >= ESTABLISHED_SUNDAYS,
+    }))
+}
+
+/** Buckets for the drift curve. Open-ended at the top so the longest-gone are
+ *  never dropped off the end of the chart. */
+export const LONG_DRIFT_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: '4 to 6 months', min: 17, max: 26 },
+  { label: '6 to 12 months', min: 27, max: 52 },
+  { label: 'Over a year', min: 53, max: Number.MAX_SAFE_INTEGER },
+]
