@@ -32,6 +32,11 @@ const TRACK_CLS: Record<string, string> = { family: 'bg-warn/15 text-warn', serv
 
 const inScope = (c: CareCase) => lens.scope === 'all' || congregationOf(c.name) === lens.scope
 
+// No send-handler is passed, so approving here is a local resolve, not a send.
+// The heading says "To approve" rather than "To approve and send" for that
+// reason: these drafts have no resolved recipient behind them yet, and a queue
+// that claims to have sent something it did not is the failure we fixed on the
+// guest queue and again on Care & Drift.
 const myApprovals = computed<ApprovalQueueItem[]>(() => {
   const roles = props.staff.approvalRoles ?? []
   return focalPointApproval.filter((i) => i.role && roles.includes(i.role))
@@ -90,8 +95,8 @@ function toSundays() {
         v-if="myApprovals.length"
         :items="myApprovals"
         :initial-resolved="0"
-        heading="To approve and send"
-        :subtitle="`Drafted in your voice. Co-sign to send, edit to revise, skip to resurface tomorrow.`"
+        heading="To approve"
+        :subtitle="`Drafted in your voice. Approve, edit to revise, or skip to resurface tomorrow.`"
       />
 
       <!-- Their care cases -->

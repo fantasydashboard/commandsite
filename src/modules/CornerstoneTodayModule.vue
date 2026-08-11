@@ -478,7 +478,9 @@ const todayRecommendations: GraceRecommendation[] = [
       v-if="mode === 'with-grace' && (!isFocalPoint || isFullView)"
       :items="isFocalPoint ? focalPointApproval : queueItems"
       :initial-resolved="8"
-      :subtitle="`${greeting}. Co-sign to send, edit to revise, skip to resurface tomorrow.`"
+      :subtitle="isFocalPoint
+        ? `${greeting}. Approve, edit to revise, or skip to resurface tomorrow.`
+        : `${greeting}. Co-sign to send, edit to revise, skip to resurface tomorrow.`"
       @approved="onApproved"
     />
 
