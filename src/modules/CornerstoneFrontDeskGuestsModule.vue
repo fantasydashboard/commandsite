@@ -18,6 +18,7 @@ import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import GuestPipelineBoard from '@/components/cornerstone/GuestPipelineBoard.vue'
+import VisitorDropOff from '@/components/cornerstone/VisitorDropOff.vue'
 import { guestPipelineData, loadCareData } from '@/lib/clients/church/careDataLoader'
 import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 import { useCongregationLens } from '@/stores/congregationLens'
@@ -361,6 +362,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       @approved="onApproved"
     />
 
+
     <!-- KPI strip (Focal Point: real, from Planning Center) -->
     <div v-if="isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card">
@@ -371,7 +373,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       <div class="card">
         <div class="kpi-label">Still just visitors</div>
         <div class="mt-1 text-2xl font-bold text-warn tabular-nums">{{ guestKpisScoped.stillVisitors }}</div>
-        <div class="text-[11px] text-ink-disabled mt-0.5">of {{ guestKpisScoped.recentGuests }} recent guests</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">of {{ guestKpisScoped.recentGuests }} in the Starting Point workflow</div>
       </div>
       <div class="card">
         <div class="kpi-label">In the pipeline</div>
@@ -380,8 +382,12 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       </div>
       <div class="card">
         <div class="kpi-label">Finished welcome</div>
-        <div class="mt-1 text-2xl font-bold text-success tabular-nums">{{ guestKpisScoped.completedPct }}%</div>
-        <div class="text-[11px] text-ink-disabled mt-0.5">of recent guests</div>
+        <!-- Deliberately NOT success-green. This is a completion rate, and a low
+             one is not good news; rendering 10% in green congratulated the church
+             on the worst number on the page. "Still just visitors" already carries
+             the warning, so this stays neutral rather than double-signalling. -->
+        <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ guestKpisScoped.completedPct }}%</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">of the {{ guestKpisScoped.recentGuests }} in the workflow</div>
       </div>
     </div>
 
@@ -413,6 +419,12 @@ const frontDeskRecommendations: GraceRecommendation[] = [
          Guests can't be scoped by the congregation lens; the page-aware lens bar
          in the chrome says so, so no per-board note is needed here. -->
     <GuestPipelineBoard v-if="isFocalPoint" />
+
+    <!-- Where the pipeline leaks, AFTER the operational path. The order on this
+         page is deliberate: queue (this week's work), KPIs (state), board
+         (everyone), then this (why it matters). An analysis card above the board
+         interrupts someone who came here to work the list. -->
+    <VisitorDropOff v-if="isFocalPoint" />
 
     <!-- Focal Point: phone answering is a real capability, honestly future-framed -->
     <section v-if="isFocalPoint" class="card flex flex-wrap items-center justify-between gap-3">
