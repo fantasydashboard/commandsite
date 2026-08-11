@@ -23,6 +23,7 @@ import CarePipelineBoard from '@/components/cornerstone/CarePipelineBoard.vue'
 import LeaderDigestPreview from '@/components/cornerstone/LeaderDigestPreview.vue'
 import DriftWatch from '@/components/cornerstone/DriftWatch.vue'
 import LongDriftedReview from '@/components/cornerstone/LongDriftedReview.vue'
+import TenureVsGap from '@/components/cornerstone/TenureVsGap.vue'
 import PeopleDrift from '@/components/cornerstone/PeopleDrift.vue'
 import GroupDriftWatch from '@/components/cornerstone/GroupDriftWatch.vue'
 import RecentWins from '@/components/cornerstone/RecentWins.vue'
@@ -287,6 +288,10 @@ const careRecommendations: GraceRecommendation[] = [
         </button>
       </div>
       <DriftWatch v-if="careTab === 'families'" :client-name="client.name" />
+      <!-- Sits between the directory and the review list on purpose: it explains
+           the split those two represent, so the reader sees WHY some families are
+           calls, some notes, and some a later decision. -->
+      <TenureVsGap v-if="careTab === 'families'" :client-name="client.name" />
       <!-- Families past the working window. Sits under the families directory
            because it is the same population, just the far end of it: the board
            and the directory are this week's work, this is the backlog decision. -->
