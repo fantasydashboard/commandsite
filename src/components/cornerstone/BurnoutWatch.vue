@@ -11,7 +11,10 @@ import { useCongregationLens } from '@/stores/congregationLens'
 import { burnoutFlag } from '@/lib/clients/focal-point/flags'
 import { duplicateInfo } from '@/lib/clients/focal-point/duplicateReview'
 import DuplicateBadge from '@/components/cornerstone/DuplicateBadge.vue'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
+const props = defineProps<{ clientName?: string }>()
 const care = useCareActions()
 const lens = useCongregationLens()
 const COLLAPSED = 12
@@ -32,12 +35,27 @@ function areaText(areas: string[]): string {
   if (areas.length <= 2) return areas.join(', ')
   return `${areas.slice(0, 2).join(', ')} +${areas.length - 2} more`
 }
+
+function onExport() {
+  exportCsv(
+    [...active.value].sort((a, b) => b.perMonth - a.perMonth),
+    [
+      { header: 'Name', value: (p2) => p2.name },
+      { header: 'Shifts per month', value: (p2) => p2.perMonth },
+      { header: 'Teams', value: (p2) => p2.areas.join('; ') },
+      { header: 'Risk', value: (p2) => p2.tier },
+      { header: 'Campus', value: (p2) => p2.campus },
+    ],
+    { client: props.clientName ?? 'focal-point-church', dataset: 'burnout-watch', scope: lens.scope },
+  )
+}
 </script>
 
 <template>
   <section class="card">
     <div class="flex items-center justify-between">
       <span class="eyebrow">Burnout Watch</span>
+      <ExportButton label="Download list" sensitive :count="active.length" @export="onExport" />
       <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
         <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
         Live from Planning Center

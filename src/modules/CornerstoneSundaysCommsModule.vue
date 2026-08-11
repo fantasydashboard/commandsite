@@ -17,6 +17,7 @@ import GraceRecommendations, { type GraceRecommendation } from '@/components/cor
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import SundayReadinessBoard from '@/components/cornerstone/SundayReadinessBoard.vue'
 import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
+import ServingLoad from '@/components/cornerstone/ServingLoad.vue'
 import CommsDrafts from '@/components/cornerstone/CommsDrafts.vue'
 import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
 import { focalPointRoster } from '@/lib/clients/focal-point/roster'
@@ -26,6 +27,15 @@ import { loadCareData, burnoutData } from '@/lib/clients/church/careDataLoader'
 import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// The roster snapshot's real age, so the KPI can date itself instead of
+// asserting a stale "days away".
+const rosterAgeDays = computed(() => {
+  const then = Date.parse(`${focalPointRoster.date}T00:00:00Z`)
+  if (Number.isNaN(then)) return 0
+  return Math.max(0, Math.round((Date.now() - then) / 864e5))
+})
+const activeVolunteers = computed(() => burnoutData().activeVolunteers ?? 0)
 
 // Live churches get Burnout Watch's real Planning Center pull; everyone else
 // keeps the baked demo snapshot (the loader getter falls back automatically).
@@ -248,29 +258,39 @@ const sundaysRecommendations: GraceRecommendation[] = [
     <!-- Focal Point: real Sunday operations (staff Sunday without burning out your people) -->
     <template v-if="isFocalPoint">
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <!-- The first two read the committed roster snapshot, not the nightly
+             sync, so they are labelled by their real date. "This Sunday / 6 days
+             away" was frozen at Jul 19 and still said "6 days away" three weeks
+             later, which is the one number on this page a pastor checks first. -->
         <div class="card">
-          <div class="kpi-label">This Sunday</div>
+          <div class="kpi-label">Roster snapshot</div>
           <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ focalPointRoster.sundayLabel.replace('Sun ', '') }}</div>
-          <div class="text-[11px] text-ink-disabled mt-0.5">{{ focalPointRoster.daysAway }} days away</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">
+            {{ rosterAgeDays === 0 ? 'today' : `${rosterAgeDays} days ago` }}
+          </div>
         </div>
         <div class="card">
           <div class="kpi-label">Spots to fill</div>
           <div class="mt-1 text-2xl font-bold text-warn tabular-nums">{{ focalPointRoster.totalShort }}</div>
-          <div class="text-[11px] text-ink-disabled mt-0.5">across {{ focalPointRoster.teamsShort }} teams</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">across {{ focalPointRoster.teamsShort }} teams, as of {{ focalPointRoster.sundayLabel.replace('Sun ', '') }}</div>
         </div>
         <div class="card">
           <div class="kpi-label">Over-serving</div>
           <div class="mt-1 text-2xl font-bold text-danger tabular-nums">{{ overServing }}</div>
           <div class="text-[11px] text-ink-disabled mt-0.5">protect, do not add load</div>
         </div>
+        <!-- Was a hardcoded "74%". Now derived from the live burnout payload:
+             active volunteers minus those already flagged as over-serving. -->
         <div class="card">
-          <div class="kpi-label">Fresh capacity</div>
-          <div class="mt-1 text-2xl font-bold text-success tabular-nums">74%</div>
-          <div class="text-[11px] text-ink-disabled mt-0.5">of core do not serve yet</div>
+          <div class="kpi-label">Active volunteers</div>
+          <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ activeVolunteers }}</div>
+          <div class="text-[11px] text-ink-disabled mt-0.5">{{ overServing }} of them carrying heavy load</div>
         </div>
       </div>
-      <SundayReadinessBoard />
-      <BurnoutWatch />
+      <SundayReadinessBoard :client-name="client.name" />
+      <!-- Above Burnout Watch on purpose: the shape first, then the names. -->
+      <ServingLoad :client-name="client.name" />
+      <BurnoutWatch :client-name="client.name" />
       <CommsDrafts />
       <FlagDetailDrawer />
     </template>

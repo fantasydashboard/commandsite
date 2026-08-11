@@ -11,6 +11,8 @@
 import { computed, ref } from 'vue'
 import { focalPointSchedule as sched, type TeamWeek } from '@/lib/clients/focal-point/rosterForward'
 import { focalPointRoster as r, type RosterGap } from '@/lib/clients/focal-point/roster'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
 type DisplayFlag = 'forgotten' | 'empty' | 'short' | 'unconfirmed' | 'ready'
 
@@ -75,16 +77,49 @@ function askDraft(g: RosterGap): string {
   const who = g.suggest.map(firstName).join(' and ')
   return `Hey ${who}, we are a little short on the ${g.team} for this Sunday and you have both been great in this spot before. Any chance you could jump in? Totally fine if not. Thank you, Pastor Mark (via Grace)`
 }
+
+const props = defineProps<{ clientName?: string }>()
+
+// How stale the committed roster snapshot is, so the page can say so out loud
+// rather than let a reader assume "this Sunday" means the coming one.
+const snapshotAgeDays = computed(() => {
+  const then = Date.parse(`${r.date}T00:00:00Z`)
+  if (Number.isNaN(then)) return 0
+  return Math.max(0, Math.round((Date.now() - then) / 864e5))
+})
+
+// Team-level gaps only, no suggested names, so this one is not PII-gated.
+function onExport() {
+  exportCsv(
+    r.gaps,
+    [
+      { header: 'Team', value: (g) => g.team },
+      { header: 'Spots short', value: (g) => g.short },
+      { header: 'Roster date', value: () => r.date },
+    ],
+    { client: props.clientName ?? 'focal-point-church', dataset: 'roster-gaps' },
+  )
+}
 </script>
 
 <template>
   <section class="card">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="eyebrow">Scheduling health</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Live from Planning Center Services
-      </span>
+      <div class="flex items-center gap-3">
+        <!-- NOT live. This board renders focalPointRoster / rosterForward, which
+             are committed snapshots from a manual Planning Center pull, not the
+             nightly sync. It previously said "Live from Planning Center Services"
+             next to a three-week-old date, which is the worst combination: a
+             stale number wearing a live badge. Forward roster gaps need PCO plan
+             "needed positions" data, which the sync does not pull yet. -->
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-warn/12 px-2 py-0.5 text-[10px] font-semibold text-warn">
+          <span class="h-1.5 w-1.5 rounded-full bg-warn"></span>
+          Snapshot · {{ r.sundayLabel }}
+        </span>
+        <span v-if="snapshotAgeDays > 7" class="text-[11px] text-ink-muted">{{ snapshotAgeDays }} days old</span>
+        <ExportButton label="Download gaps" :count="r.gaps.length" @export="onExport" />
+      </div>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">The next 4 Sundays, flagged before they break</h3>
 
