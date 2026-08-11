@@ -19,6 +19,7 @@ import GraceRecommendations, { type GraceRecommendation } from '@/components/cor
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import GuestPipelineBoard from '@/components/cornerstone/GuestPipelineBoard.vue'
 import VisitorDropOff from '@/components/cornerstone/VisitorDropOff.vue'
+import GuestPulseStrip from '@/components/cornerstone/GuestPulseStrip.vue'
 import { guestPipelineData, loadCareData } from '@/lib/clients/church/careDataLoader'
 import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 import { useCongregationLens } from '@/stores/congregationLens'
@@ -390,6 +391,12 @@ const frontDeskRecommendations: GraceRecommendation[] = [
         <div class="text-[11px] text-ink-disabled mt-0.5">of the {{ guestKpisScoped.recentGuests }} in the workflow</div>
       </div>
     </div>
+
+    <!-- Monthly flow. Sits with the KPI strip because it is state ("how is this
+         month running"), not analysis. Self-hides until the live payload carries
+         a `monthly` series, so the Cornerstone demo and the baked fallback are
+         unaffected. -->
+    <GuestPulseStrip v-if="isFocalPoint" />
 
     <!-- KPI strip (Cornerstone demo) -->
     <div v-if="!isFocalPoint" class="grid grid-cols-2 gap-3 sm:grid-cols-4">

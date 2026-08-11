@@ -23,7 +23,29 @@ export interface GuestCase {
   detail: string; owner: string; age: string; note?: string; draft?: string
 }
 export interface GuestKpis { recentGuests: number; firstTimers4w: number; stillVisitors: number; completedPct: number }
-export interface GuestPipelinePayload { cases: GuestCase[]; kpis: Record<'all' | GuestCampus, GuestKpis> }
+
+/**
+ * One month of FLOW. Deliberately separate from GuestKpis, which is a snapshot
+ * of a cohort.
+ *
+ * These two series must NEVER be divided into each other. A card completed in
+ * July was almost never created in July: those people first visited months
+ * earlier. "39 first visits, 5 completions" in the same month is not a 13%
+ * conversion rate, it is two unrelated populations that happen to share a
+ * calendar label, which makes the false reading easier to fall into than the
+ * step-over-step one, not harder.
+ */
+export interface GuestMonthPoint {
+  month: string          // 'YYYY-MM'
+  firstVisits: number    // cards CREATED in this month
+  completedSP: number    // cards COMPLETED in this month, created whenever
+  partial: boolean       // the in-progress current month
+}
+export interface GuestPipelinePayload {
+  cases: GuestCase[]
+  kpis: Record<'all' | GuestCampus, GuestKpis>
+  monthly: Record<'all' | GuestCampus, GuestMonthPoint[]>
+}
 
 const STAGE_DETAIL: Record<GuestStage, string> = {
   new: 'first visit · signed in at Starting Point',
@@ -63,9 +85,45 @@ function kpisFor(list: GuestCardRow[], today: string): GuestKpis {
   return { recentGuests, firstTimers4w, stillVisitors, completedPct }
 }
 
+const monthOf = (d: string): string => d.slice(0, 7)
+
+/** Inclusive 'YYYY-MM' range, so the series has no gaps. A sparkline that skips
+ *  empty months draws a flat line through a month where nothing happened, which
+ *  reads as steady when it was actually silent. */
+function monthRange(from: string, to: string): string[] {
+  const out: string[] = []
+  let [y, m] = from.split('-').map(Number)
+  const [ty, tm] = to.split('-').map(Number)
+  while (y < ty || (y === ty && m <= tm)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`)
+    if (++m > 12) { m = 1; y++ }
+  }
+  return out
+}
+
+function monthlyFor(list: GuestCardRow[], today: string): GuestMonthPoint[] {
+  if (!list.length) return []
+  const created = list.map((r) => monthOf(r.created_date))
+  const completed = list.filter((r) => r.completed_date).map((r) => monthOf(r.completed_date as string))
+  const thisMonth = monthOf(today)
+  // Start at the earliest month we have evidence for; end at the current month
+  // even when it is still empty, so "nothing yet this month" is visible.
+  const earliest = [...created, ...completed].sort()[0]
+  const months = monthRange(earliest, thisMonth > earliest ? thisMonth : earliest)
+  return months.map((month) => ({
+    month,
+    firstVisits: created.filter((c) => c === month).length,
+    completedSP: completed.filter((c) => c === month).length,
+    // The current month is only part-elapsed. Flagged rather than dropped: the
+    // UI dims it, because an unmarked short bar reads as a collapse in volume.
+    partial: month === thisMonth,
+  }))
+}
+
 export function buildGuestPipeline(rows: GuestCardRow[], today: string): GuestPipelinePayload {
   const cases: GuestCase[] = []
   const kpis = {} as Record<'all' | GuestCampus, GuestKpis>
+  const monthly = {} as Record<'all' | GuestCampus, GuestMonthPoint[]>
   for (const campus of ['english', 'brazilian'] as GuestCampus[]) {
     const list = rows
       .filter((r) => r.campus === campus)
@@ -88,7 +146,12 @@ export function buildGuestPipeline(rows: GuestCardRow[], today: string): GuestPi
       })
     }
     kpis[campus] = kpisFor(list, today)
+    monthly[campus] = monthlyFor(list, today)
   }
+  // 'all' is computed off the full row set rather than by merging the two campus
+  // series, so a month present in one campus and absent in the other still lines
+  // up instead of shifting the series.
+  monthly.all = monthlyFor(rows, today)
   const allRecent = kpis.english.recentGuests + kpis.brazilian.recentGuests
   kpis.all = {
     recentGuests: allRecent,
@@ -96,5 +159,5 @@ export function buildGuestPipeline(rows: GuestCardRow[], today: string): GuestPi
     stillVisitors: kpis.english.stillVisitors + kpis.brazilian.stillVisitors,
     completedPct: Math.round((kpis.english.completedPct * kpis.english.recentGuests + kpis.brazilian.completedPct * kpis.brazilian.recentGuests) / Math.max(1, allRecent)),
   }
-  return { cases, kpis }
+  return { cases, kpis, monthly }
 }
