@@ -43,6 +43,13 @@ const calls = computed(() => {
 // every drafted note; the "+N more" line and the board carry the rest.
 const actionCount = computed(() => approvals.value.length + calls.value.length)
 
+// NOTE: this only marks the card handled locally. It deliberately does NOT
+// claim to send. Family drift cases are derived from kids' check-in names, so
+// DriftFamily has no person_id and no email address: there is literally nobody
+// to send to until parent contacts are linked. The button therefore reads
+// "Approve note", not "Approve & send" (Front Desk, which has a person_id, does
+// really send). A button that says it sent when nothing was sent is the exact
+// failure we fixed on the guest queue.
 function done(id: string) {
   resolved.value = new Set(resolved.value).add(id)
 }
@@ -76,7 +83,7 @@ function avatarBlock(c: CareCase) { return c.avatar }
   <!-- To approve -->
   <div v-if="approvals.length" class="space-y-3">
     <div class="flex items-center gap-3 px-1">
-      <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">To approve and send</span>
+      <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">To approve</span>
       <span class="h-px flex-1 bg-divider"></span>
     </div>
     <article v-for="c in approvals" :key="c.id" class="card flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -95,7 +102,7 @@ function avatarBlock(c: CareCase) { return c.avatar }
       </div>
 
       <div class="flex shrink-0 flex-row gap-2 sm:w-28 sm:flex-col">
-        <button class="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink-inverse hover:bg-brand-hover" @click="done(c.id)">Approve &amp; send</button>
+        <button class="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink-inverse hover:bg-brand-hover" @click="done(c.id)">Approve note</button>
         <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink">Edit</button>
         <button class="px-3 py-1 text-xs text-ink-muted hover:text-ink">Skip</button>
       </div>
