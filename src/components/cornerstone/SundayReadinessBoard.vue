@@ -198,6 +198,13 @@ function onExport() {
               <span class="text-[11px] font-medium text-ink-muted">Ask:</span>
               <span v-for="n in g.suggest" :key="n" class="rounded-full bg-success/12 px-2 py-0.5 text-[11px] font-medium text-success">{{ n }}</span>
             </div>
+            <!-- pool 0 with people on the team is NOT "no volunteer pool": it
+                 means everyone who has served this team is already over-serving,
+                 which is a structural problem, not an admin one. The old copy
+                 said "staff-run, handle in-house" for both cases. -->
+            <p v-else-if="g.pool === 0 && g.skip" class="mt-1.5 text-[11px] font-medium text-danger">
+              Nobody left to ask. Everyone who serves {{ g.team }} is already at high load.
+            </p>
             <p v-else class="mt-1.5 text-[11px] text-ink-muted">No volunteer pool on file, this one is staff-run. Handle in-house.</p>
             <p v-if="g.skip" class="mt-1 text-[11px] text-ink-muted">
               <span class="font-medium text-danger">Not {{ g.skip.name }}</span> &middot; {{ g.skip.reason }}
