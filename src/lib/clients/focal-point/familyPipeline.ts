@@ -15,23 +15,25 @@ export const ESTABLISHED_SUNDAYS = 15
 export const LONG_GONE_SUNDAYS = 8
 
 /**
- * Upper bound on the WORKING board, in Sundays missed.
+ * Where a family stops being a "check in on them" case.
  *
- * Family drift previously had no ceiling, so a family four Sundays out and one
- * forty Sundays out sat in the same lane looking equally actionable. They are
- * not: recoverability decays hard with time. A family a month out usually
- * answers the phone; a family six months out has generally landed somewhere
- * else, and a pastoral "we miss you" note reads as careless rather than caring.
+ * Set to 9 so it lines up with LONG_GONE_SUNDAYS: past two months absent, a
+ * "we missed you the last few Sundays" note is factually wrong and reads as
+ * careless. The first pass used 17 (~4 months), which barely bit: families at
+ * 16 Sundays stayed on the board still getting the "last few Sundays" wording.
  *
- * ~17 Sundays is about four months. Past that a family leaves the weekly
- * worklist and moves to the long-drifted review (longDriftedFamilies below),
- * which is a decide-what-to-do list rather than a this-week list. Nobody is
- * deleted or hidden; the two lists together are always the full flagged set.
+ * ESCALATED FAMILIES ARE EXEMPT. Established households (15+ prior Sundays)
+ * who go long-gone are exactly who a pastor should call, so they stay on the
+ * board in the escalated lane with call wording, not a note. What moves to the
+ * review list is the other group: families who came a handful of times months
+ * ago and faded. Different people, different decision.
  */
-export const LONG_DRIFTED_SUNDAYS = 17
+export const LONG_DRIFTED_SUNDAYS = 9
 
-export function isLongDrifted(f: { sundaysMissed: number }): boolean {
-  return f.sundaysMissed >= LONG_DRIFTED_SUNDAYS
+/** Off the weekly board: long gone AND never established. Escalated families
+ *  stay on the board however long they have been away. */
+export function isLongDrifted(f: { sundaysMissed: number; totalSundays: number }): boolean {
+  return f.sundaysMissed >= LONG_DRIFTED_SUNDAYS && !isEscalatedFamily(f)
 }
 
 export function isEscalatedFamily(f: { totalSundays: number; sundaysMissed: number }): boolean {
@@ -49,7 +51,12 @@ function joinKids(kids: string[]): string {
 export function familyDraft(f: DriftFamily): string {
   const kids = joinKids(f.kids)
   const verb = f.kids.length === 1 ? 'has' : 'have'
-  return `Hey ${f.family} family, I noticed ${kids} ${verb} not been at Kids Point the last few Sundays. After ${f.monthsAttending} months of seeing you all so regularly, I just wanted to check in. No agenda and no pressure, we simply miss you and your family is thought of and prayed for. If there is anything going on that we can support you with, I would love to know. Hope to see you soon. Blessings, Pastor Mark`
+  // The gap phrase has to match the actual gap. "The last few Sundays" was
+  // hardcoded, so a family absent four months received a note implying they had
+  // missed two or three weeks. Wrong on the facts, and it reads as if nobody
+  // actually looked before sending.
+  const gap = f.sundaysMissed <= 5 ? 'the last few Sundays' : 'the last several Sundays'
+  return `Hey ${f.family} family, I noticed ${kids} ${verb} not been at Kids Point ${gap}. After ${f.monthsAttending} months of seeing you all so regularly, I just wanted to check in. No agenda and no pressure, we simply miss you and your family is thought of and prayed for. If there is anything going on that we can support you with, I would love to know. Hope to see you soon. Blessings, Pastor Mark`
 }
 
 // The serving + group drift board lanes, driven by the SAME real directories as
@@ -151,7 +158,8 @@ export function longDriftedFamilies(): LongDriftedFamily[] {
 /** Buckets for the drift curve. Open-ended at the top so the longest-gone are
  *  never dropped off the end of the chart. */
 export const LONG_DRIFT_BUCKETS: { label: string; min: number; max: number }[] = [
-  { label: '4 to 6 months', min: 17, max: 26 },
+  { label: '2 to 4 months', min: 9, max: 17 },
+  { label: '4 to 6 months', min: 18, max: 26 },
   { label: '6 to 12 months', min: 27, max: 52 },
   { label: 'Over a year', min: 53, max: Number.MAX_SAFE_INTEGER },
 ]

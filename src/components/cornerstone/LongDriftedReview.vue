@@ -60,10 +60,22 @@ const buckets = computed(() => {
   return counts.map((c) => ({ ...c, pctOfMax: Math.round((c.count / max) * 100) }))
 })
 
+// Below this the bar chart says nothing a sentence does not; see the template.
+const CHART_MIN = 10
+
 // Show a workable slice; the rest are in the export rather than an endless scroll.
 const CAP = 12
 const visible = computed(() => families.value.slice(0, CAP))
 const hiddenCount = computed(() => Math.max(0, families.value.length - CAP))
+
+// Match the date style used everywhere else on the page ("Jul 19"), not raw ISO.
+function shortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d) return iso
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const thisYear = new Date().getUTCFullYear()
+  return y === thisYear ? `${MON[m - 1]} ${d}` : `${MON[m - 1]} ${d}, ${y}`
+}
 
 function months(f: LongDriftedFamily): string {
   const m = Math.round(f.sundaysMissed / 4.345)
@@ -98,7 +110,7 @@ function onExport() {
     </div>
 
     <h3 class="mt-1 text-base font-semibold text-ink">
-      {{ families.length }} families you have not seen in over four months
+      {{ families.length }} families who came for a while, then faded
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
       These are past the {{ LONG_DRIFTED_SUNDAYS }}-Sunday mark, so they sit here rather than in
@@ -107,9 +119,12 @@ function onExport() {
       This is a decide-what-to-do list.
     </p>
 
-    <!-- The drift curve. How long gone is the one thing that should drive what
-         you do next, and a flat directory hides it entirely. -->
-    <div class="mt-5 space-y-2">
+    <!-- The drift curve, but only once there is enough to see a shape. At four
+         families the bars were two identical full-width blocks and an empty one,
+         which is decoration rather than information: with max=2 every non-zero
+         bucket renders at 100%. Below the threshold the sentence above already
+         says everything the chart would. -->
+    <div v-if="families.length >= CHART_MIN" class="mt-5 space-y-2">
       <div v-for="b in buckets" :key="b.label" class="flex items-center gap-3">
         <span class="w-28 shrink-0 text-[11px] text-ink-muted">{{ b.label }}</span>
         <div class="h-2.5 w-full max-w-[22rem] overflow-hidden rounded-full bg-surface-elevated">
@@ -146,7 +161,7 @@ function onExport() {
             >Was established</span>
           </div>
           <div class="text-[11px] text-ink-muted">
-            Last seen {{ f.lastSeen }} · gone {{ months(f) }} ({{ f.sundaysMissed }} Sundays) ·
+            Last seen {{ shortDate(f.lastSeen) }} · gone {{ months(f) }} ({{ f.sundaysMissed }} Sundays) ·
             came {{ f.totalSundays }} Sundays over {{ f.monthsAttending }} months
           </div>
         </div>

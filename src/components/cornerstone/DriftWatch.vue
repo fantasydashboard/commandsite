@@ -8,6 +8,8 @@
  */
 import { computed, ref } from 'vue'
 import { driftData } from '@/lib/clients/church/careDataLoader'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { congregationOf } from '@/lib/clients/focal-point/congregation'
@@ -18,6 +20,7 @@ const lens = useCongregationLens()
 const COLLAPSED = 12
 const showAll = ref(false)
 const inScope = (family: string) => lens.scope === 'all' || congregationOf(family) === lens.scope
+const props = defineProps<{ clientName: string }>()
 const drift = computed(() => driftData())
 // The live payload is already current against the latest check-ins, so no
 // separate reconciliation pass is needed here (unlike the old static snapshot).
@@ -42,6 +45,24 @@ function fmtDate(iso: string): string {
   return `${months[m - 1]} ${d}`
 }
 
+
+// Names, so gated to full permission scope. Exports the whole flagged list in
+// the current lens, not just the rows rendered, and carries the tenure figures
+// the table shows so the file stands on its own away from the dashboard.
+function onExport() {
+  exportCsv(
+    activeFamilies.value,
+    [
+      { header: 'Family', value: (f) => `The ${f.family} family` },
+      { header: 'Kids at Kids Point', value: (f) => f.kids.join('; ') },
+      { header: 'Months attending', value: (f) => f.monthsAttending },
+      { header: 'Sundays attended', value: (f) => f.totalSundays },
+      { header: 'Last checked in', value: (f) => f.lastSeen },
+      { header: 'Sundays missed', value: (f) => f.sundaysMissed },
+    ],
+    { client: props.clientName, dataset: 'families-drifting', scope: lens.scope },
+  )
+}
 </script>
 
 <template>
@@ -74,7 +95,10 @@ function fmtDate(iso: string): string {
   <section class="card">
     <div class="mb-3 flex items-center justify-between">
       <span class="eyebrow">Flagged families</span>
-      <span class="text-[11px] text-ink-muted">most-established families first</span>
+      <div class="flex items-center gap-3">
+        <span class="text-[11px] text-ink-muted">most-established families first</span>
+        <ExportButton label="Download list" sensitive :count="activeFamilies.length" @export="onExport" />
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">

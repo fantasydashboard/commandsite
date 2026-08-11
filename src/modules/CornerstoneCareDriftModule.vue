@@ -286,13 +286,13 @@ const careRecommendations: GraceRecommendation[] = [
           {{ t.label }} <span class="ml-1 text-xs opacity-70 tabular-nums">{{ t.count }}</span>
         </button>
       </div>
-      <DriftWatch v-if="careTab === 'families'" />
+      <DriftWatch v-if="careTab === 'families'" :client-name="client.name" />
       <!-- Families past the working window. Sits under the families directory
            because it is the same population, just the far end of it: the board
            and the directory are this week's work, this is the backlog decision. -->
       <LongDriftedReview v-if="careTab === 'families'" :client-name="client.name" />
-      <PeopleDrift v-if="careTab === 'serving'" />
-      <GroupDriftWatch v-if="careTab === 'groups'" />
+      <PeopleDrift v-if="careTab === 'serving'" :client-name="client.name" />
+      <GroupDriftWatch v-if="careTab === 'groups'" :client-name="client.name" />
       <FlagDetailDrawer />
     </template>
     <section v-if="!isFocalPoint" class="card border-2 border-brand bg-brand/[0.04] !p-5">

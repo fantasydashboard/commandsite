@@ -8,6 +8,8 @@
  */
 import { computed, ref } from 'vue'
 import { servingData } from '@/lib/clients/church/careDataLoader'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { servingFlag } from '@/lib/clients/focal-point/flags'
@@ -22,9 +24,19 @@ const dupOnly = ref(false)
 // Serving scopes by CAMPUS (which teams they served): the Brazilian ministry runs
 // its own teams. People who served both campuses show in both views.
 const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
+// Same working-window discipline as families and groups: the transform flags
+// anyone quiet 6+ weeks with no upper bound, so a volunteer who stopped six
+// months ago sat next to one who stopped last month looking equally re-engageable.
+// Past this they are a separate decision (backfill the role, or a real
+// conversation), not a leader nudge.
+const WORKING_WEEKS = 26
+
+const props = defineProps<{ clientName: string }>()
 const focalPointServing = computed(() => servingData())
 const active = computed(() =>
-  focalPointServing.value.people.filter((p) => !care.isHidden(`serving:${p.name}`) && inCampus(p.campus)),
+  focalPointServing.value.people.filter(
+    (p) => !care.isHidden(`serving:${p.name}`) && inCampus(p.campus) && p.weeksSince <= WORKING_WEEKS,
+  ),
 )
 const dups = computed(() => active.value.filter((p) => duplicateInfo(p.name)))
 const visible = computed(() =>
@@ -38,6 +50,21 @@ function fmtDate(iso: string): string {
 }
 const servingTone = (weeks: number) =>
   weeks >= 9 ? 'bg-danger/12 text-danger' : 'bg-warn/15 text-warn'
+
+function onExport() {
+  exportCsv(
+    active.value,
+    [
+      { header: 'Name', value: (p2) => p2.name },
+      { header: 'Team', value: (p2) => (p2.area ?? '').trim() },
+      { header: 'Weeks quiet', value: (p2) => p2.weeksSince },
+      { header: 'Times served', value: (p2) => p2.totalServed },
+      { header: 'Months serving', value: (p2) => p2.monthsServing },
+      { header: 'Last served', value: (p2) => p2.lastServed },
+    ],
+    { client: props.clientName, dataset: 'stopped-serving', scope: lens.scope },
+  )
+}
 </script>
 
 <template>
@@ -62,6 +89,7 @@ const servingTone = (weeks: number) =>
     <div class="mb-3 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2">
         <span class="eyebrow">Flagged individuals</span>
+        <ExportButton label="Download list" sensitive :count="active.length" @export="onExport" />
         <button
           v-if="dups.length"
           class="inline-flex items-center gap-1 rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold text-warn transition-colors hover:bg-warn/25"

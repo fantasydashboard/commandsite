@@ -8,6 +8,8 @@
  */
 import { computed, ref } from 'vue'
 import { groupDriftData } from '@/lib/clients/church/careDataLoader'
+import { exportCsv } from '@/lib/exportCsv'
+import ExportButton from '@/components/cornerstone/ExportButton.vue'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { congregationOf } from '@/lib/clients/focal-point/congregation'
@@ -19,11 +21,34 @@ const lens = useCongregationLens()
 const COLLAPSED = 12
 const showAll = ref(false)
 const inScope = (name: string) => lens.scope === 'all' || congregationOf(name) === lens.scope
+// Working window, matching families and serving. Group drift was the biggest
+// untriaged list on the page (120 people, "+110 more"), which is a directory
+// rather than a worklist. Groups also break for summer, so a long gap here is
+// often the calendar, not disengagement, which is another reason not to queue
+// half the church for a leader to chase.
+const WORKING_WEEKS = 26
+
+const props = defineProps<{ clientName: string }>()
 const g = computed(() => groupDriftData())
 const active = computed(() =>
-  g.value.people.filter((p) => !care.isHidden(`group:${p.name}`) && inScope(p.name)),
+  g.value.people.filter(
+    (p) => !care.isHidden(`group:${p.name}`) && inScope(p.name) && p.weeksSince <= WORKING_WEEKS,
+  ),
 )
 const visible = computed(() => (showAll.value ? active.value : active.value.slice(0, COLLAPSED)))
+
+function onExport() {
+  exportCsv(
+    active.value,
+    [
+      { header: 'Name', value: (p2) => p2.name },
+      { header: 'Group', value: (p2) => p2.group },
+      { header: 'Times attended this season', value: (p2) => p2.attended },
+      { header: 'Weeks quiet', value: (p2) => p2.weeksSince },
+    ],
+    { client: props.clientName, dataset: 'group-drift', scope: lens.scope },
+  )
+}
 </script>
 
 <template>
@@ -47,7 +72,10 @@ const visible = computed(() => (showAll.value ? active.value : active.value.slic
   <section class="card">
     <div class="mb-3 flex items-center justify-between">
       <span class="eyebrow">Flagged members</span>
-      <span class="text-[11px] text-ink-muted">most-invested first</span>
+      <div class="flex items-center gap-3">
+        <span class="text-[11px] text-ink-muted">most-invested first</span>
+        <ExportButton label="Download list" sensitive :count="active.length" @export="onExport" />
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
