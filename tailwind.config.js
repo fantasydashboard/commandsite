@@ -33,7 +33,12 @@ export default {
           DEFAULT:  '#F4F7FB',
           raised:   '#FFFFFF',
           elevated: '#F1F5F9',
-          dark:     'var(--color-chrome)',  // legacy alias
+          // Legacy alias for chrome.DEFAULT. MUST keep the rgb() wrapper: the
+          // --color-* vars are bare rgb triples ("10 22 40"), so a naked
+          // var() emits `background-color: 10 22 40`, which is invalid CSS and
+          // is silently dropped. That left the admin header transparent with
+          // near-white ink on it, i.e. invisible.
+          dark:     'rgb(var(--color-chrome) / <alpha-value>)',
         },
         divider: {
           DEFAULT: '#E2E8F0',
