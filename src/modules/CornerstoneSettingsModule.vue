@@ -255,9 +255,6 @@ const intsByCategory = computed(() => {
 
     <!-- Privacy: real (persisted + enforced) for live churches, sample for the demo -->
     <PrivacySettings v-if="isRealChurch" :client-id="client.id" />
-    <!-- Review surface for per-flag hides. Sits with privacy because both are
-         "what Grace is and is not allowed to act on". -->
-    <HiddenFlagsSettings v-if="isRealChurch" />
     <section v-else class="card">
       <div class="mb-3 flex items-center gap-2">
         <span class="eyebrow">🔒 Privacy + Role-Gating</span>
@@ -282,5 +279,12 @@ const intsByCategory = computed(() => {
         </article>
       </div>
     </section>
+
+    <!-- Review surface for per-flag hides. Must sit AFTER the privacy
+         v-if / v-else pair: Vue requires v-else to be immediately adjacent to
+         its v-if, and inserting anything between them silently breaks the
+         branch. Grouped with privacy because both answer "what is Grace allowed
+         to act on". -->
+    <HiddenFlagsSettings v-if="isRealChurch" />
   </div>
 </template>
