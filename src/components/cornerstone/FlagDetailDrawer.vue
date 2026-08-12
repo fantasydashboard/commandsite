@@ -51,6 +51,17 @@ function snooze(weeks: number) {
   if (detail.value) care.snooze(detail.value.id, weeks)
   care.closeDetail()
 }
+// A hide is scoped to ONE flag (ids are `signal:name`), so the button should
+// say which. "Not the right person" read as a global dismissal, which made
+// people snooze repeatedly instead, exactly the behaviour it should replace.
+const FLAG_WORD: Record<string, string> = {
+  burnout: 'over-serving',
+  serving: 'stopped serving',
+  group: 'group drift',
+  family: 'family drift',
+}
+const flagWord = computed(() => FLAG_WORD[detail.value?.signal ?? ''] ?? 'this')
+
 function dismiss() {
   if (detail.value) care.dismiss(detail.value.id)
   care.closeDetail()
@@ -189,9 +200,14 @@ function restore() {
           <div class="mt-2 flex flex-wrap gap-2">
             <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-elevated" @click="snooze(2)">Snooze 2 weeks</button>
             <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-elevated" @click="snooze(4)">Snooze 4 weeks</button>
-            <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5" @click="dismiss">Not the right person</button>
+            <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5" @click="dismiss">Never flag for {{ flagWord }}</button>
           </div>
-          <p class="mt-2 text-[11px] text-ink-disabled">Snooze for someone traveling or in a hard season. Dismiss if they should not be flagged at all.</p>
+          <p class="mt-2 text-[11px] text-ink-disabled">
+            Snooze for someone traveling or in a hard season. Use "never flag" for staff, or
+            anyone this signal simply does not apply to, instead of snoozing them over and over.
+            It only hides them from {{ flagWord }}; every other signal still watches them, and you
+            can undo it in Settings.
+          </p>
         </template>
         <template v-else>
           <button class="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink-inverse hover:bg-brand-hover" @click="restore">Put back on the list</button>

@@ -19,6 +19,7 @@ import DuplicatesSettings from '@/components/cornerstone/DuplicatesSettings.vue'
 import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
 import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vue'
 import PrivacySettings from '@/components/cornerstone/PrivacySettings.vue'
+import HiddenFlagsSettings from '@/components/cornerstone/HiddenFlagsSettings.vue'
 import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -254,6 +255,9 @@ const intsByCategory = computed(() => {
 
     <!-- Privacy: real (persisted + enforced) for live churches, sample for the demo -->
     <PrivacySettings v-if="isRealChurch" :client-id="client.id" />
+    <!-- Review surface for per-flag hides. Sits with privacy because both are
+         "what Grace is and is not allowed to act on". -->
+    <HiddenFlagsSettings v-if="isRealChurch" />
     <section v-else class="card">
       <div class="mb-3 flex items-center gap-2">
         <span class="eyebrow">🔒 Privacy + Role-Gating</span>

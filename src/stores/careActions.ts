@@ -31,6 +31,24 @@ export const useCareActions = defineStore('careActions', () => {
     hidden.value = { ...hidden.value, [id]: { reason: 'snoozed', until: Date.now() + weeks * 7 * 864e5, note, at: Date.now() } }
     persist()
   }
+  /** Every id is `signal:name` (see flags.ts flagId), so a hide is inherently
+   *  scoped to ONE flag: dismissing someone from burnout leaves them visible on
+   *  serving-lapse or family drift. Parsing the id rather than storing extra
+   *  fields keeps entries saved before this existed readable. */
+  function parseId(id: string): { signal: string; name: string } {
+    const i = id.indexOf(':')
+    return i < 0 ? { signal: 'other', name: id } : { signal: id.slice(0, i), name: id.slice(i + 1) }
+  }
+
+  /** Everything currently hidden, newest first, for the Settings review list.
+   *  Expired snoozes are filtered out: they are no longer hiding anything. */
+  function allHidden(): { id: string; signal: string; name: string; reason: 'dismissed' | 'snoozed'; until?: number; note?: string; at: number }[] {
+    return Object.entries(hidden.value)
+      .filter(([id]) => isHidden(id))
+      .map(([id, h]) => ({ id, ...parseId(id), ...h }))
+      .sort((a, b) => b.at - a.at)
+  }
+
   function restore(id: string) {
     const next = { ...hidden.value }
     delete next[id]
@@ -49,5 +67,5 @@ export const useCareActions = defineStore('careActions', () => {
   function openDetail(d: FlagDetail) { activeDetail.value = d }
   function closeDetail() { activeDetail.value = null }
 
-  return { hidden, activeDetail, dismiss, snooze, restore, status, isHidden, hiddenCount, openDetail, closeDetail }
+  return { hidden, activeDetail, dismiss, snooze, restore, status, isHidden, hiddenCount, openDetail, closeDetail, allHidden, parseId }
 })
