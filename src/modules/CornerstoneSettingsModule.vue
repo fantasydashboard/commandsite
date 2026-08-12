@@ -20,6 +20,7 @@ import TeamSettings from '@/components/cornerstone/TeamSettings.vue'
 import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vue'
 import PrivacySettings from '@/components/cornerstone/PrivacySettings.vue'
 import HiddenFlagsSettings from '@/components/cornerstone/HiddenFlagsSettings.vue'
+import PageLeadsSettings from '@/components/cornerstone/PageLeadsSettings.vue'
 import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -286,5 +287,6 @@ const intsByCategory = computed(() => {
          branch. Grouped with privacy because both answer "what is Grace allowed
          to act on". -->
     <HiddenFlagsSettings v-if="isRealChurch" />
+    <PageLeadsSettings v-if="isRealChurch" :client-id="client.id" />
   </div>
 </template>

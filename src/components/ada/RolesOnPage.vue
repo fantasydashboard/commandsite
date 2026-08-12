@@ -41,6 +41,10 @@ function goBack() {
         <span>{{ role.name }}</span>
       </span>
     </div>
+    <!-- Optional owner chip. Sits with the roles because "what Grace does here"
+         and "who is accountable here" are the two things to know on arrival. -->
+    <span v-if="$slots.lead" class="hidden sm:inline-flex h-4 w-px bg-divider"></span>
+    <slot name="lead" />
     <button
       type="button"
       class="ml-auto text-[11px] text-brand hover:underline font-medium transition-[transform,opacity] duration-150 ease-out-quart active:scale-[0.97]"

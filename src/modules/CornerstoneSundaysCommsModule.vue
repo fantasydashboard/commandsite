@@ -12,6 +12,7 @@ import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import PageLeadChip from '@/components/cornerstone/PageLeadChip.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
@@ -243,8 +244,11 @@ const sundaysRecommendations: GraceRecommendation[] = [
   <div class="space-y-4">
     <RolesOnPage
       :roles="pageRoles"
-      :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }"
-    />
+      :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }">
+      <template #lead>
+        <PageLeadChip :client-id="client.id" page="sundays-comms" />
+      </template>
+    </RolesOnPage>
 
     <!-- Grace's note (hidden for Focal Point) -->
     <section v-if="!isFocalPoint" class="rounded-card border border-brand/25 bg-brand/[0.04] px-5 py-4">
