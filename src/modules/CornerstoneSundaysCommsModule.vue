@@ -18,6 +18,7 @@ import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import SundayReadinessBoard from '@/components/cornerstone/SundayReadinessBoard.vue'
 import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
 import ServingLoad from '@/components/cornerstone/ServingLoad.vue'
+import WhoToAsk from '@/components/cornerstone/WhoToAsk.vue'
 import FlagDetailDrawer from '@/components/cornerstone/FlagDetailDrawer.vue'
 import { focalPointRoster } from '@/lib/clients/focal-point/roster'
 import { useCongregationLens } from '@/stores/congregationLens'
@@ -292,6 +293,10 @@ const sundaysRecommendations: GraceRecommendation[] = [
         </div>
       </div>
       <SundayReadinessBoard :client-name="client.name" />
+      <!-- Immediately after the gaps: the board raises the question, this is the
+           answer to it. Placed above the load/burnout sections because asking
+           the right person is the action; the load view is the context. -->
+      <WhoToAsk :client-name="client.name" />
       <!-- Above Burnout Watch on purpose: the shape first, then the names. -->
       <ServingLoad :client-name="client.name" />
       <BurnoutWatch :client-name="client.name" />
