@@ -79,5 +79,12 @@ ${rows.join('\n')}
 
 await writeFile('src/lib/clients/focal-point/serveCandidates.ts', body(false))
 await writeFile('scratchpad/serveCandidates.committed.ts', body(true))
+// JSON twin of the REAL payload, for the database upload (see gen-roster-live).
+await writeFile('scratchpad/serveCandidates.payload.json', JSON.stringify({
+  generated: src.generated,
+  windowDays: src.windowDays,
+  totals: { tier1: tier(1).length, tier2: tier(2).length, tier3: tier(3).length, all: all.length },
+  people: [...t1, ...t2, ...t3].map((c) => ({ name: c.name, tier: c.tier, sundays: c.sundays, groups: c.groups })),
+}, null, 2))
 console.log(`serveCandidates.ts  tier1 ${tier(1).length} (all), tier2 ${tier(2).length} (capped ${t2.length}), tier3 ${tier(3).length} (capped ${t3.length})`)
 console.log('committed (anonymised) variant -> scratchpad/serveCandidates.committed.ts')

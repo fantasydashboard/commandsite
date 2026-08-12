@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase'
 import { focalPointServing } from '@/lib/clients/focal-point/serving'
 import { focalPointBurnout } from '@/lib/clients/focal-point/burnout'
 import { focalPointGroupDrift } from '@/lib/clients/focal-point/groupDrift'
+import { focalPointRoster } from '@/lib/clients/focal-point/roster'
+import { serveCandidates } from '@/lib/clients/focal-point/serveCandidates'
 import { focalPointDrift } from '@/lib/clients/focal-point/drift'
 import { guestPipeline as focalPointGuestPipeline } from '@/lib/clients/focal-point/guestPipeline'
 import { focalPointDuplicates, focalPointDuplicateStats } from '@/lib/clients/focal-point/duplicates'
@@ -21,6 +23,14 @@ const store = reactive({
   drift: null as typeof focalPointDrift | null,
   guestPipeline: null as typeof focalPointGuestPipeline | null,
   duplicates: null as { groups: typeof focalPointDuplicates; stats: typeof focalPointDuplicateStats } | null,
+  // roster + serveCandidates were STATIC IMPORTS, which meant production was
+  // permanently stuck with the anonymised committed copy ("Volunteer A",
+  // "Candidate 1") while a laptop showed real names from the skip-worktree file.
+  // Loading them through the same table as everything else keeps real names out
+  // of git AND out of the public JS bundle, while still rendering them for a
+  // signed-in church user, because church_dashboard_data is behind RLS.
+  roster: null as typeof focalPointRoster | null,
+  serveCandidates: null as typeof serveCandidates | null,
   meta: {} as Record<string, CareMeta>,
   syncStates: [] as SyncStateRow[],
 })
@@ -32,6 +42,8 @@ export const groupDriftData = () => store.groupDrift ?? focalPointGroupDrift
 export const driftData = () => store.drift ?? focalPointDrift
 export const guestPipelineData = () => store.guestPipeline ?? focalPointGuestPipeline
 export const duplicatesData = () => store.duplicates ?? { groups: focalPointDuplicates, stats: focalPointDuplicateStats }
+export const rosterData = () => store.roster ?? focalPointRoster
+export const serveCandidatesData = () => store.serveCandidates ?? serveCandidates
 export const careMeta = (moduleKey: string): CareMeta | null => store.meta[moduleKey] ?? null
 // True when at least one PCO resource is still in its initial backfill (has
 // not yet reached backfill_complete). Drives the "catching up" badge state.
@@ -50,6 +62,8 @@ export async function loadCareData(slug: string): Promise<void> {
   store.burnout = null
   store.groupDrift = null
   store.drift = null
+  store.roster = null
+  store.serveCandidates = null
   store.guestPipeline = null
   store.duplicates = null
   store.meta = {}
@@ -74,7 +88,7 @@ export async function loadCareData(slug: string): Promise<void> {
   const { data, error } = await sb.from('church_dashboard_data')
     .select('module_key, payload, computed_at, source_freshness, status, error')
     .eq('client_id', client.id)
-    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates'])
+    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'serveCandidates'])
   if (error || !data) return
   for (const row of data as any[]) {
     store.meta[row.module_key] = { computedAt: row.computed_at, sourceFreshness: row.source_freshness, status: row.status, error: row.error }
@@ -85,6 +99,8 @@ export async function loadCareData(slug: string): Promise<void> {
     else if (row.module_key === 'drift') store.drift = row.payload
     else if (row.module_key === 'guestPipeline') store.guestPipeline = row.payload
     else if (row.module_key === 'duplicates') store.duplicates = row.payload
+    else if (row.module_key === 'roster') store.roster = row.payload
+    else if (row.module_key === 'serveCandidates') store.serveCandidates = row.payload
   }
   store.loaded = true
 }

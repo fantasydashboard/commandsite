@@ -10,7 +10,8 @@
  */
 import { computed, ref } from 'vue'
 import { focalPointSchedule as sched, type TeamWeek } from '@/lib/clients/focal-point/rosterForward'
-import { focalPointRoster as r, type RosterGap } from '@/lib/clients/focal-point/roster'
+import type { RosterGap } from '@/lib/clients/focal-point/roster'
+import { rosterData } from '@/lib/clients/church/careDataLoader'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
@@ -79,11 +80,13 @@ function askDraft(g: RosterGap): string {
 }
 
 const props = defineProps<{ clientName?: string }>()
+// Live row when present, baked (anonymised in git) otherwise.
+const r = computed(() => rosterData())
 
 // How stale the committed roster snapshot is, so the page can say so out loud
 // rather than let a reader assume "this Sunday" means the coming one.
 const snapshotAgeDays = computed(() => {
-  const then = Date.parse(`${r.date}T00:00:00Z`)
+  const then = Date.parse(`${r.value.date}T00:00:00Z`)
   if (Number.isNaN(then)) return 0
   return Math.max(0, Math.round((Date.now() - then) / 864e5))
 })
@@ -91,11 +94,11 @@ const snapshotAgeDays = computed(() => {
 // Team-level gaps only, no suggested names, so this one is not PII-gated.
 function onExport() {
   exportCsv(
-    r.gaps,
+    r.value.gaps,
     [
       { header: 'Team', value: (g) => g.team },
       { header: 'Spots short', value: (g) => g.short },
-      { header: 'Roster date', value: () => r.date },
+      { header: 'Roster date', value: () => r.value.date },
     ],
     { client: props.clientName ?? 'focal-point-church', dataset: 'roster-gaps' },
   )

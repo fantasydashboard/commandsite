@@ -24,7 +24,8 @@
  * never also be a name the church is being told to protect.
  */
 import { computed, ref } from 'vue'
-import { serveCandidates, type ServeCandidate } from '@/lib/clients/focal-point/serveCandidates'
+import type { ServeCandidate } from '@/lib/clients/focal-point/serveCandidates'
+import { serveCandidatesData } from '@/lib/clients/church/careDataLoader'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
@@ -33,12 +34,13 @@ const props = defineProps<{ clientName: string }>()
 const SHOWN = 8
 const showAll = ref(false)
 
-const d = serveCandidates
-const tier1 = computed(() => d.people.filter((p) => p.tier === 1))
+// Live row when present, baked (anonymised in git) otherwise.
+const d = computed(() => serveCandidatesData())
+const tier1 = computed(() => d.value.people.filter((p) => p.tier === 1))
 const visible = computed(() => (showAll.value ? tier1.value : tier1.value.slice(0, SHOWN)))
 
 const ageDays = computed(() => {
-  const t = Date.parse(`${d.generated}T00:00:00Z`)
+  const t = Date.parse(`${d.value.generated}T00:00:00Z`)
   return Number.isNaN(t) ? 0 : Math.max(0, Math.round((Date.now() - t) / 864e5))
 })
 
@@ -49,7 +51,7 @@ function groupText(c: ServeCandidate): string {
 
 function onExport() {
   exportCsv(
-    d.people,
+    d.value.people,
     [
       { header: 'Name', value: (c) => c.name },
       { header: 'Tier', value: (c) => c.tier },

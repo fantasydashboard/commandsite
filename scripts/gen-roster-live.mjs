@@ -181,6 +181,19 @@ export const focalPointSchedule: { expected: string[]; weeks: SchedWeek[] } = {
 await writeFile('src/lib/clients/focal-point/roster.ts', rosterBody(false))
 await writeFile('src/lib/clients/focal-point/rosterForward.ts', forwardOut)
 await writeFile('scratchpad/roster.committed.ts', rosterBody(true))
+// JSON twin of the REAL payload, for the database upload. Emitted here so no
+// downstream step has to parse TypeScript back: an apostrophe in a surname
+// breaks naive quote handling, and real surnames contain them.
+await writeFile('scratchpad/roster.payload.json', JSON.stringify({
+  date,
+  sundayLabel: `Sun ${label(date)}`,
+  totalShort,
+  teamsShort: gapRows.length,
+  gaps: gapRows.map((g) => ({
+    team: g.team, short: g.short, suggest: g.suggest, pool: g.poolSize,
+    ...(g.skip ? { skip: g.skip } : {}), ...(g.fresh ? { fresh: g.fresh } : {}),
+  })),
+}, null, 2))
 
 console.log(`roster.ts        ${date} · ${totalShort} short across ${gapRows.length} teams`)
 for (const g of gapRows) {
