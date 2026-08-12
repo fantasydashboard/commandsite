@@ -16,6 +16,7 @@ import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import SundayReadinessBoard from '@/components/cornerstone/SundayReadinessBoard.vue'
+import ThisSundayFills from '@/components/cornerstone/ThisSundayFills.vue'
 import BurnoutWatch from '@/components/cornerstone/BurnoutWatch.vue'
 import ServingLoad from '@/components/cornerstone/ServingLoad.vue'
 import WhoToAsk from '@/components/cornerstone/WhoToAsk.vue'
@@ -262,6 +263,14 @@ const sundaysRecommendations: GraceRecommendation[] = [
          buried in the KPI strip. -->
     <!-- Focal Point: real Sunday operations (staff Sunday without burning out your people) -->
     <template v-if="isFocalPoint">
+      <!-- PAGE ORDER IS DELIBERATE: do-now, then state, then everyone, then why.
+           This page used to open with four KPI tiles and a nine-row grid, which
+           made the only clickable thing on it the fifth thing you saw. Front Desk
+           and Care & Drift both lead with the queue and a count; Serving now
+           matches. A page with one accountable owner has to answer "am I done",
+           and only a completable list can do that. -->
+      <ThisSundayFills />
+
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <!-- The first two read the committed roster snapshot, not the nightly
              sync, so they are labelled by their real date. "This Sunday / 6 days
