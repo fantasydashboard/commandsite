@@ -15,6 +15,19 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const notice = ref<string | null>(null)
 
+// The starting password for the member just created. Held until dismissed
+// because it is shown exactly once: we never store it, and it cannot be
+// recovered afterwards, only reset.
+const justInvited = ref<{ email: string; password: string } | null>(null)
+const copied = ref(false)
+async function copyPassword() {
+  if (!justInvited.value) return
+  try {
+    await navigator.clipboard.writeText(justInvited.value.password)
+    copied.value = true
+  } catch { /* clipboard blocked; the value is on screen to read */ }
+}
+
 const showInvite = ref(false)
 const inviteEmail = ref('')
 const inviteName = ref('')
@@ -49,8 +62,9 @@ async function submitInvite() {
   working.value = true; error.value = null
   try {
     const email = inviteEmail.value.trim()
-    await inviteMember(props.tenant, email, inviteName.value.trim(), inviteScope.value, inviteCongregation.value)
-    flash(`Invite email sent to ${email}`)
+    const password = await inviteMember(props.tenant, email, inviteName.value.trim(), inviteScope.value, inviteCongregation.value)
+    justInvited.value = { email, password }
+    copied.value = false
     inviteEmail.value = ''; inviteName.value = ''; inviteScope.value = 'member'; inviteCongregation.value = 'all'
     showInvite.value = false
     await refresh()
@@ -82,6 +96,33 @@ onMounted(refresh)
     </div>
 
     <p v-if="notice" class="mb-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-xs text-success">{{ notice }}</p>
+
+    <!-- Shown once. The account works with this immediately, so onboarding no
+         longer depends on a recovery email arriving before it expires. -->
+    <div v-if="justInvited" class="mb-3 rounded-md border border-brand/30 bg-brand/[0.05] px-3 py-3">
+      <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand">Account created</div>
+      <p class="mt-1 text-xs text-ink-muted">
+        Give <span class="font-semibold text-ink">{{ justInvited.email }}</span> this starting
+        password. It does not expire, and they can change it after signing in. You will not be
+        able to see it again.
+      </p>
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        <code class="rounded border border-divider bg-surface-raised px-2.5 py-1 text-sm font-semibold tracking-wide text-ink">{{ justInvited.password }}</code>
+        <button
+          type="button"
+          class="rounded-md border border-divider px-2.5 py-1 text-[11px] font-medium text-ink-muted hover:border-brand hover:text-brand"
+          @click="copyPassword"
+        >{{ copied ? 'Copied' : 'Copy' }}</button>
+        <button
+          type="button"
+          class="text-[11px] font-medium text-ink-muted hover:text-ink"
+          @click="justInvited = null"
+        >Done</button>
+      </div>
+      <p class="mt-2 text-[11px] text-ink-disabled">
+        A set-password email was also sent as a second way in, but it is not required.
+      </p>
+    </div>
     <p v-if="error" class="mb-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{{ error }}</p>
 
     <div v-if="showInvite" class="mb-3 rounded-md border border-divider p-3 space-y-2">

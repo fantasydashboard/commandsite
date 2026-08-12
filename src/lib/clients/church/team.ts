@@ -50,12 +50,41 @@ export async function listTeam(tenant: string): Promise<ChurchTeamMember[]> {
   return res.members ?? []
 }
 
-// Creates the church login (via the edge function), then emails a set-password
-// link through the configured SMTP. Creation is reliable; the email is a
-// follow-up call, so a delivery hiccup never blocks the account being created.
-export async function inviteMember(tenant: string, email: string, name: string, scope: string, congregation: string): Promise<void> {
-  await invoke({ action: 'invite', tenant, email, name, scope, congregation })
-  await sendReset(email)
+/**
+ * A readable starting password: two short words plus digits. Easy to read down
+ * a phone or paste into a welcome email, and it does not expire the way a
+ * recovery link does. Not meant to be kept; the member changes it on first
+ * login. Uses crypto.getRandomValues rather than Math.random because this is a
+ * real credential, however short-lived.
+ */
+const WORDS = ['harbor', 'lantern', 'meadow', 'anchor', 'copper', 'willow', 'pilot', 'summit', 'cedar', 'orbit', 'ridge', 'ember']
+export function tempPassword(): string {
+  const r = new Uint32Array(3)
+  crypto.getRandomValues(r)
+  const a = WORDS[r[0] % WORDS.length]
+  const b = WORDS[r[1] % WORDS.length]
+  const n = 100 + (r[2] % 900)
+  return `${a}-${b}-${n}`
+}
+
+/**
+ * Creates the church login and returns the starting password so the admin can
+ * pass it on.
+ *
+ * Previously this created the account with no password and relied entirely on a
+ * recovery email. That is fine for one person sitting next to you and bad for
+ * provisioning a staff team: recovery links expire quickly and land in church
+ * spam filters, so by the time someone acted the link was usually dead. Setting
+ * a starting credential removes the race. The reset email still goes out as a
+ * second path in, so either route works.
+ */
+export async function inviteMember(tenant: string, email: string, name: string, scope: string, congregation: string): Promise<string> {
+  const password = tempPassword()
+  await invoke({ action: 'invite', tenant, email, name, scope, congregation, password })
+  // Best effort. The account already works with the password above, so a
+  // delivery failure here must never look like a failed invite.
+  try { await sendReset(email) } catch { /* password path still valid */ }
+  return password
 }
 
 export async function setScope(tenant: string, userId: string, scope: string): Promise<void> {
