@@ -25,8 +25,8 @@ export type PageLeads = Partial<Record<PageKey, PageLead>>
 /** The cadence we suggest when a page has no owner yet. Guidance, not a default
  *  value: it renders as a hint next to "unassigned", never as a fact. */
 export const SUGGESTED_CADENCE: Record<PageKey, string> = {
-  'front-desk-guests': 'Tuesdays, weekly',
-  'care-drift': 'Tuesdays, weekly',
+  'front-desk-guests': 'Mondays, weekly',
+  'care-drift': 'Mondays, weekly',
   'sundays-comms': 'Wednesdays, before Sunday',
   insights: 'Monthly',
   giving: 'Monthly',
