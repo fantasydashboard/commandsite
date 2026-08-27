@@ -53,15 +53,36 @@ function cell(team: string, week: (typeof sched.weeks)[number]) {
   return week.teams.find((t) => t.team === team)
 }
 
+/**
+ * A Sunday whose plan has not been created in Planning Center yet.
+ *
+ * "Forgotten" means zero scheduled and zero needed, which is exactly what an
+ * unbuilt plan looks like for EVERY team at once. The furthest week out is
+ * therefore almost always a full column of red, which is not nine forgotten
+ * teams, it is one plan nobody has made. Crying wolf there costs us the Media
+ * Team finding, which is real and sits in the same column.
+ *
+ * So: if every expected team is "forgotten" for a week, the week is unbuilt.
+ * A genuine forgotten team only counts when the rest of that Sunday exists.
+ */
+function weekNotBuilt(week: (typeof sched.weeks)[number]): boolean {
+  return sched.expected.every((team) => {
+    const c = cell(team, week)
+    return !c || flagOf(c) === 'forgotten'
+  })
+}
+const builtWeeks = computed(() => sched.weeks.filter((w) => !weekNotBuilt(w)))
+const unbuiltWeeks = computed(() => sched.weeks.filter(weekNotBuilt))
+
 // --- Grace's get-ahead: the exceptions worth acting on now ---
 const forgotten = computed(() =>
   sched.expected
-    .map((team) => ({ team, weeks: sched.weeks.filter((w) => { const c = cell(team, w); return c && flagOf(c) === 'forgotten' }).map((w) => w.label) }))
+    .map((team) => ({ team, weeks: builtWeeks.value.filter((w) => { const c = cell(team, w); return c && flagOf(c) === 'forgotten' }).map((w) => w.label) }))
     .filter((x) => x.weeks.length),
 )
 const chronicEmpty = computed(() =>
   sched.expected
-    .map((team) => ({ team, n: sched.weeks.filter((w) => { const c = cell(team, w); return c && flagOf(c) === 'empty' }).length }))
+    .map((team) => ({ team, n: builtWeeks.value.filter((w) => { const c = cell(team, w); return c && flagOf(c) === 'empty' }).length }))
     .filter((x) => x.n >= 2)
     .sort((a, b) => b.n - a.n),
 )
@@ -147,15 +168,22 @@ function onExport() {
         <thead>
           <tr class="text-left text-[11px] uppercase tracking-wide text-ink-muted">
             <th class="pb-2 pr-3 font-medium">Team</th>
-            <th v-for="w in sched.weeks" :key="w.date" class="pb-2 px-2 font-medium">{{ w.label }}</th>
+            <th v-for="w in sched.weeks" :key="w.date" class="pb-2 px-2 font-medium">
+              {{ w.label }}
+              <span v-if="weekNotBuilt(w)" class="block text-[9px] font-normal normal-case text-ink-disabled">no plan yet</span>
+            </th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="team in sched.expected" :key="team" class="border-t border-divider/60">
             <td class="py-2 pr-3 font-medium text-ink">{{ team }}</td>
             <td v-for="w in sched.weeks" :key="w.date" class="px-2 py-2">
+              <!-- A week with no plan built yet is not nine forgotten teams. It
+                   renders neutral so the genuine red cells elsewhere still mean
+                   something. -->
+              <span v-if="weekNotBuilt(w)" class="text-[10px] text-ink-disabled">&mdash;</span>
               <span
-                v-if="cell(team, w)"
+                v-else-if="cell(team, w)"
                 class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium"
                 :class="FLAG[flagOf(cell(team, w)!)].cls"
               >{{ FLAG[flagOf(cell(team, w)!)].label(cell(team, w)!) }}</span>
@@ -170,6 +198,11 @@ function onExport() {
       <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded bg-brand/60"></span> unconfirmed / declined</span>
       <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded bg-success/60"></span> ready</span>
       <span class="text-ink-disabled">"Not scheduled" means the team runs most Sundays but is absent from that plan.</span>
+      <span v-if="unbuiltWeeks.length" class="text-ink-disabled">
+        {{ unbuiltWeeks.map((w) => w.label).join(', ') }}
+        {{ unbuiltWeeks.length === 1 ? 'has' : 'have' }} no plan in Planning Center yet, so
+        {{ unbuiltWeeks.length === 1 ? 'it is' : 'they are' }} not flagged.
+      </span>
     </div>
   </section>
 
