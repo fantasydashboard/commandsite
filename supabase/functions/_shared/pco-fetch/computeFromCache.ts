@@ -5,7 +5,7 @@ import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
 import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE } from '../pco-transforms/guestPipeline.ts'
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
-import { buildRoster, SEASON_DAYS } from '../pco-transforms/roster.ts'
+import { buildRoster } from '../pco-transforms/roster.ts'
 import { fetchRosterPlans } from './fetchRosterPlans.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
@@ -148,7 +148,15 @@ export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig
 export async function computeRoster(db: Db, clientId: string, tenant: string, cfg: PcoConfig) {
   const { past, future } = await fetchRosterPlans(tenant, (cfg as { roster?: { serviceTypeMatch?: string } }).roster ?? {})
 
-  const cutoff = monthsAgo(today(), Math.ceil(SEASON_DAYS / 30) + 1)
+  // Read the FULL staged window, not just the load window. Two different
+  // questions were conflated here: "are they over-serving" wants 90 days, but
+  // "have they ever served this team" wants everything we have. Reading only 4
+  // months made Safety Team's pool 10 instead of 15, silently shrinking who
+  // Grace was willing to suggest and hiding anyone whose last shift on that team
+  // was longer ago, which is exactly the "fresh capacity" case. buildRoster
+  // filters to SEASON_DAYS internally for the load maths, so a wider read
+  // changes eligibility only.
+  const cutoff = monthsAgo(today(), cfg.serving?.lookbackMonths ?? 12)
   const serving = await readAll(
     (from, to) => db.from('pco_serving_assignments')
       .select('person_id,name,date,team,status').eq('client_id', clientId).gte('date', cutoff)
