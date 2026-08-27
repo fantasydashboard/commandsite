@@ -31,6 +31,7 @@ const store = reactive({
   // signed-in church user, because church_dashboard_data is behind RLS.
   roster: null as typeof focalPointRoster | null,
   serveCandidates: null as typeof serveCandidates | null,
+  signature: '' as string,
   meta: {} as Record<string, CareMeta>,
   syncStates: [] as SyncStateRow[],
 })
@@ -42,6 +43,12 @@ export const groupDriftData = () => store.groupDrift ?? focalPointGroupDrift
 export const driftData = () => store.drift ?? focalPointDrift
 export const guestPipelineData = () => store.guestPipeline ?? focalPointGuestPipeline
 export const duplicatesData = () => store.duplicates ?? { groups: focalPointDuplicates, stats: focalPointDuplicateStats }
+/** Sign-off for drafted notes, from church_settings.messaging.signature. Kept
+ *  here so the frontend draft builders can stay synchronous. Falls back to the
+ *  historical default until a church sets their own. */
+export const DEFAULT_SIGNATURE = 'Pastor Mark'
+export const signatureFor = () => store.signature || DEFAULT_SIGNATURE
+
 export const rosterData = () => store.roster ?? focalPointRoster
 export const serveCandidatesData = () => store.serveCandidates ?? serveCandidates
 export const careMeta = (moduleKey: string): CareMeta | null => store.meta[moduleKey] ?? null
@@ -66,6 +73,7 @@ export async function loadCareData(slug: string): Promise<void> {
   store.serveCandidates = null
   store.guestPipeline = null
   store.duplicates = null
+  store.signature = ''
   store.meta = {}
   store.syncStates = []
   store.loaded = false
@@ -85,6 +93,12 @@ export async function loadCareData(slug: string): Promise<void> {
   } catch (e) {
     console.error(`careDataLoader: sync-state lookup threw for ${slug}: ${e instanceof Error ? e.message : String(e)}`)
   }
+  // Sign-off, best effort: a failure here just means the default name.
+  try {
+    const { data: cs } = await sb.from('church_settings').select('messaging').eq('client_id', client.id).maybeSingle()
+    store.signature = (cs?.messaging?.signature ?? '').trim()
+  } catch { /* default */ }
+
   const { data, error } = await sb.from('church_dashboard_data')
     .select('module_key, payload, computed_at, source_freshness, status, error')
     .eq('client_id', client.id)

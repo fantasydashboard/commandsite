@@ -18,7 +18,7 @@
  */
 import { computed, ref } from 'vue'
 import type { RosterGap } from '@/lib/clients/focal-point/roster'
-import { rosterData } from '@/lib/clients/church/careDataLoader'
+import { rosterData, signatureFor } from '@/lib/clients/church/careDataLoader'
 
 const r = computed(() => rosterData())
 
@@ -30,7 +30,7 @@ function ask(team: string) { asked.value = new Set(asked.value).add(team) }
 function firstName(n: string) { return n.split(' ')[0] }
 function askDraft(g: RosterGap): string {
   const who = g.suggest.map(firstName).join(' and ')
-  return `Hey ${who}, we are a little short on the ${g.team} for this Sunday and you have both been great in this spot before. Any chance you could jump in? Totally fine if not. Thank you, Pastor Mark (via Grace)`
+  return `Hey ${who}, we are a little short on the ${g.team} for this Sunday and you have both been great in this spot before. Any chance you could jump in? Totally fine if not. Thank you, ${signatureFor()} (via Grace)`
 }
 
 // The completable unit. Teams with a suggestion are the ones the owner can

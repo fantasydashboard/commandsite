@@ -7,7 +7,7 @@
 // Returned families are reconciled off by driftLive (handled where these render).
 // This is the single source of truth for families across the board, the priority
 // feed, and the directory, so their counts and names can never disagree again.
-import { servingData, groupDriftData, driftData } from '@/lib/clients/church/careDataLoader'
+import { servingData, groupDriftData, driftData, signatureFor } from '@/lib/clients/church/careDataLoader'
 import type { DriftFamily } from './drift'
 import type { CareCase } from './carePipeline'
 
@@ -56,7 +56,7 @@ export function familyDraft(f: DriftFamily): string {
   // missed two or three weeks. Wrong on the facts, and it reads as if nobody
   // actually looked before sending.
   const gap = f.sundaysMissed <= 5 ? 'the last few Sundays' : 'the last several Sundays'
-  return `Hey ${f.family} family, I noticed ${kids} ${verb} not been at Kids Point ${gap}. After ${f.monthsAttending} months of seeing you all so regularly, I just wanted to check in. No agenda and no pressure, we simply miss you and your family is thought of and prayed for. If there is anything going on that we can support you with, I would love to know. Hope to see you soon. Blessings, Pastor Mark`
+  return `Hey ${f.family} family, I noticed ${kids} ${verb} not been at Kids Point ${gap}. After ${f.monthsAttending} months of seeing you all so regularly, I just wanted to check in. No agenda and no pressure, we simply miss you and your family is thought of and prayed for. If there is anything going on that we can support you with, I would love to know. Hope to see you soon. Blessings, ${signatureFor()}`
 }
 
 // The serving + group drift board lanes, driven by the SAME real directories as

@@ -3,7 +3,7 @@ import { assignmentsToByPerson, groupRowsToInputs } from '../pco-transforms/from
 import { computeServing, computeBurnout, monthsAgo } from '../pco-transforms/serving.ts'
 import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
-import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS } from '../pco-transforms/guestPipeline.ts'
+import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE } from '../pco-transforms/guestPipeline.ts'
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
@@ -86,8 +86,12 @@ export async function computeGuestPipeline(db: Db, clientId: string, cfg: PcoCon
   // windowMonths is RETENTION (history for the monthly trend); activeDays is the
   // WORKLIST span the board and KPIs run on. Keeping them separate is what stops
   // a 24-month retention window from reporting 788 guests "in the pipeline".
+  // Sign-off comes from the church's own settings: whoever's address sends the
+  // note has to be the name at the bottom of it.
+  const { data: settings } = await db.from('church_settings').select('messaging').eq('client_id', clientId).maybeSingle()
+  const signature = (settings?.messaging?.signature ?? '').trim() || DEFAULT_SIGNATURE
   await writeOk(db, clientId, 'guestPipeline',
-    buildGuestPipeline(cardRows, today(), cfg.guests!.activeDays ?? DEFAULT_ACTIVE_DAYS))
+    buildGuestPipeline(cardRows, today(), cfg.guests!.activeDays ?? DEFAULT_ACTIVE_DAYS, signature))
 }
 
 export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig) {

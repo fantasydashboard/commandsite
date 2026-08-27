@@ -65,11 +65,17 @@ function stageOf(row: GuestCardRow, today: string): GuestStage {
   if (/week 2/i.test(row.step_name)) return 'welcomed'
   return daysAgo(today, row.created_date) > 28 ? 'cooled' : 'new'
 }
-function draftOf(name: string, campus: GuestCampus): string {
+/** Who the note is signed by. Hardcoded to one pastor's name until now, which
+ *  breaks the moment a church sends from anyone else's address: the guest gets
+ *  mail from the Connections team signed by the pastor. Sender and signature are
+ *  one decision, so this comes from church_settings.messaging.signature. */
+export const DEFAULT_SIGNATURE = 'Pastor Mark'
+
+function draftOf(name: string, campus: GuestCampus, signature: string): string {
   const f = first(name)
   if (campus === 'brazilian')
-    return `${f}, foi uma alegria ter você conosco na Focal Point no domingo. Sabemos que encontrar uma igreja é diferente para cada pessoa, e seria uma honra caminhar ao seu lado nesta temporada. Se pudermos ajudar de alguma forma, é só responder aqui. Bênçãos, Pastor`
-  return `${f}, we were so glad you joined us at Focal Point on Sunday. We know finding a church home looks different for every person, and we would be honored to walk alongside you this season. If we can help in any way, just reply here. Blessings, Pastor Mark`
+    return `${f}, foi uma alegria ter você conosco na Focal Point no domingo. Sabemos que encontrar uma igreja é diferente para cada pessoa, e seria uma honra caminhar ao seu lado nesta temporada. Se pudermos ajudar de alguma forma, é só responder aqui. Bênçãos, ${signature}`
+  return `${f}, we were so glad you joined us at Focal Point on Sunday. We know finding a church home looks different for every person, and we would be honored to walk alongside you this season. If we can help in any way, just reply here. Blessings, ${signature}`
 }
 function ownerOf(stage: GuestStage): string {
   if (stage === 'new') return 'Pastor Mark'
@@ -132,6 +138,7 @@ export function buildGuestPipeline(
   rows: GuestCardRow[],
   today: string,
   activeDays: number = DEFAULT_ACTIVE_DAYS,
+  signature: string = DEFAULT_SIGNATURE,
 ): GuestPipelinePayload {
   const cases: GuestCase[] = []
   const kpis = {} as Record<'all' | GuestCampus, GuestKpis>
@@ -162,7 +169,7 @@ export function buildGuestPipeline(
         detail: thisWeek ? 'first visit · welcome drafted, not sent yet' : STAGE_DETAIL[stage],
         owner: ownerOf(stage),
         age: days < 7 ? 'this week' : `${Math.round(days / 7)}w ago`,
-        ...(thisWeek ? { note: 'Grace drafted a welcome, awaiting your approval', draft: draftOf(x.name, campus) } : {}),
+        ...(thisWeek ? { note: 'Grace drafted a welcome, awaiting your approval', draft: draftOf(x.name, campus, signature) } : {}),
       })
     }
     kpis[campus] = kpisFor(list, today)

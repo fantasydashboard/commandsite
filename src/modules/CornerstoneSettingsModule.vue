@@ -21,6 +21,7 @@ import IntegrationsCatalog from '@/components/cornerstone/IntegrationsCatalog.vu
 import PrivacySettings from '@/components/cornerstone/PrivacySettings.vue'
 import HiddenFlagsSettings from '@/components/cornerstone/HiddenFlagsSettings.vue'
 import PageLeadsSettings from '@/components/cornerstone/PageLeadsSettings.vue'
+import SignatureSettings from '@/components/cornerstone/SignatureSettings.vue'
 import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
@@ -288,5 +289,6 @@ const intsByCategory = computed(() => {
          to act on". -->
     <HiddenFlagsSettings v-if="isRealChurch" />
     <PageLeadsSettings v-if="isRealChurch" :client-id="client.id" />
+    <SignatureSettings v-if="isRealChurch" :client-id="client.id" />
   </div>
 </template>
