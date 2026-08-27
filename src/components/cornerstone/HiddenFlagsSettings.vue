@@ -99,6 +99,10 @@ function display(signal: string, name: string): string {
               <div class="text-[11px] text-ink-muted">
                 <template v-if="r.reason === 'dismissed'">Never flag · set {{ when(r.at) }}</template>
                 <template v-else>Snoozed {{ when(r.at) }} · {{ until(r.until) }}</template>
+                <!-- Who did it matters now that these are shared: seeing that a
+                     colleague hid someone is the difference between "the data is
+                     wrong" and "someone already handled this". -->
+                <template v-if="r.by"> · by {{ r.by }}</template>
                 <template v-if="r.note"> · {{ r.note }}</template>
               </div>
             </div>
@@ -117,8 +121,9 @@ function display(signal: string, name: string): string {
     </p>
 
     <p class="mt-4 text-[11px] leading-relaxed text-ink-disabled">
-      Saved in this browser for now, so hides do not follow you to another device or apply to
-      other staff. They move server-side with the rest of the case state.
+      Shared across your whole team: if someone here hides a person, nobody else sees them
+      flagged either. That is deliberate, since "this is staff" and "they are travelling" are
+      facts about the person rather than one person's preference.
     </p>
   </section>
 </template>

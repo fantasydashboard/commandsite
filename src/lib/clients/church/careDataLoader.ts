@@ -93,6 +93,17 @@ export async function loadCareData(slug: string): Promise<void> {
   } catch (e) {
     console.error(`careDataLoader: sync-state lookup threw for ${slug}: ${e instanceof Error ? e.message : String(e)}`)
   }
+  // Shared snooze / never-flag state, loaded HERE rather than separately so it
+  // lands with everything else: fetching it on its own produced a visible flash
+  // where dismissed people appeared and then vanished. Imported lazily because
+  // this module is not a component and Pinia must be initialised first.
+  try {
+    const { useCareActions } = await import('@/stores/careActions')
+    await useCareActions().load(client.id)
+  } catch (e) {
+    console.error(`careDataLoader: care hides load failed for ${slug}: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
   // Sign-off, best effort: a failure here just means the default name.
   try {
     const { data: cs } = await sb.from('church_settings').select('messaging').eq('client_id', client.id).maybeSingle()

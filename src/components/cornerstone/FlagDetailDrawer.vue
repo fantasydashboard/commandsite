@@ -205,8 +205,8 @@ function restore() {
           <p class="mt-2 text-[11px] text-ink-disabled">
             Snooze for someone traveling or in a hard season. Use "never flag" for staff, or
             anyone this signal simply does not apply to, instead of snoozing them over and over.
-            It only hides them from {{ flagWord }}; every other signal still watches them, and you
-            can undo it in Settings.
+            It only hides them from {{ flagWord }}; every other signal still watches them. This applies
+            for your whole team, and you can undo it in Settings.
           </p>
         </template>
         <template v-else>
