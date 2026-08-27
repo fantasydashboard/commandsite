@@ -19,6 +19,8 @@ export const useAuthStore = defineStore('auth', () => {
   const clientSlug = computed(() => profile.value?.client?.slug ?? null)
   // Church-level access context (UI-level gating; admins bypass everything).
   const permissionScope = computed(() => profile.value?.permission_scope ?? null)
+  // Explicit per-page access. Null falls back to the scope bundle (access.ts).
+  const allowedTabs = computed(() => (profile.value as { allowed_tabs?: string[] | null } | null)?.allowed_tabs ?? null)
   const congregationScope = computed(() => profile.value?.congregation_scope ?? null)
 
   const redirectPath = computed(() => {
@@ -89,6 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     clientSlug,
     permissionScope,
+    allowedTabs,
     congregationScope,
     redirectPath,
     init,

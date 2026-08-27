@@ -29,7 +29,7 @@ const error = ref<string | null>(null)
 // Module enablement comes from src/config/clients.ts — edit that file to
 // add/remove modules for a client; no DB round-trip.
 const enabledModuleKeys = computed<Set<string>>(
-  () => new Set(modulesForUser(props.slug, { role: auth.profile?.role, permissionScope: auth.permissionScope }).map((m) => m.key)),
+  () => new Set(modulesForUser(props.slug, { role: auth.profile?.role, permissionScope: auth.permissionScope, allowedTabs: auth.allowedTabs }).map((m) => m.key)),
 )
 
 // Lock the congregation lens to a scoped client user's congregation. Admins and

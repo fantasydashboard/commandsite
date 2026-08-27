@@ -23,7 +23,7 @@ interface ResolvedModule {
 
 const allModules = computed<ResolvedModule[]>(() => {
   if (!client.value) return []
-  return modulesForUser(client.value.slug, { role: auth.profile?.role, permissionScope: auth.permissionScope })
+  return modulesForUser(client.value.slug, { role: auth.profile?.role, permissionScope: auth.permissionScope, allowedTabs: auth.allowedTabs })
     .map((m) => {
       const def = getModule(m.key)
       if (!def) return null

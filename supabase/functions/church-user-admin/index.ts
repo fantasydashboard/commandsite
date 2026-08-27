@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
   const token = auth.replace(/^Bearer\s+/i, '')
   if (!token) return json({ error: 'Missing Authorization' }, 401)
 
-  let body: { action?: string; tenant?: string; email?: string; name?: string; scope?: string; user_id?: string; congregation?: string; password?: string } = {}
+  let body: { action?: string; tenant?: string; email?: string; name?: string; scope?: string; user_id?: string; congregation?: string; password?: string; tabs?: string[] } = {}
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON body' }, 400) }
   const action = body.action ?? ''
   const tenant = (body.tenant ?? '').trim()
@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
   // ── list
   if (action === 'list') {
     const { data, error } = await db.from('users')
-      .select('id, email, full_name, permission_scope, congregation_scope, created_at')
+      .select('id, email, full_name, permission_scope, congregation_scope, allowed_tabs, created_at')
       .eq('client_id', clientId).order('created_at', { ascending: true })
     if (error) return json({ error: error.message }, 500)
     return json({ members: data ?? [] })
@@ -124,12 +124,27 @@ Deno.serve(async (req: Request) => {
     }
     const newId = created?.user?.id
     if (!newId) return json({ error: 'Create returned no user id' }, 500)
+    // allowed_tabs null means "fall back to the scope bundle", which is what an
+    // invite without an explicit page list should do.
+    const tabs = Array.isArray(body.tabs) && body.tabs.length ? body.tabs : null
     const { error: rowErr } = await db.from('users').insert({
       id: newId, email, full_name: name || null, role: 'client', client_id: clientId, permission_scope: scope, congregation_scope: congregation,
+      allowed_tabs: tabs,
     })
     if (rowErr) return json({ error: `Created but profile insert failed: ${rowErr.message}` }, 500)
     // `password_set` lets the caller decide whether to still send a reset email.
     return json({ ok: true, user_id: newId, password_set: !!password })
+  }
+
+  // ── set-tabs: which pages this member may see. An empty array clears back to
+  // the scope bundle rather than locking someone out of everything.
+  if (action === 'set-tabs') {
+    const userId = (body.user_id ?? '').trim()
+    if (!userId) return json({ error: 'user_id is required' }, 400)
+    const tabs = Array.isArray(body.tabs) && body.tabs.length ? body.tabs : null
+    const { error } = await db.from('users').update({ allowed_tabs: tabs }).eq('id', userId).eq('client_id', clientId)
+    if (error) return json({ error: error.message }, 500)
+    return json({ ok: true })
   }
 
   // ── set-congregation

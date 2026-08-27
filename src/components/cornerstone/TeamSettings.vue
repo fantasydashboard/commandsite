@@ -6,7 +6,8 @@
  * parent module; the Cornerstone demo keeps its inline sample rendering.
  */
 import { onMounted, ref } from 'vue'
-import { listTeam, inviteMember, setScope, setCongregation, sendReset, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
+import { listTeam, inviteMember, setScope, setTabs, setCongregation, sendReset, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
+import { ASSIGNABLE_TABS } from '@/lib/clients/church/access'
 
 const props = defineProps<{ tenant: string }>()
 
@@ -26,6 +27,53 @@ async function copyPassword() {
     await navigator.clipboard.writeText(justInvited.value.password)
     copied.value = true
   } catch { /* clipboard blocked; the value is on screen to read */ }
+}
+
+/**
+ * Which pages a member sees. Scope bundles could not express "over Front Desk
+ * but not Care & Drift", which is exactly how churches divide these, so pages
+ * are ticked individually.
+ *
+ * permission_scope still exists and still matters: it is the TRUST level, and it
+ * governs settings writes at the RLS level and exports containing congregant
+ * names. Page access and trust are different questions, and bundling them is
+ * what made the old list rigid.
+ *
+ * An empty selection clears back to the scope bundle rather than leaving someone
+ * with no pages at all.
+ */
+function tabsOf(m: ChurchTeamMember): string[] {
+  return m.allowed_tabs ?? []
+}
+function hasTab(m: ChurchTeamMember, key: string): boolean {
+  const t = tabsOf(m)
+  // No explicit list yet: show what the bundle currently grants, so ticking the
+  // first box does not silently take pages away.
+  return t.length ? t.includes(key) : bundleTabs(m).includes(key)
+}
+function bundleTabs(m: ChurchTeamMember): string[] {
+  return SCOPE_FALLBACK[m.permission_scope ?? 'member'] ?? SCOPE_FALLBACK.member
+}
+const SCOPE_FALLBACK: Record<string, string[]> = {
+  full: ASSIGNABLE_TABS.map((t) => t.key),
+  pastoral_care: ['front-desk-guests', 'care-drift'],
+  finance: ['insights', 'giving'],
+  comms_only: ['sundays-comms'],
+  volunteers: ['sundays-comms'],
+  member: [],
+}
+
+async function toggleTab(m: ChurchTeamMember, key: string) {
+  const current = tabsOf(m).length ? tabsOf(m) : bundleTabs(m)
+  const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key]
+  const prev = m.allowed_tabs
+  m.allowed_tabs = next
+  try {
+    await setTabs(props.tenant, m.id, next)
+  } catch (e) {
+    m.allowed_tabs = prev
+    error.value = e instanceof Error ? e.message : String(e)
+  }
 }
 
 const showInvite = ref(false)
@@ -149,8 +197,23 @@ onMounted(refresh)
           <div class="text-sm font-semibold text-ink">{{ m.full_name || m.email }}</div>
           <div class="text-[11px] text-ink-muted">{{ m.email }}</div>
         </div>
+        <!-- Pages, ticked individually. Today is always on and is not listed:
+             it only ever shows the actions routed to that person. -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <label
+            v-for="t in ASSIGNABLE_TABS"
+            :key="t.key"
+            class="inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors"
+            :class="hasTab(m, t.key)
+              ? 'border-brand/40 bg-brand/10 text-brand'
+              : 'border-divider bg-surface text-ink-disabled hover:border-ink-muted'"
+          >
+            <input type="checkbox" class="sr-only" :checked="hasTab(m, t.key)" @change="toggleTab(m, t.key)" />
+            {{ t.label }}
+          </label>
+        </div>
         <select :value="m.permission_scope ?? 'member'" @change="changeScope(m, ($event.target as HTMLSelectElement).value)"
-          class="rounded-md border border-divider bg-surface-raised px-2 py-1 text-xs text-ink">
+          class="rounded-md border border-divider bg-surface-raised px-2 py-1 text-xs text-ink" title="Trust level: governs Settings and exports containing names">
           <option v-for="s in PERMISSION_SCOPES" :key="s.key" :value="s.key">{{ s.label }}</option>
         </select>
         <select v-if="(m.permission_scope ?? 'member') !== 'full'" :value="m.congregation_scope ?? 'all'" @change="changeCongregation(m, ($event.target as HTMLSelectElement).value)"

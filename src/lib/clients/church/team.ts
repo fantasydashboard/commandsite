@@ -9,6 +9,8 @@ export interface ChurchTeamMember {
   full_name: string | null
   permission_scope: string | null
   congregation_scope: string | null
+  /** Explicit page access. Null falls back to the permission_scope bundle. */
+  allowed_tabs: string[] | null
   created_at: string
 }
 
@@ -85,6 +87,12 @@ export async function inviteMember(tenant: string, email: string, name: string, 
   // delivery failure here must never look like a failed invite.
   try { await sendReset(email) } catch { /* password path still valid */ }
   return password
+}
+
+/** Sets which pages a member may see. An empty list clears back to the scope
+ *  bundle rather than leaving someone with no pages at all. */
+export async function setTabs(tenant: string, userId: string, tabs: string[]): Promise<void> {
+  await invoke({ action: 'set-tabs', tenant, user_id: userId, tabs })
 }
 
 export async function setScope(tenant: string, userId: string, scope: string): Promise<void> {
