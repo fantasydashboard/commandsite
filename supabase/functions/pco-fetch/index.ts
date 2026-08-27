@@ -8,7 +8,7 @@ import { fetchGroupsChunk } from '../_shared/pco-fetch/fetchGroupsChunk.ts'
 import { fetchKidsCheckinsChunk } from '../_shared/pco-fetch/fetchKidsChunk.ts'
 import { fetchGuestCardsChunk } from '../_shared/pco-fetch/fetchGuestCardsChunk.ts'
 import { fetchPeopleChunk } from '../_shared/pco-fetch/fetchPeopleChunk.ts'
-import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates } from '../_shared/pco-fetch/computeFromCache.ts'
+import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates, computeRoster } from '../_shared/pco-fetch/computeFromCache.ts'
 import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
@@ -23,7 +23,11 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const svc = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-type Resource = 'schedule' | 'groups' | 'kids' | 'guests' | 'people'
+// 'roster' fetches and computes in one pass (no staging table): Sunday
+// readiness is a snapshot, not history. It also depends on the schedule
+// resource's staged assignments for burnout-aware suggestions, so it is listed
+// after it in the sync order below.
+type Resource = 'schedule' | 'groups' | 'kids' | 'guests' | 'people' | 'roster'
 type Mode = 'backfill' | 'incremental'
 // deno-lint-ignore no-explicit-any
 type Db = any
@@ -89,6 +93,28 @@ async function syncResource(
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
         last_synced_date: row.last_synced_date,
+        updated_at: now, error: null,
+      }, { onConflict: 'client_id,resource' })
+      if (error) throw new Error(`write sync state: ${error.message}`)
+    } else if (resource === 'roster') {
+      // No cursor and no staging: bounded to ~12 plans, so it always finishes in
+      // one pass. Depends on schedule's staged assignments for burnout-aware
+      // suggestions, so it waits the same way people does rather than shipping a
+      // roster whose "who to ask" is computed from an empty history.
+      const { data: sched } = await db.from('pco_sync_state')
+        .select('backfill_complete').eq('client_id', clientId).eq('resource', 'schedule').maybeSingle()
+      if (!sched?.backfill_complete) {
+        const { error } = await db.from('pco_sync_state').upsert({
+          client_id: clientId, resource, phase: 'backfill', backfill_complete: false,
+          cursor: {}, updated_at: now, error: null,
+        }, { onConflict: 'client_id,resource' })
+        if (error) throw new Error(`write sync state: ${error.message}`)
+        return 'waiting'
+      }
+      await computeRoster(db, clientId, tenant, cfg)
+      const { error } = await db.from('pco_sync_state').upsert({
+        client_id: clientId, resource, cursor: {}, backfill_complete: true,
+        phase: 'incremental', last_synced_date: row.last_synced_date,
         updated_at: now, error: null,
       }, { onConflict: 'client_id,resource' })
       if (error) throw new Error(`write sync state: ${error.message}`)
@@ -175,6 +201,15 @@ async function syncResource(
       .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
+  } else if (resource === 'roster') {
+    // Every night: the next Sunday moves, so this is the resource that most
+    // needs to run incrementally. Same work as backfill, since there is no
+    // cursor to resume and nothing staged to top up.
+    await computeRoster(db, clientId, tenant, cfg)
+    const { error } = await db.from('pco_sync_state')
+      .update({ updated_at: now, error: null })
+      .eq('client_id', clientId).eq('resource', resource)
+    if (error) throw new Error(`write sync state: ${error.message}`)
   } else {
     // people: no incremental work; the weekly rescan cron resets this resource
     // to backfill for a full re-scan. Just stamp the row so it is not treated as failed.
@@ -210,7 +245,7 @@ async function syncChurchResource(
 
 async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConfig, mode: Mode) {
   const results: Record<string, string> = {}
-  for (const resource of ['schedule', 'groups', 'kids', 'guests', 'people'] as Resource[]) {
+  for (const resource of ['schedule', 'groups', 'kids', 'guests', 'people', 'roster'] as Resource[]) {
     results[resource] = await syncChurchResource(db, clientId, tenant, cfg, resource, mode)
   }
   return results

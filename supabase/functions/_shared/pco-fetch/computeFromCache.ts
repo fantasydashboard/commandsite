@@ -5,6 +5,8 @@ import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
 import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE } from '../pco-transforms/guestPipeline.ts'
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
+import { buildRoster, SEASON_DAYS } from '../pco-transforms/roster.ts'
+import { fetchRosterPlans } from './fetchRosterPlans.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -129,4 +131,31 @@ export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig
   const cfg2 = cfg.duplicates ?? { keepTopClusters: 120, minNameLen: 3 }
   const peopleRows = people.map((p: any) => ({ person_id: p.person_id, first: p.first ?? '', last: p.last ?? '', name: p.name ?? '', emails: p.emails ?? [], phones: p.phones ?? [], membership: p.membership ?? 'none', created: p.created ?? '' }))
   await writeOk(db, clientId, 'duplicates', buildDuplicates(peopleRows, datesByPerson, servingFlags, burnoutFlags, cfg2))
+}
+
+/**
+ * Sunday roster readiness. Fetches plans and computes in one pass rather than
+ * staging: roster data is a snapshot with no historical value, so a staging
+ * table would only ever be overwritten.
+ *
+ * Writes BOTH payloads the Serving page reads, so a partial success cannot leave
+ * the gap card and the four-week grid describing different Sundays.
+ *
+ * Suggestions come from pco_serving_assignments, which is already synced, and
+ * apply the same over-serving rule computeBurnout uses, so a name suggested here
+ * can never be a name the burnout list is telling the church to protect.
+ */
+export async function computeRoster(db: Db, clientId: string, tenant: string, cfg: PcoConfig) {
+  const { past, future } = await fetchRosterPlans(tenant, (cfg as { roster?: { serviceTypeMatch?: string } }).roster ?? {})
+
+  const cutoff = monthsAgo(today(), Math.ceil(SEASON_DAYS / 30) + 1)
+  const serving = await readAll(
+    (from, to) => db.from('pco_serving_assignments')
+      .select('person_id,name,date,team,status').eq('client_id', clientId).gte('date', cutoff)
+      .order('person_id').order('date').range(from, to),
+    'serving assignments (roster)')
+
+  const { roster, forward } = buildRoster({ past, future, serving, today: today() })
+  await writeOk(db, clientId, 'roster', roster)
+  await writeOk(db, clientId, 'rosterForward', forward)
 }

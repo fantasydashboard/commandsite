@@ -8,6 +8,7 @@ import { focalPointServing } from '@/lib/clients/focal-point/serving'
 import { focalPointBurnout } from '@/lib/clients/focal-point/burnout'
 import { focalPointGroupDrift } from '@/lib/clients/focal-point/groupDrift'
 import { focalPointRoster } from '@/lib/clients/focal-point/roster'
+import { focalPointSchedule } from '@/lib/clients/focal-point/rosterForward'
 import { serveCandidates } from '@/lib/clients/focal-point/serveCandidates'
 import { focalPointDrift } from '@/lib/clients/focal-point/drift'
 import { guestPipeline as focalPointGuestPipeline } from '@/lib/clients/focal-point/guestPipeline'
@@ -30,6 +31,7 @@ const store = reactive({
   // of git AND out of the public JS bundle, while still rendering them for a
   // signed-in church user, because church_dashboard_data is behind RLS.
   roster: null as typeof focalPointRoster | null,
+  rosterForward: null as typeof focalPointSchedule | null,
   serveCandidates: null as typeof serveCandidates | null,
   signature: '' as string,
   meta: {} as Record<string, CareMeta>,
@@ -50,6 +52,7 @@ export const DEFAULT_SIGNATURE = 'Pastor Mark'
 export const signatureFor = () => store.signature || DEFAULT_SIGNATURE
 
 export const rosterData = () => store.roster ?? focalPointRoster
+export const rosterForwardData = () => store.rosterForward ?? focalPointSchedule
 export const serveCandidatesData = () => store.serveCandidates ?? serveCandidates
 export const careMeta = (moduleKey: string): CareMeta | null => store.meta[moduleKey] ?? null
 // True when at least one PCO resource is still in its initial backfill (has
@@ -70,6 +73,7 @@ export async function loadCareData(slug: string): Promise<void> {
   store.groupDrift = null
   store.drift = null
   store.roster = null
+  store.rosterForward = null
   store.serveCandidates = null
   store.guestPipeline = null
   store.duplicates = null
@@ -113,7 +117,7 @@ export async function loadCareData(slug: string): Promise<void> {
   const { data, error } = await sb.from('church_dashboard_data')
     .select('module_key, payload, computed_at, source_freshness, status, error')
     .eq('client_id', client.id)
-    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'serveCandidates'])
+    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'rosterForward', 'serveCandidates'])
   if (error || !data) return
   for (const row of data as any[]) {
     store.meta[row.module_key] = { computedAt: row.computed_at, sourceFreshness: row.source_freshness, status: row.status, error: row.error }
@@ -125,6 +129,7 @@ export async function loadCareData(slug: string): Promise<void> {
     else if (row.module_key === 'guestPipeline') store.guestPipeline = row.payload
     else if (row.module_key === 'duplicates') store.duplicates = row.payload
     else if (row.module_key === 'roster') store.roster = row.payload
+    else if (row.module_key === 'rosterForward') store.rosterForward = row.payload
     else if (row.module_key === 'serveCandidates') store.serveCandidates = row.payload
   }
   store.loaded = true

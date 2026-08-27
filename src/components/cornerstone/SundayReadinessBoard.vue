@@ -9,7 +9,8 @@
  * fills. Fill-asks are drafted and approved before send.
  */
 import { computed } from 'vue'
-import { focalPointSchedule as sched, type TeamWeek } from '@/lib/clients/focal-point/rosterForward'
+import type { TeamWeek } from '@/lib/clients/focal-point/rosterForward'
+import { rosterForwardData } from '@/lib/clients/church/careDataLoader'
 import { rosterData } from '@/lib/clients/church/careDataLoader'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
@@ -49,7 +50,7 @@ const FLAG: Record<DisplayFlag, { label: (c: TeamWeek) => string; cls: string }>
   unconfirmed: { label: () => 'unconfirmed', cls: 'bg-brand/12 text-brand' },
   ready: { label: () => 'ready', cls: 'bg-success/12 text-success' },
 }
-function cell(team: string, week: (typeof sched.weeks)[number]) {
+function cell(team: string, week: (typeof sched.value.weeks)[number]) {
   return week.teams.find((t) => t.team === team)
 }
 
@@ -65,33 +66,36 @@ function cell(team: string, week: (typeof sched.weeks)[number]) {
  * So: if every expected team is "forgotten" for a week, the week is unbuilt.
  * A genuine forgotten team only counts when the rest of that Sunday exists.
  */
-function weekNotBuilt(week: (typeof sched.weeks)[number]): boolean {
-  return sched.expected.every((team) => {
+function weekNotBuilt(week: (typeof sched.value.weeks)[number]): boolean {
+  return sched.value.expected.every((team) => {
     const c = cell(team, week)
     return !c || flagOf(c) === 'forgotten'
   })
 }
-const builtWeeks = computed(() => sched.weeks.filter((w) => !weekNotBuilt(w)))
-const unbuiltWeeks = computed(() => sched.weeks.filter(weekNotBuilt))
+const builtWeeks = computed(() => sched.value.weeks.filter((w) => !weekNotBuilt(w)))
+const unbuiltWeeks = computed(() => sched.value.weeks.filter(weekNotBuilt))
 
 // --- Grace's get-ahead: the exceptions worth acting on now ---
 const forgotten = computed(() =>
-  sched.expected
+  sched.value.expected
     .map((team) => ({ team, weeks: builtWeeks.value.filter((w) => { const c = cell(team, w); return c && flagOf(c) === 'forgotten' }).map((w) => w.label) }))
     .filter((x) => x.weeks.length),
 )
 const chronicEmpty = computed(() =>
-  sched.expected
+  sched.value.expected
     .map((team) => ({ team, n: builtWeeks.value.filter((w) => { const c = cell(team, w); return c && flagOf(c) === 'empty' }).length }))
     .filter((x) => x.n >= 2)
     .sort((a, b) => b.n - a.n),
 )
-const thisSunday = sched.weeks[0]
-const unconfirmedNow = computed(() => thisSunday.teams.filter((t) => flagOf(t) === 'unconfirmed'))
+const thisSunday = computed(() => sched.value.weeks[0])
+const unconfirmedNow = computed(() => (thisSunday.value?.teams ?? []).filter((t) => flagOf(t) === 'unconfirmed'))
 
 // --- this Sunday burnout-aware fills (from the roster file) ---
 
 const props = defineProps<{ clientName?: string }>()
+// Live from the nightly sync when present, baked snapshot otherwise. Declared
+// here because the derived computeds below reference it.
+const sched = computed(() => rosterForwardData())
 // Live row when present, baked (anonymised in git) otherwise.
 const r = computed(() => rosterData())
 
