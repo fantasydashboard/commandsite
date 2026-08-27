@@ -5,26 +5,9 @@
 // enforcement arrives with the server-data phase.
 import { modulesForClient, type ClientModuleConfig } from '@/config/clients'
 import { moduleRegistry } from '@/modules/registry'
+import { ALWAYS_TABS } from './tabs'
 
-/**
- * Tabs every church user gets regardless of assignment. Today is a personal
- * view: it shows only the actions routed to you, so there is nothing to gate.
- */
-export const ALWAYS_TABS = ['today']
-
-/**
- * Selectable pages, in nav order. Settings is deliberately absent: it is
- * governed by permission_scope 'full' (which also controls settings WRITES at
- * the RLS level), not by a per-page tick, so it cannot be granted to someone
- * who is not trusted with the church's configuration.
- */
-export const ASSIGNABLE_TABS: { key: string; label: string }[] = [
-  { key: 'front-desk-guests', label: 'Front Desk & Guests' },
-  { key: 'care-drift', label: 'Care & Drift' },
-  { key: 'sundays-comms', label: 'Serving' },
-  { key: 'insights', label: 'Insights' },
-  { key: 'giving', label: 'Giving' },
-]
+export { ALWAYS_TABS, ASSIGNABLE_TABS } from './tabs'
 
 // Church permission scope -> tabs it may see. Retained as the FALLBACK for users
 // with no explicit page list, so existing accounts keep exactly what they had.
@@ -38,7 +21,15 @@ export const SCOPE_TABS: Record<string, string[]> = {
   member: ['today'],
 }
 
-const MODULE_TAB = new Map(moduleRegistry.map((m) => [m.key, m.tab]))
+// Built on first use, never at module scope. `moduleRegistry` is undefined
+// during a circular initialisation, and evaluating this eagerly turned that into
+// a thrown TypeError that failed the whole dashboard chunk rather than a
+// recoverable miss.
+let _moduleTab: Map<string, string | undefined> | null = null
+function moduleTab(): Map<string, string | undefined> {
+  if (!_moduleTab) _moduleTab = new Map(moduleRegistry.map((m) => [m.key, m.tab]))
+  return _moduleTab
+}
 
 // The modules a viewer may see. Client users are gated to the tabs their scope
 // allows; admins and non-client viewers (public demos, unauthenticated) see all.
@@ -64,7 +55,7 @@ export function modulesForUser(
   if (ctx.role !== 'client') return all
   const allowed = tabsFor(ctx)
   return all.filter((m) => {
-    const tab = MODULE_TAB.get(m.key)
+    const tab = moduleTab().get(m.key)
     return !tab || allowed.includes(tab)
   })
 }

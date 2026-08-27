@@ -7,7 +7,9 @@
  */
 import { onMounted, ref } from 'vue'
 import { listTeam, inviteMember, setScope, setTabs, setCongregation, sendReset, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
-import { ASSIGNABLE_TABS } from '@/lib/clients/church/access'
+// From the leaf module, NOT access.ts: access.ts imports the module registry,
+// and TeamSettings is reachable from it, so importing there is a cycle.
+import { ASSIGNABLE_TABS } from '@/lib/clients/church/tabs'
 
 const props = defineProps<{ tenant: string }>()
 
