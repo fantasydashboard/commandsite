@@ -54,10 +54,12 @@ Deno.serve(async (req: Request) => {
 
   // Identify + authorize caller (service role bypasses)
   const isServiceRole = token === SERVICE_ROLE_KEY
+  let callerId: string | null = null
   if (!isServiceRole) {
     const userClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } })
     const { data: userData } = await userClient.auth.getUser()
     if (!userData?.user) return json({ error: 'Invalid auth token' }, 401)
+    callerId = userData.user.id
     const { data: me } = await db.from('users').select('role, client_id, permission_scope').eq('id', userData.user.id).maybeSingle()
     const role = (me as { role?: string } | null)?.role
     const myClient = (me as { client_id?: string } | null)?.client_id
@@ -145,6 +147,38 @@ Deno.serve(async (req: Request) => {
     const { error } = await db.from('users').update({ allowed_tabs: tabs }).eq('id', userId).eq('client_id', clientId)
     if (error) return json({ error: error.message }, 500)
     return json({ ok: true })
+  }
+
+  // ── remove: delete the login and the profile row.
+  //
+  // Guards, in order of how badly each would hurt:
+  //   - never yourself: a church admin removing their own account locks the
+  //     church out of the only screen that can create new ones.
+  //   - never a CommandSite admin, and never someone from another church: the
+  //     client_id check means a church admin can only ever touch their own team.
+  //
+  // The auth user is deleted last. If the profile delete fails we stop, because
+  // a login with no profile row is a user who can sign in and see nothing,
+  // which is harder to diagnose than a failed removal.
+  if (action === 'remove') {
+    const userId = (body.user_id ?? '').trim()
+    if (!userId) return json({ error: 'user_id is required' }, 400)
+    if (callerId && userId === callerId) {
+      return json({ error: 'You cannot remove your own account.' }, 400)
+    }
+    const { data: target } = await db.from('users').select('role, client_id, email').eq('id', userId).maybeSingle()
+    if (!target) return json({ error: 'That person is not on this team.' }, 404)
+    const t = target as { role?: string; client_id?: string; email?: string }
+    if (t.client_id !== clientId) return json({ error: 'That person is not on this team.' }, 404)
+    if (t.role === 'admin') return json({ error: 'Admin accounts cannot be removed here.' }, 403)
+
+    const { error: rowErr } = await db.from('users').delete().eq('id', userId).eq('client_id', clientId)
+    if (rowErr) return json({ error: `Could not remove profile: ${rowErr.message}` }, 500)
+    const { error: authErr } = await db.auth.admin.deleteUser(userId)
+    // Profile is already gone, so they can no longer reach anything. Report the
+    // partial state rather than claiming a clean removal.
+    if (authErr) return json({ ok: true, warning: `Access removed, but the login could not be deleted: ${authErr.message}` })
+    return json({ ok: true, removed: t.email ?? userId })
   }
 
   // ── set-congregation

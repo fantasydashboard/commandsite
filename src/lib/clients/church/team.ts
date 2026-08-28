@@ -95,6 +95,12 @@ export async function setTabs(tenant: string, userId: string, tabs: string[]): P
   await invoke({ action: 'set-tabs', tenant, user_id: userId, tabs })
 }
 
+/** Removes a member's access and login. Cannot remove yourself or a CommandSite
+ *  admin; the edge function enforces both. */
+export async function removeMember(tenant: string, userId: string): Promise<{ warning?: string }> {
+  return await invoke<{ warning?: string }>({ action: 'remove', tenant, user_id: userId })
+}
+
 export async function setScope(tenant: string, userId: string, scope: string): Promise<void> {
   await invoke({ action: 'set-scope', tenant, user_id: userId, scope })
 }

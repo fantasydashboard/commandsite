@@ -6,7 +6,8 @@
  * parent module; the Cornerstone demo keeps its inline sample rendering.
  */
 import { onMounted, ref } from 'vue'
-import { listTeam, inviteMember, setScope, setTabs, setCongregation, sendReset, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
+import { listTeam, inviteMember, setScope, setTabs, setCongregation, sendReset, removeMember, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
+import { useAuthStore } from '@/stores/auth'
 // From the leaf module, NOT access.ts: access.ts imports the module registry,
 // and TeamSettings is reachable from it, so importing there is a cycle.
 import { ASSIGNABLE_TABS } from '@/lib/clients/church/tabs'
@@ -76,6 +77,27 @@ async function toggleTab(m: ChurchTeamMember, key: string) {
     m.allowed_tabs = prev
     error.value = e instanceof Error ? e.message : String(e)
   }
+}
+
+// Removal deletes a login, so it asks first. Two clicks, not a dialog: a modal
+// here would be more ceremony than the action deserves, but one click would be
+// too few for something irreversible.
+const auth = useAuthStore()
+const confirmRemove = ref<string | null>(null)
+
+function isSelf(m: ChurchTeamMember): boolean {
+  return m.id === (auth.profile as { id?: string } | null)?.id
+}
+
+async function doRemove(m: ChurchTeamMember) {
+  working.value = true; error.value = null
+  try {
+    const res = await removeMember(props.tenant, m.id)
+    confirmRemove.value = null
+    flash(res?.warning ? res.warning : `Removed ${m.full_name || m.email}`)
+    await refresh()
+  } catch (e) { error.value = e instanceof Error ? e.message : String(e) }
+  finally { working.value = false }
 }
 
 const showInvite = ref(false)
@@ -223,6 +245,25 @@ onMounted(refresh)
           <option v-for="c in CONGREGATIONS" :key="c.key" :value="c.key">{{ c.label }}</option>
         </select>
         <button type="button" class="text-xs text-ink-muted hover:text-brand hover:underline" @click="reset(m)">Send reset</button>
+        <!-- Hidden for your own row: removing yourself would lock the church out
+             of the only screen that can create accounts. -->
+        <template v-if="!isSelf(m)">
+          <button
+            v-if="confirmRemove !== m.id"
+            type="button"
+            class="text-xs text-ink-disabled hover:text-danger hover:underline"
+            @click="confirmRemove = m.id"
+          >Remove</button>
+          <span v-else class="inline-flex items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md bg-danger px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+              :disabled="working"
+              @click="doRemove(m)"
+            >Remove access</button>
+            <button type="button" class="text-[11px] text-ink-muted hover:text-ink" @click="confirmRemove = null">Cancel</button>
+          </span>
+        </template>
       </article>
     </div>
   </section>
