@@ -25,13 +25,11 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vue'
 import MondayRollup from '@/components/cornerstone/MondayRollup.vue'
 import DuplicatesTodayCard from '@/components/cornerstone/DuplicatesTodayCard.vue'
-import PersonalTodayView from '@/components/cornerstone/PersonalTodayView.vue'
 import MyTodayView from '@/components/cornerstone/MyTodayView.vue'
 import { useAuthStore } from '@/stores/auth'
 // From the leaf, NOT from access.ts: access.ts imports the module registry, and
 // this file lives in that registry.
 import { tabsFor } from '@/lib/clients/church/tabs'
-import { focalPointStaff, staffById } from '@/lib/clients/focal-point/staff'
 import { focalPointBrief, focalPointApproval } from '@/lib/clients/focal-point/today'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
@@ -60,36 +58,25 @@ const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 // they were granted. That contradicted the per-page permissions and contradicted
 // what staff were told when they were invited ("Today: your own to-do list").
 //
-// Two DIFFERENT questions, which must not be answered by one flag:
+// One question only: does this person oversee the whole church, or one desk?
 //
-//   isLeadership — does this person get the church-wide rollup instead of a
-//     personal queue? True for an admin, a public demo visitor, and the church's
-//     own full-scope account (Pastor Mark, Christina). They genuinely oversee
-//     everything, so the rollup is their real job view.
+// Leadership (admins and the church's full-scope accounts) see everything that
+// needs to happen today: the Monday rollup, the full approval queue, duplicates.
+// Everyone else gets MyTodayView, built from the pages they were granted.
 //
-//   isDemoViewer — should this person be shown SALES chrome (the Before/After
-//     Grace toggle, the "viewing as" switcher over sample staff)? Only us and
-//     anonymous visitors touring the product. Pastor Mark is a customer using
-//     the tool, not someone being sold it: a panel labelled "demo controls" on
-//     his own dashboard undercuts the thing he is paying for, and "Before Grace"
-//     blanks the page he came to work in.
-//
-// Collapsing these into one flag is what put demo chrome in front of the church.
+// There is deliberately no "viewing as" preview anymore. It let leadership step
+// into a sample staffer's view, but those views came from role GUESSES in
+// staff.ts rather than from anyone's real page assignment, so it showed
+// something that was not true while adding a row of chrome to the top of the
+// page. Leadership already sees the superset; a preview of a subset is clutter.
 const auth = useAuthStore()
 const isLeadership = computed(
   () => auth.profile?.role !== 'client' || auth.permissionScope === 'full',
 )
-const isDemoViewer = computed(() => auth.profile?.role !== 'client')
 const myTabs = computed(() =>
   tabsFor({ permissionScope: auth.permissionScope, allowedTabs: auth.allowedTabs }),
 )
 const myName = computed(() => auth.profile?.full_name ?? null)
-
-// Leadership preview of a staff member's view. 'all' = the leadership rollup.
-// Kept as a demo/inspection tool; it is NOT how real staff are routed anymore.
-const viewAs = ref('all')
-const activeStaff = computed(() => staffById(viewAs.value))
-const isFullView = computed(() => isLeadership.value && viewAs.value === 'all')
 
 function onRoleClick(role: GraceRole) {
   router.push({
@@ -329,10 +316,12 @@ const todayRecommendations: GraceRecommendation[] = [
          The wow moment. Visitor flips between "what your Monday looks
          like with Grace" vs "without her." Same structure as the Ada
          toggle on Heritage Bath.
-         Us and anonymous visitors only. Nobody at the church should be handed a
-         panel labelled "demo controls" on the dashboard they pay for, and
-         "Before Grace" empties the page they came to work in. -->
-    <div v-if="isDemoViewer" class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
+         DEMO CLIENTS ONLY. It is a sales device for prospects touring the
+         product, and it is the wow moment the churches landing page sends people
+         to, so it stays on Cornerstone. It has no business on a paying church's
+         dashboard: "Before Grace" empties the page they came to work in, and a
+         panel labelled "demo controls" makes the real thing look like a mockup. -->
+    <div v-if="!isFocalPoint" class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
       <div>
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">demo controls</div>
         <p class="text-[12.5px] text-ink-muted leading-snug mt-0.5">See what this same Monday looks like with vs without Grace.</p>
@@ -355,37 +344,8 @@ const todayRecommendations: GraceRecommendation[] = [
       </div>
     </div>
 
-    <!-- ── VIEWING AS (Focal Point per-user Today) ─────────────────────
-         Us and anonymous visitors only. It previews sample staff built from
-         staff.ts role GUESSES, so showing it to the church would invite Pastor
-         Mark to read it as "this is what Christina sees" when it is not. A
-         scoped staffer is already on their own Today, and a switcher full of
-         colleagues' names would only advertise views they cannot open. -->
-    <div
-      v-if="isFocalPoint && mode === 'with-grace' && isDemoViewer"
-      class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-divider bg-surface-elevated px-4 py-2.5"
-    >
-      <div class="flex flex-wrap items-center gap-2.5">
-        <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">Viewing as</span>
-        <div class="inline-flex flex-wrap items-center gap-0.5 rounded-full border border-divider bg-surface p-0.5">
-          <button
-            v-for="s in focalPointStaff"
-            :key="s.id"
-            type="button"
-            class="rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-            :class="viewAs === s.id ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:text-ink'"
-            :aria-pressed="viewAs === s.id"
-            @click="viewAs = s.id"
-          >{{ s.id === 'all' ? 'Everyone' : s.name }}</button>
-        </div>
-      </div>
-      <p class="text-[11px] leading-snug text-ink-muted">
-        <template v-if="isFullView">Leadership view. Each staffer logs in to just their own tasks, preview any above.</template>
-        <template v-else>Previewing {{ activeStaff.name }}'s login. Roles are a starting point; final setup comes from your staff list.</template>
-      </p>
-    </div>
-
-    <!-- The real per-user Today: this person's granted pages, live data. -->
+    <!-- Per-user Today: this person's granted pages, live data. Leadership
+         falls through to the church-wide rollup below instead. -->
     <MyTodayView
       v-if="isFocalPoint && mode === 'with-grace' && !isLeadership"
       :slug="client.slug"
@@ -393,17 +353,9 @@ const todayRecommendations: GraceRecommendation[] = [
       :name="myName"
     />
 
-    <!-- Leadership previewing a named staffer (staff.ts role guesses, baked
-         sample data). Demo surface only, never what a staffer logs in to. -->
-    <PersonalTodayView
-      v-else-if="isFocalPoint && mode === 'with-grace' && !isFullView"
-      :staff="activeStaff"
-      :slug="client.slug"
-    />
-
     <!-- ── GRACE'S MORNING HANDOFF — the emotional cheat-code moment ─ -->
     <GraceMorningHandoff
-      v-if="mode === 'with-grace' && (!isFocalPoint || isFullView)"
+      v-if="mode === 'with-grace' && (!isFocalPoint || isLeadership)"
       :pastor-name="isFocalPoint ? 'Pastor Mark' : 'Pastor Andrew'"
       :brief="isFocalPoint ? focalPointBrief : null"
     />
@@ -522,7 +474,7 @@ const todayRecommendations: GraceRecommendation[] = [
          Hidden in 'before-grace' mode since these roles don't exist
          without Grace. -->
     <!-- Focal Point: real unified rollup of all four pages -->
-    <MondayRollup v-if="isFocalPoint && mode === 'with-grace' && isFullView" :slug="client.slug" />
+    <MondayRollup v-if="isFocalPoint && mode === 'with-grace' && isLeadership" :slug="client.slug" />
     <AdaAtWorkHub
       v-if="!isFocalPoint && mode === 'with-grace'"
       :roles="graceRoles"
@@ -533,7 +485,7 @@ const todayRecommendations: GraceRecommendation[] = [
 
     <!-- ── 2. Approval queue — Grace's drafts awaiting pastoral sign-off ─ -->
     <GraceApprovalQueue
-      v-if="mode === 'with-grace' && (!isFocalPoint || isFullView)"
+      v-if="mode === 'with-grace' && (!isFocalPoint || isLeadership)"
       :items="isFocalPoint ? focalPointApproval : queueItems"
       :initial-resolved="8"
       :subtitle="isFocalPoint
@@ -557,7 +509,7 @@ const todayRecommendations: GraceRecommendation[] = [
     <GraceRecommendations v-if="mode === 'with-grace' && !isFocalPoint" :recommendations="todayRecommendations" />
 
     <!-- Focal Point: real data-cleanup recommendation (flagged people with duplicate profiles) -->
-    <DuplicatesTodayCard v-if="mode === 'with-grace' && isFocalPoint && isFullView" :slug="client.slug" />
+    <DuplicatesTodayCard v-if="mode === 'with-grace' && isFocalPoint && isLeadership" :slug="client.slug" />
 
     <!-- ── 3. Today snapshot + Live activity (Cornerstone demo; Focal Point at-a-glance is in the rollup) ─── -->
     <section v-if="!isFocalPoint" class="card overflow-hidden !p-0">
