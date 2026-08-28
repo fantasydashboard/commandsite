@@ -60,13 +60,26 @@ const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 // they were granted. That contradicted the per-page permissions and contradicted
 // what staff were told when they were invited ("Today: your own to-do list").
 //
-// Leadership = an admin, a public demo visitor (no profile), or the church's
-// full-scope account. Only they get the rollup and the preview switcher.
-// Everyone else gets MyTodayView, built from their own granted pages.
+// Two DIFFERENT questions, which must not be answered by one flag:
+//
+//   isLeadership — does this person get the church-wide rollup instead of a
+//     personal queue? True for an admin, a public demo visitor, and the church's
+//     own full-scope account (Pastor Mark, Christina). They genuinely oversee
+//     everything, so the rollup is their real job view.
+//
+//   isDemoViewer — should this person be shown SALES chrome (the Before/After
+//     Grace toggle, the "viewing as" switcher over sample staff)? Only us and
+//     anonymous visitors touring the product. Pastor Mark is a customer using
+//     the tool, not someone being sold it: a panel labelled "demo controls" on
+//     his own dashboard undercuts the thing he is paying for, and "Before Grace"
+//     blanks the page he came to work in.
+//
+// Collapsing these into one flag is what put demo chrome in front of the church.
 const auth = useAuthStore()
 const isLeadership = computed(
   () => auth.profile?.role !== 'client' || auth.permissionScope === 'full',
 )
+const isDemoViewer = computed(() => auth.profile?.role !== 'client')
 const myTabs = computed(() =>
   tabsFor({ permissionScope: auth.permissionScope, allowedTabs: auth.allowedTabs }),
 )
@@ -316,10 +329,10 @@ const todayRecommendations: GraceRecommendation[] = [
          The wow moment. Visitor flips between "what your Monday looks
          like with Grace" vs "without her." Same structure as the Ada
          toggle on Heritage Bath.
-         Leadership and demo visitors only. A staffer who logs in to do their
-         actual job should not be handed a labelled "demo controls" panel on
-         their own dashboard, and "Before Grace" empties the page for them. -->
-    <div v-if="isLeadership" class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
+         Us and anonymous visitors only. Nobody at the church should be handed a
+         panel labelled "demo controls" on the dashboard they pay for, and
+         "Before Grace" empties the page they came to work in. -->
+    <div v-if="isDemoViewer" class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
       <div>
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">demo controls</div>
         <p class="text-[12.5px] text-ink-muted leading-snug mt-0.5">See what this same Monday looks like with vs without Grace.</p>
@@ -343,11 +356,13 @@ const todayRecommendations: GraceRecommendation[] = [
     </div>
 
     <!-- ── VIEWING AS (Focal Point per-user Today) ─────────────────────
-         Leadership only. A scoped staffer is already ON their own Today, so
-         showing them a switcher full of colleagues' names would advertise views
-         they cannot open. -->
+         Us and anonymous visitors only. It previews sample staff built from
+         staff.ts role GUESSES, so showing it to the church would invite Pastor
+         Mark to read it as "this is what Christina sees" when it is not. A
+         scoped staffer is already on their own Today, and a switcher full of
+         colleagues' names would only advertise views they cannot open. -->
     <div
-      v-if="isFocalPoint && mode === 'with-grace' && isLeadership"
+      v-if="isFocalPoint && mode === 'with-grace' && isDemoViewer"
       class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-divider bg-surface-elevated px-4 py-2.5"
     >
       <div class="flex flex-wrap items-center gap-2.5">
