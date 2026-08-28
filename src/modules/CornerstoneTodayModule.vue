@@ -26,6 +26,11 @@ import GraceMorningHandoff from '@/components/cornerstone/GraceMorningHandoff.vu
 import MondayRollup from '@/components/cornerstone/MondayRollup.vue'
 import DuplicatesTodayCard from '@/components/cornerstone/DuplicatesTodayCard.vue'
 import PersonalTodayView from '@/components/cornerstone/PersonalTodayView.vue'
+import MyTodayView from '@/components/cornerstone/MyTodayView.vue'
+import { useAuthStore } from '@/stores/auth'
+// From the leaf, NOT from access.ts: access.ts imports the module registry, and
+// this file lives in that registry.
+import { tabsFor } from '@/lib/clients/church/tabs'
 import { focalPointStaff, staffById } from '@/lib/clients/focal-point/staff'
 import { focalPointBrief, focalPointApproval } from '@/lib/clients/focal-point/today'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
@@ -47,11 +52,31 @@ const peopleStats = data.people.stats
 // Focal Point gets its real brief + welcome drafts; Cornerstone keeps the demo.
 const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
 
-// Per-user Today: super-user (leadership) previews any staff member's view.
-// 'all' = the full leadership rollup; any other id = that person's filtered Today.
+// ── Who is looking at this page ───────────────────────────────────────────
+// This USED to be `viewAs = ref('all')` alone, which was never derived from the
+// session: it only moved when someone clicked the switcher below. So every
+// logged-in staffer landed on the leadership rollup and saw church-wide
+// approvals, the Monday rollup and the duplicates card, regardless of the pages
+// they were granted. That contradicted the per-page permissions and contradicted
+// what staff were told when they were invited ("Today: your own to-do list").
+//
+// Leadership = an admin, a public demo visitor (no profile), or the church's
+// full-scope account. Only they get the rollup and the preview switcher.
+// Everyone else gets MyTodayView, built from their own granted pages.
+const auth = useAuthStore()
+const isLeadership = computed(
+  () => auth.profile?.role !== 'client' || auth.permissionScope === 'full',
+)
+const myTabs = computed(() =>
+  tabsFor({ permissionScope: auth.permissionScope, allowedTabs: auth.allowedTabs }),
+)
+const myName = computed(() => auth.profile?.full_name ?? null)
+
+// Leadership preview of a staff member's view. 'all' = the leadership rollup.
+// Kept as a demo/inspection tool; it is NOT how real staff are routed anymore.
 const viewAs = ref('all')
 const activeStaff = computed(() => staffById(viewAs.value))
-const isFullView = computed(() => viewAs.value === 'all')
+const isFullView = computed(() => isLeadership.value && viewAs.value === 'all')
 
 function onRoleClick(role: GraceRole) {
   router.push({
@@ -290,8 +315,11 @@ const todayRecommendations: GraceRecommendation[] = [
     <!-- ── BEFORE / AFTER GRACE TOGGLE ─────────────────────────────────
          The wow moment. Visitor flips between "what your Monday looks
          like with Grace" vs "without her." Same structure as the Ada
-         toggle on Heritage Bath. -->
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
+         toggle on Heritage Bath.
+         Leadership and demo visitors only. A staffer who logs in to do their
+         actual job should not be handed a labelled "demo controls" panel on
+         their own dashboard, and "Before Grace" empties the page for them. -->
+    <div v-if="isLeadership" class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-divider bg-surface-elevated px-4 py-3">
       <div>
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand">demo controls</div>
         <p class="text-[12.5px] text-ink-muted leading-snug mt-0.5">See what this same Monday looks like with vs without Grace.</p>
@@ -315,10 +343,11 @@ const todayRecommendations: GraceRecommendation[] = [
     </div>
 
     <!-- ── VIEWING AS (Focal Point per-user Today) ─────────────────────
-         Super-user preview: leadership can step into any staffer's view.
-         Each staffer logs in to just their own slice. -->
+         Leadership only. A scoped staffer is already ON their own Today, so
+         showing them a switcher full of colleagues' names would advertise views
+         they cannot open. -->
     <div
-      v-if="isFocalPoint && mode === 'with-grace'"
+      v-if="isFocalPoint && mode === 'with-grace' && isLeadership"
       class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-divider bg-surface-elevated px-4 py-2.5"
     >
       <div class="flex flex-wrap items-center gap-2.5">
@@ -341,9 +370,18 @@ const todayRecommendations: GraceRecommendation[] = [
       </p>
     </div>
 
-    <!-- Per-user view: one staffer's filtered Today -->
+    <!-- The real per-user Today: this person's granted pages, live data. -->
+    <MyTodayView
+      v-if="isFocalPoint && mode === 'with-grace' && !isLeadership"
+      :slug="client.slug"
+      :tabs="myTabs"
+      :name="myName"
+    />
+
+    <!-- Leadership previewing a named staffer (staff.ts role guesses, baked
+         sample data). Demo surface only, never what a staffer logs in to. -->
     <PersonalTodayView
-      v-if="isFocalPoint && mode === 'with-grace' && !isFullView"
+      v-else-if="isFocalPoint && mode === 'with-grace' && !isFullView"
       :staff="activeStaff"
       :slug="client.slug"
     />
@@ -355,7 +393,12 @@ const todayRecommendations: GraceRecommendation[] = [
       :brief="isFocalPoint ? focalPointBrief : null"
     />
 
-    <section v-else class="rounded-card border border-danger/25 bg-danger/[0.04] px-5 py-5 sm:px-6 sm:py-6">
+    <!-- The "cold Monday" pain state belongs to the WITHOUT-Grace toggle only.
+         As a bare v-else it also caught the personal-Today branch, so a scoped
+         staffer would have been shown the no-Grace scare copy on their own
+         dashboard. Conditioned explicitly so the personal branch renders
+         neither. -->
+    <section v-else-if="mode !== 'with-grace'" class="rounded-card border border-danger/25 bg-danger/[0.04] px-5 py-5 sm:px-6 sm:py-6">
       <header class="flex items-center gap-3 mb-3">
         <div class="h-9 w-9 rounded-full bg-ink-disabled text-ink-inverse flex items-center justify-center text-sm font-bold flex-shrink-0">?</div>
         <div>
@@ -484,7 +527,10 @@ const todayRecommendations: GraceRecommendation[] = [
       @approved="onApproved"
     />
 
-    <section v-else class="card border-danger/25">
+    <!-- Same fix as the handoff above: the without-Grace pain card must not
+         catch the personal-Today branch. A scoped staffer's own approvals live
+         in MyTodayView; the church-wide queue is leadership's. -->
+    <section v-else-if="mode !== 'with-grace'" class="card border-danger/25">
       <header class="mb-2">
         <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-danger mb-1">today's approvals</div>
         <h3 class="text-base font-bold text-ink">0 drafts waiting</h3>
