@@ -47,6 +47,12 @@ const props = withDefaults(defineProps<{
   resolvedLabel?: string
   /** Display name of the assistant. Defaults to "Grace". Apex pages pass "Ada". */
   assistantName?: string
+  /** Replaces the "will surface the next batch as it lands" line when the queue
+   *  is empty. An empty queue has two meanings that look identical: caught up,
+   *  or nothing has arrived in weeks. The second reads as good news and hides a
+   *  front door nobody is watching, so a page that can tell them apart says
+   *  which one it is. Optional: demo queues have no real intake to report on. */
+  emptyNote?: string | null
   /** Push the `approved_response` text into the shared assistant chat
    *  store on approve. Cornerstone renders that chat (floating widget),
    *  so the chime-in works; Apex doesn't, so its consumers pass `false`. */
@@ -251,7 +257,8 @@ async function actOnItem(item: ApprovalQueueItem, action: 'approve' | 'edit' | '
     <div v-if="queueItems.length === 0" class="px-5 py-10 text-center">
       <p class="text-sm font-semibold text-ink">All clear for today</p>
       <p class="text-xs text-ink-muted mt-1">
-        {{ assistantName }} will surface the next batch as it lands.
+        <template v-if="emptyNote">{{ emptyNote }}</template>
+        <template v-else>{{ assistantName }} will surface the next batch as it lands.</template>
         <span v-if="resolvedCounter > 0">{{ resolvedCounter }} handled today.</span>
       </p>
     </div>

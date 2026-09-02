@@ -114,6 +114,34 @@ const guestQueue = computed<ApprovalQueueItem[]>(() =>
     }),
 )
 
+// An empty welcome queue means one of two very different things, and "Grace will
+// surface the next batch as it lands" reads as the good one either way.
+//
+// Found this on the Brazilian lens: the queue was empty and looked fine, but the
+// last Starting Point card was 20 days old while English had one from 3 days
+// ago. Either nobody new came, or the Brazilian service stopped running guests
+// through the workflow. The second is a front door nobody is watching, and the
+// dashboard was actively reassuring them about it.
+//
+// The queue only holds first visits from the last 7 days, so when it is empty we
+// report how long the wait has been, read off the newest active card's own `age`
+// label ('this week' or 'Nw ago').
+//
+// Scanned by MINIMUM age rather than by taking the first match. Cases are sorted
+// newest-first WITHIN a campus but the array runs English then Brazilian, so on
+// the All lens "first in-scope" is the newest English card, not the newest card.
+// That reports the wrong wait the moment English is the quiet one.
+const guestEmptyNote = computed<string | null>(() => {
+  if (!isFocalPoint.value) return null
+  const weeks = (age: string) => (age === 'this week' ? 0 : Number.parseInt(age, 10) || 0)
+  const ages = guestPipelineData().cases.filter((c) => gpInScope(c.campus)).map((c) => c.age)
+  const where = lens.scope === 'all' ? '' : ` in the ${lens.scope} congregation`
+  if (!ages.length) return `No first-time guests${where} in the last 90 days. Worth checking whether sign-ins are still going through Starting Point.`
+  const newest = ages.reduce((a, b) => (weeks(b) < weeks(a) ? b : a))
+  if (weeks(newest) === 0) return 'Grace will surface the next batch as it lands.'
+  return `Nothing new in the last 7 days${where}. The most recent first-time guest signed in ${newest}.`
+})
+
 // Real send path: only wired for Focal Point (the queue's message_type +
 // person_id/card_id are only populated there). Cornerstone's demo queueItems
 // never carry message_type, so GraceApprovalQueue's approve stays cosmetic
@@ -364,6 +392,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       :heading="isFocalPoint ? 'Needs you this week' : 'First-touch queue'"
       :subtitle="isFocalPoint ? 'Welcome notes for this week\'s first-time guests. Approve to send. Everyone else is tracked on the board below.' : 'Visitor sequences + story permissions awaiting your eyes. Co-sign to send.'"
       :send-handler="guestSendHandler"
+      :empty-note="isFocalPoint ? guestEmptyNote : null"
       @approved="onApproved"
     />
 
