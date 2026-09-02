@@ -7,7 +7,7 @@
  */
 import { computed } from 'vue'
 import { useCareActions } from '@/stores/careActions'
-import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import { activityFor } from '@/lib/clients/focal-point/activity'
 
 const care = useCareActions()

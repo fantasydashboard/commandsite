@@ -10,7 +10,7 @@ import { computed, ref } from 'vue'
 import { carePipeline, type CareCase, type Track } from '@/lib/clients/focal-point/carePipeline'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
-import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { congregationOf, congregationMapMissing } from '@/lib/clients/focal-point/congregationLive'
 import { servingResumedByName } from '@/lib/clients/focal-point/servingLive'
 import { familyCases } from '@/lib/clients/focal-point/familyPipeline'
 import { careCaseFlag } from '@/lib/clients/focal-point/flags'
@@ -18,6 +18,9 @@ import { careCaseFlag } from '@/lib/clients/focal-point/flags'
 const care = useCareActions()
 const lens = useCongregationLens()
 const inScope = (c: CareCase) => lens.scope === 'all' || congregationOf(c.name) === lens.scope
+// Scoped to a congregation, but no map to scope WITH: every name resolves to
+// null and the list empties for a reason that has nothing to do with the church.
+const lensUnplaceable = computed(() => lens.scope !== 'all' && congregationMapMissing())
 // familyCases already excludes families who returned; only serving needs the
 // resumed check here. Dismiss/snooze + resolved-this-session also hide a card.
 const notReturned = (c: CareCase) => !(c.track === 'serving' && servingResumedByName(c.name))
@@ -139,5 +142,14 @@ function avatarBlock(c: CareCase) { return c.avatar }
     </article>
   </div>
 
-  <p v-if="!actionCount" class="card text-center text-sm text-ink-muted">All caught up. Nice work.</p>
+  <!-- An empty SCOPED view has two very different causes, and calling both of
+       them "all caught up" is how this shipped broken: with no congregation map
+       loaded, nobody can be placed, so English and Brazilian both went empty and
+       read as good news. Say which one it is. -->
+  <p v-if="!actionCount && lensUnplaceable" class="card text-center text-sm text-ink-muted">
+    Nobody can be sorted into a congregation yet, so this view is empty rather than clear.
+    Switch to <button type="button" class="font-semibold text-brand underline" @click="lens.set('all')">All</button>
+    to see everyone who needs you.
+  </p>
+  <p v-else-if="!actionCount" class="card text-center text-sm text-ink-muted">All caught up. Nice work.</p>
 </template>

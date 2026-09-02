@@ -33,6 +33,12 @@ const store = reactive({
   roster: null as typeof focalPointRoster | null,
   rosterForward: null as typeof focalPointSchedule | null,
   serveCandidates: null as typeof serveCandidates | null,
+  // Same story as roster/serveCandidates. The congregation map (name ->
+  // english|brazilian) drives the whole lens, and its committed copy is empty
+  // because the real one is skip-worktree. Production therefore could not place
+  // anyone, and picking a congregation emptied Care & Drift instead of
+  // filtering it. Read it from the table like everything else.
+  congregation: null as Record<string, 'brazilian' | 'english'> | null,
   signature: '' as string,
   meta: {} as Record<string, CareMeta>,
   syncStates: [] as SyncStateRow[],
@@ -75,6 +81,7 @@ export async function loadCareData(slug: string): Promise<void> {
   store.roster = null
   store.rosterForward = null
   store.serveCandidates = null
+  store.congregation = null
   store.guestPipeline = null
   store.duplicates = null
   store.signature = ''
@@ -117,7 +124,7 @@ export async function loadCareData(slug: string): Promise<void> {
   const { data, error } = await sb.from('church_dashboard_data')
     .select('module_key, payload, computed_at, source_freshness, status, error')
     .eq('client_id', client.id)
-    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'rosterForward', 'serveCandidates'])
+    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'rosterForward', 'serveCandidates', 'congregation'])
   if (error || !data) return
   for (const row of data as any[]) {
     store.meta[row.module_key] = { computedAt: row.computed_at, sourceFreshness: row.source_freshness, status: row.status, error: row.error }
@@ -131,6 +138,7 @@ export async function loadCareData(slug: string): Promise<void> {
     else if (row.module_key === 'roster') store.roster = row.payload
     else if (row.module_key === 'rosterForward') store.rosterForward = row.payload
     else if (row.module_key === 'serveCandidates') store.serveCandidates = row.payload
+    else if (row.module_key === 'congregation') store.congregation = row.payload
   }
   store.loaded = true
 }

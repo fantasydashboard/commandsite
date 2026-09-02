@@ -11,7 +11,7 @@
 import { computed } from 'vue'
 import { returnedFamilies } from '@/lib/clients/focal-point/driftLive'
 import { servingResumers } from '@/lib/clients/focal-point/servingLive'
-import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import { useCongregationLens } from '@/stores/congregationLens'
 
 const lens = useCongregationLens()

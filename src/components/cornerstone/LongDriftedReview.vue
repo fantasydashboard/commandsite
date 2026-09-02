@@ -32,7 +32,7 @@ import {
 } from '@/lib/clients/focal-point/familyPipeline'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
-import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
 

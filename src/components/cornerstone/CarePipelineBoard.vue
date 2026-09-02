@@ -10,7 +10,7 @@
 import { carePipeline, TRACKS, STAGES, type Track, type CareCase } from '@/lib/clients/focal-point/carePipeline'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
-import { congregationOf } from '@/lib/clients/focal-point/congregation'
+import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import { returnedFamilies } from '@/lib/clients/focal-point/driftLive'
 import { servingResumers } from '@/lib/clients/focal-point/servingLive'
 import { focalPointServing } from '@/lib/clients/focal-point/serving'
