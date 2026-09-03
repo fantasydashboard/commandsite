@@ -16,6 +16,7 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import PageLeadChip from '@/components/cornerstone/PageLeadChip.vue'
+import DataFreshnessBadge from '@/components/cornerstone/DataFreshnessBadge.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
@@ -254,6 +255,7 @@ const careRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: client.slug, tab: 'today' } }">
       <template #lead>
         <PageLeadChip :client-id="client.id" page="care-drift" />
+        <DataFreshnessBadge v-if="isLiveChurch" resource="drift" />
       </template>
     </RolesOnPage>
 

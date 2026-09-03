@@ -15,6 +15,7 @@ import { focalPointVisitorTouches } from '@/lib/clients/focal-point/visitors'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import PageLeadChip from '@/components/cornerstone/PageLeadChip.vue'
+import DataFreshnessBadge from '@/components/cornerstone/DataFreshnessBadge.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
@@ -27,6 +28,9 @@ import { useCongregationLens } from '@/stores/congregationLens'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Freshness is only meaningful for a church with a live Planning Center sync.
+const isLiveChurch = computed(() => LIVE_CHURCHES.includes(props.client?.slug))
 
 // Front Desk scopes by congregation: the two Starting Point workflows tag every
 // guest English (weekend) or Brazilian, so the KPIs, board, and welcome queue
@@ -330,6 +334,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: client.slug, tab: 'today' } }">
       <template #lead>
         <PageLeadChip :client-id="client.id" page="front-desk-guests" />
+        <DataFreshnessBadge v-if="isLiveChurch" resource="guestPipeline" />
       </template>
     </RolesOnPage>
 

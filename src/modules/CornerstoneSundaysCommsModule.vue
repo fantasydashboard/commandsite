@@ -13,6 +13,7 @@ import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/G
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import PageLeadChip from '@/components/cornerstone/PageLeadChip.vue'
+import DataFreshnessBadge from '@/components/cornerstone/DataFreshnessBadge.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
@@ -30,6 +31,9 @@ import { heavyLoad, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
 import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 
 const props = defineProps<{ client: Client; config: Record<string, unknown> }>()
+
+// Freshness is only meaningful for a church with a live Planning Center sync.
+const isLiveChurch = computed(() => LIVE_CHURCHES.includes(props.client?.slug))
 
 // The roster snapshot's real age, so the KPI can date itself instead of
 // asserting a stale "days away".
@@ -247,6 +251,7 @@ const sundaysRecommendations: GraceRecommendation[] = [
       :back-to="{ name: 'dashboard.tab', params: { slug: client.slug, tab: 'today' } }">
       <template #lead>
         <PageLeadChip :client-id="client.id" page="sundays-comms" />
+        <DataFreshnessBadge v-if="isLiveChurch" resource="roster" />
       </template>
     </RolesOnPage>
 

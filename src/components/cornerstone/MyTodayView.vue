@@ -35,6 +35,7 @@ import { servingResumedByName } from '@/lib/clients/focal-point/servingLive'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { useCareActions } from '@/stores/careActions'
 import { careCaseFlag } from '@/lib/clients/focal-point/flags'
+import DataFreshnessBadge from './DataFreshnessBadge.vue'
 
 const props = defineProps<{ slug: string; tabs: string[]; name?: string | null }>()
 
@@ -175,7 +176,14 @@ const readOnlyTab = computed(() => props.tabs.find((t) => t !== 'today') ?? 'ins
           </template>
         </h3>
       </div>
-      <span class="text-[11px] text-ink-muted">Just your pages</span>
+      <div class="flex flex-wrap items-center gap-3">
+        <!-- A scoped staffer never sees the leadership rollup, which is where
+             the freshness badge used to live exclusively. They had no way to
+             tell whether an empty list meant "nothing to do" or "nothing has
+             synced". -->
+        <DataFreshnessBadge resource="drift" />
+        <span class="text-[11px] text-ink-muted">Just your pages</span>
+      </div>
     </div>
 
     <p v-if="noPages" class="mt-1 max-w-2xl text-sm text-ink-muted">

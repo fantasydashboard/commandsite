@@ -12,10 +12,17 @@ import { asOfLabel } from '@/lib/clients/focal-point/dataFreshness'
 import { careMeta, careSyncing } from '@/lib/clients/church/careDataLoader'
 import { fmtAgo } from '@/lib/format'
 
+/**
+ * Which synced resource this badge reports on. Defaults to 'serving' for the
+ * leadership rollup, but each page should pass its OWN resource: a staffer on
+ * Front Desk cares whether the guest pipeline is current, not the roster.
+ */
+const props = withDefaults(defineProps<{ resource?: string }>(), { resource: 'serving' })
+
 const STALE_MS = 36 * 60 * 60 * 1000
 
 const syncing = computed(() => careSyncing())
-const meta = computed(() => careMeta('serving'))
+const meta = computed(() => careMeta(props.resource))
 const isLive = computed(() => !!meta.value?.computedAt)
 const isStale = computed(() => {
   const m = meta.value
