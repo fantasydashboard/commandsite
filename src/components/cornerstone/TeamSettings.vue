@@ -5,14 +5,23 @@
  * adjust scope, invite, and send a password reset. Gated to real churches by the
  * parent module; the Cornerstone demo keeps its inline sample rendering.
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { listTeam, inviteMember, setScope, setTabs, setCongregation, sendReset, removeMember, PERMISSION_SCOPES, CONGREGATIONS, type ChurchTeamMember } from '@/lib/clients/church/team'
 import { useAuthStore } from '@/stores/auth'
 // From the leaf module, NOT access.ts: access.ts imports the module registry,
 // and TeamSettings is reachable from it, so importing there is a cycle.
-import { ASSIGNABLE_TABS } from '@/lib/clients/church/tabs'
+import { ASSIGNABLE_TABS, assignableTabsFor } from '@/lib/clients/church/tabs'
+import { useDashboardContext } from '@/pages/dashboard/context'
 
 const props = defineProps<{ tenant: string }>()
+
+// Only offer pages this church actually has modules for. Focal Point has no
+// giving module, so ticking Giving used to save and then silently do nothing.
+// enabledModuleKeys comes from DashboardLayout via provide/inject, which keeps
+// this file clear of the module registry and therefore clear of the import
+// cycle documented in tabs.ts.
+const { enabledModuleKeys } = useDashboardContext()
+const tabChoices = computed(() => assignableTabsFor(enabledModuleKeys.value))
 
 const members = ref<ChurchTeamMember[]>([])
 const loading = ref(true)
@@ -225,7 +234,7 @@ onMounted(refresh)
              it only ever shows the actions routed to that person. -->
         <div class="flex flex-wrap items-center gap-1.5">
           <label
-            v-for="t in ASSIGNABLE_TABS"
+            v-for="t in tabChoices"
             :key="t.key"
             class="inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors"
             :class="hasTab(m, t.key)

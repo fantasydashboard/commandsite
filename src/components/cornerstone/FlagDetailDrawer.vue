@@ -8,7 +8,7 @@
 import { computed } from 'vue'
 import { useCareActions } from '@/stores/careActions'
 import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
-import { activityFor } from '@/lib/clients/focal-point/activity'
+import { activityFor, activityMapMissing } from '@/lib/clients/focal-point/activityLive'
 
 const care = useCareActions()
 const detail = computed(() => care.activeDetail)
@@ -17,6 +17,9 @@ const detail = computed(() => care.activeDetail)
 const congregation = computed(() => (detail.value ? congregationOf(detail.value.name) : null))
 const activity = computed(() => (detail.value ? activityFor(detail.value.name) : null))
 const recent = computed(() => activity.value?.items ?? [])
+// An absent evidence panel reads as "there is no evidence", which is a much
+// stronger and much worse claim than "we have not loaded it". Distinguish them.
+const historyUnavailable = computed(() => !recent.value.length && activityMapMissing())
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function fmtDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -182,6 +185,14 @@ function restore() {
             <template v-else>The colored tag is the service they attended: <span class="font-medium text-warn">Brazilian</span> vs the English morning services. Live from Planning Center check-ins.</template>
           </p>
         </div>
+
+        <p
+          v-if="historyUnavailable"
+          class="mt-4 rounded-lg border border-divider bg-surface-elevated/40 px-3 py-2 text-[12px] text-ink-muted"
+        >
+          Their check-in history has not loaded, so the evidence behind this flag is not shown here.
+          The flag itself is still based on it. Tell Josh if this keeps happening.
+        </p>
 
         <p v-if="detail.routeTo" class="mt-3 rounded-lg border border-divider bg-surface-elevated/40 px-3 py-2 text-[12px] text-ink-muted">
           Routes to the <span class="font-medium text-ink">{{ detail.routeTo }}</span> leader.

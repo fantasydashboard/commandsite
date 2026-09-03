@@ -19,9 +19,14 @@ function initials(name: string): string {
   return name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')
 }
 
-const pri = (i: number) => focalPointPriority.items[i]
+// priority.ts is skip-worktree and its COMMITTED copy has `items: []`, so in
+// production every pri(i) was undefined and the template's `r.item.avatar`
+// threw the moment a staffer clicked "See what a leader receives". The rows are
+// filtered to those that actually resolved, and the whole card hides when none
+// do, so a data gap degrades to absence instead of a crash.
+const pri = (i: number) => focalPointPriority.items[i] as typeof focalPointPriority.items[number] | undefined
 // Youth Service team: three who stopped (re-engage) + one over-serving (protect).
-const rows = [
+const allRows = [
   {
     id: 'ld-1', item: pri(1), kind: 'reengage' as const,
     headsup: 'Heads up: she was serving nearly every week right up until she stopped. This may be a burnout drop, so lead with care, not a recruiting ask.',
@@ -45,10 +50,17 @@ const KIND = {
   reengage: { label: 'Stopped serving', cls: 'bg-accent/15 text-accent' },
   protect: { label: 'Over-serving', cls: 'bg-danger/12 text-danger' },
 }
+// Drop any row whose person did not resolve (empty priority payload).
+type Row = (typeof allRows)[number]
+const rows = allRows.filter(
+  (r): r is Row & { item: NonNullable<Row['item']> } => !!r.item,
+)
 </script>
 
 <template>
-  <section class="card">
+  <!-- Hidden entirely when no people resolved: an empty leader-digest demo is
+       worse than no demo, and a half-rendered one used to throw. -->
+  <section v-if="rows.length" class="card">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <span class="eyebrow">Leader digest</span>

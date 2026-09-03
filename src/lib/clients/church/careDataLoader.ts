@@ -39,6 +39,11 @@ const store = reactive({
   // anyone, and picking a congregation emptied Care & Drift instead of
   // filtering it. Read it from the table like everything else.
   congregation: null as Record<string, 'brazilian' | 'english'> | null,
+  // Same story again. activity.ts is the evidence behind every flag (the
+  // check-ins and serving shifts the drawer shows), and its committed copy is
+  // empty, so production showed flags with no proof and no empty state.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  activity: null as Record<string, any> | null,
   signature: '' as string,
   meta: {} as Record<string, CareMeta>,
   syncStates: [] as SyncStateRow[],
@@ -82,6 +87,7 @@ export async function loadCareData(slug: string): Promise<void> {
   store.rosterForward = null
   store.serveCandidates = null
   store.congregation = null
+  store.activity = null
   store.guestPipeline = null
   store.duplicates = null
   store.signature = ''
@@ -124,7 +130,7 @@ export async function loadCareData(slug: string): Promise<void> {
   const { data, error } = await sb.from('church_dashboard_data')
     .select('module_key, payload, computed_at, source_freshness, status, error')
     .eq('client_id', client.id)
-    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'rosterForward', 'serveCandidates', 'congregation'])
+    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'rosterForward', 'serveCandidates', 'congregation', 'activity'])
   if (error || !data) return
   for (const row of data as any[]) {
     store.meta[row.module_key] = { computedAt: row.computed_at, sourceFreshness: row.source_freshness, status: row.status, error: row.error }
@@ -139,6 +145,7 @@ export async function loadCareData(slug: string): Promise<void> {
     else if (row.module_key === 'rosterForward') store.rosterForward = row.payload
     else if (row.module_key === 'serveCandidates') store.serveCandidates = row.payload
     else if (row.module_key === 'congregation') store.congregation = row.payload
+    else if (row.module_key === 'activity') store.activity = row.payload
   }
   store.loaded = true
 }

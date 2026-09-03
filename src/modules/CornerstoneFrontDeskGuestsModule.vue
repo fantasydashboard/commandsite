@@ -327,7 +327,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
   <div class="space-y-4">
     <RolesOnPage
       :roles="pageRoles"
-      :back-to="{ name: 'dashboard.tab', params: { slug: 'cornerstone-church', tab: 'today' } }">
+      :back-to="{ name: 'dashboard.tab', params: { slug: client.slug, tab: 'today' } }">
       <template #lead>
         <PageLeadChip :client-id="client.id" page="front-desk-guests" />
       </template>

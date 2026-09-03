@@ -81,7 +81,7 @@ const myName = computed(() => auth.profile?.full_name ?? null)
 function onRoleClick(role: GraceRole) {
   router.push({
     name: 'dashboard.tab',
-    params: { slug: 'cornerstone-church', tab: role.tab },
+    params: { slug: props.client.slug, tab: role.tab },
     hash: `#${role.key}`,
   })
 }

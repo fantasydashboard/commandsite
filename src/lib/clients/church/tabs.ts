@@ -34,6 +34,37 @@ export const ASSIGNABLE_TABS: { key: string; label: string }[] = [
   { key: 'giving', label: 'Giving' },
 ]
 
+/**
+ * Church module key -> the tab it provides. Mirrors the `tab` field on the
+ * church entries in modules/registry.ts, duplicated here ONLY because this file
+ * must stay import-free: the registry reaches TeamSettings, so importing it
+ * would rebuild the cycle described above.
+ *
+ * Exists so the team picker can offer a church the pages it actually has.
+ * Focal Point has no giving module (deliberately omitted until aggregate-only
+ * giving is approved), but Giving was still tickable: it saved, produced no
+ * tab, and gave no feedback, which reads as broken.
+ */
+export const CHURCH_MODULE_TAB: Record<string, string> = {
+  'cornerstone-today': 'today',
+  'cornerstone-front-desk-guests': 'front-desk-guests',
+  'cornerstone-care-drift': 'care-drift',
+  'cornerstone-sundays-comms': 'sundays-comms',
+  'cornerstone-metrics': 'insights',
+  'cornerstone-giving': 'giving',
+  'cornerstone-settings': 'settings',
+}
+
+/** The assignable pages a given church actually has modules for. */
+export function assignableTabsFor(enabledModuleKeys: Iterable<string>): { key: string; label: string }[] {
+  const have = new Set<string>()
+  for (const k of enabledModuleKeys) {
+    const tab = CHURCH_MODULE_TAB[k]
+    if (tab) have.add(tab)
+  }
+  return ASSIGNABLE_TABS.filter((t) => have.has(t.key))
+}
+
 // Church permission scope -> tabs it may see. Retained as the FALLBACK for users
 // with no explicit page list, so existing accounts keep exactly what they had.
 // (Settings is church-admin only.)
