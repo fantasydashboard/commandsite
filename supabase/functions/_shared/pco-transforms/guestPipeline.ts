@@ -5,7 +5,9 @@
 // step; a guest whose first visit was within the last 7 days gets a drafted
 // welcome (English or Portuguese).
 
-export type GuestStage = 'new' | 'welcomed' | 'connecting' | 'belongs' | 'cooled'
+// Named after the church's OWN Starting Point steps rather than invented funnel
+// language. See src/lib/clients/church/guestStages.ts for the full reasoning.
+export type GuestStage = 'signed_in' | 'called' | 'week2' | 'week3' | 'finished'
 export type GuestCampus = 'english' | 'brazilian'
 
 // One card as mirrored into pco_workflow_cards.
@@ -47,23 +49,42 @@ export interface GuestPipelinePayload {
   monthly: Record<'all' | GuestCampus, GuestMonthPoint[]>
 }
 
-const STAGE_DETAIL: Record<GuestStage, string> = {
-  new: 'first visit · signed in at Starting Point',
-  welcomed: 'welcome sent · in the week-2 follow-up',
-  connecting: 'week-3 follow-up · progressing',
-  belongs: 'finished the welcome sequence',
-  cooled: 'signed in weeks ago · no next step since',
+/**
+ * What the card is actually doing, in the church's own terms.
+ *
+ * The old copy said "welcome sent" for the week-2 stage. Their week-2 step is a
+ * physical bag handed to someone who came back, and the step before it is a
+ * phone call with a coffee mug. Neither is an email, and Grace had sent nothing
+ * at all (test mode). So the board narrated an action that did not happen, and
+ * credited it to the wrong party.
+ *
+ * The English workflow names its gifts; the Brazilian one does not (its steps
+ * are just "Week 2" / "Week 3"). Until we know whether the Brazilian ministry
+ * runs the same mug-and-bag sequence, only English claims the gifts.
+ */
+function detailOf(stage: GuestStage, campus: GuestCampus): string {
+  const gift = campus === 'english'
+  switch (stage) {
+    case 'signed_in': return 'signed in at Starting Point, no step yet'
+    case 'called': return gift ? 'welcome call step, coffee mug' : 'welcome call step'
+    case 'week2': return gift ? 'week-2 step, the bag' : 'week-2 step'
+    case 'week3': return gift ? 'week-3 step, the gift card' : 'week-3 step'
+    case 'finished': return 'completed all three Starting Point steps'
+  }
 }
 
 const daysAgo = (today: string, d: string): number =>
   Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) / 864e5)
 const first = (name: string): string => (name || 'Friend').split(' ')[0]
 
-function stageOf(row: GuestCardRow, today: string): GuestStage {
-  if (row.completed_date) return 'belongs'
-  if (/week 3/i.test(row.step_name)) return 'connecting'
-  if (/week 2/i.test(row.step_name)) return 'welcomed'
-  return daysAgo(today, row.created_date) > 28 ? 'cooled' : 'new'
+function stageOf(row: GuestCardRow): GuestStage {
+  if (row.completed_date) return 'finished'
+  if (/week 3/i.test(row.step_name)) return 'week3'
+  if (/week 2/i.test(row.step_name)) return 'week2'
+  // The call step had no branch at all before, so every card sitting on it fell
+  // through to "new" and the first human touch in their process was invisible.
+  if (/phone call/i.test(row.step_name)) return 'called'
+  return 'signed_in'
 }
 /** Who the note is signed by. Hardcoded to one pastor's name until now, which
  *  breaks the moment a church sends from anyone else's address: the guest gets
@@ -77,10 +98,18 @@ function draftOf(name: string, campus: GuestCampus, signature: string): string {
     return `${f}, foi uma alegria ter você conosco na Focal Point no domingo. Sabemos que encontrar uma igreja é diferente para cada pessoa, e seria uma honra caminhar ao seu lado nesta temporada. Se pudermos ajudar de alguma forma, é só responder aqui. Bênçãos, ${signature}`
   return `${f}, we were so glad you joined us at Focal Point on Sunday. We know finding a church home looks different for every person, and we would be honored to walk alongside you this season. If we can help in any way, just reply here. Blessings, ${signature}`
 }
-function ownerOf(stage: GuestStage): string {
-  if (stage === 'new') return 'Pastor Mark'
-  if (stage === 'cooled') return 'Connections team'
-  return 'Grace, auto'
+/**
+ * Who moved this card. Every stage here is derived from a Planning Center step,
+ * which a person at the church advanced, so all of them are the church's.
+ *
+ * This used to return 'Grace, auto' for three of the five stages, which put
+ * Grace's name on 88 cards' worth of work the Starting Point team did
+ * themselves, while Grace had sent nothing (test mode). Third instance of this
+ * failure after the Today queue and the Care & Drift approve button. Grace only
+ * claims what Grace did: the drafted welcome, which the card's `note` carries.
+ */
+function ownerOf(_stage: GuestStage): string {
+  return 'Starting Point team'
 }
 function kpisFor(list: GuestCardRow[], today: string): GuestKpis {
   const recentGuests = list.length
@@ -150,7 +179,7 @@ export function buildGuestPipeline(
       .filter((r) => r.campus === campus)
       .sort((a, b) => (a.created_date < b.created_date ? 1 : -1))
     for (const x of list) {
-      const stage = stageOf(x, today)
+      const stage = stageOf(x)
       const days = daysAgo(today, x.created_date)
       const thisWeek = days <= 7
       cases.push({
@@ -166,7 +195,7 @@ export function buildGuestPipeline(
         // Rendering both put "welcome sent" and "awaiting your approval" on the
         // same card, so staff could not tell whether anything had gone out.
         // The pending draft wins: it is the one statement we know is true.
-        detail: thisWeek ? 'first visit · welcome drafted, not sent yet' : STAGE_DETAIL[stage],
+        detail: thisWeek ? 'first visit, welcome drafted, not sent yet' : detailOf(stage, campus),
         owner: ownerOf(stage),
         age: days < 7 ? 'this week' : `${Math.round(days / 7)}w ago`,
         ...(thisWeek ? { note: 'Grace drafted a welcome, awaiting your approval', draft: draftOf(x.name, campus, signature) } : {}),

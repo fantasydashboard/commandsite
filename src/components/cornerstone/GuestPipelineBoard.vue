@@ -7,7 +7,11 @@
  * Auto-advance (return detection from check-ins) is the week-one build.
  */
 import { computed } from 'vue'
-import { GUEST_STAGES, type GuestCase } from '@/lib/clients/focal-point/guestPipeline'
+// Stage vocabulary from the tracked leaf. It used to come from
+// focal-point/guestPipeline.ts, which is skip-worktree, so relabelling there
+// would never have shipped.
+import { GUEST_STAGES } from '@/lib/clients/church/guestStages'
+import { type GuestCase } from '@/lib/clients/focal-point/guestPipeline'
 import { guestPipelineData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { exportCsv } from '@/lib/exportCsv'
@@ -95,9 +99,14 @@ function initials(name: string): string {
           <div
             v-for="s in GUEST_STAGES"
             :key="s.key"
-            class="px-1 text-[10px] font-semibold uppercase tracking-wide"
-            :class="s.positive ? 'text-success' : s.leak ? 'text-warn' : 'text-ink-muted'"
-          >{{ s.label }} <span class="text-ink-disabled tabular-nums">{{ scoped(s.key).length }}</span></div>
+            class="px-1"
+          >
+            <div
+              class="text-[10px] font-semibold uppercase tracking-wide"
+              :class="s.positive ? 'text-success' : 'text-ink-muted'"
+            >{{ s.label }} <span class="text-ink-disabled tabular-nums">{{ scoped(s.key).length }}</span></div>
+            <div class="mt-0.5 text-[10px] leading-tight text-ink-disabled">{{ s.sub }}</div>
+          </div>
         </div>
 
         <!-- cards -->
@@ -106,13 +115,12 @@ function initials(name: string): string {
             v-for="s in GUEST_STAGES"
             :key="s.key"
             class="space-y-2 rounded-lg p-1"
-            :class="s.positive ? 'bg-success/[0.04]' : s.leak ? 'bg-warn/[0.05]' : ''"
+            :class="s.positive ? 'bg-success/[0.04]' : ''"
           >
             <article
               v-for="c in casesFor(s.key)"
               :key="c.id"
-              class="rounded-lg border bg-surface-raised p-2"
-              :class="s.leak ? 'border-warn/40' : 'border-divider'"
+              class="rounded-lg border border-divider bg-surface-raised p-2"
             >
               <div class="flex items-center gap-2">
                 <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand/10 text-[10px] font-bold text-brand">{{ initials(c.name) }}</div>

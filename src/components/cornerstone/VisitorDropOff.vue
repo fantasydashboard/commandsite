@@ -152,10 +152,11 @@ function onExport() {
     <div class="mt-5 rounded-lg border border-brand/20 bg-surface-elevated/60 px-4 py-3">
       <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">Grace's read</span>
       <p class="mt-1 text-[13px] leading-relaxed text-ink">
-        The drop happens immediately: <span class="font-semibold">{{ firstStepDrop }}%</span> never
-        complete Starting Point, which is <span class="font-semibold">{{ notReached }}</span> people
-        who visited and then went quiet. Nothing further down the list can improve until that first
-        handoff does, because every later step draws from the people who clear this one.
+        Starting Point is the widest gap: <span class="font-semibold">{{ firstStepDrop }}%</span>
+        never finish it, which is <span class="font-semibold">{{ notReached }}</span> of your
+        visitors. Some of them did connect another way, since Growth Groups and Meet the Pastor are
+        separate workflows rather than gates, so this is not the number who went quiet. It is the
+        one handoff you fully control, which is why it is worth closing first.
       </p>
     </div>
 

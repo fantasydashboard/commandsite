@@ -6,20 +6,23 @@ function card(over: Partial<GuestCardRow>): GuestCardRow {
   return { card_id: 'c1', campus: 'english', name: 'Jane Doe', created_date: '2026-07-25', completed_date: null, step_name: 'Welcome Phone Call', person_id: 'pp1', ...over }
 }
 
-Deno.test('completed card -> belongs', () => {
-  assertEquals(buildGuestPipeline([card({ completed_date: '2026-07-20' })], TODAY).cases[0].stage, 'belongs')
+Deno.test('completed card -> finished', () => {
+  assertEquals(buildGuestPipeline([card({ completed_date: '2026-07-20' })], TODAY).cases[0].stage, 'finished')
 })
-Deno.test('week 3 step -> connecting', () => {
-  assertEquals(buildGuestPipeline([card({ step_name: 'Week 3 Follow Up', created_date: '2026-06-01' })], TODAY).cases[0].stage, 'connecting')
+Deno.test('week 3 step -> week3', () => {
+  assertEquals(buildGuestPipeline([card({ step_name: 'Week 3 Follow Up', created_date: '2026-06-01' })], TODAY).cases[0].stage, 'week3')
 })
-Deno.test('week 2 step -> welcomed', () => {
-  assertEquals(buildGuestPipeline([card({ step_name: 'Week 2', created_date: '2026-06-01' })], TODAY).cases[0].stage, 'welcomed')
+Deno.test('week 2 step -> week2', () => {
+  assertEquals(buildGuestPipeline([card({ step_name: 'Week 2', created_date: '2026-06-01' })], TODAY).cases[0].stage, 'week2')
 })
-Deno.test('old unknown step -> cooled', () => {
-  assertEquals(buildGuestPipeline([card({ step_name: 'Welcome Phone Call', created_date: '2026-05-01' })], TODAY).cases[0].stage, 'cooled')
+// The call step had no branch before, so a card sitting on it fell through to
+// 'new', or 'cooled' once old. It is step 1 of their workflow and now has its
+// own column, whatever its age.
+Deno.test('welcome call step -> called, however old', () => {
+  assertEquals(buildGuestPipeline([card({ step_name: 'Welcome Phone Call', created_date: '2026-05-01' })], TODAY).cases[0].stage, 'called')
 })
-Deno.test('recent unknown step -> new', () => {
-  assertEquals(buildGuestPipeline([card({ step_name: 'Welcome Phone Call', created_date: '2026-07-25' })], TODAY).cases[0].stage, 'new')
+Deno.test('recent welcome call step -> called', () => {
+  assertEquals(buildGuestPipeline([card({ step_name: 'Welcome Phone Call', created_date: '2026-07-25' })], TODAY).cases[0].stage, 'called')
 })
 Deno.test('first visit within 7 days gets a draft + note + this week', () => {
   const c = buildGuestPipeline([card({ created_date: '2026-07-24' })], TODAY).cases[0]
@@ -83,12 +86,21 @@ Deno.test('a card with a pending draft never also claims the welcome was sent', 
   const c = buildGuestPipeline([card({ step_name: 'Week 2', created_date: '2026-07-24' })], TODAY).cases[0]
   assertEquals(typeof c.draft, 'string')
   assertEquals(c.detail.includes('welcome sent'), false)
-  assertEquals(c.detail, 'first visit · welcome drafted, not sent yet')
+  assertEquals(c.detail, 'first visit, welcome drafted, not sent yet')
 })
-Deno.test('a welcomed card with no pending draft keeps the sent wording', () => {
+// The detail must describe the CHURCH'S step, never a send. Their week-2 step is
+// a bag handed to someone who came back; Grace has sent nothing (test mode), and
+// saying "welcome sent" credited Grace with the Starting Point team's work.
+Deno.test('a week-2 card describes the step, and never claims a send', () => {
   const c = buildGuestPipeline([card({ step_name: 'Week 2', created_date: '2026-06-01' })], TODAY).cases[0]
   assertEquals(c.draft, undefined)
-  assertEquals(c.detail, 'welcome sent · in the week-2 follow-up')
+  assertEquals(c.detail, 'week-2 step, the bag')
+  assertEquals(c.detail.includes('sent'), false)
+  assertEquals(c.owner, 'Starting Point team')
+})
+Deno.test('brazilian steps do not claim the english gifts', () => {
+  const c = buildGuestPipeline([card({ campus: 'brazilian', step_name: 'Week 2', created_date: '2026-06-01' })], TODAY).cases[0]
+  assertEquals(c.detail, 'week-2 step')
 })
 
 // ── monthly pulse ──────────────────────────────────────────────────────────
