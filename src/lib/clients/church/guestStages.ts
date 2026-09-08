@@ -52,3 +52,33 @@ export const GUEST_STAGES: {
   { key: 'week3', label: 'Week 3', sub: 'came back again, step 3' },
   { key: 'finished', label: 'Finished', sub: 'completed Starting Point', positive: true },
 ]
+
+/**
+ * Old stage keys -> new ones.
+ *
+ * Renaming the stages was a BREAKING change made without a migration path, and
+ * it broke production immediately: Vercel ships the frontend the moment main
+ * moves, while the edge function and its recompute are a manual step. In that
+ * window the payload still carried the old keys, nothing matched the new
+ * columns, and the board rendered five zeroes on a page staff were actively
+ * reviewing.
+ *
+ * So the frontend reads BOTH. It renders correctly before the recompute and
+ * after it, and the same holds for any church whose payload has not been
+ * recomputed yet. Deploy order stops mattering, which is the point.
+ *
+ * 'welcomed' mapped to the week-2 step and 'cooled' meant "signed in a while
+ * ago with no step", so they fold into week2 and signed_in respectively.
+ */
+const LEGACY_STAGE: Record<string, GuestStage> = {
+  new: 'signed_in',
+  cooled: 'signed_in',
+  welcomed: 'week2',
+  connecting: 'week3',
+  belongs: 'finished',
+}
+
+/** Read a card's stage, accepting either vocabulary. */
+export function normalizeStage(stage: string): GuestStage {
+  return LEGACY_STAGE[stage] ?? (stage as GuestStage)
+}

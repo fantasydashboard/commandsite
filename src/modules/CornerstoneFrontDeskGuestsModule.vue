@@ -417,7 +417,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       <div class="card">
         <div class="kpi-label">In the pipeline</div>
         <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ pipelineCount }}</div>
-        <div class="text-[11px] text-ink-disabled mt-0.5">guests Grace is walking in</div>
+        <div class="text-[11px] text-ink-disabled mt-0.5">in the Starting Point workflow</div>
       </div>
       <div class="card">
         <div class="kpi-label">Finished welcome</div>

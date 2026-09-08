@@ -10,7 +10,7 @@ import { computed } from 'vue'
 // Stage vocabulary from the tracked leaf. It used to come from
 // focal-point/guestPipeline.ts, which is skip-worktree, so relabelling there
 // would never have shipped.
-import { GUEST_STAGES } from '@/lib/clients/church/guestStages'
+import { GUEST_STAGES, normalizeStage } from '@/lib/clients/church/guestStages'
 import { type GuestCase } from '@/lib/clients/focal-point/guestPipeline'
 import { guestPipelineData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
@@ -21,7 +21,9 @@ const lens = useCongregationLens()
 const props = defineProps<{ clientName: string }>()
 const CAP = 6
 const inScope = (c: GuestCase) => lens.scope === 'all' || c.campus === lens.scope
-const scoped = (stage: string) => guestPipelineData().cases.filter((c) => c.stage === stage && inScope(c))
+// normalizeStage so the board works whether or not the payload has been
+// recomputed since the stage rename. See guestStages.ts.
+const scoped = (stage: string) => guestPipelineData().cases.filter((c) => normalizeStage(c.stage) === stage && inScope(c))
 const casesFor = (stage: string) => scoped(stage).slice(0, CAP)
 const moreIn = (stage: string) => Math.max(0, scoped(stage).length - CAP)
 const kpis = computed(() => guestPipelineData().kpis[lens.scope])
@@ -74,20 +76,23 @@ function initials(name: string): string {
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">Where every first-time guest is on the way to belonging</h3>
 
-    <!-- lifecycle strip -->
+    <!-- Lifecycle strip, rendered FROM GUEST_STAGES. It used to be hardcoded to
+         the old names, so after the rename it read New guest -> Welcomed ->
+         Connecting -> Belongs directly above columns labelled Signed in ->
+         Welcome call -> Week 2 -> Week 3 -> Finished. -->
     <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-ink-muted">
-      <span class="rounded bg-brand/12 px-2 py-0.5 font-medium text-brand">New guest</span>
-      <span class="text-ink-disabled">→</span>
-      <span class="rounded bg-brand/12 px-2 py-0.5 font-medium text-brand">Welcomed</span>
-      <span class="text-ink-disabled">→</span>
-      <span class="rounded bg-brand/12 px-2 py-0.5 font-medium text-brand">Connecting</span>
-      <span class="text-ink-disabled">→</span>
-      <span class="rounded bg-success/15 px-2 py-0.5 font-medium text-success">Belongs</span>
-      <span class="ml-1 text-ink-muted">This is the front door. Care &amp; Drift is the back door. Grace watches both.</span>
+      <template v-for="(s, i) in GUEST_STAGES" :key="s.key">
+        <span v-if="i" class="text-ink-disabled">→</span>
+        <span
+          class="rounded px-2 py-0.5 font-medium"
+          :class="s.positive ? 'bg-success/15 text-success' : 'bg-brand/12 text-brand'"
+        >{{ s.label }}</span>
+      </template>
+      <span class="ml-1 text-ink-muted">These are your Starting Point steps. This is the front door. Care &amp; Drift is the back door.</span>
     </div>
 
     <p class="mt-2 text-[12px] text-ink">
-      <span class="font-semibold">{{ kpis.stillVisitors }} of your {{ kpis.recentGuests }}</span> most recent guests are still just visitors. This board is how you close that gap instead of hoping they come back.
+      <span class="font-semibold">{{ kpis.stillVisitors }} of your {{ kpis.recentGuests }}</span> most recent guests have not finished Starting Point yet. This board is where they are in it.
     </p>
   </section>
 
@@ -146,7 +151,7 @@ function initials(name: string): string {
     </div>
 
     <p class="mt-3 text-[11px] text-ink-disabled">
-      The process on your real guests. Automatic return detection (Grace sees the 2nd check-in and advances the card) is the week-one build. Guests who reach Belongs join the New Member funnel on Insights.
+      Your real guests, on your own Starting Point steps. A card moves when someone at the church advances it in Planning Center, so these columns are your team's work, not Grace's. Grace cannot advance them for you: only Kids and Young Adults check in, so there is no record of an adult guest returning. Guests who reach Finished join the New Member funnel on Insights.
     </p>
   </section>
 </template>
