@@ -47,6 +47,9 @@ const store = reactive({
   signature: '' as string,
   meta: {} as Record<string, CareMeta>,
   syncStates: [] as SyncStateRow[],
+  // Set when a fetch fails, so the UI can say "could not load" instead of
+  // rendering the baked fallback as though it were the church's real data.
+  loadError: null as string | null,
 })
 
 export const careData = store
@@ -93,6 +96,7 @@ export async function loadCareData(slug: string): Promise<void> {
   store.signature = ''
   store.meta = {}
   store.syncStates = []
+  store.loadError = null
   store.loaded = false
 
   const { data: client, error: clientErr } = await sb.from('clients').select('id').eq('slug', slug).maybeSingle()
@@ -127,12 +131,38 @@ export async function loadCareData(slug: string): Promise<void> {
     store.signature = (cs?.messaging?.signature ?? '').trim()
   } catch { /* default */ }
 
-  const { data, error } = await sb.from('church_dashboard_data')
-    .select('module_key, payload, computed_at, source_freshness, status, error')
-    .eq('client_id', client.id)
-    .in('module_key', ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'duplicates', 'roster', 'rosterForward', 'serveCandidates', 'congregation', 'activity'])
-  if (error || !data) return
-  for (const row of data as any[]) {
+  // Split into CORE and HEAVY on purpose.
+  //
+  // This was one request for everything, and it failed with a bare `return`:
+  // no log, no state, every getter silently falling back to the baked snapshot.
+  // That is exactly what a church sees as "Families drifting 0" next to a green
+  // "Live from Planning Center" badge, with nothing anywhere to explain it.
+  //
+  // It also got a lot heavier when `activity` joined the list: ~130KB of check-in
+  // history on top of duplicates and serveCandidates, riding in the same response
+  // as the lists that actually drive the page. One oversized payload could take
+  // down all of them. Now the core lists load on their own, and a failure in the
+  // heavy extras costs only the drawer detail they feed.
+  const CORE = ['serving', 'burnout', 'groupDrift', 'drift', 'guestPipeline', 'roster', 'rosterForward', 'congregation']
+  const HEAVY = ['activity', 'duplicates', 'serveCandidates']
+
+  async function fetchGroup(keys: string[], label: string): Promise<any[]> {
+    const { data, error } = await sb.from('church_dashboard_data')
+      .select('module_key, payload, computed_at, source_freshness, status, error')
+      .eq('client_id', client.id)
+      .in('module_key', keys)
+    if (error) {
+      // NEVER swallow this again. A silent miss here is indistinguishable from
+      // a church that genuinely has nobody flagged.
+      console.error(`careDataLoader: ${label} fetch failed for ${slug}: ${error.message}`)
+      store.loadError = error.message
+      return []
+    }
+    return (data as any[]) ?? []
+  }
+
+  const rows = [...await fetchGroup(CORE, 'core'), ...await fetchGroup(HEAVY, 'extras')]
+  for (const row of rows) {
     store.meta[row.module_key] = { computedAt: row.computed_at, sourceFreshness: row.source_freshness, status: row.status, error: row.error }
     if (row.status !== 'ok') continue
     if (row.module_key === 'serving') store.serving = row.payload

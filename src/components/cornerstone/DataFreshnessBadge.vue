@@ -8,7 +8,7 @@
  * surface reports the same freshness.
  */
 import { computed } from 'vue'
-import { careMeta, careSyncing } from '@/lib/clients/church/careDataLoader'
+import { careMeta, careSyncing, careData } from '@/lib/clients/church/careDataLoader'
 import { fmtAgo } from '@/lib/format'
 
 /**
@@ -36,10 +36,13 @@ const label = computed(() => {
   // No live row for this resource. Saying "data current through Jul 14" here
   // asserts a freshness the page does not have, next to panels that are really
   // showing the baked fallback. Say what is true instead.
+  if (careData.loadError) return 'Could not load, showing sample data'
   return 'Not synced with Planning Center'
 })
 const hoverText = computed(() =>
-  !isLive.value
+  careData.loadError
+    ? `Grace could not read this church's data: ${careData.loadError}. What you are seeing is sample content, not your church.`
+    : !isLive.value
     ? 'This panel has no synced data yet, so it is showing placeholder content rather than your church. Use Refresh now, or tell Josh.'
     : isStale.value
     ? 'Grace has not synced with Planning Center recently. Use Refresh now to pull the latest.'
