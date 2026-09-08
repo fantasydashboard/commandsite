@@ -8,7 +8,6 @@
  * surface reports the same freshness.
  */
 import { computed } from 'vue'
-import { asOfLabel } from '@/lib/clients/focal-point/dataFreshness'
 import { careMeta, careSyncing } from '@/lib/clients/church/careDataLoader'
 import { fmtAgo } from '@/lib/format'
 
@@ -34,10 +33,15 @@ const isStale = computed(() => {
 const label = computed(() => {
   const m = meta.value
   if (m?.computedAt) return `Updated ${fmtAgo(m.computedAt)}`
-  return `Data current through ${asOfLabel()}`
+  // No live row for this resource. Saying "data current through Jul 14" here
+  // asserts a freshness the page does not have, next to panels that are really
+  // showing the baked fallback. Say what is true instead.
+  return 'Not synced with Planning Center'
 })
 const hoverText = computed(() =>
-  isStale.value
+  !isLive.value
+    ? 'This panel has no synced data yet, so it is showing placeholder content rather than your church. Use Refresh now, or tell Josh.'
+    : isStale.value
     ? 'Grace has not synced with Planning Center recently. Use Refresh now to pull the latest.'
     : "Grace re-checks every flag after each weekend's check-ins. When someone comes back, they clear off your lists on the next refresh.",
 )
@@ -57,7 +61,7 @@ const hoverText = computed(() =>
     class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted"
     :title="hoverText"
   >
-    <span class="h-1.5 w-1.5 rounded-full" :class="isStale ? 'bg-warn' : 'bg-success'"></span>
+    <span class="h-1.5 w-1.5 rounded-full" :class="isStale || !isLive ? 'bg-warn' : 'bg-success'"></span>
     {{ label }}
     <span v-if="isLive && isStale" class="text-warn">· data may be stale</span>
   </span>

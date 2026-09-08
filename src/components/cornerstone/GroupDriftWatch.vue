@@ -49,16 +49,14 @@ function onExport() {
     { client: props.clientName, dataset: 'group-drift', scope: lens.scope },
   )
 }
+import DataFreshnessBadge from './DataFreshnessBadge.vue'
 </script>
 
 <template>
   <section class="card">
     <div class="flex items-center justify-between">
       <span class="eyebrow">Group Drift Watch</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Live from Planning Center Groups
-      </span>
+      <DataFreshnessBadge resource="groupDrift" />
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">{{ active.length }} people went quiet in their group</h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
@@ -97,7 +95,7 @@ function onExport() {
             </td>
           </tr>
           <tr v-if="!g.people.length">
-            <td colspan="4" class="py-4 text-center text-ink-muted">List loads from the local Planning Center pull.</td>
+            <td colspan="4" class="py-4 text-center text-ink-muted">Nobody flagged. Either every group member is active, or this list has not synced yet, in which case the badge above says so.</td>
           </tr>
         </tbody>
       </table>

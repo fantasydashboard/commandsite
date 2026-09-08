@@ -63,16 +63,14 @@ function onExport() {
     { client: props.clientName, dataset: 'families-drifting', scope: lens.scope },
   )
 }
+import DataFreshnessBadge from './DataFreshnessBadge.vue'
 </script>
 
 <template>
   <section class="card">
     <div class="flex items-center justify-between">
       <span class="eyebrow">Drift Watch</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Live from Planning Center
-      </span>
+      <DataFreshnessBadge resource="drift" />
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">
       {{ activeFamilies.length }} families to reach out to
@@ -128,7 +126,7 @@ function onExport() {
           </tr>
           <tr v-if="!drift.families.length">
             <td colspan="5" class="py-4 text-center text-ink-muted">
-              Family list loads from the local Planning Center pull.
+              No families flagged. Either nobody is drifting, or this list has not synced yet, in which case the badge above says so.
             </td>
           </tr>
         </tbody>

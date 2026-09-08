@@ -118,7 +118,7 @@ function onExport() {
             </td>
           </tr>
           <tr v-if="!fb.people.length">
-            <td colspan="4" class="py-4 text-center text-ink-muted">List loads from the local Planning Center pull.</td>
+            <td colspan="4" class="py-4 text-center text-ink-muted">Nobody flagged. Either nobody is over-serving, or this list has not synced yet.</td>
           </tr>
         </tbody>
       </table>

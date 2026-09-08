@@ -65,16 +65,14 @@ function onExport() {
     { client: props.clientName, dataset: 'stopped-serving', scope: lens.scope },
   )
 }
+import DataFreshnessBadge from './DataFreshnessBadge.vue'
 </script>
 
 <template>
   <section class="card">
     <div class="flex items-center justify-between">
       <span class="eyebrow">People Drift Watch</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Serving live from Planning Center
-      </span>
+      <DataFreshnessBadge resource="serving" />
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">
       {{ active.length }} people to check in with
@@ -131,7 +129,7 @@ function onExport() {
             </td>
           </tr>
           <tr v-if="!focalPointServing.people.length">
-            <td colspan="5" class="py-4 text-center text-ink-muted">Individual list loads from the local Planning Center pull.</td>
+            <td colspan="5" class="py-4 text-center text-ink-muted">Nobody flagged. Either everyone is still serving, or this list has not synced yet, in which case the badge above says so.</td>
           </tr>
         </tbody>
       </table>
