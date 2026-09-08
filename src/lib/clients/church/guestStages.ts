@@ -82,3 +82,45 @@ const LEGACY_STAGE: Record<string, GuestStage> = {
 export function normalizeStage(stage: string): GuestStage {
   return LEGACY_STAGE[stage] ?? (stage as GuestStage)
 }
+
+/**
+ * The card's `detail` and `owner` are STORED strings, so a payload written
+ * before the rename still carries the old wording even once the columns are
+ * placed correctly. That leaves the worst string of all on screen: "Grace, auto"
+ * against 88 cards the Starting Point team advanced themselves, while Grace has
+ * sent nothing (test mode).
+ *
+ * These rewrite the old wording at read time, on the same principle as
+ * normalizeStage: the page tells the truth regardless of when the recompute
+ * happens. Both become no-ops once the payload is rebuilt.
+ */
+const LEGACY_DETAIL: Record<string, GuestStage> = {
+  'first visit · signed in at Starting Point': 'signed_in',
+  'signed in weeks ago · no next step since': 'signed_in',
+  'welcome sent · in the week-2 follow-up': 'week2',
+  'week-3 follow-up · progressing': 'week3',
+  'finished the welcome sequence': 'finished',
+}
+
+/** What the card is doing, in the church's terms. Only English names the gifts;
+ *  the Brazilian workflow's steps are unnamed and may not run the same sequence. */
+export function stageDetail(stage: GuestStage, campus: string): string {
+  const gift = campus === 'english'
+  switch (stage) {
+    case 'signed_in': return 'signed in at Starting Point, no step yet'
+    case 'called': return gift ? 'welcome call step, coffee mug' : 'welcome call step'
+    case 'week2': return gift ? 'week-2 step, the bag' : 'week-2 step'
+    case 'week3': return gift ? 'week-3 step, the gift card' : 'week-3 step'
+    case 'finished': return 'completed all three Starting Point steps'
+  }
+}
+
+export function normalizeDetail(detail: string, campus: string): string {
+  const stage = LEGACY_DETAIL[detail]
+  return stage ? stageDetail(stage, campus) : detail
+}
+
+/** Every stage here comes from a Planning Center step a person advanced. */
+export function normalizeOwner(owner: string): string {
+  return owner === 'Grace, auto' || owner === 'Connections team' ? 'Starting Point team' : owner
+}

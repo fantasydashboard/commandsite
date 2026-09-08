@@ -10,7 +10,7 @@ import { computed } from 'vue'
 // Stage vocabulary from the tracked leaf. It used to come from
 // focal-point/guestPipeline.ts, which is skip-worktree, so relabelling there
 // would never have shipped.
-import { GUEST_STAGES, normalizeStage } from '@/lib/clients/church/guestStages'
+import { GUEST_STAGES, normalizeStage, normalizeDetail, normalizeOwner } from '@/lib/clients/church/guestStages'
 import { type GuestCase } from '@/lib/clients/focal-point/guestPipeline'
 import { guestPipelineData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
@@ -42,8 +42,8 @@ function onExport() {
       { header: 'Name', value: (c) => c.name },
       { header: 'Congregation', value: (c) => (c.campus === 'brazilian' ? 'Brazilian' : 'English') },
       { header: 'Stage', value: (c) => c.stageLabel },
-      { header: 'Status', value: (c) => c.detail },
-      { header: 'Owner', value: (c) => c.owner },
+      { header: 'Status', value: (c) => normalizeDetail(c.detail, c.campus) },
+      { header: 'Owner', value: (c) => normalizeOwner(c.owner) },
       { header: 'Last activity', value: (c) => c.age },
       { header: 'Awaiting approval', value: (c) => (c.draft ? 'yes' : 'no') },
     ],
@@ -133,10 +133,10 @@ function initials(name: string): string {
                   <div class="truncate text-[12px] font-semibold leading-tight text-ink">{{ c.name }}</div>
                 </div>
               </div>
-              <p class="mt-1 text-[10px] leading-snug text-ink-muted">{{ c.detail }}</p>
+              <p class="mt-1 text-[10px] leading-snug text-ink-muted">{{ normalizeDetail(c.detail, c.campus) }}</p>
               <p v-if="c.note" class="mt-1.5 text-[10px] leading-snug text-ink">{{ c.note }}</p>
               <div class="mt-1.5 flex items-center justify-between gap-1 text-[10px] text-ink-disabled">
-                <span class="truncate">{{ c.owner }}</span>
+                <span class="truncate">{{ normalizeOwner(c.owner) }}</span>
                 <span class="shrink-0">{{ c.age }}</span>
               </div>
             </article>
