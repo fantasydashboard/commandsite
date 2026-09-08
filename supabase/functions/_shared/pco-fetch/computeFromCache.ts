@@ -72,7 +72,32 @@ export async function computeDrift(db: Db, clientId: string, cfg: PcoConfig) {
       .select('person_id,first,last,checkin_date,kind').eq('client_id', clientId)
       .order('person_id').order('checkin_date').range(from, to),
     'kids checkins')
-  const families = checkinsToFamilies(rows)
+
+  // Attach households so families group by household rather than surname
+  // string. Read separately because Check-Ins and People are different PCO
+  // resources with different windows; re-pulling two years of check-ins just to
+  // carry a household id would be absurd. Missing table or empty result simply
+  // falls back to the old surname grouping.
+  const households: Record<string, { id: string; name: string }> = {}
+  try {
+    const hh = await readAll(
+      (from, to) => db.from('pco_households')
+        .select('person_id,household_id,household_name').eq('client_id', clientId)
+        .order('person_id').range(from, to),
+      'households')
+    for (const h of hh as any[]) {
+      households[h.person_id] = { id: h.household_id, name: h.household_name }
+    }
+  } catch (e) {
+    console.error(`computeDrift: household read failed, falling back to surname grouping: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  const withHousehold = (rows as any[]).map((r) => ({
+    ...r,
+    household_id: households[r.person_id]?.id ?? null,
+    household_name: households[r.person_id]?.name ?? null,
+  }))
+  const families = checkinsToFamilies(withHousehold)
   await writeOk(db, clientId, 'drift', computeFamilyDrift(families, cfg.drift!, today()))
 }
 

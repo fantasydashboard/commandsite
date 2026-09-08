@@ -39,3 +39,48 @@ Deno.test('computeBurnout flags 3+/month or 2+ teams, tiers high at 4+/3+', () =
   }
   assertEquals(out.highRisk, out.people.filter((p) => p.tier === 'high').length)
 })
+
+// ── a retired service is not a roster full of drifters ────────────────────
+// Focal Point discontinued its 4th Service. Every volunteer on its teams
+// stopped being scheduled the same weekend and each then tripped the "no shift
+// in 6+ weeks" rule, so Grace flagged them individually and would have sent
+// three ministry leaders after people who never quit.
+Deno.test('a team where nobody still serves is dormant, and its people are not flagged', () => {
+  const cfg = { regularMin: 3, gapWeeks: 6 } as any
+  const byPerson = {
+    a: { name: 'Thays Rosa', dates: [
+      { date: '2026-07-05', team: 'Vocals 4th Service', status: 'C' },
+      { date: '2026-06-28', team: 'Vocals 4th Service', status: 'C' },
+      { date: '2026-06-21', team: 'Vocals 4th Service', status: 'C' },
+    ] },
+    b: { name: 'Tania Santana', dates: [
+      { date: '2026-07-05', team: 'Vocals 4th Service', status: 'C' },
+      { date: '2026-06-28', team: 'Vocals 4th Service', status: 'C' },
+      { date: '2026-06-21', team: 'Vocals 4th Service', status: 'C' },
+    ] },
+  } as any
+  const out = computeServing(byPerson, new Set(), cfg, '2026-09-08')
+  assertEquals(out.people.length, 0)
+  assertEquals(out.retiredTeamExcluded, 2)
+  assertEquals(out.retiredTeams?.includes('Vocals 4th Service'), true)
+})
+
+Deno.test('a person on a LIVE team is still flagged when they personally stop', () => {
+  const cfg = { regularMin: 3, gapWeeks: 6 } as any
+  const byPerson = {
+    quit: { name: 'Quit Person', dates: [
+      { date: '2026-07-05', team: 'Greeters', status: 'C' },
+      { date: '2026-06-28', team: 'Greeters', status: 'C' },
+      { date: '2026-06-21', team: 'Greeters', status: 'C' },
+    ] },
+    // Keeps Greeters alive, so the team is not dormant.
+    still: { name: 'Still Serving', dates: [
+      { date: '2026-09-06', team: 'Greeters', status: 'C' },
+      { date: '2026-08-30', team: 'Greeters', status: 'C' },
+      { date: '2026-08-23', team: 'Greeters', status: 'C' },
+    ] },
+  } as any
+  const out = computeServing(byPerson, new Set(), cfg, '2026-09-08')
+  assertEquals(out.people.map((p) => p.name), ['Quit Person'])
+  assertEquals(out.retiredTeamExcluded, 0)
+})

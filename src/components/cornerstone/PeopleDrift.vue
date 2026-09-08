@@ -66,6 +66,12 @@ function onExport() {
   )
 }
 import DataFreshnessBadge from './DataFreshnessBadge.vue'
+// Volunteers the transform deliberately did not flag: every team they served on
+// has been dormant longer than the gap window, so the team stopped rather than
+// the person. Optional because a payload computed before this existed has neither.
+const retiredExcluded = computed(() => (focalPointServing.value as { retiredTeamExcluded?: number }).retiredTeamExcluded ?? 0)
+const retiredTeams = computed(() => (focalPointServing.value as { retiredTeams?: string[] }).retiredTeams ?? [])
+
 </script>
 
 <template>
@@ -80,6 +86,16 @@ import DataFreshnessBadge from './DataFreshnessBadge.vue'
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ focalPointServing.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
       These route to the ministry leader, not the person: Grace emails each leader their team's list every Monday, so the person who knows them reaches out. Scoped by the teams they served, so the lens shows the {{ lens.scope === 'all' ? 'whole church' : lens.scope + ' ministry' }}.
+    </p>
+    <!-- Say when people were deliberately NOT flagged. A retired service makes
+         its whole roster look like it drifted on the same weekend, and silently
+         dropping them would leave a leader wondering where their team went. -->
+    <p v-if="retiredExcluded" class="mt-2 rounded-md border border-divider bg-surface-elevated/50 px-3 py-2 text-[11.5px] text-ink-muted">
+      <span class="font-medium text-ink">{{ retiredExcluded }}</span>
+      {{ retiredExcluded === 1 ? 'person is' : 'people are' }} not on this list because every team they served on has stopped running.
+      They did not step back, their team did.<template v-if="retiredTeams.length">
+        <span class="text-ink-disabled"> ({{ retiredTeams.slice(0, 3).join(', ') }}<template v-if="retiredTeams.length > 3"> and {{ retiredTeams.length - 3 }} more</template>)</span>
+      </template>
     </p>
   </section>
 

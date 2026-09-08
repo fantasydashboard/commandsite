@@ -20,7 +20,13 @@ export interface PcoConfig {
 }
 
 export interface ServingPerson { name: string; area: string; campus: Campus; monthsServing: number; totalServed: number; lastServed: string; weeksSince: number }
-export interface ServingPayload { flaggedPeople: number; totalVolunteers: number; signal: string; people: ServingPerson[]; drafts: [] }
+export interface ServingPayload {
+  flaggedPeople: number; totalVolunteers: number; signal: string; people: ServingPerson[]; drafts: []
+  /** People NOT flagged because every team they served on has stopped running.
+   *  A retired service makes its whole roster look like it drifted at once. */
+  retiredTeamExcluded?: number
+  retiredTeams?: string[]
+}
 export interface BurnoutPerson { name: string; areas: string[]; campus: Campus; perMonth: number; tier: 'high' | 'medium' }
 export interface BurnoutPayload { flaggedPeople: number; highRisk: number; activeVolunteers: number; signal: string; people: BurnoutPerson[]; drafts: [] }
 export interface GroupDrifter { name: string; group: string; attended: number; weeksSince: number }

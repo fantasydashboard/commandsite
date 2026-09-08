@@ -3,6 +3,7 @@ export interface GroupsCursor { groups: { id: string; name: string }[]; gIndex: 
 export interface KidsCursor { events: string[]; eIndex: number }
 export interface GuestsCursor { workflows: { id: string; campus: string }[]; wIndex: number }
 export interface PeopleCursor { offset: number }
+export interface HouseholdsCursor { offset: number }
 
 // Returns a function that reports whether the time budget has elapsed. Check it
 // before starting each new expensive unit (a plan, a group) so a chunk always

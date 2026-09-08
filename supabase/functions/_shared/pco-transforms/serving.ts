@@ -25,8 +25,40 @@ export function monthsAgo(today: string, n: number): string {
 const SERVING_SIGNAL = 'Regular volunteers, by the Services schedule, who have not been scheduled to serve in 6+ weeks and have nothing upcoming. A personal check-in with the individual, not the household.'
 const BURNOUT_SIGNAL = "Volunteers scheduled 3+ times a month, often across several teams, and still going. The people most likely to burn out and drop next. Today's over-servers are next quarter's drift."
 
+/**
+ * Teams nobody has served on recently.
+ *
+ * When a church retires a service, every volunteer on its teams stops being
+ * scheduled on the same weekend, and each of them then trips the "has not
+ * served in 6+ weeks" rule at once. Focal Point discontinued its 4th Service,
+ * and Grace duly flagged Thays Rosa, Maurício Menegoto and Tania Santana as
+ * individually drifting, all "quiet 7w", all on Vocals or Tech 4th Service.
+ * Three ministry leaders would have been sent after people who never quit.
+ *
+ * A team where NOBODY has served inside the gap window is a team that stopped,
+ * not a team whose members all drifted. Detected structurally rather than from
+ * a list of retired team names, so it holds for any church and any team without
+ * anyone having to remember to maintain configuration.
+ */
+function dormantTeams(byPerson: ByPerson, cfg: ServingCfg, today: string): Set<string> {
+  const lastActive: Record<string, string> = {}
+  for (const rec of Object.values(byPerson)) {
+    for (const d of rec.dates) {
+      if (d.status !== 'C' || d.date > today) continue
+      if (!lastActive[d.team] || d.date > lastActive[d.team]) lastActive[d.team] = d.date
+    }
+  }
+  const dormant = new Set<string>()
+  for (const [team, last] of Object.entries(lastActive)) {
+    if (weeksBetween(today, last) >= cfg.gapWeeks) dormant.add(team)
+  }
+  return dormant
+}
+
 export function computeServing(byPerson: ByPerson, staff: Set<string>, cfg: ServingCfg, today: string): ServingPayload {
   let totalVolunteers = 0
+  const dormant = dormantTeams(byPerson, cfg, today)
+  let retiredTeamExcluded = 0
   const people = []
   for (const rec of Object.values(byPerson)) {
     if (staff.has(rec.name)) continue
@@ -38,6 +70,9 @@ export function computeServing(byPerson: ByPerson, staff: Set<string>, cfg: Serv
     const lastServed = past[0].date
     const weeksSince = weeksBetween(today, lastServed)
     if (weeksSince < cfg.gapWeeks || upcoming.length > 0) continue
+    // Every team they served on has stopped running, so they did not drift,
+    // their team did. Chasing them would be a false alarm sent to a leader.
+    if (past.every((d) => dormant.has(d.team))) { retiredTeamExcluded++; continue }
     const firstServed = past[past.length - 1].date
     people.push({
       name: rec.name, area: primaryTeam(past), campus: campusOf(past.map((d) => d.team)),
@@ -45,7 +80,10 @@ export function computeServing(byPerson: ByPerson, staff: Set<string>, cfg: Serv
     })
   }
   people.sort((a, b) => b.totalServed - a.totalServed || b.weeksSince - a.weeksSince)
-  return { flaggedPeople: people.length, totalVolunteers, signal: SERVING_SIGNAL, people, drafts: [] }
+  return {
+    flaggedPeople: people.length, totalVolunteers, signal: SERVING_SIGNAL, people, drafts: [],
+    retiredTeamExcluded, retiredTeams: [...dormant].sort(),
+  }
 }
 
 export function computeBurnout(byPerson: ByPerson, staff: Set<string>, cfg: BurnoutCfg, today: string): BurnoutPayload {

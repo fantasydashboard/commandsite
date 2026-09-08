@@ -8,6 +8,18 @@
  * is the week-one build; this is the process on real data.
  */
 import { carePipeline, TRACKS, STAGES, type Track, type CareCase } from '@/lib/clients/focal-point/carePipeline'
+
+// Only the stages this board can actually put a card in.
+//
+// It rendered all five, and "Reaching out" and "Watching" were empty in every
+// track because nothing advances a card into them: the auto-advancing engine is
+// unbuilt, which the footnote admitted two lines under a claim that Grace
+// "advances stages automatically". Three of five columns permanently empty
+// implies a process the church does not have. Flagged, Escalated and Resolved
+// are real today (Resolved is driven by the live returned-families
+// reconciliation), so those are what it shows.
+const LIVE_STAGE_KEYS = ['flagged', 'escalated', 'resolved']
+const VISIBLE_STAGES = STAGES.filter((s) => LIVE_STAGE_KEYS.includes(s.key))
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
@@ -163,15 +175,15 @@ function initials(name: string): string {
     <div class="overflow-x-auto">
       <div class="min-w-[920px]">
         <!-- stage header row -->
-        <div class="grid grid-cols-[132px_repeat(5,minmax(0,1fr))] gap-2 border-b border-divider pb-2">
+        <div class="grid grid-cols-[132px_repeat(3,minmax(0,1fr))] gap-2 border-b border-divider pb-2">
           <div></div>
-          <div v-for="s in STAGES" :key="s.key" class="px-1 text-[10px] font-semibold uppercase tracking-wide" :class="s.key === 'resolved' ? 'text-success' : s.key === 'escalated' ? 'text-danger' : 'text-ink-muted'">
+          <div v-for="s in VISIBLE_STAGES" :key="s.key" class="px-1 text-[10px] font-semibold uppercase tracking-wide" :class="s.key === 'resolved' ? 'text-success' : s.key === 'escalated' ? 'text-danger' : 'text-ink-muted'">
             {{ s.label }}
           </div>
         </div>
 
         <!-- one row per track -->
-        <div v-for="t in TRACKS" :key="t.key" class="grid grid-cols-[132px_repeat(5,minmax(0,1fr))] gap-2 border-b border-divider/60 py-2">
+        <div v-for="t in TRACKS" :key="t.key" class="grid grid-cols-[132px_repeat(3,minmax(0,1fr))] gap-2 border-b border-divider/60 py-2">
           <!-- lane label -->
           <div class="flex gap-2">
             <span class="w-1 shrink-0 rounded-full" :class="ACCENT[t.key].bar"></span>
@@ -183,7 +195,7 @@ function initials(name: string): string {
           </div>
 
           <!-- one cell per stage -->
-          <div v-for="s in STAGES" :key="s.key" class="space-y-2 rounded-lg p-1" :class="s.key === 'resolved' ? 'bg-success/[0.04]' : s.key === 'escalated' ? 'bg-danger/[0.03]' : ''">
+          <div v-for="s in VISIBLE_STAGES" :key="s.key" class="space-y-2 rounded-lg p-1" :class="s.key === 'resolved' ? 'bg-success/[0.04]' : s.key === 'escalated' ? 'bg-danger/[0.03]' : ''">
             <article
               v-for="c in casesFor(t.key, s.key)"
               :key="c.id"
@@ -231,10 +243,10 @@ function initials(name: string): string {
     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-ink-muted">
       <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-brand"></span> flagged by two signals at once</span>
       <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-danger"></span> Grace predicted the drop</span>
-      <span class="text-ink-disabled">Grace advances stages automatically; you act only at the approval and escalation gates.</span>
+      <span class="text-ink-disabled">Grace flags and drafts. Moving a card is yours, at the approval and escalation gates.</span>
     </div>
     <p class="mt-2 text-[11px] text-ink-disabled">
-      The process on your real people. The auto-advancing engine (stage tracking, escalation timers, cross-track promotion) is the week-one build.
+      The process on your real people. Reaching out and Watching arrive with the auto-advancing engine (stage tracking, escalation timers); until then a card sits in Flagged until you act on it, and Resolved fills on its own when someone comes back.
     </p>
   </section>
 </template>

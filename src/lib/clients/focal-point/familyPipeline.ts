@@ -92,6 +92,15 @@ export function groupCases(): CareCase[] {
 /** Families still inside the working window, most urgent first. Everything at or
  *  beyond LONG_DRIFTED_SUNDAYS is deliberately excluded here and surfaced by
  *  longDriftedFamilies() instead. */
+/**
+ * "a 18-Sunday gap" reads as carelessness on a card asking a pastor to phone a
+ * family. Spoken aloud, "an" belongs before 8, 11, 18 and the eighties, and
+ * nowhere else in the range these numbers occupy: 110 is "a hundred and ten".
+ */
+export function article(n: number): 'a' | 'an' {
+  return n === 8 || n === 11 || n === 18 || (n >= 80 && n <= 89) ? 'an' : 'a'
+}
+
 export function familyCases(): CareCase[] {
   return driftData().families
     .filter((f) => !isLongDrifted(f))
@@ -110,7 +119,7 @@ export function familyCases(): CareCase[] {
         age: escalated ? 'no reply yet' : 'flagged today',
         channel: escalated ? 'Personal call' : undefined,
         note: escalated
-          ? `Regular for ${f.monthsAttending} months, then a ${f.sundaysMissed}-Sunday gap. Worth your personal call.`
+          ? `Regular for ${f.monthsAttending} months, then ${article(f.sundaysMissed)} ${f.sundaysMissed}-Sunday gap. Worth your personal call.`
           : 'Grace drafted the note, awaiting your approval',
         draft: escalated ? undefined : familyDraft(f),
       }

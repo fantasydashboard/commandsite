@@ -6,6 +6,7 @@ import { makeDeadline } from '../_shared/pco-fetch/cursor.ts'
 import { fetchScheduleChunk } from '../_shared/pco-fetch/fetchScheduleChunk.ts'
 import { fetchGroupsChunk } from '../_shared/pco-fetch/fetchGroupsChunk.ts'
 import { fetchKidsCheckinsChunk } from '../_shared/pco-fetch/fetchKidsChunk.ts'
+import { fetchHouseholdsChunk } from '../_shared/pco-fetch/fetchHouseholdsChunk.ts'
 import { fetchGuestCardsChunk } from '../_shared/pco-fetch/fetchGuestCardsChunk.ts'
 import { fetchPeopleChunk } from '../_shared/pco-fetch/fetchPeopleChunk.ts'
 import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates, computeRoster } from '../_shared/pco-fetch/computeFromCache.ts'
@@ -27,7 +28,7 @@ const svc = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 // readiness is a snapshot, not history. It also depends on the schedule
 // resource's staged assignments for burnout-aware suggestions, so it is listed
 // after it in the sync order below.
-type Resource = 'schedule' | 'groups' | 'kids' | 'guests' | 'people' | 'roster'
+type Resource = 'schedule' | 'groups' | 'kids' | 'guests' | 'people' | 'roster' | 'households'
 type Mode = 'backfill' | 'incremental'
 // deno-lint-ignore no-explicit-any
 type Db = any
@@ -79,6 +80,18 @@ async function syncResource(
     } else if (resource === 'groups') {
       const r = await fetchGroupsChunk(db, clientId, tenant, cfg.groupDrift, (row.cursor ?? {}) as any, isOver)
       if (r.done) await computeGroups(db, clientId, cfg)
+      const { error } = await db.from('pco_sync_state').upsert({
+        client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
+        phase: r.done ? 'incremental' : 'backfill',
+        last_synced_date: row.last_synced_date,
+        updated_at: now, error: null,
+      }, { onConflict: 'client_id,resource' })
+      if (error) throw new Error(`write sync state: ${error.message}`)
+    } else if (resource === 'households') {
+      const r = await fetchHouseholdsChunk(db, clientId, tenant, (row.cursor ?? {}) as any, isOver)
+      // Households change family GROUPING, so recompute drift once the map is
+      // complete rather than waiting for the next kids pull.
+      if (r.done) await computeDrift(db, clientId, cfg)
       const { error } = await db.from('pco_sync_state').upsert({
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
@@ -178,6 +191,16 @@ async function syncResource(
       .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
+  } else if (resource === 'households') {
+    // Households are small and change slowly, so the incremental pass is just a
+    // full re-pull: ~44 requests, and it self-heals a partial backfill.
+    const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
+    await fetchHouseholdsChunk(db, clientId, tenant, { offset: 0 }, isOver)
+    await computeDrift(db, clientId, cfg)
+    const { error } = await db.from('pco_sync_state')
+      .update({ updated_at: now, error: null })
+      .eq('client_id', clientId).eq('resource', resource)
+    if (error) throw new Error(`write sync state: ${error.message}`)
   } else if (resource === 'kids') {
     // kids: re-fetch the recent window, then recompute
     const d = new Date()
@@ -245,7 +268,10 @@ async function syncChurchResource(
 
 async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConfig, mode: Mode) {
   const results: Record<string, string> = {}
-  for (const resource of ['schedule', 'groups', 'kids', 'guests', 'people', 'roster'] as Resource[]) {
+  // households BEFORE kids: computeDrift joins them, so a first run that pulls
+  // check-ins without households would compute one round of surname-grouped
+  // families before correcting itself the next night.
+  for (const resource of ['households', 'schedule', 'groups', 'kids', 'guests', 'people', 'roster'] as Resource[]) {
     results[resource] = await syncChurchResource(db, clientId, tenant, cfg, resource, mode)
   }
   return results

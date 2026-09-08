@@ -1,5 +1,10 @@
 // familyDrift.ts
-export interface CheckinRow { person_id: string; first: string; last: string; checkin_date: string; kind: string }
+export interface CheckinRow {
+  person_id: string; first: string; last: string; checkin_date: string; kind: string
+  /** Planning Center household, when known. See checkinsToFamilies. */
+  household_id?: string | null
+  household_name?: string | null
+}
 export interface FamilyAttendance { family: string; kids: string[]; sundays: string[] }
 export interface DriftFamily { family: string; kids: string[]; lastSeen: string; sundaysMissed: number; monthsAttending: number; totalSundays: number }
 export interface DriftCfg { windowMonths: number; sundaysMissed: number; minEstablishedSundays: number }
@@ -27,13 +32,51 @@ function sundaysMissedSince(lastSeen: string, refSunday: string): number {
   return n
 }
 
+/**
+ * Title-cases a surname for display. Planning Center holds whatever was typed,
+ * so "nunes" reaches a pastoral note as "Hey nunes family". Only fixes case: an
+ * apostrophe missing from "DAmelio" is the church's record to correct, and
+ * guessing where one belongs would be worse than leaving it.
+ */
+function tidySurname(s: string): string {
+  return s.replace(/\S+/g, (w) => (w === w.toLowerCase() ? w[0].toUpperCase() + w.slice(1) : w))
+}
+
+/**
+ * Group a child's check-ins into families.
+ *
+ * Groups by HOUSEHOLD when Planning Center gives us one, and falls back to the
+ * surname string when it does not.
+ *
+ * It used to always group by surname, which broke in both directions and both
+ * were live on Focal Point:
+ *
+ *   SPLIT   "Farmer" and "Farmer jr" became two flagged families, both 21
+ *           Sundays, both last seen the same day, from ONE Farmer Household.
+ *           Same with "Merino" and "Merino III", which sat in the escalated
+ *           call list twice. The pastor calls one household twice, and because
+ *           the Sundays are divided between two rows, tenure is understated and
+ *           the "most established first" ranking is wrong.
+ *
+ *   MERGE   Two unrelated households sharing a surname collapse into one
+ *           family, and the drafted note then names another family's child.
+ *           Rarer, much worse, and structurally possible.
+ *
+ * The display name still comes from the surname rather than PCO's household
+ * name, because "The Farmer family" is how a pastor speaks and "Farmer
+ * Household" is not.
+ */
 export function checkinsToFamilies(rows: CheckinRow[]): FamilyAttendance[] {
   const byFam: Record<string, { family: string; kids: Set<string>; sundays: Set<string> }> = {}
   for (const r of rows) {
     const surname = (r.last ?? '').trim()
     if (!surname) continue
-    const g = (byFam[surname] ??= { family: surname, kids: new Set(), sundays: new Set() })
-    g.kids.add(`${(r.first ?? '').trim()} ${surname}`.trim())
+    // Household id when we have it; surname otherwise, so a church without the
+    // household pull still gets the old behaviour rather than nothing.
+    const key = (r.household_id ?? '').trim() || `name:${surname.toLowerCase()}`
+    const display = tidySurname(surname)
+    const g = (byFam[key] ??= { family: display, kids: new Set(), sundays: new Set() })
+    g.kids.add(`${(r.first ?? '').trim()} ${display}`.trim())
     g.sundays.add(toSunday(r.checkin_date))
   }
   return Object.values(byFam).map((g) => ({ family: g.family, kids: [...g.kids], sundays: [...g.sundays] }))

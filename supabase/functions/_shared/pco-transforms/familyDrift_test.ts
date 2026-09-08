@@ -34,3 +34,43 @@ Deno.test('computeFamilyDrift flags established-then-quiet, excludes first-timer
   assertEquals(out.families[0].totalSundays, 6)
   assertEquals(out.families[0].lastSeen, '2026-06-14')
 })
+
+// ── families group by HOUSEHOLD, not by surname string ─────────────────────
+// Both directions were live on Focal Point: "Farmer" / "Farmer jr" split one
+// household into two flagged families, and two unrelated households sharing a
+// surname would have merged into one, putting another family's child in the
+// drafted note.
+Deno.test('one household with mismatched surnames is ONE family', () => {
+  const fams = checkinsToFamilies([
+    { person_id: 'p1', first: 'Layla', last: 'Farmer', checkin_date: '2026-08-09', kind: '', household_id: 'h1' },
+    { person_id: 'p2', first: 'Marcus', last: 'Farmer jr', checkin_date: '2026-08-02', kind: '', household_id: 'h1' },
+  ])
+  assertEquals(fams.length, 1)
+  assertEquals(fams[0].kids.length, 2)
+  // Sundays pool, so tenure is no longer split across two rows.
+  assertEquals(fams[0].sundays.length, 2)
+})
+
+Deno.test('two households sharing a surname stay SEPARATE families', () => {
+  const fams = checkinsToFamilies([
+    { person_id: 'p1', first: 'Ann', last: 'Smith', checkin_date: '2026-08-09', kind: '', household_id: 'h1' },
+    { person_id: 'p2', first: 'Bob', last: 'Smith', checkin_date: '2026-08-09', kind: '', household_id: 'h2' },
+  ])
+  assertEquals(fams.length, 2)
+})
+
+Deno.test('no household id falls back to surname grouping', () => {
+  const fams = checkinsToFamilies([
+    { person_id: 'p1', first: 'Ann', last: 'Jones', checkin_date: '2026-08-09', kind: '' },
+    { person_id: 'p2', first: 'Bob', last: 'Jones', checkin_date: '2026-08-02', kind: '' },
+  ])
+  assertEquals(fams.length, 1)
+})
+
+Deno.test('lowercase surnames are title-cased before they reach a note', () => {
+  const fams = checkinsToFamilies([
+    { person_id: 'p1', first: 'noah', last: 'nunes', checkin_date: '2026-08-09', kind: '', household_id: 'h9' },
+  ])
+  assertEquals(fams[0].family, 'Nunes')
+  assertEquals(fams[0].kids[0], 'noah Nunes')
+})
