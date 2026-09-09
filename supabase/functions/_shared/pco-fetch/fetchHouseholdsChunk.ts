@@ -49,14 +49,17 @@ export async function fetchHouseholdsChunk(
       }
     }
 
-    // A person can appear in more than one household. Keep the first, which is
-    // stable across runs because the API orders households consistently: family
-    // drift needs a stable grouping key, not the "correct" household.
-    const deduped = [...new Map(rows.map((r) => [r.person_id as string, r])).values()]
+    // Every membership is recorded. Choosing between them is the transform's
+    // job, not the fetcher's: a person's households can land on different API
+    // pages, and each page upserts as it goes, so any choice made here is
+    // decided by page order rather than by anything meaningful.
+    const deduped = [...new Map(
+      rows.map((r) => [`${r.person_id}|${r.household_id}`, r]),
+    ).values()]
     if (deduped.length) {
       const { error } = await db
         .from('pco_households')
-        .upsert(deduped, { onConflict: 'client_id,person_id' })
+        .upsert(deduped, { onConflict: 'client_id,person_id,household_id' })
       if (error) throw new Error(`households upsert: ${error.message}`)
     }
 

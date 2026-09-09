@@ -74,3 +74,26 @@ Deno.test('lowercase surnames are title-cased before they reach a note', () => {
   assertEquals(fams[0].family, 'Nunes')
   assertEquals(fams[0].kids[0], 'noah Nunes')
 })
+
+// ── blended households take the household's name, kids keep their own ──────
+// Chloe Battaglia is in the Medina Household with Marleen Medina. Naming the
+// family after the first child made it "the Battaglia family" when the church
+// calls them Medina.
+Deno.test('family is named after the household, children keep their surnames', () => {
+  const fams = checkinsToFamilies([
+    { person_id: 'p1', first: 'Chloe', last: 'Battaglia', checkin_date: '2026-07-05', kind: '',
+      household_id: 'h7', household_name: 'Medina Household' },
+    { person_id: 'p2', first: 'Marleen', last: 'Medina', checkin_date: '2026-07-05', kind: '',
+      household_id: 'h7', household_name: 'Medina Household' },
+  ])
+  assertEquals(fams.length, 1)
+  assertEquals(fams[0].family, 'Medina')
+  assertEquals(fams[0].kids.sort(), ['Chloe Battaglia', 'Marleen Medina'])
+})
+
+Deno.test('household name falls back to the surname when absent', () => {
+  const fams = checkinsToFamilies([
+    { person_id: 'p1', first: 'Gabriel', last: 'sims', checkin_date: '2026-08-09', kind: '', household_id: 'h1' },
+  ])
+  assertEquals(fams[0].family, 'Sims')
+})

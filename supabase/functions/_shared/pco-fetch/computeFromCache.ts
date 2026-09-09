@@ -78,7 +78,7 @@ export async function computeDrift(db: Db, clientId: string, cfg: PcoConfig) {
   // resources with different windows; re-pulling two years of check-ins just to
   // carry a household id would be absurd. Missing table or empty result simply
   // falls back to the old surname grouping.
-  const households: Record<string, { id: string; name: string }> = {}
+  const memberships: Record<string, { id: string; name: string }[]> = {}
   try {
     const hh = await readAll(
       (from, to) => db.from('pco_households')
@@ -86,17 +86,30 @@ export async function computeDrift(db: Db, clientId: string, cfg: PcoConfig) {
         .order('person_id').range(from, to),
       'households')
     for (const h of hh as any[]) {
-      households[h.person_id] = { id: h.household_id, name: h.household_name }
+      ;(memberships[h.person_id] ??= []).push({ id: h.household_id, name: h.household_name })
     }
   } catch (e) {
     console.error(`computeDrift: household read failed, falling back to surname grouping: ${e instanceof Error ? e.message : String(e)}`)
   }
 
-  const withHousehold = (rows as any[]).map((r) => ({
-    ...r,
-    household_id: households[r.person_id]?.id ?? null,
-    household_name: households[r.person_id]?.name ?? null,
-  }))
+  // A person can belong to several households. Prefer the one NAMED after them,
+  // because that is both the intuitive answer and a stable one. Hayden
+  // Drouillard is in "Nicolas Household" and "Drouillard Household"; without
+  // this the pick came down to API page order, and he was split from his
+  // brother into a second identical "Drouillard family" card.
+  const pick = (personId: string, surname: string) => {
+    const hs = memberships[personId]
+    if (!hs?.length) return null
+    const want = surname.trim().toLowerCase()
+    const named = hs.find(
+      (h) => (h.name ?? '').toLowerCase().replace(/\s+household$/, '').trim() === want,
+    )
+    return named ?? hs[0]
+  }
+  const withHousehold = (rows as any[]).map((r) => {
+    const h = pick(r.person_id, r.last ?? '')
+    return { ...r, household_id: h?.id ?? null, household_name: h?.name ?? null }
+  })
   const families = checkinsToFamilies(withHousehold)
   await writeOk(db, clientId, 'drift', computeFamilyDrift(families, cfg.drift!, today()))
 }

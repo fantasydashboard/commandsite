@@ -62,9 +62,11 @@ function tidySurname(s: string): string {
  *           family, and the drafted note then names another family's child.
  *           Rarer, much worse, and structurally possible.
  *
- * The display name still comes from the surname rather than PCO's household
- * name, because "The Farmer family" is how a pastor speaks and "Farmer
- * Household" is not.
+ * The display name comes from PCO's HOUSEHOLD name with " Household" stripped,
+ * falling back to the child's surname. Using the first child's surname was
+ * wrong for blended households: Chloe Battaglia and Marleen Medina share the
+ * Medina Household, correctly merged into one family, and we then addressed the
+ * note to "the Battaglia family". The church calls them Medina, so we should.
  */
 export function checkinsToFamilies(rows: CheckinRow[]): FamilyAttendance[] {
   const byFam: Record<string, { family: string; kids: Set<string>; sundays: Set<string> }> = {}
@@ -74,9 +76,14 @@ export function checkinsToFamilies(rows: CheckinRow[]): FamilyAttendance[] {
     // Household id when we have it; surname otherwise, so a church without the
     // household pull still gets the old behaviour rather than nothing.
     const key = (r.household_id ?? '').trim() || `name:${surname.toLowerCase()}`
-    const display = tidySurname(surname)
+    // "Medina Household" -> "Medina", which is how a pastor would say it.
+    const fromHousehold = (r.household_name ?? '').trim().replace(/\s+household$/i, '').trim()
+    const display = tidySurname(fromHousehold || surname)
     const g = (byFam[key] ??= { family: display, kids: new Set(), sundays: new Set() })
-    g.kids.add(`${(r.first ?? '').trim()} ${display}`.trim())
+    // The child keeps their own surname. In a blended household the household
+    // is Medina while the child is still Marleen Battaglia, and a note naming
+    // the wrong child is worse than one naming the wrong household.
+    g.kids.add(`${(r.first ?? '').trim()} ${tidySurname(surname)}`.trim())
     g.sundays.add(toSunday(r.checkin_date))
   }
   return Object.values(byFam).map((g) => ({ family: g.family, kids: [...g.kids], sundays: [...g.sundays] }))
