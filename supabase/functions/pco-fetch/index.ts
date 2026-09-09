@@ -192,14 +192,19 @@ async function syncResource(
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
   } else if (resource === 'households') {
-    // Households are small and change slowly, so the incremental pass is just a
-    // full re-pull: ~44 requests, and it self-heals a partial backfill.
+    // A full re-pull, but RESUMABLE. This first discarded the returned cursor
+    // and always restarted at offset 0, so a pass that ran out of time budget
+    // would begin again from the top on the next run and never finish. Same
+    // resume semantics as backfill: persist the cursor, recompute only when the
+    // map is complete, and reset to 0 once done so the next night re-pulls.
     const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
-    await fetchHouseholdsChunk(db, clientId, tenant, { offset: 0 }, isOver)
-    await computeDrift(db, clientId, cfg)
-    const { error } = await db.from('pco_sync_state')
-      .update({ updated_at: now, error: null })
-      .eq('client_id', clientId).eq('resource', resource)
+    const r = await fetchHouseholdsChunk(db, clientId, tenant, (row.cursor ?? { offset: 0 }) as any, isOver)
+    if (r.done) await computeDrift(db, clientId, cfg)
+    const { error } = await db.from('pco_sync_state').upsert({
+      client_id: clientId, resource, cursor: r.cursor, backfill_complete: true,
+      phase: 'incremental', last_synced_date: row.last_synced_date,
+      updated_at: now, error: null,
+    }, { onConflict: 'client_id,resource' })
     if (error) throw new Error(`write sync state: ${error.message}`)
   } else if (resource === 'kids') {
     // kids: re-fetch the recent window, then recompute

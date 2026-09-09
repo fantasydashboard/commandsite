@@ -61,7 +61,12 @@ export async function fetchHouseholdsChunk(
     }
 
     offset += PER
-    // Short page means we reached the end.
+    // Short page means we reached the end. Reset the cursor so the next run is
+    // a fresh full pass, which is how this resource stays current: households
+    // change slowly and there is no changed-since filter worth maintaining.
     if (households.length < PER) return { cursor: { offset: 0 }, done: true }
+    // Courtesy pause, matching pcoAllPages. Forty-four requests in a tight loop
+    // is a good way to collect 429s and spend longer than pausing would have.
+    await new Promise((r) => setTimeout(r, 100))
   }
 }
