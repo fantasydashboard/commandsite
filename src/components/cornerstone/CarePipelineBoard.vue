@@ -11,14 +11,23 @@ import { carePipeline, TRACKS, STAGES, type Track, type CareCase } from '@/lib/c
 
 // Only the stages this board can actually put a card in.
 //
-// It rendered all five, and "Reaching out" and "Watching" were empty in every
-// track because nothing advances a card into them: the auto-advancing engine is
+// It rendered all five. "Reaching out" and "Watching" were empty in every track
+// because nothing advances a card into them: the auto-advancing engine is
 // unbuilt, which the footnote admitted two lines under a claim that Grace
-// "advances stages automatically". Three of five columns permanently empty
-// implies a process the church does not have. Flagged, Escalated and Resolved
-// are real today (Resolved is driven by the live returned-families
-// reconciliation), so those are what it shows.
-const LIVE_STAGE_KEYS = ['flagged', 'escalated', 'resolved']
+// "advances stages automatically".
+//
+// I first cut it to three, keeping Resolved, and that was still wrong. The
+// transform only emits a family once it has missed 3+ Sundays, and
+// returnedFamilies() calls someone returned at fewer than 3, so the live payload
+// can never contain one. Resolved was structurally empty too, and one dead
+// column out of three is worse than three out of five.
+//
+// A family that comes back simply leaves the board, which is what the directory
+// strip already says and is better behaviour than a column nobody can reach.
+// Making Resolved real needs week-over-week snapshot diffing, because "who came
+// back" is not derivable from the current snapshot alone, and we keep only the
+// latest payload per module.
+const LIVE_STAGE_KEYS = ['flagged', 'escalated']
 const VISIBLE_STAGES = STAGES.filter((s) => LIVE_STAGE_KEYS.includes(s.key))
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
@@ -128,6 +137,8 @@ function flaggedInScope(track: Track): CareCase[] {
 }
 
 function casesFor(track: Track, stage: string): CareCase[] {
+  // 'resolved' is not a rendered column: see LIVE_STAGE_KEYS. Kept so the
+  // function stays honest if week-over-week diffing lands and revives it.
   if (stage === 'resolved') return resolvedFor(track)
   const promoted = track === 'family' ? promotedFamily(stage) : []
   const real = realCases(track).filter((c) => c.stage === stage && laneInScope(track, c.name) && !care.isHidden(careCaseFlag(c).id))
@@ -175,7 +186,7 @@ function initials(name: string): string {
     <div class="overflow-x-auto">
       <div class="min-w-[920px]">
         <!-- stage header row -->
-        <div class="grid grid-cols-[132px_repeat(3,minmax(0,1fr))] gap-2 border-b border-divider pb-2">
+        <div class="grid grid-cols-[132px_repeat(2,minmax(0,1fr))] gap-2 border-b border-divider pb-2">
           <div></div>
           <div v-for="s in VISIBLE_STAGES" :key="s.key" class="px-1 text-[10px] font-semibold uppercase tracking-wide" :class="s.key === 'resolved' ? 'text-success' : s.key === 'escalated' ? 'text-danger' : 'text-ink-muted'">
             {{ s.label }}
@@ -183,7 +194,7 @@ function initials(name: string): string {
         </div>
 
         <!-- one row per track -->
-        <div v-for="t in TRACKS" :key="t.key" class="grid grid-cols-[132px_repeat(3,minmax(0,1fr))] gap-2 border-b border-divider/60 py-2">
+        <div v-for="t in TRACKS" :key="t.key" class="grid grid-cols-[132px_repeat(2,minmax(0,1fr))] gap-2 border-b border-divider/60 py-2">
           <!-- lane label -->
           <div class="flex gap-2">
             <span class="w-1 shrink-0 rounded-full" :class="ACCENT[t.key].bar"></span>
@@ -246,7 +257,7 @@ function initials(name: string): string {
       <span class="text-ink-disabled">Grace flags and drafts. Moving a card is yours, at the approval and escalation gates.</span>
     </div>
     <p class="mt-2 text-[11px] text-ink-disabled">
-      The process on your real people. Reaching out and Watching arrive with the auto-advancing engine (stage tracking, escalation timers); until then a card sits in Flagged until you act on it, and Resolved fills on its own when someone comes back.
+      The process on your real people. A family drops off this board entirely once their kids check back in, so there is no "resolved" pile to work through. Reaching out and Watching arrive with the auto-advancing engine (stage tracking, escalation timers); until then a card sits in Flagged until you act on it.
     </p>
   </section>
 </template>
