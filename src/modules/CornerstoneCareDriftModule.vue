@@ -59,11 +59,22 @@ onMounted(() => {
 })
 
 // Tabbed directories below the priority feed (fixes the page length).
-// Counts are lens- and reconciliation-aware so each tab badge MATCHES the list
-// beneath it: same congregation scope, same dismiss/snooze hiding, same
-// "came back" reconciliation the directories apply.
+//
+// Each badge MUST match the count in the panel it opens. That was the stated
+// intent and it drifted: PeopleDrift and GroupDriftWatch later added a
+// WORKING_WEEKS cap (someone quiet longer than half a year is a different
+// conversation from this week's outreach) and the badges never got it. Live on
+// Focal Point the tabs read "Stopped serving 22" over a panel headed "21 people
+// to check in with", and "Group drift 120" over "117 people went quiet".
+//
+// Small numbers, but they are the first thing a staffer can check for
+// themselves, and getting them wrong is a cheap way to lose trust in every
+// other number on the page.
 const lens = useCongregationLens()
 const careActions = useCareActions()
+// Must stay in step with PeopleDrift.vue and GroupDriftWatch.vue, which cap
+// their lists at the same window.
+const WORKING_WEEKS = 26
 const inScope = (name: string) => lens.scope === 'all' || congregationOf(name) === lens.scope
 const familiesCount = computed(
   () => driftData().families.filter((f) => inScope(f.family) && !careActions.isHidden(`family:${f.family}`)).length,
@@ -72,10 +83,14 @@ const familiesCount = computed(
 // vs English/main. People who served both show in both views.
 const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
 const servingCount = computed(
-  () => servingData().people.filter((p) => !careActions.isHidden(`serving:${p.name}`) && inCampus(p.campus)).length,
+  () => servingData().people.filter(
+    (p) => !careActions.isHidden(`serving:${p.name}`) && inCampus(p.campus) && p.weeksSince <= WORKING_WEEKS,
+  ).length,
 )
 const groupsCount = computed(
-  () => groupDriftData().people.filter((p) => inScope(p.name) && !careActions.isHidden(`group:${p.name}`)).length,
+  () => groupDriftData().people.filter(
+    (p) => inScope(p.name) && !careActions.isHidden(`group:${p.name}`) && p.weeksSince <= WORKING_WEEKS,
+  ).length,
 )
 const careTab = ref<'families' | 'serving' | 'groups'>('families')
 const careTabs = computed(() => [
