@@ -59,6 +59,12 @@ export function computeServing(byPerson: ByPerson, staff: Set<string>, cfg: Serv
   let totalVolunteers = 0
   const dormant = dormantTeams(byPerson, cfg, today)
   let retiredTeamExcluded = 0
+  // Only the teams that actually caused an exclusion. Reporting every dormant
+  // team read as though all of them belonged to the one excluded person:
+  // "1 person is not on this list ... (Ages 2-5, Apoio Pastoral, Check-In Team
+  // and 6 more)" invites the obvious question of how one person served on nine
+  // teams, and the answer was that they did not.
+  const excludedTeams = new Set<string>()
   const people = []
   for (const rec of Object.values(byPerson)) {
     if (staff.has(rec.name)) continue
@@ -72,7 +78,11 @@ export function computeServing(byPerson: ByPerson, staff: Set<string>, cfg: Serv
     if (weeksSince < cfg.gapWeeks || upcoming.length > 0) continue
     // Every team they served on has stopped running, so they did not drift,
     // their team did. Chasing them would be a false alarm sent to a leader.
-    if (past.every((d) => dormant.has(d.team))) { retiredTeamExcluded++; continue }
+    if (past.every((d) => dormant.has(d.team))) {
+      retiredTeamExcluded++
+      for (const d of past) excludedTeams.add(d.team)
+      continue
+    }
     const firstServed = past[past.length - 1].date
     people.push({
       name: rec.name, area: primaryTeam(past), campus: campusOf(past.map((d) => d.team)),
@@ -82,7 +92,7 @@ export function computeServing(byPerson: ByPerson, staff: Set<string>, cfg: Serv
   people.sort((a, b) => b.totalServed - a.totalServed || b.weeksSince - a.weeksSince)
   return {
     flaggedPeople: people.length, totalVolunteers, signal: SERVING_SIGNAL, people, drafts: [],
-    retiredTeamExcluded, retiredTeams: [...dormant].sort(),
+    retiredTeamExcluded, retiredTeams: [...excludedTeams].sort(),
   }
 }
 

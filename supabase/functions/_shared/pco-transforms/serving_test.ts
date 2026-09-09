@@ -65,6 +65,25 @@ Deno.test('a team where nobody still serves is dormant, and its people are not f
   assertEquals(out.retiredTeams?.includes('Vocals 4th Service'), true)
 })
 
+// The team list must describe the EXCLUDED people, not every dormant team, or
+// it reads as though one person served on nine teams.
+Deno.test('retiredTeams lists only teams behind an exclusion', () => {
+  const cfg = { regularMin: 3, gapWeeks: 6 } as any
+  const byPerson = {
+    // Dormant team, but this person is under regularMin so is never flagged and
+    // never excluded. Their team must not appear in the reported list.
+    rare: { name: 'Rare Server', dates: [{ date: '2026-05-03', team: 'Ghost Team', status: 'C' }] },
+    gone: { name: 'Gone Person', dates: [
+      { date: '2026-07-05', team: 'Retired Team', status: 'C' },
+      { date: '2026-06-28', team: 'Retired Team', status: 'C' },
+      { date: '2026-06-21', team: 'Retired Team', status: 'C' },
+    ] },
+  } as any
+  const out = computeServing(byPerson, new Set(), cfg, '2026-09-08')
+  assertEquals(out.retiredTeamExcluded, 1)
+  assertEquals(out.retiredTeams, ['Retired Team'])
+})
+
 Deno.test('a person on a LIVE team is still flagged when they personally stop', () => {
   const cfg = { regularMin: 3, gapWeeks: 6 } as any
   const byPerson = {
