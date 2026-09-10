@@ -8,7 +8,7 @@
 import { computed } from 'vue'
 import DataFreshnessBadge from '@/components/cornerstone/DataFreshnessBadge.vue'
 import { carePipeline } from '@/lib/clients/focal-point/carePipeline'
-import { guestPipeline } from '@/lib/clients/focal-point/guestPipeline'
+import { guestPipelineData, driftData } from '@/lib/clients/church/careDataLoader'
 import { focalPointSchedule as sched, type TeamWeek } from '@/lib/clients/focal-point/rosterForward'
 import { focalPointRoster } from '@/lib/clients/focal-point/roster'
 import { focalPointInsights as fp } from '@/lib/clients/focal-point/insights'
@@ -19,7 +19,11 @@ const to = (tab: string) => ({ name: 'dashboard.tab', params: { slug: props.slug
 // pull the same real counts the pages use
 // Welcome notes awaiting approval = this-week guests with a drafted welcome
 // (matches the Front Desk approval queue), not just cards on the "new" step.
-const guestNew = guestPipeline.cases.filter((c) => c.draft).length
+// Live payload, not the baked focal-point/guestPipeline.ts. That file is
+// skip-worktree and its committed copy is a stub, so this counted drafts in an
+// empty array and the Monday rollup told leadership there were no guests
+// waiting while Front Desk showed a queue.
+const guestNew = computed(() => guestPipelineData().cases.filter((c) => c.draft).length)
 const careApprove = carePipeline.cases.filter((c) => c.track === 'family' && c.stage === 'flagged').length
 const careCall = carePipeline.cases.filter((c) => c.stage === 'escalated' && c.track !== 'burnout').length
 const forgottenNow = (c: TeamWeek) => c.sched === 0 && c.need === 0
@@ -35,7 +39,7 @@ const sundaySummary = computed(() => {
 })
 
 const domains = computed(() => [
-  { key: 'guests', label: 'Guests', dot: 'bg-brand', tab: 'front-desk-guests', summary: `${guestNew} welcome notes to approve for Sunday's first-timers.` },
+  { key: 'guests', label: 'Guests', dot: 'bg-brand', tab: 'front-desk-guests', summary: `${guestNew.value} welcome notes to approve for Sunday's first-timers.` },
   { key: 'care', label: 'Care', dot: 'bg-warn', tab: 'care-drift', summary: `${careApprove} family notes to approve and ${careCall} escalations to call personally.` },
   { key: 'sunday', label: 'Sunday', dot: 'bg-danger', tab: 'sundays-comms', summary: sundaySummary.value },
   { key: 'comms', label: 'Comms', dot: 'bg-accent', tab: 'sundays-comms', summary: '2 drafts written from your numbers, ready for your admin.' },
@@ -44,7 +48,10 @@ const domains = computed(() => [
 const glance = computed(() => [
   { label: 'Last Sunday', value: fp.thisWeekend.grand.toLocaleString(), sub: 'in the room', tab: 'insights' },
   { label: 'First-timers', value: String(fp.thisWeekend.firstTimers), sub: 'this weekend', tab: 'front-desk-guests' },
-  { label: 'Drift families', value: String(53), sub: 'flagged', tab: 'care-drift' },
+  // Was hardcoded to 53 while Care & Drift showed 22. The rollup exists to be
+  // the front door to those pages, so a number here that contradicts the page
+  // it links to is worse than no number.
+  { label: 'Drift families', value: String(driftData().families.length), sub: 'flagged', tab: 'care-drift' },
   { label: 'Serving', value: '26%', sub: 'of your core', tab: 'insights' },
 ])
 </script>

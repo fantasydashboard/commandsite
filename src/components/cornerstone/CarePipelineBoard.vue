@@ -7,6 +7,7 @@
  * who stopped attending promoted into the pastoral track. Auto-advancing engine
  * is the week-one build; this is the process on real data.
  */
+import { computed } from 'vue'
 import { carePipeline, TRACKS, STAGES, type Track, type CareCase } from '@/lib/clients/focal-point/carePipeline'
 
 // Only the stages this board can actually put a card in.
@@ -34,7 +35,7 @@ import { useCongregationLens } from '@/stores/congregationLens'
 import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import { returnedFamilies } from '@/lib/clients/focal-point/driftLive'
 import { servingResumers } from '@/lib/clients/focal-point/servingLive'
-import { focalPointServing } from '@/lib/clients/focal-point/serving'
+import { servingData } from '@/lib/clients/church/careDataLoader'
 import { familyCases, servingCases, groupCases } from '@/lib/clients/focal-point/familyPipeline'
 import { careCaseFlag } from '@/lib/clients/focal-point/flags'
 
@@ -131,11 +132,25 @@ function realCases(track: Track): CareCase[] {
 }
 // All three tracks follow the lens: families/groups by service attended, serving
 // by the campus of the teams a person serves.
-const servingCampus = new Map(focalPointServing.people.map((p) => [p.name, p.campus]))
+// Read the LIVE serving payload, not the baked focal-point/serving.ts.
+//
+// That file is skip-worktree and its committed copy has zero people, so this
+// Map was empty in production. servingCampus.get(name) came back undefined for
+// everyone, laneInScope returned false for every serving case, and the Stopped
+// serving lane rendered completely blank on the English or Brazilian lens while
+// its own tab said 12. Only the 'all' lens hid it, because that path returns
+// early before the lookup.
+//
+// Fifth instance of this class after roster, congregation, activity and
+// priority. A component reaching straight into a focal-point/*.ts file is the
+// tell; the live getters exist for exactly this reason.
+const servingCampus = computed(
+  () => new Map(servingData().people.map((p) => [p.name, p.campus])),
+)
 const laneInScope = (track: Track, name: string) => {
   if (track !== 'serving') return nameInScope(name)
   if (lens.scope === 'all') return true
-  const c = servingCampus.get(name)
+  const c = servingCampus.value.get(name)
   return c === 'both' || c === lens.scope
 }
 function flaggedInScope(track: Track): CareCase[] {
