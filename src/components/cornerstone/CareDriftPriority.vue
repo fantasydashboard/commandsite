@@ -6,11 +6,11 @@
  * escalated cases to call. Serving and burnout are not here on purpose, they go
  * to the ministry leaders via the Monday digest.
  */
-import { computed, ref } from 'vue'
-import { carePipeline, type CareCase, type Track } from '@/lib/clients/focal-point/carePipeline'
+import { computed } from 'vue'
+import { carePipeline, type CareCase } from '@/lib/clients/focal-point/carePipeline'
 import { useCareActions } from '@/stores/careActions'
 import { useCongregationLens } from '@/stores/congregationLens'
-import { congregationOf, congregationMapMissing } from '@/lib/clients/focal-point/congregationLive'
+import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import { servingResumedByName } from '@/lib/clients/focal-point/servingLive'
 import { familyCases } from '@/lib/clients/focal-point/familyPipeline'
 import { careCaseFlag } from '@/lib/clients/focal-point/flags'
@@ -18,23 +18,16 @@ import { careCaseFlag } from '@/lib/clients/focal-point/flags'
 const care = useCareActions()
 const lens = useCongregationLens()
 const inScope = (c: CareCase) => lens.scope === 'all' || congregationOf(c.name) === lens.scope
-// Scoped to a congregation, but no map to scope WITH: every name resolves to
-// null and the list empties for a reason that has nothing to do with the church.
-const lensUnplaceable = computed(() => lens.scope !== 'all' && congregationMapMissing())
 // familyCases already excludes families who returned; only serving needs the
-// resumed check here. Dismiss/snooze + resolved-this-session also hide a card.
+// resumed check here. Dismiss/snooze and this session's approvals also hide one.
 const notReturned = (c: CareCase) => !(c.track === 'serving' && servingResumedByName(c.name))
-const resolved = ref<Set<string>>(new Set())
 const shown = (c: CareCase) =>
-  !resolved.value.has(c.id) && !care.isHidden(careCaseFlag(c).id) && inScope(c) && notReturned(c)
+  !care.isHandled(c.id) && !care.isHidden(careCaseFlag(c).id) && inScope(c) && notReturned(c)
 
-// The pastor's list is the REAL family drift data, split by severity: established
-// + long-gone families are personal calls; the rest are drafted notes to approve.
-// A cross-track promotion (a lapsed volunteer escalated to pastoral) rides along.
-const APPROVE_CAP = 3
-const approvalsAll = computed(() => familyCases().filter((c) => c.stage === 'flagged' && shown(c)))
-const approvals = computed(() => approvalsAll.value.slice(0, APPROVE_CAP))
-const moreApprovals = computed(() => approvalsAll.value.length - approvals.value.length)
+// Real family drift, split by severity: established and long-gone families are
+// personal calls; the rest are drafted notes to approve. A cross-track promotion
+// (a lapsed volunteer escalated to pastoral) rides along.
+const approvals = computed(() => familyCases().filter((c) => c.stage === 'flagged' && shown(c)))
 const calls = computed(() => {
   const realEscalated = familyCases().filter((c) => c.stage === 'escalated' && shown(c))
   const promoted = carePipeline.cases.filter(
@@ -42,28 +35,12 @@ const calls = computed(() => {
   )
   return [...realEscalated, ...promoted]
 })
-// The header counts the immediate queue shown here (top drafts + the calls), not
-// every drafted note; the "+N more" line and the board carry the rest.
+// EVERY note awaiting approval plus every escalated call. This used to count
+// only the three drafts the queue happened to render, so the headline number was
+// set by a display cap rather than by the work: it said 12 when 33 things were
+// waiting. Now that the list is gone and the board holds the cards, the count
+// has no reason to lie.
 const actionCount = computed(() => approvals.value.length + calls.value.length)
-
-// NOTE: this only marks the card handled locally. It deliberately does NOT
-// claim to send. Family drift cases are derived from kids' check-in names, so
-// DriftFamily has no person_id and no email address: there is literally nobody
-// to send to until parent contacts are linked. The button therefore reads
-// "Approve note", not "Approve & send" (Front Desk, which has a person_id, does
-// really send). A button that says it sent when nothing was sent is the exact
-// failure we fixed on the guest queue.
-function done(id: string) {
-  resolved.value = new Set(resolved.value).add(id)
-}
-function initials(name: string): string {
-  const clean = name.replace(/^The\s+/i, '').replace(/\s+family$/i, '')
-  return clean.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')
-}
-const TRACK_LABEL: Record<Track, string> = { family: 'Family drifting', serving: 'Stopped serving', burnout: 'Burnout risk', groups: 'Group drift' }
-const TRACK_CLS: Record<Track, string> = { family: 'bg-warn/15 text-warn', serving: 'bg-accent/15 text-accent', burnout: 'bg-danger/12 text-danger', groups: 'bg-brand/12 text-brand' }
-
-function avatarBlock(c: CareCase) { return c.avatar }
 </script>
 
 <template>
@@ -79,77 +56,17 @@ function avatarBlock(c: CareCase) { return c.avatar }
       {{ actionCount }} {{ actionCount === 1 ? 'thing' : 'things' }} only you can do
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
-      Just your actions: notes to approve and escalated calls to make. Everyone drifting or lapsed is tracked on the board below. Serving lapses route to the ministry leaders. Over-serving lives under Serving now.
+      Notes to approve and escalated calls to make, all on the board below. Approve straight from a
+      card, or open one to read the note beside the check-in history behind it. Serving lapses route
+      to the ministry leaders, and over-serving lives under Serving.
     </p>
   </section>
 
-  <!-- To approve -->
-  <div v-if="approvals.length" class="space-y-3">
-    <div class="flex items-center gap-3 px-1">
-      <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">To approve</span>
-      <span class="h-px flex-1 bg-divider"></span>
-    </div>
-    <article v-for="c in approvals" :key="c.id" class="card flex flex-col gap-3 sm:flex-row sm:items-start">
-      <img v-if="avatarBlock(c)" :src="c.avatar" :alt="c.name" class="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-divider" loading="lazy" />
-      <div v-else class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">{{ initials(c.name) }}</div>
-
-      <div class="min-w-0 flex-1 cursor-pointer" @click="care.openDetail(careCaseFlag(c))">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" :class="TRACK_CLS[c.track]">{{ TRACK_LABEL[c.track] }}</span>
-          <span class="text-sm font-semibold text-ink">{{ c.name }}</span>
-        </div>
-        <p class="mt-0.5 text-[12px] text-ink-muted">{{ c.detail }}</p>
-        <p v-if="c.draft" class="mt-2 rounded-lg border border-divider bg-surface-elevated/40 px-3 py-2 text-[13px] italic leading-relaxed text-ink">
-          "{{ c.draft }}"
-        </p>
-      </div>
-
-      <div class="flex shrink-0 flex-row gap-2 sm:w-28 sm:flex-col">
-        <button class="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink-inverse hover:bg-brand-hover" @click="done(c.id)">Approve note</button>
-        <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink">Edit</button>
-        <button class="px-3 py-1 text-xs text-ink-muted hover:text-ink">Skip</button>
-      </div>
-    </article>
-    <p v-if="moreApprovals" class="px-1 text-[11px] text-ink-muted">
-      Grace drafted {{ moreApprovals }} more {{ moreApprovals === 1 ? 'note' : 'notes' }} for the other flagged families. Review them on the board and directory below.
-    </p>
-  </div>
-
-  <!-- To call -->
-  <div v-if="calls.length" class="space-y-3">
-    <div class="flex items-center gap-3 px-1">
-      <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-danger">Escalated, to call</span>
-      <span class="h-px flex-1 bg-divider"></span>
-    </div>
-    <article v-for="c in calls" :key="c.id" class="card flex flex-col gap-3 sm:flex-row sm:items-center">
-      <img v-if="avatarBlock(c)" :src="c.avatar" :alt="c.name" class="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-divider" loading="lazy" />
-      <div v-else class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">{{ initials(c.name) }}</div>
-
-      <div class="min-w-0 flex-1 cursor-pointer" @click="care.openDetail(careCaseFlag(c))">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" :class="TRACK_CLS[c.track]">{{ TRACK_LABEL[c.track] }}</span>
-          <span class="text-sm font-semibold text-ink">{{ c.name }}</span>
-          <span v-if="c.promotedFrom" class="rounded bg-brand/12 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Two signals at once</span>
-        </div>
-        <p class="mt-0.5 text-[12px] text-ink-muted">{{ c.detail }}</p>
-        <p v-if="c.note" class="mt-1 text-[12px] leading-snug text-ink">{{ c.note }}</p>
-      </div>
-
-      <div class="flex shrink-0 flex-col items-stretch gap-1.5 sm:w-32">
-        <span v-if="c.channel" class="rounded-md bg-brand/10 px-2 py-1 text-center text-[10px] font-semibold text-brand">{{ c.channel }}</span>
-        <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink" @click="done(c.id)">Mark called</button>
-      </div>
-    </article>
-  </div>
-
-  <!-- An empty SCOPED view has two very different causes, and calling both of
-       them "all caught up" is how this shipped broken: with no congregation map
-       loaded, nobody can be placed, so English and Brazilian both went empty and
-       read as good news. Say which one it is. -->
-  <p v-if="!actionCount && lensUnplaceable" class="card text-center text-sm text-ink-muted">
-    Nobody can be sorted into a congregation yet, so this view is empty rather than clear.
-    Switch to <button type="button" class="font-semibold text-brand underline" @click="lens.set('all')">All</button>
-    to see everyone who needs you.
-  </p>
-  <p v-else-if="!actionCount" class="card text-center text-sm text-ink-muted">All caught up. Nice work.</p>
+  <!-- The two lists that used to live here, "To approve" and "Escalated, to
+       call", were the board's family lane with buttons attached: the same 12
+       cards rendered twice on one screen. The board now carries the actions,
+       and the drafted note opens in the detail drawer beside the check-in
+       history that justifies it, which is more context than this queue ever
+       had. What survives is the count, because "12 things need you" is the
+       sentence worth reading before you scroll. -->
 </template>

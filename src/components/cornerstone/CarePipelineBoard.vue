@@ -42,7 +42,15 @@ const care = useCareActions()
 const lens = useCongregationLens()
 const nameInScope = (name: string) => lens.scope === 'all' || congregationOf(name) === lens.scope
 const inScope = (c: CareCase) =>
-  nameInScope(c.name) && !(c.track === 'serving' && servingResumers().some((r) => r.name === c.name))
+  nameInScope(c.name)
+  && !care.isHandled(c.id)
+  && !(c.track === 'serving' && servingResumers().some((r) => r.name === c.name))
+
+// Acting straight from the card, so the board IS the work rather than a
+// read-only copy of a queue sitting above it. Approving without reading the
+// note would be worse than the duplication was, so the note stays in the
+// drawer: "Review note" opens it beside the check-in history that justifies it.
+function markHandled(c: CareCase) { care.markHandled(c.id) }
 
 // Cap how many flagged family cards show in a single board cell; the rest live in
 // the directory below. Keeps the board a glance, not a wall.
@@ -226,6 +234,27 @@ function initials(name: string): string {
                   <div class="truncate text-[12px] font-semibold leading-tight text-ink">{{ c.name }}</div>
                   <div class="truncate text-[10px] text-ink-muted">{{ c.detail }}</div>
                 </div>
+              </div>
+
+              <!-- Actions only on the pastor's own lane. Serving and Groups
+                   route to ministry and group leaders, which the lane labels
+                   say, so buttons there would imply the wrong owner. -->
+              <div v-if="t.key === 'family'" class="mt-2 flex flex-wrap items-center gap-1.5" @click.stop>
+                <template v-if="c.draft">
+                  <button
+                    class="rounded-md bg-brand px-2.5 py-1 text-[11px] font-semibold text-ink-inverse hover:bg-brand-hover"
+                    @click="markHandled(c)"
+                  >Approve</button>
+                  <button
+                    class="rounded-md border border-divider px-2.5 py-1 text-[11px] font-medium text-ink-muted hover:text-ink"
+                    @click="care.openDetail(careCaseFlag(c))"
+                  >Review note</button>
+                </template>
+                <button
+                  v-else-if="s.key === 'escalated'"
+                  class="rounded-md border border-divider px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-surface-elevated"
+                  @click="markHandled(c)"
+                >Mark called</button>
               </div>
 
               <!-- signal badges -->

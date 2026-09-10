@@ -217,11 +217,26 @@ export const useCareActions = defineStore('careActions', () => {
   function isHidden(id: string): boolean { return status(id) !== null }
   function hiddenCount(): number { return Object.keys(hidden.value).filter((id) => isHidden(id)).length }
 
+/**
+ * Cases the pastor has acted on THIS SESSION: a note approved, a call marked.
+ *
+ * Deliberately not persisted, which matches what the page already tells staff:
+ * case state moves server-side later. It lives on the store rather than inside a
+ * component because the same case now appears on the board and in the detail
+ * drawer, and acting in one has to clear it from the other. It used to be a
+ * local ref in CareDriftPriority, which was fine only while that component was
+ * the single place you could act.
+ */
+  const handled = ref<Set<string>>(new Set())
+  function markHandled(caseId: string) { handled.value = new Set(handled.value).add(caseId) }
+  function isHandled(caseId: string): boolean { return handled.value.has(caseId) }
+
   function openDetail(d: FlagDetail) { activeDetail.value = d }
   function closeDetail() { activeDetail.value = null }
 
   return {
-    hidden, activeDetail, loaded, error,
+    hidden, activeDetail, loaded, error, handled,
     load, dismiss, snooze, restore, status, isHidden, hiddenCount, openDetail, closeDetail, allHidden, parseId,
+    markHandled, isHandled,
   }
 })

@@ -35,6 +35,13 @@ export interface FlagDetail {
   evidence: { label: string; value: string }[]
   routeTo?: string // who this routes to (leader), when applicable
   duplicate?: DupInfo | null // set when this person may have duplicate PCO profiles
+  // Enough to ACT from the drawer. The drafted note is 3-4 lines of prose and
+  // cannot live in a board column, but a pastor must read it before approving,
+  // so approval happens here, next to the evidence that justifies it.
+  caseId?: string
+  stage?: string
+  draft?: string
+  channel?: string
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -121,6 +128,10 @@ export function careCaseFlag(c: CareCase): FlagDetail {
     summary: c.note ?? c.detail,
     evidence,
     duplicate: signal !== "family" ? duplicateInfo(c.name) : null,
+    caseId: c.id,
+    stage: c.stage,
+    draft: c.draft,
+    channel: c.channel,
   }
 }
 
