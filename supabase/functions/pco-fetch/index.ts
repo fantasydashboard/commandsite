@@ -197,8 +197,17 @@ async function syncResource(
     // every pass rather than only on completion: a partial refresh of recent
     // events is still more current than not refreshing at all, and the season
     // filter means a partial pass cannot invent people who are not there.
+    // A SHALLOW pass. The backfill pulls eventsPerGroup (45) meetings for each
+    // of ~60 groups, and every meeting costs an attendances call: roughly 2,700
+    // requests, minutes of wall clock. Doing that on every refresh made each
+    // press time out and report "still syncing" forever.
+    //
+    // Incrementally we only need enough recent meetings to notice who came back,
+    // and staged events accumulate rather than being replaced, so history is
+    // kept. Eight meetings is about two months for a weekly group.
     const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
-    const r = await fetchGroupsChunk(db, clientId, tenant, cfg.groupDrift, (row.cursor ?? {}) as any, isOver)
+    const shallow = { ...cfg.groupDrift, eventsPerGroup: 8 }
+    const r = await fetchGroupsChunk(db, clientId, tenant, shallow, (row.cursor ?? {}) as any, isOver)
     await computeGroups(db, clientId, cfg)
     const { error } = await db.from('pco_sync_state')
       .upsert({
