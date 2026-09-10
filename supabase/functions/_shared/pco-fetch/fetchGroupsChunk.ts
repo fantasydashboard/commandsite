@@ -4,13 +4,29 @@ import type { GroupsCursor } from './cursor.ts'
 
 // deno-lint-ignore no-explicit-any
 type Db = any
-interface GroupDriftCfg { seasonStart: string; seasonEnd: string; groupTypeMatch: string; eventsPerGroup?: number }
+interface GroupDriftCfg { seasonStart: string; seasonEnd?: string; groupTypeMatch: string; eventsPerGroup?: number }
 
 export async function fetchGroupsChunk(
   db: Db, clientId: string, tenant: string, cfg: GroupDriftCfg, cursor: GroupsCursor, isOver: () => boolean,
 ): Promise<{ cursor: GroupsCursor; done: boolean }> {
   let { groups, gIndex } = cursor
-  const start = Date.parse(cfg.seasonStart), end = Date.parse(cfg.seasonEnd)
+  // An absent seasonEnd means the season is still running, so it ends TODAY.
+  //
+  // It was pinned to 2026-05-31 and stayed there after groups came back, so
+  // every one of the 101 meetings since the restart was discarded before the
+  // transform ever saw them. Two things followed. Someone who returned last
+  // Tuesday stayed on the drift list, because the only evidence they were back
+  // sat outside the window. And "quiet 7w" counted from the group's last SPRING
+  // meeting rather than from today, so it read as seven weeks ago when it meant
+  // mid-April.
+  //
+  // With a rolling end the existing logic does the right thing unchanged: the
+  // "attended one of the last 3 meetings" test now looks at the last three
+  // ACTUAL meetings, so returners drop off by themselves, and the week count is
+  // finally weeks ago. Regularity still comes from the long tail of the window,
+  // which is what makes two weeks of fall data enough to act on.
+  const start = Date.parse(cfg.seasonStart)
+  const end = cfg.seasonEnd ? Date.parse(cfg.seasonEnd) : Date.now()
 
   if (!groups || groups.length === 0) {
     const types = (await pcoAll(tenant, '/groups/v2/group_types?per_page=25'))

@@ -4,7 +4,12 @@ import type { GroupDriftCfg } from './types.ts'
 import type { GroupInput } from './groupDrift.ts'
 
 export async function fetchGroupInputs(tenant: string, cfg: GroupDriftCfg): Promise<GroupInput[]> {
-  const start = Date.parse(cfg.seasonStart), end = Date.parse(cfg.seasonEnd)
+  // Absent seasonEnd means the season is still running, so it ends today.
+  // Must match fetchGroupsChunk.ts: this copy is the one pco-sync uses, and
+  // Date.parse(undefined) is NaN, which makes every `t <= end` comparison false
+  // and would quietly return zero events instead of erroring.
+  const start = Date.parse(cfg.seasonStart)
+  const end = cfg.seasonEnd ? Date.parse(cfg.seasonEnd) : Date.now()
   const types = (await pcoAll(tenant, '/groups/v2/group_types?per_page=25'))
     .filter((t) => new RegExp(cfg.groupTypeMatch, 'i').test(t.attributes?.name ?? ''))
   const out: GroupInput[] = []

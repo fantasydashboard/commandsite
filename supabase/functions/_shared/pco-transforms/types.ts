@@ -6,7 +6,11 @@ export type ByPerson = Record<string, PersonRec>
 export interface ServingCfg { regularMin: number; gapWeeks: number; lookbackMonths: number }
 export interface BurnoutCfg { seasonMonths: number }
 export interface GroupDriftCfg {
-  seasonStart: string; seasonEnd: string; minEvents: number;
+  seasonStart: string;
+  /** Absent means the season is STILL RUNNING and ends today. A date closes the
+   *  window deliberately, for looking at a finished season. */
+  seasonEnd?: string;
+  minEvents: number;
   minAttendance: number; minGapWeeks: number; groupTypeMatch: string; eventsPerGroup?: number
 }
 export interface FetchCfg { timeBudgetSeconds?: number; incrementalWindowDays?: number }
