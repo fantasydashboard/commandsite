@@ -14,6 +14,7 @@ import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import PageLeadChip from '@/components/cornerstone/PageLeadChip.vue'
 import DataFreshnessBadge from '@/components/cornerstone/DataFreshnessBadge.vue'
+import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
@@ -266,6 +267,10 @@ const sundaysRecommendations: GraceRecommendation[] = [
       <template #lead>
         <PageLeadChip :client-id="client.id" page="sundays-comms" />
         <DataFreshnessBadge v-if="isLiveChurch" resource="roster" />
+        <!-- The badge said "Updated 5h ago" with nothing to press. Refresh
+             lived only on Care & Drift, so the fix for stale Serving data was
+             to navigate to another page and refresh from there. -->
+        <RefreshNowButton v-if="isLiveChurch" :slug="client.slug" />
       </template>
     </RolesOnPage>
 
