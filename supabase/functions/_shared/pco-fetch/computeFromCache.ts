@@ -5,7 +5,7 @@ import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
 import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE } from '../pco-transforms/guestPipeline.ts'
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
-import { buildRoster } from '../pco-transforms/roster.ts'
+import { buildRoster, aliasPlans, type ServingRow } from '../pco-transforms/roster.ts'
 import { fetchRosterPlans } from './fetchRosterPlans.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
@@ -201,7 +201,17 @@ export async function computeRoster(db: Db, clientId: string, tenant: string, cf
       .order('person_id').order('date').range(from, to),
     'serving assignments (roster)')
 
-  const { roster, forward } = buildRoster({ past, future, serving, today: today() })
+  // Both inputs carry team names and both need the merge applied: the staged
+  // assignments decide who has served a team, the plan snapshots decide what is
+  // short this Sunday.
+  const aliases = cfg.teamAliases ?? {}
+  const to = (team: string) => aliases[team] ?? team
+  const { roster, forward } = buildRoster({
+    past: aliasPlans(past, aliases),
+    future: aliasPlans(future, aliases),
+    serving: (serving as ServingRow[]).map((r) => ({ ...r, team: to(r.team) })),
+    today: today(),
+  })
   await writeOk(db, clientId, 'roster', roster)
   await writeOk(db, clientId, 'rosterForward', forward)
 }

@@ -44,10 +44,21 @@ const roster = computed(() => rosterData())
 
 // The roster snapshot's real age, so the KPI can date itself instead of
 // asserting a stale "days away".
-const rosterAgeDays = computed(() => {
+// SIGNED, and clamping it was a bug. The baked roster was always a past
+// Sunday, so max(0, ...) was harmless. Pointing this at the live roster made it
+// the NEXT Sunday, and three days in the future clamped to 0 and rendered as
+// "today" on a Thursday.
+const rosterOffsetDays = computed(() => {
   const then = Date.parse(`${roster.value.date}T00:00:00Z`)
   if (Number.isNaN(then)) return 0
-  return Math.max(0, Math.round((Date.now() - then) / 864e5))
+  const now = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
+  return Math.round((now - then) / 864e5)
+})
+const rosterWhen = computed(() => {
+  const d = rosterOffsetDays.value
+  if (d === 0) return 'today'
+  if (d > 0) return `${d} day${d === 1 ? '' : 's'} ago`
+  return d === -1 ? 'tomorrow' : `in ${-d} days`
 })
 const activeVolunteers = computed(() => burnoutData().activeVolunteers ?? 0)
 
@@ -292,7 +303,7 @@ const sundaysRecommendations: GraceRecommendation[] = [
           <div class="kpi-label">Roster snapshot</div>
           <div class="mt-1 text-2xl font-bold text-ink tabular-nums">{{ roster.sundayLabel.replace('Sun ', '') }}</div>
           <div class="text-[11px] text-ink-disabled mt-0.5">
-            {{ rosterAgeDays === 0 ? 'today' : `${rosterAgeDays} days ago` }}
+            {{ rosterWhen }}
           </div>
         </div>
         <div class="card">

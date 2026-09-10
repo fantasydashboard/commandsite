@@ -75,8 +75,12 @@ function onExport() {
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">{{ fb.signal }}</p>
     <p class="mt-1 text-[11px] text-ink-muted">
-      <template v-if="lens.scope === 'all'">Of {{ fb.activeVolunteers }} active volunteers, {{ heavy.length }} serve {{ HEAVY_PER_MONTH }}+ times a month and {{ highRiskShown }} are in the high-load zone.</template>
-      <template v-else>In the {{ lens.scope }} ministry's teams, {{ heavy.length }} serve {{ HEAVY_PER_MONTH }}+ times a month and {{ highRiskShown }} are in the high-load zone.</template>
+      <template v-if="lens.scope === 'all'">Of {{ fb.activeVolunteers }} active volunteers, {{ heavy.length }} serve {{ HEAVY_PER_MONTH }}+ times a month.
+        {{ highRiskShown }} are marked High, which means 4+ shifts a month <em>or</em> three or more teams at
+        any frequency, so that count is not a subset of this one.</template>
+      <template v-else>In the {{ lens.scope }} ministry's teams, {{ heavy.length }} serve {{ HEAVY_PER_MONTH }}+ times a month.
+        {{ highRiskShown }} are marked High, which means 4+ shifts a month <em>or</em> three or more teams at
+        any frequency, so that count is not a subset of this one.</template>
       <template v-if="active.length > heavy.length">
         Another {{ active.length - heavy.length }} are on several teams but only serve once or twice a month; they are in the list below, ranked lower.
       </template>
@@ -134,14 +138,14 @@ function onExport() {
         class="text-xs font-semibold text-brand hover:underline"
         @click="dupOnly = false"
       >
-        Show all at-risk volunteers
+        Show everyone flagged
       </button>
       <button
         v-else-if="active.length > COLLAPSED"
         class="text-xs font-semibold text-brand hover:underline"
         @click="showAll = !showAll"
       >
-        {{ showAll ? 'Show fewer' : `Show all ${active.length} at-risk volunteers` }}
+        {{ showAll ? 'Show fewer' : `Show all ${active.length} flagged, including the lower-ranked` }}
       </button>
       <span class="text-[11px] text-ink-disabled">Click a row to see why, or to dismiss / snooze.</span>
     </div>

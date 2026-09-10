@@ -30,6 +30,41 @@ export interface PlanSnapshot {
   positions?: Record<string, { pos: string; qty: number }[]>
 }
 
+/**
+ * Fold renamed and merged teams together before any counting happens.
+ *
+ * Aliasing the serving history alone was not enough. The roster board reads
+ * plan snapshots, which carry their own team keys, so after Focal Point merged
+ * Vocals and Band into Worship the board still listed "Vocals 3 short" and
+ * "Worship 1 short" as two teams needing two separate asks, and offered the
+ * same person for both.
+ *
+ * Counts merge rather than overwrite: two aliases pointing at one team is the
+ * normal case, and the whole point is one number for the merged team.
+ */
+export function aliasPlans(plans: PlanSnapshot[], aliases: Record<string, string>): PlanSnapshot[] {
+  if (!Object.keys(aliases).length) return plans
+  const to = (team: string) => aliases[team] ?? team
+  return plans.map((p) => {
+    const teams: Record<string, TeamCounts> = {}
+    for (const [team, c] of Object.entries(p.teams)) {
+      const k = to(team)
+      const cur = (teams[k] ??= { C: 0, U: 0, D: 0, total: 0 })
+      cur.C += c.C; cur.U += c.U; cur.D += c.D; cur.total += c.total
+    }
+    const need: Record<string, number> = {}
+    for (const [team, n] of Object.entries(p.need)) need[to(team)] = (need[to(team)] ?? 0) + n
+    let positions: PlanSnapshot['positions']
+    if (p.positions) {
+      positions = {}
+      for (const [team, list] of Object.entries(p.positions)) {
+        ;(positions[to(team)] ??= []).push(...list)
+      }
+    }
+    return { ...p, teams, need, ...(positions ? { positions } : {}) }
+  })
+}
+
 /** A confirmed-or-otherwise serving assignment, from pco_serving_assignments. */
 export interface ServingRow { person_id: string; name: string; team: string; date: string; status: string }
 
