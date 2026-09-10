@@ -63,7 +63,9 @@ import DataFreshnessBadge from './DataFreshnessBadge.vue'
       Regular members who stopped attending during the season, missing their group's last meetings while it was still meeting, not just tapering off for summer. A quiet group member is often the earliest sign someone is slipping away, before the Sunday signal shows it.
     </p>
     <p class="mt-1 text-[11px] text-ink-muted">
-      Across {{ g.groups }} groups. Summer, when groups do not meet, is not counted. These route to each group leader for a personal check-in before groups restart in the fall.
+      Across {{ g.groups }} groups. Nobody is flagged for missing a week their group did not meet,
+      but the "went quiet" figure is plain weeks since they last came, so it counts the summer break
+      too. These route to each group leader for a personal check-in.
     </p>
   </section>
 

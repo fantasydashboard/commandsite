@@ -298,7 +298,7 @@ function initials(name: string): string {
     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-ink-muted">
       <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-brand"></span> flagged by two signals at once</span>
       <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-danger"></span> Grace predicted the drop</span>
-      <span class="text-ink-disabled">Grace flags and drafts. Moving a card is yours, at the approval and escalation gates.</span>
+      <span class="text-ink-disabled">Grace flags and drafts. Moving a card is yours. Approve and Mark called clear a card until you reload; case state moves to the server soon.</span>
     </div>
     <p class="mt-2 text-[11px] text-ink-disabled">
       The process on your real people. A family drops off this board entirely once their kids check back in, so there is no "resolved" pile to work through. Reaching out and Watching arrive with the auto-advancing engine (stage tracking, escalation timers); until then a card sits in Flagged until you act on it.

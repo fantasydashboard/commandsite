@@ -226,8 +226,9 @@ function restore() {
           <button class="px-3 py-1 text-xs text-ink-muted hover:text-ink" @click="close">Skip</button>
         </div>
         <p class="mt-2 text-[11px] text-ink-disabled">
-          Approving marks it handled for you. Family drift comes from kids' check-in
-          names, so there is no parent address to send to yet; nothing leaves the building.
+          Approving clears it from your board <span class="font-medium text-ink">until you reload</span>,
+          the same as snooze. Case state moves to the server soon. Family drift comes from kids'
+          check-in names, so there is no parent address to send to yet; nothing leaves the building.
         </p>
       </div>
 
