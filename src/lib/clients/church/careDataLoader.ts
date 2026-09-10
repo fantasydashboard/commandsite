@@ -189,3 +189,42 @@ export async function refreshCareData(slug: string): Promise<void> {
   void supabase.functions.invoke('pco-fetch', { body: { tenant: slug } }).catch(() => {})
   await loadCareData(slug)
 }
+
+/**
+ * Fire a sync and WAIT for the recompute to actually land.
+ *
+ * refreshCareData fires and returns, which is right for the network call: the
+ * sync outruns a browser fetch timeout, so blocking on it would hang the
+ * button. But it left "Syncing in the background, updates shortly" as the last
+ * thing the page ever said. No completion, no failure, nothing. In one day of
+ * deploying against Focal Point that cost about an hour, because the honest
+ * answer to "is it done?" was always "reload and squint at a relative
+ * timestamp".
+ *
+ * So: remember the stamps we came in with, fire the sync, then reload every few
+ * seconds until one of them moves. Resolves 'updated' when the data is genuinely
+ * new, 'timeout' when the sync is still going after the window, which is a real
+ * outcome for a first backfill and not a failure. The caller says which.
+ */
+export async function refreshAndWait(
+  slug: string,
+  opts: { pollMs?: number; timeoutMs?: number } = {},
+): Promise<'updated' | 'timeout'> {
+  const pollMs = opts.pollMs ?? 4000
+  const timeoutMs = opts.timeoutMs ?? 90_000
+  const before = Object.fromEntries(
+    Object.entries(store.meta).map(([k, m]) => [k, m?.computedAt ?? null]),
+  )
+  const moved = () =>
+    Object.entries(store.meta).some(([k, m]) => (m?.computedAt ?? null) !== (before[k] ?? null))
+
+  void supabase.functions.invoke('pco-fetch', { body: { tenant: slug } }).catch(() => {})
+
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, pollMs))
+    await loadCareData(slug)
+    if (moved()) return 'updated'
+  }
+  return 'timeout'
+}
