@@ -186,10 +186,26 @@ async function syncResource(
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
   } else if (resource === 'groups') {
+    // RE-FETCH, then compute. This only called computeGroups, which reads
+    // whatever is already staged, so two things were quietly true: new group
+    // meetings never entered staging after the first backfill, and a change to
+    // the fetch window (seasonEnd) could never take effect no matter how many
+    // times anyone pressed Refresh. Group attendance was frozen at backfill.
+    //
+    // Resumable via the stored cursor, because a full pass over ~60 groups and
+    // their attendances does not fit one time budget. computeGroups runs on
+    // every pass rather than only on completion: a partial refresh of recent
+    // events is still more current than not refreshing at all, and the season
+    // filter means a partial pass cannot invent people who are not there.
+    const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
+    const r = await fetchGroupsChunk(db, clientId, tenant, cfg.groupDrift, (row.cursor ?? {}) as any, isOver)
     await computeGroups(db, clientId, cfg)
     const { error } = await db.from('pco_sync_state')
-      .update({ updated_at: now, error: null })
-      .eq('client_id', clientId).eq('resource', resource)
+      .upsert({
+        client_id: clientId, resource, cursor: r.done ? {} : r.cursor,
+        backfill_complete: true, phase: 'incremental',
+        last_synced_date: row.last_synced_date, updated_at: now, error: null,
+      }, { onConflict: 'client_id,resource' })
     if (error) throw new Error(`write sync state: ${error.message}`)
   } else if (resource === 'households') {
     // A full re-pull, but RESUMABLE. This first discarded the returned cursor
@@ -197,7 +213,12 @@ async function syncResource(
     // would begin again from the top on the next run and never finish. Same
     // resume semantics as backfill: persist the cursor, recompute only when the
     // map is complete, and reset to 0 once done so the next night re-pulls.
-    const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
+    // A SMALL budget on purpose. households runs first in the loop so drift can
+    // group by household, but a full ~44-request pass at the default 90s
+    // starved every resource behind it: on a manual refresh, drift updated and
+    // groups never ran at all. Households change slowly, so a short slice that
+    // resumes across nights is the right trade; the loop keeps moving.
+    const isOver = makeDeadline(Math.min(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS, 25))
     const r = await fetchHouseholdsChunk(db, clientId, tenant, (row.cursor ?? { offset: 0 }) as any, isOver)
     if (r.done) await computeDrift(db, clientId, cfg)
     const { error } = await db.from('pco_sync_state').upsert({
