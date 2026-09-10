@@ -303,10 +303,24 @@ async function syncChurchResource(
 
 async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConfig, mode: Mode) {
   const results: Record<string, string> = {}
+  // ORDER IS A PRIORITY LIST, not a preference. Each resource gets its own 90s
+  // budget and there are seven of them, so the tail of this array is whatever
+  // the function's wall clock kills first.
+  //
+  // roster used to be last and was therefore starved: on Focal Point it read
+  // 15:13 while schedule, second in this list, read 22:42 on the same day. That
+  // is the resource behind "Sep 13 is 27 spots short", the most time-sensitive
+  // sentence on the Serving page, going stale by hours while the page said
+  // "Updated 5h ago" over the top of it.
+  //
+  // It only has to run AFTER schedule, whose staged assignments it needs for
+  // burnout-aware suggestions. Third, not seventh. What now sits at the tail is
+  // people (duplicate detection), which is the least time-critical thing here.
+  //
   // households BEFORE kids: computeDrift joins them, so a first run that pulls
   // check-ins without households would compute one round of surname-grouped
   // families before correcting itself the next night.
-  for (const resource of ['households', 'schedule', 'groups', 'kids', 'guests', 'people', 'roster'] as Resource[]) {
+  for (const resource of ['households', 'schedule', 'roster', 'groups', 'kids', 'guests', 'people'] as Resource[]) {
     results[resource] = await syncChurchResource(db, clientId, tenant, cfg, resource, mode)
   }
   return results
