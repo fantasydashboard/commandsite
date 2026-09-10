@@ -5,10 +5,13 @@ export interface AssignmentRow { person_id: string; name: string; date: string; 
 export interface AttendanceRow { group_id: string; group_name: string; event_id: string; event_date: string; person_id: string; name: string }
 export interface MemberRow { group_id: string; group_name: string; person_id: string; name: string }
 
-export function assignmentsToByPerson(rows: AssignmentRow[]): ByPerson {
+export function assignmentsToByPerson(rows: AssignmentRow[], aliases: Record<string, string> = {}): ByPerson {
   const bp: ByPerson = {}
+  // Canonical team name, applied here because this is the one funnel both the
+  // serving and burnout transforms read through.
+  const canon = (team: string) => aliases[team] ?? team
   for (const r of rows) {
-    ;(bp[r.person_id] ??= { name: r.name, dates: [] }).dates.push({ date: r.date, team: r.team, status: r.status })
+    ;(bp[r.person_id] ??= { name: r.name, dates: [] }).dates.push({ date: r.date, team: canon(r.team), status: r.status })
   }
   for (const rec of Object.values(bp)) rec.dates.sort((a, b) => (a.date < b.date ? 1 : -1))
   return bp

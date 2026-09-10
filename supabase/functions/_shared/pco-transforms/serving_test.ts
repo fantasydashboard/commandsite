@@ -1,5 +1,6 @@
 import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts'
 import { computeServing, computeBurnout } from './serving.ts'
+import { assignmentsToByPerson } from './fromStaging.ts'
 import type { ByPerson, PcoConfig } from './types.ts'
 
 const sched = JSON.parse(await Deno.readTextFile('scratchpad/pco-raw/serving_schedule.json'))
@@ -102,4 +103,51 @@ Deno.test('a person on a LIVE team is still flagged when they personally stop', 
   const out = computeServing(byPerson, new Set(), cfg, '2026-09-08')
   assertEquals(out.people.map((p) => p.name), ['Quit Person'])
   assertEquals(out.retiredTeamExcluded, 0)
+})
+
+Deno.test('burnout load is split by which service the shift was for', () => {
+  const today = '2026-09-10'
+  const bp: ByPerson = {
+    p1: {
+      name: 'Bilingual Volunteer',
+      // Nine shifts on the 6pm Brazilian service, two on an English team.
+      dates: [
+        ...['06', '07', '08'].flatMap((m) =>
+          ['02', '09', '16'].map((d) => ({ date: `2026-${m}-${d}`, team: 'Banda 4th Service', status: 'C' }))
+        ),
+        { date: '2026-07-05', team: 'Ushers', status: 'C' },
+        { date: '2026-08-05', team: 'Ushers', status: 'C' },
+      ],
+    },
+  }
+  const out = computeBurnout(bp, new Set(), { seasonMonths: 12 }, today)
+  const p = out.people[0]
+
+  // Church-wide he is the heaviest person on the list.
+  assertEquals(p.perMonth, 4)
+  assertEquals(p.campus, 'both')
+
+  // To the Brazilian leader that is real, and it is theirs to act on.
+  assertEquals(p.byCampus.brazilian.perMonth, 3)
+  assertEquals(p.byCampus.brazilian.areas, ['Banda 4th Service'])
+
+  // To the English leader it is one shift a month on one team, which is not
+  // burnout and is not something they could have fixed. Before this split they
+  // saw the church-wide 4x/month and six teams under an "english" header.
+  assertEquals(p.byCampus.english.perMonth, 1)
+  assertEquals(p.byCampus.english.tier, null)
+})
+
+Deno.test('a merged team counts once, not as two teams going quiet', () => {
+  const rows = [
+    { person_id: 'p1', name: 'Singer', date: '2026-05-03', team: 'Vocals', status: 'C' },
+    { person_id: 'p1', name: 'Singer', date: '2026-09-06', team: 'Worship', status: 'C' },
+  ]
+  const aliased = assignmentsToByPerson(rows, { Vocals: 'Worship', Band: 'Worship' })
+  assertEquals([...new Set(aliased.p1.dates.map((d) => d.team))], ['Worship'])
+
+  // Without the alias the same history reads as two teams, which is what makes
+  // "serves on several teams" fire on someone who serves on one.
+  const raw = assignmentsToByPerson(rows)
+  assertEquals([...new Set(raw.p1.dates.map((d) => d.team))].length, 2)
 })

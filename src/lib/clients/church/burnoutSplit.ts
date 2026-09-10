@@ -31,6 +31,45 @@ export interface LoadPerson {
   tier: string
 }
 
+interface Slice { perMonth: number; areas: string[]; tier: string | null }
+
+/**
+ * Re-express each person as their load IN ONE CONGREGATION, and drop anyone who
+ * does not clear the bar there.
+ *
+ * The lens used to filter on the person's campus and pass anyone marked 'both'
+ * through with their church-wide numbers. At Focal Point that put the heaviest
+ * volunteer in the church at the top of the ENGLISH list, at 9x/month, evidenced
+ * by six teams of which four serve the 6pm Brazilian service. The English
+ * ministry leader could neither recognise the load nor do anything about it, and
+ * the panel's own sentence claimed it was counting "the english ministry's
+ * teams".
+ *
+ * Everything downstream (heavyLoad, spreadThin, the chart, the table) keeps
+ * reading perMonth / areas / tier, so scoping happens once, here.
+ *
+ * Payloads computed before byCampus existed fall back to the old behaviour
+ * rather than emptying the page: this ships ahead of the recompute, and a board
+ * that reads zero is worse than one that reads the old way for an hour.
+ */
+export function scopedBurnout<T extends LoadPerson & { byCampus?: Record<string, Slice> }>(
+  people: T[],
+  scope: string,
+): T[] {
+  if (scope !== 'english' && scope !== 'brazilian') return people
+  const out: T[] = []
+  for (const p of people) {
+    const s = p.byCampus?.[scope]
+    if (!s) {
+      if (p.campus === 'both' || p.campus === scope) out.push(p)
+      continue
+    }
+    if (s.tier === null) continue
+    out.push({ ...p, perMonth: s.perMonth, areas: s.areas, tier: s.tier })
+  }
+  return out
+}
+
 /** Carrying real frequency: the people the phrase "serving too often" describes. */
 export function heavyLoad<T extends LoadPerson>(people: T[]): T[] {
   return people.filter((p) => p.perMonth >= HEAVY_PER_MONTH)

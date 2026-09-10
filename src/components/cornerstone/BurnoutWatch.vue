@@ -13,7 +13,7 @@ import { duplicateInfo } from '@/lib/clients/focal-point/duplicateReview'
 import DuplicateBadge from '@/components/cornerstone/DuplicateBadge.vue'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
-import { heavyLoad, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
+import { heavyLoad, scopedBurnout, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
 
 const props = defineProps<{ clientName?: string }>()
 const care = useCareActions()
@@ -23,9 +23,14 @@ const showAll = ref(false)
 const dupOnly = ref(false)
 // Serving scopes by CAMPUS (which teams a person serves): the Brazilian ministry
 // runs its own teams. People who serve both campuses show in both views.
-const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
 const fb = computed(() => burnoutData())
-const active = computed(() => fb.value.people.filter((p) => !care.isHidden(`burnout:${p.name}`) && inCampus(p.campus)))
+// scopedBurnout re-expresses each person as their load in THIS congregation and
+// drops anyone who does not clear the bar there. The old filter passed 'both'
+// through with their church-wide load, which is how the English list came to be
+// topped by someone whose shifts were nearly all the 6pm Brazilian service.
+const active = computed(() =>
+  scopedBurnout(fb.value.people, lens.scope).filter((p) => !care.isHidden(`burnout:${p.name}`)),
+)
 const highRiskShown = computed(() => active.value.filter((p) => p.tier === 'high').length)
 // "Serving too often" is only true of the frequency group. The rest of the
 // flagged set is on 2+ teams at one or two shifts a month.

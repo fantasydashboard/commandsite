@@ -46,7 +46,7 @@ export async function computeServingBurnout(db: Db, clientId: string, cfg: PcoCo
       .order('person_id').order('date').order('team').range(from, to),
     'assignments')
   const staff = new Set(Array.isArray(cfg.staffNames) ? cfg.staffNames : [])
-  const byPerson = assignmentsToByPerson(data)
+  const byPerson = assignmentsToByPerson(data, cfg.teamAliases ?? {})
   await writeOk(db, clientId, 'serving', computeServing(byPerson, staff, cfg.serving, today()))
   await writeOk(db, clientId, 'burnout', computeBurnout(byPerson, staff, cfg.burnout, today()))
 }

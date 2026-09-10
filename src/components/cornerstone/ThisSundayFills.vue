@@ -23,7 +23,10 @@ import { rosterData, signatureFor } from '@/lib/clients/church/careDataLoader'
 const r = computed(() => rosterData())
 
 // Teams that draw from a qualified pool rather than anyone willing.
-const SKILL_TEAMS = new Set(['Band', 'Vocals', 'Translation Team'])
+// Focal Point merged Vocals and Band into one Worship team. Listing the old
+// names here put "Vocals 3 short" and "Worship 1 short" on the board as two
+// separate teams needing two separate asks.
+const SKILL_TEAMS = new Set(['Worship', 'Translation Team'])
 
 const asked = ref<Set<string>>(new Set())
 function ask(team: string) { asked.value = new Set(asked.value).add(team) }

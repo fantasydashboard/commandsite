@@ -27,6 +27,8 @@ import { computed, ref } from 'vue'
 import type { ServeCandidate } from '@/lib/clients/focal-point/serveCandidates'
 import { serveCandidatesData } from '@/lib/clients/church/careDataLoader'
 import { exportCsv } from '@/lib/exportCsv'
+import { useCongregationLens } from '@/stores/congregationLens'
+import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
 const props = defineProps<{ clientName: string }>()
@@ -36,7 +38,20 @@ const showAll = ref(false)
 
 // Live row when present, baked (anonymised in git) otherwise.
 const d = computed(() => serveCandidatesData())
-const tier1 = computed(() => d.value.people.filter((p) => p.tier === 1))
+
+// This panel ignored the congregation lens entirely, so picking "English" left
+// it recommending people whose only listed connection was "FPC Brasil -
+// Reginaldo & Jane" or "Juan Pablo & Jackie's Spanish Group", under a header
+// that says "Showing the english congregation".
+const lens = useCongregationLens()
+const inScope = (p: ServeCandidate) => lens.scope === 'all' || congregationOf(p.name) === lens.scope
+const tier1 = computed(() => d.value.people.filter((p) => p.tier === 1 && inScope(p)))
+// Church-wide when unscoped; otherwise the list's own length, because the
+// payload's totals cannot be split by congregation.
+const tier1Count = computed(() => (lens.scope === 'all' ? d.value.totals.tier1 : tier1.value.length))
+/** How many of a tier we actually hold names for. The wider pools are counts,
+ *  not rows, so "In the download" was promising 540 people in a file with 166. */
+const namedIn = (tier: number) => d.value.people.filter((p) => p.tier === tier).length
 const visible = computed(() => (showAll.value ? tier1.value : tier1.value.slice(0, SHOWN)))
 
 const ageDays = computed(() => {
@@ -80,7 +95,7 @@ function onExport() {
     </div>
 
     <h3 class="mt-1 text-lg font-bold text-ink">
-      {{ d.totals.tier1 }} people who are here every week and not serving
+      {{ tier1Count }} people who are here every week and not serving
     </h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
       In a Growth Group <span class="font-semibold text-ink">and</span> dropping kids off, so they are
@@ -114,13 +129,14 @@ function onExport() {
          "is in a group" would be a directory, not a list anyone can work. -->
     <div class="mt-5 grid gap-3 sm:grid-cols-2">
       <div class="rounded-lg border border-divider bg-surface px-3 py-2.5">
-        <div class="text-sm font-semibold text-ink">{{ d.totals.tier2 }} more in a Growth Group</div>
+        <div class="text-sm font-semibold text-ink">{{ d.totals.tier2 }} more in a Growth Group<template v-if="lens.scope !== 'all'">, church-wide</template></div>
         <p class="mt-0.5 text-[11px] text-ink-muted">
-          Connected, but we have no attendance record for them, so they are not ranked. In the download.
+          Connected, but we have no attendance record for them, so they are not ranked.
+          {{ namedIn(2) }} of them are named in the download.
         </p>
       </div>
       <div class="rounded-lg border border-divider bg-surface px-3 py-2.5">
-        <div class="text-sm font-semibold text-ink">{{ d.totals.tier3 }} more dropping kids off</div>
+        <div class="text-sm font-semibold text-ink">{{ d.totals.tier3 }} more dropping kids off<template v-if="lens.scope !== 'all'">, church-wide</template></div>
         <p class="mt-0.5 text-[11px] text-ink-muted">
           Here on Sundays but not in a group yet. A group invite may land better than a serving ask.
         </p>

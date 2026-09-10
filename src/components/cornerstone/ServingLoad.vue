@@ -26,7 +26,7 @@ import { useCongregationLens } from '@/stores/congregationLens'
 import { useCareActions } from '@/stores/careActions'
 import { exportCsv } from '@/lib/exportCsv'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
-import { heavyLoad, spreadThin, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
+import { heavyLoad, spreadThin, scopedBurnout, HEAVY_PER_MONTH } from '@/lib/clients/church/burnoutSplit'
 
 const props = defineProps<{ clientName: string }>()
 
@@ -36,11 +36,10 @@ const care = useCareActions()
 // Below this the buckets are noise; the list below says it better.
 const MIN_PEOPLE = 6
 
-const inCampus = (c: string) => lens.scope === 'all' || c === 'both' || c === lens.scope
 
 const payload = computed(() => burnoutData())
 const people = computed(() =>
-  payload.value.people.filter((p) => !care.isHidden(`burnout:${p.name}`) && inCampus(p.campus)),
+  scopedBurnout(payload.value.people, lens.scope).filter((p) => !care.isHidden(`burnout:${p.name}`)),
 )
 
 const activeVolunteers = computed(() => payload.value.activeVolunteers ?? 0)

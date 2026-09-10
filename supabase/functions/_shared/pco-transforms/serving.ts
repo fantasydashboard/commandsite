@@ -1,4 +1,4 @@
-import type { ByPerson, ServingCfg, BurnoutCfg, ServingPayload, BurnoutPayload, Campus } from './types.ts'
+import type { ByPerson, ServingCfg, BurnoutCfg, ServingPayload, BurnoutPayload, Campus, BurnoutSlice, ServingDated } from './types.ts'
 
 const DAY = 864e5
 export const weeksBetween = (a: string, b: string) => Math.floor((Date.parse(a) - Date.parse(b)) / (7 * DAY))
@@ -28,12 +28,19 @@ const BURNOUT_SIGNAL = "Volunteers scheduled 3+ times a month, often across seve
 /**
  * Teams nobody has served on recently.
  *
- * When a church retires a service, every volunteer on its teams stops being
- * scheduled on the same weekend, and each of them then trips the "has not
- * served in 6+ weeks" rule at once. Focal Point discontinued its 4th Service,
- * and Grace duly flagged Thays Rosa, Maurício Menegoto and Tania Santana as
- * individually drifting, all "quiet 7w", all on Vocals or Tech 4th Service.
- * Three ministry leaders would have been sent after people who never quit.
+ * When a church retires a service, or merges two teams into one, every
+ * volunteer on the old team stops being scheduled on the same weekend, and each
+ * of them then trips the "has not served in 6+ weeks" rule at once. Focal Point
+ * retired its Saturday service and folded Vocals and Band into one Worship
+ * team, and Grace duly flagged Thays Rosa, Maurício Menegoto and Tania Santana
+ * as individually drifting, all "quiet 7w", all on teams that had stopped
+ * existing. Three ministry leaders would have been sent after people who never
+ * quit.
+ *
+ * NOT the 4th Service. 4th Service is the 6pm Brazilian service and it is very
+ * much running; an earlier version of this comment said otherwise and sent me
+ * looking for a bug in the wrong place twice. Focal Point's services are 9am,
+ * 10:30am and 12pm English, and 6pm Brazilian.
  *
  * A team where NOBODY has served inside the gap window is a team that stopped,
  * not a team whose members all drifted. Detected structurally rather than from
@@ -96,6 +103,20 @@ export function computeServing(byPerson: ByPerson, staff: Set<string>, cfg: Serv
   }
 }
 
+const qualifies = (perMonth: number, teams: number) => perMonth >= 3 || teams >= 2
+const tierOf = (perMonth: number, teams: number): 'high' | 'medium' => (perMonth >= 4 || teams >= 3 ? 'high' : 'medium')
+
+/** One congregation's share of a season, scored on its own. Months come from
+ *  the slice rather than the person, so three Brazilian shifts across three
+ *  months is 1x/month there even if the person served every week overall. */
+function sliceOf(shifts: ServingDated[]): BurnoutSlice {
+  if (!shifts.length) return { perMonth: 0, areas: [], tier: null }
+  const months = new Set(shifts.map((d) => d.date.slice(0, 7))).size
+  const perMonth = Math.round(shifts.length / Math.max(1, months))
+  const areas = [...new Set(shifts.map((d) => d.team))]
+  return { perMonth, areas, tier: qualifies(perMonth, areas.length) ? tierOf(perMonth, areas.length) : null }
+}
+
 export function computeBurnout(byPerson: ByPerson, staff: Set<string>, cfg: BurnoutCfg, today: string): BurnoutPayload {
   const seasonStart = monthsAgo(today, cfg.seasonMonths)
   let activeVolunteers = 0
@@ -105,12 +126,21 @@ export function computeBurnout(byPerson: ByPerson, staff: Set<string>, cfg: Burn
     const shifts = rec.dates.filter((d) => d.status === 'C' && d.date >= seasonStart && d.date <= today)
     if (!shifts.length) continue
     activeVolunteers++
-    const months = new Set(shifts.map((d) => d.date.slice(0, 7))).size
-    const perMonth = Math.round(shifts.length / Math.max(1, months))
-    const teams = [...new Set(shifts.map((d) => d.team))]
-    if (!(perMonth >= 3 || teams.length >= 2)) continue
-    const tier: 'high' | 'medium' = perMonth >= 4 || teams.length >= 3 ? 'high' : 'medium'
-    people.push({ name: rec.name, areas: teams, campus: campusOf(teams), perMonth, tier })
+    const all = sliceOf(shifts)
+    if (all.tier === null) continue
+    // Split by which service the shift was for, not by which congregation the
+    // PERSON belongs to. Someone on both sides used to surface under either
+    // lens carrying their whole church-wide load, so the English leader saw a
+    // 9x/month burnout risk whose nine shifts were nearly all the 6pm service:
+    // not their volunteer to rest, and not a number they could do anything
+    // about.
+    people.push({
+      name: rec.name, areas: all.areas, campus: campusOf(all.areas), perMonth: all.perMonth, tier: all.tier,
+      byCampus: {
+        english: sliceOf(shifts.filter((d) => !isBrazilianTeam(d.team))),
+        brazilian: sliceOf(shifts.filter((d) => isBrazilianTeam(d.team))),
+      },
+    })
   }
   people.sort((a, b) => b.perMonth - a.perMonth || b.areas.length - a.areas.length)
   return { flaggedPeople: people.length, highRisk: people.filter((p) => p.tier === 'high').length, activeVolunteers, signal: BURNOUT_SIGNAL, people, drafts: [] }

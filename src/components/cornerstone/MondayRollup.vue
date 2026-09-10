@@ -8,9 +8,8 @@
 import { computed } from 'vue'
 import DataFreshnessBadge from '@/components/cornerstone/DataFreshnessBadge.vue'
 import { carePipeline } from '@/lib/clients/focal-point/carePipeline'
-import { guestPipelineData, driftData } from '@/lib/clients/church/careDataLoader'
-import { focalPointSchedule as sched, type TeamWeek } from '@/lib/clients/focal-point/rosterForward'
-import { focalPointRoster } from '@/lib/clients/focal-point/roster'
+import { guestPipelineData, driftData, rosterData, rosterForwardData } from '@/lib/clients/church/careDataLoader'
+import { type TeamWeek } from '@/lib/clients/focal-point/rosterForward'
 import { focalPointInsights as fp } from '@/lib/clients/focal-point/insights'
 
 const props = defineProps<{ slug: string }>()
@@ -27,15 +26,20 @@ const guestNew = computed(() => guestPipelineData().cases.filter((c) => c.draft)
 const careApprove = carePipeline.cases.filter((c) => c.track === 'family' && c.stage === 'flagged').length
 const careCall = carePipeline.cases.filter((c) => c.stage === 'escalated' && c.track !== 'burnout').length
 const forgottenNow = (c: TeamWeek) => c.sched === 0 && c.need === 0
+// Live, not the baked rosterForward/roster. Those are hand-generated and the
+// last run was Aug 27, so Today told leadership "12 spots short this weekend"
+// while Serving's hero read 27 for the same Sunday.
+const sched = computed(() => rosterForwardData())
 const forgotten = computed(() =>
-  sched.expected
-    .map((team) => ({ team, weeks: sched.weeks.filter((w) => { const c = w.teams.find((t) => t.team === team); return c && forgottenNow(c) }).length }))
+  sched.value.expected
+    .map((team) => ({ team, weeks: sched.value.weeks.filter((w) => { const c = w.teams.find((t) => t.team === team); return c && forgottenNow(c) }).length }))
     .filter((x) => x.weeks > 0),
 )
 const sundaySummary = computed(() => {
   const f = forgotten.value[0]
   const lead = f ? `${f.team} is not on the schedule for the next ${f.weeks} Sundays. ` : ''
-  return `${lead}${focalPointRoster.totalShort} spots short this weekend across ${focalPointRoster.teamsShort} teams.`
+  const r = rosterData()
+  return `${lead}${r.totalShort} spots short this weekend across ${r.teamsShort} teams.`
 })
 
 const domains = computed(() => [
