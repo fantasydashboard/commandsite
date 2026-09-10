@@ -20,6 +20,27 @@ import { refreshAndWait } from '@/lib/clients/church/careDataLoader'
 
 const props = defineProps<{ slug: string }>()
 
+/** Resource keys are internal; staff read page names. */
+const NAMES: Record<string, string> = {
+  drift: 'families',
+  serving: 'serving',
+  burnout: 'serving load',
+  groupDrift: 'groups',
+  guestPipeline: 'guests',
+  roster: 'the Sunday roster',
+  rosterForward: 'the schedule',
+  duplicates: 'duplicates',
+  congregation: 'congregations',
+  activity: 'check-in history',
+  serveCandidates: 'serve suggestions',
+}
+function label(keys: string[]): string {
+  const names = keys.map((k) => NAMES[k] ?? k)
+  if (names.length <= 1) return names[0] ?? 'nothing'
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
 type State = 'idle' | 'working' | 'done' | 'slow' | 'error'
 const state = ref<State>('idle')
 const message = ref<string | null>(null)
@@ -40,11 +61,22 @@ async function run() {
   // page that has quietly given up.
   ticker = setInterval(() => { elapsed.value += 1 }, 1000)
   try {
-    const result = await refreshAndWait(props.slug)
-    state.value = result === 'updated' ? 'done' : 'slow'
-    message.value = result === 'updated'
-      ? 'Updated just now'
-      : 'Still syncing. Planning Center is slow on a first pull, press again in a minute.'
+    const r = await refreshAndWait(props.slug)
+    // Name what actually moved. "Updated just now" fired when ANY resource
+    // changed, which put a green tick above a panel still reading nine hours
+    // old because the resource behind that panel had not run.
+    if (r.catchingUp) {
+      state.value = 'slow'
+      message.value = r.changed.length
+        ? `Updated ${label(r.changed)}. Still catching up on the rest, press again.`
+        : 'Still catching up with Planning Center, press again in a minute.'
+    } else if (r.status === 'updated') {
+      state.value = 'done'
+      message.value = `Updated ${label(r.changed)}`
+    } else {
+      state.value = 'slow'
+      message.value = 'Still syncing. Press again in a minute.'
+    }
   } catch (e) {
     state.value = 'error'
     message.value = e instanceof Error ? e.message : 'Refresh failed'

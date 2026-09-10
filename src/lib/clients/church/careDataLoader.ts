@@ -209,7 +209,7 @@ export async function refreshCareData(slug: string): Promise<void> {
 export async function refreshAndWait(
   slug: string,
   opts: { pollMs?: number; timeoutMs?: number } = {},
-): Promise<'updated' | 'timeout'> {
+): Promise<{ status: 'updated' | 'timeout'; changed: string[]; catchingUp: boolean }> {
   const pollMs = opts.pollMs ?? 4000
   const timeoutMs = opts.timeoutMs ?? 90_000
   const before = Object.fromEntries(
@@ -218,13 +218,23 @@ export async function refreshAndWait(
   const moved = () =>
     Object.entries(store.meta).some(([k, m]) => (m?.computedAt ?? null) !== (before[k] ?? null))
 
+
   void supabase.functions.invoke('pco-fetch', { body: { tenant: slug } }).catch(() => {})
+
+  const changed = () =>
+    Object.entries(store.meta)
+      .filter(([k, m]) => (m?.computedAt ?? null) !== (before[k] ?? null))
+      .map(([k]) => k)
 
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, pollMs))
     await loadCareData(slug)
-    if (moved()) return 'updated'
+    // Report WHICH resources moved. Saying "Updated just now" the moment any
+    // one of them did put a green tick above a panel still reading 9h old,
+    // because the resource that panel shows had not run. A refresh button that
+    // can be right and wrong at the same time is worse than a silent one.
+    if (moved()) return { status: 'updated', changed: changed(), catchingUp: careSyncing() }
   }
-  return 'timeout'
+  return { status: 'timeout', changed: changed(), catchingUp: careSyncing() }
 }
