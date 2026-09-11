@@ -96,7 +96,7 @@ const items = computed<Item[]>(() => {
   if (guests.value.length) {
     out.push({
       key: 'guests', tab: 'front-desk-guests',
-      label: guests.value.length === 1 ? 'welcome to approve' : 'welcomes to approve',
+      label: guests.value.length === 1 ? 'come-back note to approve' : 'come-back notes to approve',
       count: guests.value.length,
       sub: "This week's first-time guests. Approve to send.",
       names: guests.value.slice(0, 3).map((c) => c.name),

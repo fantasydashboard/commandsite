@@ -77,7 +77,9 @@ const messagingBannerText = computed(() => {
 
 const guestKpisScoped = computed(() => guestPipelineData().kpis[lens.scope])
 const pipelineCount = computed(() => guestPipelineData().cases.filter((c) => gpInScope(c.campus)).length)
-// Welcome drafts awaiting approval: this week's first-time guests in scope.
+// Thursday come-back notes awaiting approval: last Sunday's guests nobody has
+// seen return, in scope. Not a welcome: the church already texts every guest
+// Monday at 2pm, so the welcome draft was dropped (Christina, Sep 8).
 // person_id / cardId come from the live PCO payload (Task 3); the baked demo
 // snapshot doesn't carry them, so they're read through a widened local type
 // rather than added to the shared GuestCase type.
@@ -99,26 +101,26 @@ const guestQueue = computed<ApprovalQueueItem[]>(() =>
         id: c.id,
         role: 'guest_followup',
         icon: 'qa_assistant',
-        badge: 'Welcome',
+        badge: 'Come back',
         badgeClass: 'bg-success/15 text-success',
-        title: `Welcome: ${c.name}`,
-        recipient: `First visit this week · ${c.campus === 'brazilian' ? 'Brazilian service' : 'weekend service'}`,
+        title: `Come back: ${c.name}`,
+        recipient: `First visit ${c.age === 'this week' ? 'last Sunday' : c.age} · not seen back · ${c.campus === 'brazilian' ? 'Brazilian service' : 'weekend service'}`,
         preview: c.draft ?? '',
-        approved_response: 'Sent. Grace will watch for a reply and flag it for you.',
-        ticker_after_approval: `Welcome sent to ${c.name}`,
+        approved_response: 'Sent. One note only; Grace will not message them again. If they do not return in three weeks, the name comes back to you.',
+        ticker_after_approval: `Come-back note sent to ${c.name}`,
         ...(canSend
           ? {
               person_id: live.person_id,
               card_id: live.cardId,
-              message_type: 'guest_welcome' as const,
-              subject: c.campus === 'brazilian' ? 'Foi bom te conhecer na Focal Point' : 'Great to meet you at Focal Point',
+              message_type: 'guest_comeback' as const,
+              subject: c.campus === 'brazilian' ? 'Te vemos neste domingo?' : 'See you this Sunday?',
             }
           : {}),
       }
     }),
 )
 
-// An empty welcome queue means one of two very different things, and "Grace will
+// An empty come-back queue means one of two very different things, and "Grace will
 // surface the next batch as it lands" reads as the good one either way.
 //
 // Found this on the Brazilian lens: the queue was empty and looked fine, but the
@@ -127,9 +129,9 @@ const guestQueue = computed<ApprovalQueueItem[]>(() =>
 // through the workflow. The second is a front door nobody is watching, and the
 // dashboard was actively reassuring them about it.
 //
-// The queue only holds first visits from the last 7 days, so when it is empty we
-// report how long the wait has been, read off the newest active card's own `age`
-// label ('this week' or 'Nw ago').
+// The queue only holds first visits from days 4 to 10 (Thursday after a Sunday
+// visit through the following Sunday), so when it is empty we report how long
+// the wait has been, read off the newest active card's own `age` label.
 //
 // Scanned by MINIMUM age rather than by taking the first match. Cases are sorted
 // newest-first WITHIN a campus but the array runs English then Brazilian, so on
@@ -142,8 +144,8 @@ const guestEmptyNote = computed<string | null>(() => {
   const where = lens.scope === 'all' ? '' : ` in the ${lens.scope} congregation`
   if (!ages.length) return `No first-time guests${where} in the last 90 days. Worth checking whether sign-ins are still going through Starting Point.`
   const newest = ages.reduce((a, b) => (weeks(b) < weeks(a) ? b : a))
-  if (weeks(newest) === 0) return 'Grace will surface the next batch as it lands.'
-  return `Nothing new in the last 7 days${where}. The most recent first-time guest signed in ${newest}.`
+  if (weeks(newest) === 0) return 'Nothing to send yet. Come-back notes draft on the Thursday after a first visit, for anyone not seen back.'
+  return `Nothing new in the last 10 days${where}. The most recent first-time guest signed in ${newest}.`
 })
 
 // Real send path: only wired for Focal Point (the queue's message_type +

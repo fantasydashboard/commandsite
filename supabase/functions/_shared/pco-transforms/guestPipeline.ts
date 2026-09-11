@@ -20,11 +20,47 @@ export interface GuestCardRow {
   step_name: string
   person_id: string
 }
+/**
+ * Something the person did in the church that Planning Center DID record, even
+ * though an adult's return to a service is never recorded. A child checked in,
+ * a group joined, a serving shift confirmed. Christina ran a list and found 9
+ * people sitting on week 2 for months who were plainly active; none of them
+ * had stopped by the Starting Point table again, so the workflow never moved.
+ */
+export type ActivityKind = 'kids' | 'group' | 'serving'
+export interface GuestActivity { kind: ActivityKind; date: string; detail: string }
+/**
+ * Triage bucket, from days since the first visit and the church's own history.
+ * Of the 87 people who finished Starting Point since Jan 2025: 70% within four
+ * weeks, 85% within six, 94% within 90 days, nobody after six months.
+ *   working   inside six weeks: this is the live worklist
+ *   decision  past six weeks: reach out once, or clear
+ *   clear     past 90 days: nobody has finished from here
+ */
+export type GuestBucket = 'working' | 'decision' | 'clear'
+export const FLAG_DAYS = 42
+export const CLEAR_DAYS = 90
+/** Three weeks with no return: Grace stops messaging and hands the name over. */
+export const NUDGE_DAYS = 21
+/** The Thursday come-back window. Cards move to week 2 on Tuesday morning, so a
+ *  note on day 4 (Thursday after a Sunday visit) goes only to people who did
+ *  not come back; by day 10 the next Sunday has passed and the moment is gone. */
+export const COMEBACK_FROM_DAYS = 4
+export const COMEBACK_TO_DAYS = 10
+/** Activity this recent counts as "active now" even if it predates the card:
+ *  someone can attend for a season before ever signing in at the table. */
+export const ACTIVE_WITHIN_DAYS = 56
+
 export interface GuestCase {
   id: string; cardId: string; person_id: string; name: string; campus: GuestCampus; stage: GuestStage
   detail: string; owner: string; age: string; note?: string; draft?: string
+  daysWaiting: number; bucket: GuestBucket; active?: GuestActivity
 }
-export interface GuestKpis { recentGuests: number; firstTimers4w: number; stillVisitors: number; completedPct: number }
+export interface GuestKpis {
+  recentGuests: number; firstTimers4w: number; stillVisitors: number; completedPct: number
+  /** Unfinished cards by triage bucket, and how many of them are already active. */
+  working: number; decision: number; clear: number; alreadyActive: number
+}
 
 /**
  * One month of FLOW. Deliberately separate from GuestKpis, which is a snapshot
@@ -92,11 +128,31 @@ function stageOf(row: GuestCardRow): GuestStage {
  *  one decision, so this comes from church_settings.messaging.signature. */
 export const DEFAULT_SIGNATURE = 'Pastor Mark'
 
-function draftOf(name: string, campus: GuestCampus, signature: string): string {
+/**
+ * The Thursday come-back note. NOT a welcome: the church already texts every
+ * guest on Monday at 2pm with a video from the pastor, so a second welcome from
+ * Grace would be the fourth automated touch in a week. One reason to come back,
+ * approved by a person, then nothing. Only English names the gift; the
+ * Brazilian steps are unnamed and may not run the same sequence.
+ */
+function comebackDraftOf(name: string, campus: GuestCampus, signature: string): string {
   const f = first(name)
   if (campus === 'brazilian')
-    return `${f}, foi uma alegria ter você conosco na Focal Point no domingo. Sabemos que encontrar uma igreja é diferente para cada pessoa, e seria uma honra caminhar ao seu lado nesta temporada. Se pudermos ajudar de alguma forma, é só responder aqui. Bênçãos, ${signature}`
-  return `${f}, we were so glad you joined us at Focal Point on Sunday. We know finding a church home looks different for every person, and we would be honored to walk alongside you this season. If we can help in any way, just reply here. Blessings, ${signature}`
+    return `${f}, foi muito bom ter você conosco no domingo. Neste domingo adoraríamos ver você de novo. Se algo da sua primeira visita deixou alguma dúvida, é só responder aqui que eu mesmo respondo. ${signature}`
+  return `${f}, it was good to have you with us on Sunday. This Sunday we would love to see you again, and there is a small gift waiting with your name on it at Starting Point. If anything from your first visit left you with a question, reply here and I will answer it myself. ${signature}`
+}
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const fmtDate = (iso: string): string => { const [, m, d] = iso.split('-').map(Number); return m && d ? `${MON[m - 1]} ${d}` : iso }
+/** Active if the activity is on or after the first visit, or recent enough to
+ *  mean "attending now" regardless. Group membership carries no date and is
+ *  taken at face value: a first-time guest is not in a Growth Group. */
+export function isActiveNow(a: GuestActivity | undefined, created: string, today: string): boolean {
+  if (!a) return false
+  if (a.kind === 'group') return true
+  return a.date >= created || daysAgo(today, a.date) <= ACTIVE_WITHIN_DAYS
+}
+export function bucketOf(days: number): GuestBucket {
+  return days >= CLEAR_DAYS ? 'clear' : days > FLAG_DAYS ? 'decision' : 'working'
 }
 /**
  * Who moved this card. Every stage here is derived from a Planning Center step,
@@ -111,13 +167,20 @@ function draftOf(name: string, campus: GuestCampus, signature: string): string {
 function ownerOf(_stage: GuestStage): string {
   return 'Starting Point team'
 }
-function kpisFor(list: GuestCardRow[], today: string): GuestKpis {
+function kpisFor(list: GuestCardRow[], today: string, cases: GuestCase[]): GuestKpis {
   const recentGuests = list.length
   const firstTimers4w = list.filter((x) => daysAgo(today, x.created_date) <= 28).length
   const stillVisitors = list.filter((x) => !x.completed_date).length
   const completed = list.filter((x) => x.completed_date).length
   const completedPct = Math.round((completed / Math.max(1, recentGuests)) * 100)
-  return { recentGuests, firstTimers4w, stillVisitors, completedPct }
+  const open = cases.filter((c) => c.stage !== 'finished')
+  return {
+    recentGuests, firstTimers4w, stillVisitors, completedPct,
+    working: open.filter((c) => c.bucket === 'working' && !c.active).length,
+    decision: open.filter((c) => c.bucket === 'decision' && !c.active).length,
+    clear: open.filter((c) => c.bucket === 'clear' && !c.active).length,
+    alreadyActive: open.filter((c) => c.active).length,
+  }
 }
 
 const monthOf = (d: string): string => d.slice(0, 7)
@@ -168,6 +231,8 @@ export function buildGuestPipeline(
   today: string,
   activeDays: number = DEFAULT_ACTIVE_DAYS,
   signature: string = DEFAULT_SIGNATURE,
+  /** person_id -> the most recent recorded activity, from the staged tables. */
+  activity: Record<string, GuestActivity> = {},
 ): GuestPipelinePayload {
   const cases: GuestCase[] = []
   const kpis = {} as Record<'all' | GuestCampus, GuestKpis>
@@ -178,30 +243,46 @@ export function buildGuestPipeline(
     const list = active
       .filter((r) => r.campus === campus)
       .sort((a, b) => (a.created_date < b.created_date ? 1 : -1))
+    const campusCases: GuestCase[] = []
     for (const x of list) {
       const stage = stageOf(x)
       const days = daysAgo(today, x.created_date)
-      const thisWeek = days <= 7
-      cases.push({
+      const weeks = Math.round(days / 7)
+      const open = stage !== 'finished'
+      const act = activity[x.person_id]
+      const active = open && isActiveNow(act, x.created_date, today) ? act : undefined
+      // Who still needs a reason to come back: nobody has marked them returned
+      // (week 3 or finished means they did), nobody has seen them active, and
+      // it is between the Thursday after their visit and the following Sunday.
+      const comeback = open && !active && stage !== 'week3' && days >= COMEBACK_FROM_DAYS && days <= COMEBACK_TO_DAYS
+      // One note per card, chosen by what the card most needs a person to do.
+      let note: string | undefined
+      if (active) note = `Already active: ${active.detail}. Clear the card.`
+      else if (comeback) note = 'Grace drafted a Thursday come-back note, awaiting your approval'
+      else if (open && days >= CLEAR_DAYS) note = `${weeks} weeks with no return. Nobody has finished Starting Point after 90 days; clear the card.`
+      else if (open && days > FLAG_DAYS) note = `${weeks} weeks with no return. Reach out once or clear; 85% of the people who finish are done by six weeks.`
+      else if (open && days >= NUDGE_DAYS) note = 'Three weeks with no return. Grace stops here; a personal reach-out or a clear is yours.'
+      campusCases.push({
         id: `gp-${x.card_id}`,
         cardId: x.card_id,
         person_id: x.person_id,
         name: x.name,
         campus,
         stage,
-        // A card can sit on a later PCO step (stage 'welcomed', "welcome sent")
-        // while Grace still holds an UNSENT draft for it, because the step
-        // advances on the church's schedule and the draft is keyed off card age.
-        // Rendering both put "welcome sent" and "awaiting your approval" on the
-        // same card, so staff could not tell whether anything had gone out.
-        // The pending draft wins: it is the one statement we know is true.
-        detail: thisWeek ? 'first visit, welcome drafted, not sent yet' : detailOf(stage, campus),
+        // The pending draft wins over the step wording: it is the one statement
+        // we know is true about what has and has not gone out.
+        detail: comeback ? 'first visit, come-back note drafted, not sent yet' : detailOf(stage, campus),
         owner: ownerOf(stage),
-        age: days < 7 ? 'this week' : `${Math.round(days / 7)}w ago`,
-        ...(thisWeek ? { note: 'Grace drafted a welcome, awaiting your approval', draft: draftOf(x.name, campus, signature) } : {}),
+        age: days < 7 ? 'this week' : `${weeks}w ago`,
+        daysWaiting: days,
+        bucket: bucketOf(days),
+        ...(active ? { active } : {}),
+        ...(note ? { note } : {}),
+        ...(comeback ? { draft: comebackDraftOf(x.name, campus, signature) } : {}),
       })
     }
-    kpis[campus] = kpisFor(list, today)
+    cases.push(...campusCases)
+    kpis[campus] = kpisFor(list, today, campusCases)
     monthly[campus] = monthlyFor(list, today)
   }
   // 'all' is computed off the full row set rather than by merging the two campus
@@ -214,6 +295,10 @@ export function buildGuestPipeline(
     firstTimers4w: kpis.english.firstTimers4w + kpis.brazilian.firstTimers4w,
     stillVisitors: kpis.english.stillVisitors + kpis.brazilian.stillVisitors,
     completedPct: Math.round((kpis.english.completedPct * kpis.english.recentGuests + kpis.brazilian.completedPct * kpis.brazilian.recentGuests) / Math.max(1, allRecent)),
+    working: kpis.english.working + kpis.brazilian.working,
+    decision: kpis.english.decision + kpis.brazilian.decision,
+    clear: kpis.english.clear + kpis.brazilian.clear,
+    alreadyActive: kpis.english.alreadyActive + kpis.brazilian.alreadyActive,
   }
   return { cases, kpis, monthly }
 }

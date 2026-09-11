@@ -3,7 +3,7 @@ import { assignmentsToByPerson, groupRowsToInputs } from '../pco-transforms/from
 import { computeServing, computeBurnout, monthsAgo } from '../pco-transforms/serving.ts'
 import { computeGroupDrift } from '../pco-transforms/groupDrift.ts'
 import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/familyDrift.ts'
-import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE } from '../pco-transforms/guestPipeline.ts'
+import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE, type GuestActivity } from '../pco-transforms/guestPipeline.ts'
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
 import { buildRoster, aliasPlans, type ServingRow } from '../pco-transforms/roster.ts'
 import { fetchRosterPlans } from './fetchRosterPlans.ts'
@@ -130,8 +130,78 @@ export async function computeGuestPipeline(db: Db, clientId: string, cfg: PcoCon
   // note has to be the name at the bottom of it.
   const { data: settings } = await db.from('church_settings').select('messaging').eq('client_id', clientId).maybeSingle()
   const signature = (settings?.messaging?.signature ?? '').trim() || DEFAULT_SIGNATURE
+  const activity = await guestActivity(db, clientId, cardRows.map((r: any) => r.person_id).filter(Boolean), cutoff)
   await writeOk(db, clientId, 'guestPipeline',
-    buildGuestPipeline(cardRows, today(), cfg.guests!.activeDays ?? DEFAULT_ACTIVE_DAYS, signature))
+    buildGuestPipeline(cardRows, today(), cfg.guests!.activeDays ?? DEFAULT_ACTIVE_DAYS, signature, activity))
+}
+
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const fmtDate = (iso: string): string => { const [, m, d] = iso.split('-').map(Number); return m && d ? `${MON[m - 1]} ${d}` : iso }
+
+/**
+ * What Planning Center DID record for each guest on a card, since an adult's
+ * return to a service is never recorded: a child from their household checked
+ * in, a Growth Group joined, a serving shift confirmed. Everything here is
+ * already staged for other pages, so this costs four reads and no PCO calls.
+ *
+ * Kids check-ins are the child's record, so they reach the guest through
+ * pco_households: the latest check-in of anyone in the guest's household.
+ * Read failures degrade to "no activity known" rather than sinking the
+ * pipeline; the note is a courtesy, the board is the product.
+ */
+async function guestActivity(db: Db, clientId: string, personIds: string[], since: string): Promise<Record<string, GuestActivity>> {
+  const out: Record<string, GuestActivity> = {}
+  if (!personIds.length) return out
+  const wanted = new Set(personIds)
+  const better = (pid: string, a: GuestActivity) => {
+    const cur = out[pid]
+    if (!cur || (a.date && a.date > cur.date) || (cur.kind === 'group' && a.kind !== 'group')) out[pid] = a
+  }
+  try {
+    const mem = await readAll(
+      (from, to) => db.from('pco_group_members').select('person_id,group_name').eq('client_id', clientId)
+        .in('person_id', personIds).order('person_id').range(from, to),
+      'guest group members')
+    for (const m of mem as any[]) if (wanted.has(m.person_id)) better(m.person_id, { kind: 'group', date: '', detail: `in ${m.group_name}` })
+  } catch (e) { console.error(`guestActivity groups: ${e instanceof Error ? e.message : String(e)}`) }
+  try {
+    const srv = await readAll(
+      (from, to) => db.from('pco_serving_assignments').select('person_id,date,team,status').eq('client_id', clientId)
+        .in('person_id', personIds).gte('date', since).order('person_id').order('date').range(from, to),
+      'guest serving')
+    for (const s of srv as any[]) {
+      if (!wanted.has(s.person_id) || (s.status ?? '').toUpperCase() !== 'C' || s.date > today()) continue
+      better(s.person_id, { kind: 'serving', date: s.date, detail: `served on ${s.team} ${fmtDate(s.date)}` })
+    }
+  } catch (e) { console.error(`guestActivity serving: ${e instanceof Error ? e.message : String(e)}`) }
+  try {
+    const hh = await readAll(
+      (from, to) => db.from('pco_households').select('person_id,household_id').eq('client_id', clientId)
+        .order('person_id').range(from, to),
+      'guest households')
+    const householdOf = new Map<string, string>()
+    const guestHouseholds = new Set<string>()
+    for (const h of hh as any[]) { householdOf.set(h.person_id, h.household_id); if (wanted.has(h.person_id)) guestHouseholds.add(h.household_id) }
+    if (guestHouseholds.size) {
+      const kids = await readAll(
+        (from, to) => db.from('pco_kids_checkins').select('person_id,first,checkin_date').eq('client_id', clientId)
+          .gte('checkin_date', since).order('person_id').order('checkin_date').range(from, to),
+        'guest kids checkins')
+      const latestByHousehold = new Map<string, { date: string; first: string }>()
+      for (const k of kids as any[]) {
+        const hid = householdOf.get(k.person_id)
+        if (!hid || !guestHouseholds.has(hid)) continue
+        const cur = latestByHousehold.get(hid)
+        if (!cur || k.checkin_date > cur.date) latestByHousehold.set(hid, { date: k.checkin_date, first: k.first ?? '' })
+      }
+      for (const pid of personIds) {
+        const hid = householdOf.get(pid)
+        const k = hid ? latestByHousehold.get(hid) : undefined
+        if (k) better(pid, { kind: 'kids', date: k.date, detail: `${k.first || 'a child'} checked in at Kids ${fmtDate(k.date)}` })
+      }
+    }
+  } catch (e) { console.error(`guestActivity kids: ${e instanceof Error ? e.message : String(e)}`) }
+  return out
 }
 
 export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig) {

@@ -43,7 +43,7 @@ const sundaySummary = computed(() => {
 })
 
 const domains = computed(() => [
-  { key: 'guests', label: 'Guests', dot: 'bg-brand', tab: 'front-desk-guests', summary: `${guestNew.value} welcome notes to approve for Sunday's first-timers.` },
+  { key: 'guests', label: 'Guests', dot: 'bg-brand', tab: 'front-desk-guests', summary: `${guestNew.value} come-back notes to approve for last Sunday's first-timers.` },
   { key: 'care', label: 'Care', dot: 'bg-warn', tab: 'care-drift', summary: `${careApprove} family notes to approve and ${careCall} escalations to call personally.` },
   { key: 'sunday', label: 'Sunday', dot: 'bg-danger', tab: 'sundays-comms', summary: sundaySummary.value },
   { key: 'comms', label: 'Comms', dot: 'bg-accent', tab: 'sundays-comms', summary: '2 drafts written from your numbers, ready for your admin.' },

@@ -33,10 +33,12 @@
 // turns a status into a to-do: "88 people are at the week-2 bag step" is
 // actionable in a way "88 Welcomed" never was.
 //
-// NOTE ON STALLED GUESTS: dropping "Cooled" loses nothing today (it was always
-// 0), but a card parked on one step for months is a real signal. That should be
-// time-in-step, which the payload does not carry yet, not time-since-first-visit
-// dressed up as a stage.
+// WHAT THE STEPS MEAN, from Christina (Sep 8 and Sep 10): the form adds a card
+// to step one on Sunday, a text goes out Monday at 2pm, and on Tuesday morning
+// Gabby moves everyone to week 2 BEFORE anyone has come back. A person on week
+// 2 is therefore someone waiting to return, not someone who did; week 3 means
+// they came back once; finished means twice. The old subs ("came back, step 2")
+// had it backwards. Stalled cards are now triaged by the payload's `bucket`.
 
 export type GuestStage = 'signed_in' | 'called' | 'week2' | 'week3' | 'finished'
 
@@ -46,11 +48,11 @@ export const GUEST_STAGES: {
   sub: string
   positive?: boolean
 }[] = [
-  { key: 'signed_in', label: 'Signed in', sub: 'at Starting Point, no step yet' },
-  { key: 'called', label: 'Welcome call', sub: 'step 1 of their workflow' },
-  { key: 'week2', label: 'Week 2', sub: 'came back, step 2' },
-  { key: 'week3', label: 'Week 3', sub: 'came back again, step 3' },
-  { key: 'finished', label: 'Finished', sub: 'completed Starting Point', positive: true },
+  { key: 'signed_in', label: 'Signed in', sub: 'Sunday, not moved yet' },
+  { key: 'called', label: 'Welcome call', sub: 'step 1, Monday text' },
+  { key: 'week2', label: 'Week 2', sub: 'moved Tuesday, waiting to come back' },
+  { key: 'week3', label: 'Week 3', sub: 'came back once' },
+  { key: 'finished', label: 'Finished', sub: 'came back twice, done', positive: true },
 ]
 
 /**
@@ -109,8 +111,8 @@ export function stageDetail(stage: GuestStage, campus: string): string {
   switch (stage) {
     case 'signed_in': return 'signed in at Starting Point, no step yet'
     case 'called': return gift ? 'welcome call step, coffee mug' : 'welcome call step'
-    case 'week2': return gift ? 'week-2 step, the bag' : 'week-2 step'
-    case 'week3': return gift ? 'week-3 step, the gift card' : 'week-3 step'
+    case 'week2': return gift ? 'week-2 step, waiting to come back for the bag' : 'week-2 step, waiting to come back'
+    case 'week3': return gift ? 'came back once, week-3 step, the gift card' : 'came back once, week-3 step'
     case 'finished': return 'completed all three Starting Point steps'
   }
 }
