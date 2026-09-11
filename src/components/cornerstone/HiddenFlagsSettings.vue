@@ -22,6 +22,7 @@ const SIGNAL_LABEL: Record<string, string> = {
   serving: 'Stopped serving',
   group: 'Group drift',
   family: 'Family drift',
+  ask: 'Ask to serve',
   other: 'Other',
 }
 const SIGNAL_CLASS: Record<string, string> = {
@@ -29,6 +30,7 @@ const SIGNAL_CLASS: Record<string, string> = {
   serving: 'bg-accent/15 text-accent',
   group: 'bg-brand/12 text-brand',
   family: 'bg-warn/15 text-warn',
+  ask: 'bg-success/12 text-success',
   other: 'bg-ink-muted/10 text-ink-muted',
 }
 

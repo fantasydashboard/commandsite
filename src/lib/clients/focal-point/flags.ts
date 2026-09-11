@@ -6,16 +6,18 @@ import type { ServingDriftPerson } from './serving'
 import type { GroupDrifter } from './groupDrift'
 import type { BurnoutPerson } from './burnout'
 import type { CareCase } from './carePipeline'
+import type { ServeCandidate } from './serveCandidates'
 import { duplicateInfo } from './duplicateReview'
 import type { DupInfo } from './duplicates'
 
-export type FlagSignal = 'family' | 'serving' | 'group' | 'burnout'
+export type FlagSignal = 'family' | 'serving' | 'group' | 'burnout' | 'ask'
 
 export const SIGNAL_META: Record<FlagSignal, { label: string; class: string }> = {
   family: { label: 'Family drifting', class: 'bg-warn/15 text-warn' },
   serving: { label: 'Stopped serving', class: 'bg-accent/15 text-accent' },
   group: { label: 'Group drift', class: 'bg-brand/12 text-brand' },
   burnout: { label: 'Burnout risk', class: 'bg-danger/12 text-danger' },
+  ask: { label: 'Ask to serve', class: 'bg-success/12 text-success' },
 }
 
 // Stable id so the same person is hidden everywhere they appear (board, strip,
@@ -132,6 +134,28 @@ export function careCaseFlag(c: CareCase): FlagDetail {
     stage: c.stage,
     draft: c.draft,
     channel: c.channel,
+  }
+}
+
+// Not a drift flag but a suggestion, and it needs the same hide. Who to Ask
+// surfaced staff and people the church already knows not to ask, with no way to
+// take them off. Same id scheme (`ask:name`) so the hide is shared by the whole
+// team and reviewable in Settings like every other one.
+export function askFlag(c: ServeCandidate): FlagDetail {
+  const why = c.tier === 1 ? 'In a Growth Group and dropping kids off' : c.tier === 2 ? 'In a Growth Group' : 'Dropping kids off'
+  return {
+    duplicate: duplicateInfo(c.name),
+    id: flagId('ask', c.name),
+    name: c.name,
+    signal: 'ask',
+    signalLabel: SIGNAL_META.ask.label,
+    signalClass: SIGNAL_META.ask.class,
+    summary: `${why}, and not serving on any team. Already here and already connected, which is what predicts a yes.`,
+    evidence: [
+      { label: 'Why suggested', value: why },
+      { label: 'Sundays here', value: `${c.sundays} (by kids drop-off)` },
+      ...(c.groups.length ? [{ label: c.groups.length === 1 ? 'Group' : 'Groups', value: c.groups.join(', ') }] : []),
+    ],
   }
 }
 

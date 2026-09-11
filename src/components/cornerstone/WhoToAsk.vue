@@ -28,6 +28,8 @@ import type { ServeCandidate } from '@/lib/clients/focal-point/serveCandidates'
 import { serveCandidatesData } from '@/lib/clients/church/careDataLoader'
 import { exportCsv } from '@/lib/exportCsv'
 import { useCongregationLens } from '@/stores/congregationLens'
+import { useCareActions } from '@/stores/careActions'
+import { askFlag, flagId } from '@/lib/clients/focal-point/flags'
 import { congregationOf } from '@/lib/clients/focal-point/congregationLive'
 import ExportButton from '@/components/cornerstone/ExportButton.vue'
 
@@ -45,10 +47,19 @@ const d = computed(() => serveCandidatesData())
 // that says "Showing the english congregation".
 const lens = useCongregationLens()
 const inScope = (p: ServeCandidate) => lens.scope === 'all' || congregationOf(p.name) === lens.scope
-const tier1 = computed(() => d.value.people.filter((p) => p.tier === 1 && inScope(p)))
+// Same hide as every other list: staff, or anyone the church already knows not
+// to ask, come off here for the whole team and can be put back in Settings.
+const care = useCareActions()
+const hiddenFrom = (p: ServeCandidate) => care.isHidden(flagId('ask', p.name))
+const tier1 = computed(() => d.value.people.filter((p) => p.tier === 1 && inScope(p) && !hiddenFrom(p)))
+const hiddenTier1 = computed(() => d.value.people.filter((p) => p.tier === 1 && hiddenFrom(p)).length)
 // Church-wide when unscoped; otherwise the list's own length, because the
-// payload's totals cannot be split by congregation.
-const tier1Count = computed(() => (lens.scope === 'all' ? d.value.totals.tier1 : tier1.value.length))
+// payload's totals cannot be split by congregation. Hidden people come off the
+// church-wide total too, or the headline and the rows disagree by exactly the
+// people you just removed.
+const tier1Count = computed(() =>
+  lens.scope === 'all' ? Math.max(0, d.value.totals.tier1 - hiddenTier1.value) : tier1.value.length,
+)
 /**
  * People the lens could not place at all.
  *
@@ -79,7 +90,7 @@ function groupText(c: ServeCandidate): string {
 
 function onExport() {
   exportCsv(
-    d.value.people,
+    d.value.people.filter((p) => !hiddenFrom(p)),
     [
       { header: 'Name', value: (c) => c.name },
       { header: 'Tier', value: (c) => c.tier },
@@ -121,7 +132,12 @@ function onExport() {
     </p>
 
     <ul class="mt-4 divide-y divide-divider border-t border-divider">
-      <li v-for="c in visible" :key="c.name" class="flex flex-wrap items-center gap-3 py-2.5">
+      <li
+        v-for="c in visible"
+        :key="c.name"
+        class="flex cursor-pointer flex-wrap items-center gap-3 rounded-md py-2.5 transition-colors hover:bg-surface-elevated/50"
+        @click="care.openDetail(askFlag(c))"
+      >
         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand/10 text-[11px] font-bold text-brand">
           {{ c.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() }}
         </span>
@@ -135,12 +151,19 @@ function onExport() {
       </li>
     </ul>
 
-    <button
-      v-if="tier1.length > SHOWN"
-      type="button"
-      class="mt-3 text-xs font-semibold text-brand hover:underline"
-      @click="showAll = !showAll"
-    >{{ showAll ? 'Show fewer' : `Show all ${tier1.length}` }}</button>
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <button
+        v-if="tier1.length > SHOWN"
+        type="button"
+        class="text-xs font-semibold text-brand hover:underline"
+        @click="showAll = !showAll"
+      >{{ showAll ? 'Show fewer' : `Show all ${tier1.length}` }}</button>
+      <span v-else></span>
+      <span class="text-[11px] text-ink-disabled">
+        Click a name to see why, or to take them off this list.
+        <template v-if="hiddenTier1"> {{ hiddenTier1 }} removed; put them back in Settings.</template>
+      </span>
+    </div>
 
     <!-- The wider pools, by count only. Naming 568 people whose only signal is
          "is in a group" would be a directory, not a list anyone can work. -->

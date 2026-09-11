@@ -62,8 +62,12 @@ const FLAG_WORD: Record<string, string> = {
   serving: 'stopped serving',
   group: 'group drift',
   family: 'family drift',
+  ask: 'serving asks',
 }
 const flagWord = computed(() => FLAG_WORD[detail.value?.signal ?? ''] ?? 'this')
+// Who to Ask is a suggestion, not a flag, so the verbs change: nobody is
+// "flagged" for being a good person to ask.
+const isAsk = computed(() => detail.value?.signal === 'ask')
 
 const handled = computed(() => !!detail.value?.caseId && care.isHandled(detail.value.caseId))
 function approve() {
@@ -155,7 +159,7 @@ function restore() {
         </div>
 
         <div class="mt-4">
-          <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">Why Grace flagged this</span>
+          <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">{{ isAsk ? 'Why Grace suggested them' : 'Why Grace flagged this' }}</span>
           <dl class="mt-2 divide-y divide-divider/70">
             <div v-for="e in detail.evidence" :key="e.label" class="flex items-baseline justify-between gap-4 py-2">
               <dt class="text-[12px] text-ink-muted">{{ e.label }}</dt>
@@ -206,7 +210,7 @@ function restore() {
         </p>
 
         <p v-if="existing" class="mt-3 rounded-lg border border-warn/30 bg-warn/5 px-3 py-2 text-[12px] text-ink">
-          <span v-if="existing.reason === 'dismissed'">Dismissed, hidden from the list.</span>
+          <span v-if="existing.reason === 'dismissed'">{{ isAsk ? 'Removed. Grace will not suggest them for serving.' : 'Dismissed, hidden from the list.' }}</span>
           <span v-else>Snoozed, hidden until it comes back up.</span>
         </p>
       </div>
@@ -245,13 +249,19 @@ function restore() {
       <!-- actions -->
       <div class="border-t border-divider px-5 py-4">
         <template v-if="!existing">
-          <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Not the right time?</div>
+          <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{{ isAsk ? 'Not someone to ask?' : 'Not the right time?' }}</div>
           <div class="mt-2 flex flex-wrap gap-2">
             <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-elevated" @click="snooze(2)">Snooze 2 weeks</button>
             <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-elevated" @click="snooze(4)">Snooze 4 weeks</button>
-            <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5" @click="dismiss">Never flag for {{ flagWord }}</button>
+            <button class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5" @click="dismiss">{{ isAsk ? 'Never suggest for serving' : `Never flag for ${flagWord}` }}</button>
           </div>
-          <p class="mt-2 text-[11px] text-ink-disabled">
+          <p v-if="isAsk" class="mt-2 text-[11px] text-ink-disabled">
+            Snooze for someone in a season where an ask would land badly. Use "never suggest" for
+            staff, or anyone who has already said no, instead of snoozing them over and over.
+            It only takes them off Who to Ask; every other signal still watches them. This applies
+            for your whole team, and you can undo it in Settings.
+          </p>
+          <p v-else class="mt-2 text-[11px] text-ink-disabled">
             Snooze for someone traveling or in a hard season. Use "never flag" for staff, or
             anyone this signal simply does not apply to, instead of snoozing them over and over.
             It only hides them from {{ flagWord }}; every other signal still watches them. This applies
