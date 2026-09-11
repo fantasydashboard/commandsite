@@ -52,7 +52,13 @@ const roster = computed(() => rosterData())
 const rosterOffsetDays = computed(() => {
   const then = Date.parse(`${roster.value.date}T00:00:00Z`)
   if (Number.isNaN(then)) return 0
-  const now = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
+  // LOCAL midnight, not UTC. toISOString() rolls over at 8pm Eastern, so at
+  // 9:47pm on the 10th "today" became the 11th and a Sunday three days out
+  // rendered as "in 2 days". The roster date is a plain YYYY-MM-DD with no
+  // zone, so it has to be compared against the reader's calendar day.
+  const n = new Date()
+  const pad = (x: number) => String(x).padStart(2, '0')
+  const now = Date.parse(`${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}T00:00:00Z`)
   return Math.round((now - then) / 864e5)
 })
 const rosterWhen = computed(() => {

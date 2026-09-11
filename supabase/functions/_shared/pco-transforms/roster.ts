@@ -94,6 +94,17 @@ export interface ForwardPayload { expected: string[]; weeks: SchedWeek[] }
  *  an absence is normal rather than an oversight, so flagging it would be noise. */
 export const EXPECTED_PRESENCE = 0.6
 
+/**
+ * NOT the same window as Burnout Watch, which runs on pco_config.burnout
+ * .seasonMonths (6 at Focal Point). That is deliberate: "who has capacity to be
+ * asked this Sunday" is a recent-load question, and someone who served heavily
+ * in spring and nothing since has capacity now. A six-month window would hide
+ * that.
+ *
+ * The cost is that one person can read 10x/month here and 9x/month in the table
+ * below, which is why the skip reason names its window out loud. Two numbers
+ * are fine; two unlabelled numbers are a bug report waiting to happen.
+ */
 /** Load window and threshold for "already serving too much". Mirrors
  *  computeBurnout so a name suggested here can never also be a name the burnout
  *  list is telling the church to protect. */
@@ -152,7 +163,7 @@ function candidatesFor(team: string, people: Person[], today: string) {
     suggest: withRoom.slice(0, 2).map((p) => p.name),
     pool: withRoom.length,
     ...(fresh ? { fresh: `${fresh.name} (served ${team} before, has room)` } : {}),
-    ...(heavy ? { skip: { name: heavy.name, reason: `already ${perMonth(heavy)}x/month` } } : {}),
+    ...(heavy ? { skip: { name: heavy.name, reason: `already ${perMonth(heavy)}x/month over the last ${SEASON_DAYS} days` } } : {}),
   }
 }
 
