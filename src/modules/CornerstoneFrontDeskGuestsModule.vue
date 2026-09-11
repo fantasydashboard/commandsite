@@ -16,6 +16,7 @@ import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
 import PageLeadChip from '@/components/cornerstone/PageLeadChip.vue'
 import DataFreshnessBadge from '@/components/cornerstone/DataFreshnessBadge.vue'
+import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
 import AdaIcon from '@/components/ada/AdaIcon.vue'
 import GraceRecommendations, { type GraceRecommendation } from '@/components/cornerstone/GraceRecommendations.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
@@ -337,6 +338,10 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       <template #lead>
         <PageLeadChip :client-id="client.id" page="front-desk-guests" />
         <DataFreshnessBadge v-if="isLiveChurch" resource="guestPipeline" />
+        <!-- Refresh lived only on Serving and Care & Drift; the page whose
+             queue changes every Tuesday when Gabby moves the cards had no way
+             to ask for the new state. -->
+        <RefreshNowButton v-if="isLiveChurch" :slug="client.slug" />
       </template>
     </RolesOnPage>
 
@@ -397,7 +402,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
       :initial-resolved="isFocalPoint ? 0 : 5"
       assistant-name="Grace"
       :heading="isFocalPoint ? 'Needs you this week' : 'First-touch queue'"
-      :subtitle="isFocalPoint ? 'Welcome notes for this week\'s first-time guests. Approve to send. Everyone else is tracked on the board below.' : 'Visitor sequences + story permissions awaiting your eyes. Co-sign to send.'"
+      :subtitle="isFocalPoint ? 'Come-back notes for last Sunday\'s guests nobody has seen return. One note each, approve to send. Everyone else is on the board below.' : 'Visitor sequences + story permissions awaiting your eyes. Co-sign to send.'"
       :send-handler="guestSendHandler"
       :empty-note="isFocalPoint ? guestEmptyNote : null"
       @approved="onApproved"
