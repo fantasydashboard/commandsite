@@ -18,7 +18,8 @@
 import { ref, onBeforeUnmount } from 'vue'
 import { refreshAndWait } from '@/lib/clients/church/careDataLoader'
 
-const props = defineProps<{ slug: string }>()
+// `resources` narrows the sync to what this page shows; see refreshAndWait.
+const props = defineProps<{ slug: string; resources?: string[] }>()
 
 /** Resource keys are internal; staff read page names. */
 const NAMES: Record<string, string> = {
@@ -61,7 +62,7 @@ async function run() {
   // page that has quietly given up.
   ticker = setInterval(() => { elapsed.value += 1 }, 1000)
   try {
-    const r = await refreshAndWait(props.slug)
+    const r = await refreshAndWait(props.slug, props.resources?.length ? { resources: props.resources } : {})
     // Name what actually moved. "Updated just now" fired when ANY resource
     // changed, which put a green tick above a panel still reading nine hours
     // old because the resource behind that panel had not run.

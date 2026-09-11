@@ -208,7 +208,11 @@ export async function refreshCareData(slug: string): Promise<void> {
  */
 export async function refreshAndWait(
   slug: string,
-  opts: { pollMs?: number; timeoutMs?: number } = {},
+  /** `resources` narrows the sync to what the calling page shows (pco-fetch
+   *  resource names, e.g. ['guests']). A full pass walks seven resources and
+   *  runs out of wall clock before the sixth, so a page-wide refresh from
+   *  Front Desk never reached the guest pipeline. */
+  opts: { pollMs?: number; timeoutMs?: number; resources?: string[] } = {},
 ): Promise<{ status: 'updated' | 'timeout'; changed: string[]; catchingUp: boolean }> {
   const pollMs = opts.pollMs ?? 4000
   const timeoutMs = opts.timeoutMs ?? 90_000
@@ -219,7 +223,9 @@ export async function refreshAndWait(
     Object.entries(store.meta).some(([k, m]) => (m?.computedAt ?? null) !== (before[k] ?? null))
 
 
-  void supabase.functions.invoke('pco-fetch', { body: { tenant: slug } }).catch(() => {})
+  void supabase.functions.invoke('pco-fetch', {
+    body: opts.resources?.length ? { tenant: slug, resources: opts.resources } : { tenant: slug },
+  }).catch(() => {})
 
   const changed = () =>
     Object.entries(store.meta)

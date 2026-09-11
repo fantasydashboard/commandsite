@@ -341,7 +341,7 @@ const frontDeskRecommendations: GraceRecommendation[] = [
         <!-- Refresh lived only on Serving and Care & Drift; the page whose
              queue changes every Tuesday when Gabby moves the cards had no way
              to ask for the new state. -->
-        <RefreshNowButton v-if="isLiveChurch" :slug="client.slug" />
+        <RefreshNowButton v-if="isLiveChurch" :slug="client.slug" :resources="['guests']" />
       </template>
     </RolesOnPage>
 

@@ -158,16 +158,19 @@ async function guestActivity(db: Db, clientId: string, personIds: string[], sinc
     if (!cur || (a.date && a.date > cur.date) || (cur.kind === 'group' && a.kind !== 'group')) out[pid] = a
   }
   try {
+    // Whole table, filtered in memory. An .in() over several hundred ids goes
+    // out as a GET query string and can exceed the gateway's URL limit, which
+    // fails the read silently from the transform's point of view.
     const mem = await readAll(
       (from, to) => db.from('pco_group_members').select('person_id,group_name').eq('client_id', clientId)
-        .in('person_id', personIds).order('person_id').range(from, to),
+        .order('group_id').order('person_id').range(from, to),
       'guest group members')
     for (const m of mem as any[]) if (wanted.has(m.person_id)) better(m.person_id, { kind: 'group', date: '', detail: `in ${m.group_name}` })
   } catch (e) { console.error(`guestActivity groups: ${e instanceof Error ? e.message : String(e)}`) }
   try {
     const srv = await readAll(
       (from, to) => db.from('pco_serving_assignments').select('person_id,date,team,status').eq('client_id', clientId)
-        .in('person_id', personIds).gte('date', since).order('person_id').order('date').range(from, to),
+        .gte('date', since).order('person_id').order('date').order('team').range(from, to),
       'guest serving')
     for (const s of srv as any[]) {
       if (!wanted.has(s.person_id) || (s.status ?? '').toUpperCase() !== 'C' || s.date > today()) continue

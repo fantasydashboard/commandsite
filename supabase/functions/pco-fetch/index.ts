@@ -301,8 +301,21 @@ async function syncChurchResource(
   }
 }
 
-async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConfig, mode: Mode) {
+const ALL_RESOURCES: Resource[] = ['households', 'schedule', 'roster', 'groups', 'kids', 'guests', 'people']
+
+/**
+ * `only` narrows a manual refresh to the resources a page actually shows.
+ *
+ * One invocation walks all seven resources in order, each with its own time
+ * budget, and the function's wall clock runs out before the tail. guests is
+ * sixth: pressing Refresh on Front Desk three times in a row never recomputed
+ * the guest pipeline, while the badge above it kept saying "Updated 1d ago"
+ * from the nightly cron. The cron still runs everything; a page asks for what
+ * it needs.
+ */
+async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConfig, mode: Mode, only?: Resource[]) {
   const results: Record<string, string> = {}
+  const list = only?.length ? ALL_RESOURCES.filter((r) => only.includes(r)) : ALL_RESOURCES
   // ORDER IS A PRIORITY LIST, not a preference. Each resource gets its own 90s
   // budget and there are seven of them, so the tail of this array is whatever
   // the function's wall clock kills first.
@@ -320,7 +333,7 @@ async function syncChurch(db: Db, clientId: string, tenant: string, cfg: PcoConf
   // households BEFORE kids: computeDrift joins them, so a first run that pulls
   // check-ins without households would compute one round of surname-grouped
   // families before correcting itself the next night.
-  for (const resource of ['households', 'schedule', 'roster', 'groups', 'kids', 'guests', 'people'] as Resource[]) {
+  for (const resource of list) {
     results[resource] = await syncChurchResource(db, clientId, tenant, cfg, resource, mode)
   }
   return results
@@ -340,7 +353,7 @@ Deno.serve(async (req: Request) => {
   const isCron = !!expectedCron && cronSecret === expectedCron
   if (!token && !isCron) return json({ error: 'Missing Authorization' }, 401)
 
-  let body: { tenant?: string; mode?: Mode } = {}
+  let body: { tenant?: string; mode?: Mode; resources?: string[] } = {}
   try { body = await req.json() } catch { /* empty body = cron all-churches */ }
   const db = svc()
   const isServiceRole = token === SERVICE_ROLE_KEY
@@ -363,7 +376,10 @@ Deno.serve(async (req: Request) => {
       if (!ok) return json({ error: 'You do not have permission to refresh this church.' }, 403)
     }
     try {
-      const results = await syncChurch(db, client.id, body.tenant, (client.pco_config ?? {}) as PcoConfig, mode)
+      const only = Array.isArray(body.resources)
+        ? (body.resources.filter((r) => (ALL_RESOURCES as string[]).includes(r)) as Resource[])
+        : undefined
+      const results = await syncChurch(db, client.id, body.tenant, (client.pco_config ?? {}) as PcoConfig, mode, only)
       return json({ ok: true, mode, results: { [body.tenant]: results } })
     } catch (e) {
       return json({ error: e instanceof Error ? e.message : String(e) }, 500)
