@@ -24,17 +24,18 @@ const steps = computed(() => [
 
 // The biggest single drop after the first visit, to point at the follow-up leak.
 const biggestGap = computed(() => `${100 - pct(m.value.completedSP)}%`)
-const scopeLabel = computed(() => (lens.scope === 'all' ? 'across the church' : `in the ${lens.scope} ministry`))
+const scopeLabel = computed(() => (lens.scope === 'all' ? 'across the church' : `in the ${lens.scope === 'brazilian' ? 'Brazilian' : 'English'} ministry`))
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const asOf = computed(() => { const [, m, d] = assimilation.asOf.split('-').map(Number); return `${MON[m - 1]} ${d}` })
 </script>
 
 <template>
   <section class="card">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="eyebrow">Getting Connected</span>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Live from Planning Center · last 12 months
-      </span>
+      <!-- A pull, not the nightly sync. It wore a green "live" dot for two
+           months after the numbers stopped moving. -->
+      <span class="text-[11px] text-ink-muted">Planning Center, pulled {{ asOf }} · last 12 months</span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">How far your recent visitors have gotten</h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
@@ -64,7 +65,7 @@ const scopeLabel = computed(() => (lens.scope === 'all' ? 'across the church' : 
     <div class="mt-4 rounded-lg border border-brand/20 bg-surface-elevated/60 px-4 py-3">
       <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">Grace's read</span>
       <p class="mt-1 text-[13px] leading-relaxed text-ink">
-        The biggest drop is right after the first visit: {{ biggestGap }} do not take the next step into Starting Point. That handoff is the highest-leverage place to follow up. About 1 in 8 recent visitors land in a group, and {{ pct(m.serving) }}% start serving.
+        The biggest drop is right after the first visit: {{ biggestGap }} sign in at Starting Point but never finish it. That handoff is the highest-leverage place to follow up. About 1 in 8 recent visitors land in a group, and {{ pct(m.serving) }}% start serving.
       </p>
     </div>
     <p class="mt-2 text-[11px] text-ink-disabled">

@@ -5,9 +5,15 @@
 // scripts/pull-fp-insights.mjs (PCO) + scripts/parse-fp-summary.mjs (their sheet).
 
 export const focalPointInsights = {
+  // Dates the manual sources stop. The weekly summary sheet and the Metrics
+  // workbook are exported by hand; the page reads these so a September reader
+  // is never told a July weekend is "this weekend".
+  "sheetThrough": "Jul 5",
+  "onlineThrough": "May 31",
+  "youthThrough": "Jun 7",
   "kpis": {
     "avgWeekend": 1008,
-    "members": 1210,
+    "members": 1218,
     "visitors": 3112,
     "volunteers": 2168,
     "youtubeSubscribers": 2384
@@ -398,6 +404,7 @@ export const focalPointInsights = {
     "prevDate": "Jun 28",
     "grand": 862,
     "prevGrand": 929,
+    "note": "Fourth of July weekend: the Spanish service did not meet, and plenty of people were traveling.",
     "firstTimers": 7,
     "volunteers": 133,
     "servicesMet": [
@@ -420,17 +427,30 @@ export const focalPointInsights = {
   "bodyHealth": {
     "coreAdults": 1385,
     "serving": { "count": 398, "pct": 29, "live": true },
-    "groups": { "count": 932, "groupCount": 60, "live": true },
+    // Distinct people in an active group and total membership rows, live from
+    // the Groups API on 2026-09-11 (a person in two groups is one person, two
+    // memberships). Two panels used to show 932 and 1,076 for "people in a
+    // group" because one counted people and the other counted rows.
+    "groups": { "count": 943, "groupCount": 60, "memberships": 1251, "live": true, "asOf": "Sep 11" },
     // growth-group snapshot (real, live from the Groups API). Attendance trend and
     // group-drift come once groups resume meeting in the fall.
+    // Pulled 2026-09-11. Rows mirror Planning Center's own group types (the old
+    // English / Brazilian / Youth split silently folded the Zoom and prayer
+    // groups into "English"). "members" are membership rows. avgAtt is attended
+    // per logged meeting, Aug 1 to Sep 11 2026; null where fewer than two
+    // meetings have attendance logged. One "Test Group" is excluded.
     "groupSnapshot": {
-      "people": 932,
+      "asOf": "Sep 11",
+      "people": 943,
       "groups": 60,
       "avgAttendance": 8,
       "byType": [
-        { "type": "English", "groups": 39, "members": 640, "avgAtt": 8 },
-        { "type": "Brazilian", "groups": 13, "members": 298, "avgAtt": 10 },
-        { "type": "Youth", "groups": 8, "members": 138, "avgAtt": null }
+        { "type": "English", "label": "Growth groups, English", "groups": 30, "members": 518, "avgAtt": 8 },
+        { "type": "Brazilian", "label": "Growth groups, FPC Brasil", "groups": 11, "members": 270, "avgAtt": 7 },
+        { "type": "Zoom", "label": "Zoom groups", "groups": 5, "members": 104, "avgAtt": 10 },
+        { "type": "Prayer", "label": "Prayer groups", "groups": 4, "members": 162, "avgAtt": 12 },
+        { "type": "Youth", "label": "Youth groups", "groups": 9, "members": 161, "avgAtt": null },
+        { "type": "Equip", "label": "Equip", "groups": 1, "members": 36, "avgAtt": null }
       ]
     },
     "giving": { "pct": null, "live": false }
@@ -441,6 +461,7 @@ export const focalPointInsights = {
   "salvations": {
     "thisYearTotal": 249,
     "thisYearWeeks": 18,
+    "through": "early May",
     "pace": 719,
     "byYear": [
       { "year": 2024, "total": 510, "partial": false },
@@ -450,7 +471,7 @@ export const focalPointInsights = {
   },
   // Average weekend attendance by year, real, from their Metrics workbooks
   // (Grand Total row, each year's Weekly Summary sheet). 2024 pending; 2026 is
-  // year-to-date through July. The four-year arc: up about 67% since 2022.
+  // year-to-date through Jul 5. The four-year arc: up about 67% since 2022.
   "yearlyAttendance": [
     { "year": 2022, "avg": 602, "partial": false },
     { "year": 2023, "avg": 733, "partial": false },

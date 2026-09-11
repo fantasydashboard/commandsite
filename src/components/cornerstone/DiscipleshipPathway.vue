@@ -9,6 +9,8 @@ import { pathwayStages, pathwayContext } from '@/lib/clients/focal-point/pathway
 import { useCongregationLens } from '@/stores/congregationLens'
 
 const lens = useCongregationLens()
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const asOf = (() => { const [, m, d] = pathwayContext.asOf.split('-').map(Number); return `${MON[m - 1]} ${d}` })()
 const top = pathwayStages[0].count
 const maxCount = Math.max(...pathwayStages.map((s) => s.count))
 function pctOfTop(n: number): number {
@@ -26,10 +28,7 @@ function barWidth(n: number): number {
         <span class="eyebrow">Discipleship Pathway</span>
         <span v-if="lens.scope !== 'all'" class="rounded bg-surface-elevated px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-disabled">church-wide</span>
       </div>
-      <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-        Live from Planning Center
-      </span>
+      <span class="text-[11px] text-ink-muted">Planning Center, pulled {{ asOf }}</span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">Where people are on the journey</h3>
     <p class="mt-1 text-sm text-ink-muted">
@@ -44,7 +43,7 @@ function barWidth(n: number): number {
           <span class="text-sm font-medium text-ink">{{ s.label }}</span>
           <span class="shrink-0 text-xs text-ink-muted">
             {{ s.count.toLocaleString() }}
-            <template v-if="i > 0"> · {{ pctOfTop(s.count) }}% of Starting Point</template>
+            <template v-if="i > 0 && s.shareOfTop !== false"> · {{ pctOfTop(s.count) }}% of Starting Point</template>
           </span>
         </div>
         <div class="h-7 overflow-hidden rounded-lg bg-surface-elevated">
@@ -66,7 +65,7 @@ function barWidth(n: number): number {
       </div>
       <div>
         <div class="text-lg font-semibold text-ink">{{ pathwayContext.groupLeaders }}</div>
-        <div class="text-xs text-ink-muted">Group leaders (multiplying disciplers)</div>
+        <div class="text-xs text-ink-muted">Leading an active group (multiplying disciplers)</div>
       </div>
     </div>
 

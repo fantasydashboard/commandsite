@@ -2,12 +2,12 @@
 // ---------------------------------------------------------------------------
 // Priority #1 from the intake: "true visibility within our groups, Sunday
 // Services, and ultimately our Discipleship Pathway so we can ask the right
-// questions." These are real counts pulled from Focal Point's Planning
-// Center Workflows + Lists (People API, current token). Aggregate only, so
-// this file carries no individual PII and is safe to commit.
+// questions." Real counts from Focal Point's Planning Center Workflows and
+// Groups. Aggregate only, so this file carries no individual PII and is safe
+// to commit.
 //
-// Source: scripts/pull-fp-data.mjs -> scratchpad/pco-raw/pathway.json
-// Pulled 2026-07-09 with the joshdaniel50 token (People/Workflows/Lists).
+// Pulled 2026-09-11 (workflow card totals, live group memberships). A snapshot,
+// not the nightly sync; the page dates it.
 
 export interface PathwayStage {
   key: string
@@ -18,26 +18,32 @@ export interface PathwayStage {
   mark?: string
   /** True when the count is genuinely derived from PCO; false = pilot-calibrated */
   live: boolean
+  /** False when the count is a different population from the Starting Point
+   *  entrants above it, so "% of Starting Point" would be a false ratio. */
+  shareOfTop?: boolean
   note?: string
 }
 
+const STARTING_POINT = 2280 + 231 // weekend + Brazilian workflows, all-time cards
+const NEW_MEMBER_CLASS = 535
+
 // Funnel top to bottom. Starting Point (weekend + Brazilian) is the entry,
-// then the pathway narrows through membership, baptism, and into a Growth
-// Group. The steep drop after Starting Point is exactly the leak the pastor
-// named ("the biggest leak is right after Starting Point").
+// then the pathway narrows through membership and baptism. The steep drop
+// after Starting Point is exactly the leak the pastor named ("the biggest leak
+// is right after Starting Point").
 export const pathwayStages: PathwayStage[] = [
   {
     key: 'starting_point',
     label: 'Starting Point',
-    count: 2212 + 215, // weekend + Brazilian service
+    count: STARTING_POINT,
     mark: 'devoted followers',
     live: true,
-    note: 'Weekend (2,212) + Brazilian (215) service entries',
+    note: 'Weekend (2,280) + Brazilian (231) service entries',
   },
   {
     key: 'new_member_class',
     label: 'New Member Class',
-    count: 530,
+    count: NEW_MEMBER_CLASS,
     mark: 'sacrificial friends',
     live: true,
   },
@@ -48,21 +54,32 @@ export const pathwayStages: PathwayStage[] = [
     mark: 'courageous witnesses',
     live: true,
   },
+  // This row used to read 103, the SUM of a January 2023 discipleship cohort:
+  // 54 people who had a growth group plus 49 who did not. Adding the people
+  // without a group to "In a Growth Group" was simply wrong, and the cohort
+  // itself was one class from two and a half years ago. Now: everyone in an
+  // active group today, from the Groups API. That is a different population
+  // from the Starting Point entrants above (plenty of group members never
+  // came through Starting Point), so no share of the top is shown.
   {
     key: 'growth_group',
     label: 'In a Growth Group',
-    count: 54 + 49, // discipleship: has GG + no GG (tracked cohort)
+    count: 943,
     mark: 'multiplying disciplers',
     live: true,
-    note: 'Discipleship workflow cohort (Has GG 54 + No GG 49). Full group rosters connect when the Groups scope is enabled.',
+    shareOfTop: false,
+    note: 'In a Growth Group counts everyone in an active group today (943 people across 61 groups), not only people who came through Starting Point, so it is not shown as a share of the row above.',
   },
 ]
 
-// Congregation-level context (real, from People Lists).
+// Congregation-level context (real).
 export const pathwayContext = {
-  members: 1210,
-  visitors: 3112,
-  groupLeaders: 93,
+  asOf: '2026-09-11',
+  members: 1218, // the "Members" list in People, refreshed 2026-09-11
+  visitors: STARTING_POINT,
+  // Distinct people with the leader role in an active group, live from Groups.
+  // The old 93 came from a People list last refreshed August 2024.
+  groupLeaders: 126,
   // Fraction of Starting Point entrants who reach a New Member Class.
-  startingPointToMember: Math.round((530 / (2212 + 215)) * 100), // ~22%
+  startingPointToMember: Math.round((NEW_MEMBER_CLASS / STARTING_POINT) * 100), // ~21%
 }

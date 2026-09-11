@@ -2,30 +2,34 @@
 // in Planning Center (real, from scripts/pull-starting-point.mjs). Aggregate counts
 // only, no PII, so this is committed normally. English = "Starting Point - Weekend
 // Service", Brazilian = "Starting Point/Brazilian Service" (started Apr 2025).
+//
+// Pulled 2026-09-11. This is a snapshot, not the nightly sync, and the page says
+// so: it used to wear a "Live from Planning Center" dot two months after the pull.
 export type Campus = 'all' | 'english' | 'brazilian'
 export interface YearCount { year: number; count: number; partial?: boolean }
 
 export const startingPoint = {
+  asOf: '2026-09-11',
   // All-time cards (first-timer entries) per congregation.
-  total: { all: 2435, english: 2219, brazilian: 216 } as Record<Campus, number>,
-  // Average first-time visitors per week in 2026.
-  avgPerWeek: { all: 10, english: 6, brazilian: 5 } as Record<Campus, number>,
+  total: { all: 2511, english: 2280, brazilian: 231 } as Record<Campus, number>,
+  // Average first-time visitors per week in 2026, through the pull date.
+  avgPerWeek: { all: 10, english: 6, brazilian: 4 } as Record<Campus, number>,
   // First-timers by year (2026 is year-to-date). Brazilian has no 2024 (workflow
   // began Apr 2025), and its 2025 is a partial year.
   byYear: {
     all: [
       { year: 2024, count: 265 },
       { year: 2025, count: 385 },
-      { year: 2026, count: 293, partial: true },
+      { year: 2026, count: 369, partial: true },
     ],
     english: [
       { year: 2024, count: 265 },
       { year: 2025, count: 305 },
-      { year: 2026, count: 157, partial: true },
+      { year: 2026, count: 218, partial: true },
     ],
     brazilian: [
       { year: 2025, count: 80, partial: true },
-      { year: 2026, count: 136, partial: true },
+      { year: 2026, count: 151, partial: true },
     ],
   } as Record<Campus, YearCount[]>,
 }
