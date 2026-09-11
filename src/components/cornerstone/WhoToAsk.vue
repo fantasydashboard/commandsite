@@ -49,6 +49,19 @@ const tier1 = computed(() => d.value.people.filter((p) => p.tier === 1 && inScop
 // Church-wide when unscoped; otherwise the list's own length, because the
 // payload's totals cannot be split by congregation.
 const tier1Count = computed(() => (lens.scope === 'all' ? d.value.totals.tier1 : tier1.value.length))
+/**
+ * People the lens could not place at all.
+ *
+ * congregationOf returns null for anyone missing from the congregation map,
+ * and every caller treats null as "All scope only". So a scoped view silently
+ * mixes two populations it excluded for completely different reasons: people
+ * who belong to the other congregation, and people we simply have no record
+ * for. Going 46 to 17 looked like a clean filter and was partly a data gap.
+ */
+const unplaced = computed(() =>
+  lens.scope === 'all' ? 0 : d.value.people.filter((p) => p.tier === 1 && congregationOf(p.name) === null).length,
+)
+
 /** How many of a tier we actually hold names for. The wider pools are counts,
  *  not rows, so "In the download" was promising 540 people in a file with 166. */
 const namedIn = (tier: number) => d.value.people.filter((p) => p.tier === tier).length
@@ -97,6 +110,10 @@ function onExport() {
     <h3 class="mt-1 text-lg font-bold text-ink">
       {{ tier1Count }} people who are here every week and not serving
     </h3>
+    <p v-if="unplaced" class="mt-1 text-[11px] text-warn">
+      {{ unplaced }} more are not shown because we have no congregation on file for them, not because
+      they are in the other one. They are in the All view.
+    </p>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">
       In a Growth Group <span class="font-semibold text-ink">and</span> dropping kids off, so they are
       already connected and already in the building on a Sunday. Nobody here serves on any team
@@ -144,7 +161,7 @@ function onExport() {
     </div>
 
     <p class="mt-3 text-[11px] leading-relaxed text-ink-disabled">
-      {{ d.totals.all }} people in total are connected to the church and serving on nothing. Sundays
+      {{ d.totals.all }} people in total are connected to the church and serving on nothing, church-wide. Sundays
       counted are recorded kids drop-offs, so someone who attends without children will undercount
       here. Adult service attendance is not tracked in Planning Center, which is the one gap in this.
     </p>
