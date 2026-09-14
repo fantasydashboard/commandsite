@@ -28,16 +28,23 @@ export async function fetchGroupsChunk(
   const start = Date.parse(cfg.seasonStart)
   const end = cfg.seasonEnd ? Date.parse(cfg.seasonEnd) : Date.now()
 
-  if (!groups || groups.length === 0) {
+  // Rebuild when the list is empty OR when it predates `type` being carried.
+  // The cursor persists between runs, so a stored list of {id, name} would be
+  // reused forever and every membership row would keep writing an empty type,
+  // which is exactly what happened: the Insights group breakdown collapsed to a
+  // single untyped bucket and stayed there through repeated refreshes. Rebuild
+  // costs one listing pass and is idempotent, and self-heals any church whose
+  // cursor predates this without needing a migration.
+  if (!groups || groups.length === 0 || groups.some((g) => g.type === undefined)) {
     const types = (await pcoAll(tenant, '/groups/v2/group_types?per_page=25'))
       .filter((t: any) => new RegExp(cfg.groupTypeMatch, 'i').test(t.attributes?.name ?? ''))
     groups = []
     for (const t of types) {
       const gs = (await pcoAll(tenant, `/groups/v2/group_types/${t.id}/groups?per_page=100`))
         .filter((g: any) => !g.attributes?.archived_at)
-      // The type travels with the group. Insights breaks Growth Groups down by
-       // Planning Center's own types, which the members table could not
-       // reconstruct from the group name alone.
+      // The type travels with the group. Insights breaks Growth Groups down
+      // by Planning Center's own types, which the members table could not
+      // reconstruct from the group name alone.
       for (const g of gs) groups.push({ id: g.id, name: g.attributes?.name ?? 'Group', type: t.attributes?.name ?? '' })
     }
     gIndex = 0
