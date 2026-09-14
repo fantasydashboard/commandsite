@@ -88,9 +88,14 @@ function groupText(c: ServeCandidate): string {
   return c.groups.length === 1 ? c.groups[0] : `${c.groups[0]} +${c.groups.length - 1} more`
 }
 
+// The button's count and the file's row count have to be the same number.
+// onExport drops hidden people; the badge was still reading the raw payload,
+// so removing one person made the button promise 308 rows and write 307.
+const exportable = computed(() => d.value.people.filter((p) => !hiddenFrom(p)))
+
 function onExport() {
   exportCsv(
-    d.value.people.filter((p) => !hiddenFrom(p)),
+    exportable.value,
     [
       { header: 'Name', value: (c) => c.name },
       { header: 'Tier', value: (c) => c.tier },
@@ -114,7 +119,7 @@ function onExport() {
         <span class="text-[11px] text-ink-muted">
           Last {{ d.windowDays }} days<template v-if="ageDays > 7"> · pulled {{ ageDays }} days ago</template>
         </span>
-        <ExportButton label="Download all" sensitive :count="d.people.length" @export="onExport" />
+        <ExportButton label="Download all" sensitive :count="exportable.length" @export="onExport" />
       </div>
     </div>
 
