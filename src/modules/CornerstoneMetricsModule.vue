@@ -20,6 +20,9 @@ import { rolesOnTab, getRole } from '@/lib/clients/cornerstone/roles'
 import GraceApprovalQueue, { type ApprovalQueueItem } from '@/components/grace/GraceApprovalQueue.vue'
 import LiveActivityFeed from '@/components/ada/LiveActivityFeed.vue'
 import RolesOnPage from '@/components/ada/RolesOnPage.vue'
+import PageLeadChip from '@/components/cornerstone/PageLeadChip.vue'
+import RefreshNowButton from '@/components/cornerstone/RefreshNowButton.vue'
+import { LIVE_CHURCHES } from '@/lib/clients/church/liveChurches'
 import FocalPointInsights from '@/components/cornerstone/FocalPointInsights.vue'
 import SampleBadge from '@/components/cornerstone/SampleBadge.vue'
 import { useLiveActivity, seedEvent, type PoolEvent } from '@/composables/useLiveActivity'
@@ -45,6 +48,7 @@ const peopleStats = data.people.stats
 
 // Focal Point-specific surfaces (their priority #1 is pathway visibility).
 const isFocalPoint = computed(() => props.client.slug === 'focal-point-church')
+const isLiveChurch = computed(() => LIVE_CHURCHES.includes(props.client?.slug))
 
 const weeks = computed(() => weeklyAttendance())
 const priorWeeks = computed(() => priorYearAttendance())
@@ -314,8 +318,16 @@ const pageRoles = rolesOnTab('insights')
   <div class="space-y-4">
     <RolesOnPage
       :roles="pageRoles"
-      :back-to="{ name: 'dashboard.tab', params: { slug: client.slug, tab: 'today' } }"
-    />
+      :back-to="{ name: 'dashboard.tab', params: { slug: client.slug, tab: 'today' } }">
+      <template #lead>
+        <PageLeadChip :client-id="client.id" page="insights" />
+        <!-- The Planning Center half of this page is computed from staged data,
+             so recomputing it is cheap and does not re-pull anything. The
+             weekly-sheet half cannot be refreshed from here at all, which is
+             why each of those panels carries its own date instead. -->
+        <RefreshNowButton v-if="isLiveChurch" :slug="client.slug" :resources="['insights']" />
+      </template>
+    </RolesOnPage>
 
     <GraceApprovalQueue
       v-if="!isFocalPoint"
