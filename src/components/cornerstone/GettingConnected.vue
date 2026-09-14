@@ -8,10 +8,13 @@
  */
 import { computed } from 'vue'
 import { assimilation } from '@/lib/clients/focal-point/assimilation'
+import { insightsData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
 
 const lens = useCongregationLens()
-const m = computed(() => assimilation[lens.scope])
+// Live from the nightly sync when present, the last hand-built pull otherwise.
+const live = computed(() => insightsData())
+const m = computed(() => live.value?.assimilation?.[lens.scope] ?? assimilation[lens.scope])
 const pct = (n: number) => Math.round((n / Math.max(1, m.value.visited)) * 100)
 
 const steps = computed(() => [
@@ -26,7 +29,7 @@ const steps = computed(() => [
 const biggestGap = computed(() => `${100 - pct(m.value.completedSP)}%`)
 const scopeLabel = computed(() => (lens.scope === 'all' ? 'across the church' : `in the ${lens.scope === 'brazilian' ? 'Brazilian' : 'English'} ministry`))
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const asOf = computed(() => { const [, m, d] = assimilation.asOf.split('-').map(Number); return `${MON[m - 1]} ${d}` })
+const asOf = computed(() => { const [, mo, d] = (live.value?.asOf ?? assimilation.asOf).split('-').map(Number); return `${MON[mo - 1]} ${d}` })
 </script>
 
 <template>
@@ -35,7 +38,11 @@ const asOf = computed(() => { const [, m, d] = assimilation.asOf.split('-').map(
       <span class="eyebrow">Getting Connected</span>
       <!-- A pull, not the nightly sync. It wore a green "live" dot for two
            months after the numbers stopped moving. -->
-      <span class="text-[11px] text-ink-muted">Planning Center, pulled {{ asOf }} · last 12 months</span>
+      <span v-if="live" class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+        Live from Planning Center · last 12 months
+      </span>
+      <span v-else class="text-[11px] text-ink-muted">Planning Center, pulled {{ asOf }} · last 12 months</span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">How far your recent visitors have gotten</h3>
     <p class="mt-1 max-w-2xl text-sm text-ink-muted">

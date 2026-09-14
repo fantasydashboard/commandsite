@@ -21,13 +21,25 @@ import { focalPointServiceMix as smix } from '@/lib/clients/focal-point/serviceM
 import { focalPointGroupInsights as ggi } from '@/lib/clients/focal-point/groupInsights'
 import { useCongregationLens } from '@/stores/congregationLens'
 import { startingPoint } from '@/lib/clients/focal-point/startingPoint'
-import { burnoutData, loadCareData } from '@/lib/clients/church/careDataLoader'
+import { burnoutData, loadCareData, insightsData } from '@/lib/clients/church/careDataLoader'
 import GettingConnected from '@/components/cornerstone/GettingConnected.vue'
 import DiscipleshipPathway from '@/components/cornerstone/DiscipleshipPathway.vue'
 
 const lens = useCongregationLens()
 // Proper-noun form for copy. Interpolating lens.scope printed "brazilian".
 const lensLabel = computed(() => (lens.scope === 'brazilian' ? 'Brazilian' : 'English'))
+// The Planning Center half of this page, live from the nightly sync when
+// present and the last hand-built pull otherwise. The weekly-sheet half
+// (weekend attendance, salvations, online, youth) can never be live and is
+// dated separately below.
+const live = computed(() => insightsData())
+// One freshness phrase for every Planning Center panel on this page, so they
+// cannot drift apart the way the hand-pulled dates did.
+const pcFresh = computed(() => {
+  if (!live.value?.asOf) return null
+  const [, mo, d] = String(live.value.asOf).split('-').map(Number)
+  return `${MON[mo - 1]} ${d}`
+})
 const SHEET_THROUGH = fp.sheetThrough
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const fmtAsOf = (iso: string) => { const [, m, d] = iso.split('-').map(Number); return `${MON[m - 1]} ${d}` }
@@ -82,11 +94,11 @@ const kpis = computed(() => [
     // below at 983 and gives +2.5%. The comparison is the same 27 weeks.
     delta: lens.scope === 'all' ? `${avgYoY} vs same weeks of 2025` : '',
   },
-  { label: 'Members', value: fp.kpis.members, sub: `on the Members list · church-wide, ${spAsOf}`, delta: '' },
+  { label: 'Members', value: fp.kpis.members, sub: `on the Members list · church-wide${pcFresh.value ? '' : `, ${spAsOf}`}`, delta: '' },
   {
     label: 'Visitors on file',
     value: visitorsOnFileScoped.value,
-    sub: lens.scope === 'all' ? `Starting Point, all-time · ${spAsOf}` : `${lensLabel.value}, all-time · ${spAsOf}`,
+    sub: lens.scope === 'all' ? `Starting Point, all-time${pcFresh.value ? '' : ` · ${spAsOf}`}` : `${lensLabel.value}, all-time${pcFresh.value ? '' : ` · ${spAsOf}`}`,
     delta: '',
   },
   {
@@ -100,7 +112,7 @@ const kpis = computed(() => [
   {
     label: 'Avg visitors',
     value: avgVisitorsScoped.value,
-    sub: lens.scope === 'all' ? `first-timers / week, 2026 · ${spAsOf}` : `${lensLabel.value}, first-timers / week · ${spAsOf}`,
+    sub: lens.scope === 'all' ? `first-timers / week, 2026${pcFresh.value ? '' : ` · ${spAsOf}`}` : `${lensLabel.value}, first-timers / week${pcFresh.value ? '' : ` · ${spAsOf}`}`,
     delta: '',
   },
 ])
@@ -212,20 +224,23 @@ const avgWeekendScoped = computed(() =>
 // Fallback only, for the moment before the sync payload lands (Jul 2026 pull).
 const volunteersByCampus = { all: 385 } as const
 // First-time visitors from the two Starting Point workflows, scoped by campus.
-const avgVisitorsScoped = computed(() => startingPoint.avgPerWeek[lens.scope])
-const visitorsOnFileScoped = computed(() => startingPoint.total[lens.scope])
-const visitorYears = computed(() => startingPoint.byYear[lens.scope])
-const maxVisitorYear = computed(() => Math.max(...visitorYears.value.map((y) => y.count), 1))
+const avgVisitorsScoped = computed(() => live.value?.startingPoint?.avgPerWeek?.[lens.scope] ?? startingPoint.avgPerWeek[lens.scope])
+const visitorsOnFileScoped = computed(() => live.value?.startingPoint?.total?.[lens.scope] ?? startingPoint.total[lens.scope])
+const visitorYears = computed(() => live.value?.startingPoint?.byYear?.[lens.scope] ?? startingPoint.byYear[lens.scope])
+const maxVisitorYear = computed(() => Math.max(...visitorYears.value.map((y: { count: number }) => y.count), 1))
 
 // ---- Body health: engagement penetration + age profile ----
-const bh = fp.bodyHealth
-const gs = fp.bodyHealth.groupSnapshot
+const bh = computed(() => live.value?.bodyHealth
+  ? { ...fp.bodyHealth, ...live.value.bodyHealth, groupSnapshot: live.value.groupSnapshot ?? fp.bodyHealth.groupSnapshot }
+  : fp.bodyHealth)
+const gs = computed(() => live.value?.groupSnapshot ?? fp.bodyHealth.groupSnapshot)
 // Growth Groups filtered by the congregation lens. byType carries English /
 // Brazilian / Youth, so the scope reshapes the headline numbers honestly.
 const gsByType = computed(() => {
-  if (lens.scope === 'all') return gs.byType
-  if (lens.scope === 'brazilian') return gs.byType.filter((t) => t.type === 'Brazilian')
-  return gs.byType.filter((t) => t.type !== 'Brazilian')
+  const gsv = gs.value as { byType: { type: string; label?: string; groups: number; members: number; avgAtt: number | null }[] }
+  if (lens.scope === 'all') return gsv.byType
+  if (lens.scope === 'brazilian') return gsv.byType.filter((t) => /brasil|brazil/i.test(t.type))
+  return gsv.byType.filter((t) => !/brasil|brazil/i.test(t.type))
 })
 const gsScoped = computed(() => {
   const rows = gsByType.value
@@ -235,7 +250,7 @@ const gsScoped = computed(() => {
   const attMembers = withAtt.reduce((n, t) => n + t.members, 0)
   const avg = attMembers
     ? Math.round(withAtt.reduce((n, t) => n + (t.avgAtt || 0) * t.members, 0) / attMembers)
-    : gs.avgAttendance
+    : (gs.value as { avgAttendance: number }).avgAttendance
   return { people, groups, avg }
 })
 const maxGroupType = computed(() => Math.max(...gsByType.value.map((t) => t.members), 1))
@@ -263,11 +278,11 @@ const barValuePlugin = {
     })
   },
 }
-const servingNotPct = 100 - bh.serving.pct
+const servingNotPct = computed(() => 100 - bh.value.serving.pct)
 // "About 1 in 4" was typed in beside a computed 29%. 1 in 3 is the honest round.
-const servingOneIn = Math.round(100 / Math.max(1, bh.serving.pct))
-const age = fp.ageProfile
-const maxAge = Math.max(...age.bands.map((b) => b.pct))
+const servingOneIn = computed(() => Math.round(100 / Math.max(1, bh.value.serving.pct)))
+const age = computed(() => live.value?.ageProfile ?? fp.ageProfile)
+const maxAge = computed(() => Math.max(...age.value.bands.map((b: { pct: number }) => b.pct), 1))
 
 // Four-year growth (real, from their Metrics workbooks).
 const years = fp.yearlyAttendance
@@ -459,7 +474,10 @@ const youthOpts = barDefaults({ legend: false })
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-2">
         <span class="eyebrow">First-time visitors</span>
-        <span class="text-[11px] text-ink-muted">Planning Center, pulled {{ spAsOf }}</span>
+        <span v-if="pcFresh" class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>Live from Planning Center
+        </span>
+        <span v-else class="text-[11px] text-ink-muted">Planning Center, pulled {{ spAsOf }}</span>
       </div>
       <span class="text-[11px] text-ink-muted">Starting Point, by year</span>
     </div>
@@ -524,7 +542,7 @@ const youthOpts = barDefaults({ legend: false })
           <span class="eyebrow">Body health</span>
           <span v-if="lens.scope !== 'all'" class="rounded bg-surface-elevated px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-disabled">church-wide</span>
         </div>
-        <span class="text-[11px] text-ink-muted">of your committed core · pulled Jul 12</span>
+        <span class="text-[11px] text-ink-muted">of your committed core<template v-if="!pcFresh"> · pulled Jul 12</template></span>
       </div>
       <p class="text-[11px] text-ink-muted">
         Not the {{ (12000).toLocaleString() }}+ records in Planning Center, the {{ bh.coreAdults.toLocaleString() }} adults who are members or regular attenders.
@@ -540,14 +558,15 @@ const youthOpts = barDefaults({ legend: false })
           <div class="h-2.5 overflow-hidden rounded-full bg-surface-elevated">
             <div class="h-full rounded-full bg-brand" :style="{ width: bh.serving.pct + '%' }"></div>
           </div>
-          <p class="mt-1 text-[11px] text-ink-muted">{{ bh.serving.count }} of {{ bh.coreAdults.toLocaleString() }} adults served in the six months to Jul 12, by volunteer check-ins. {{ servingNotPct }}% have not yet.</p>
+          <p class="mt-1 text-[11px] text-ink-muted">{{ bh.serving.count }} of {{ bh.coreAdults.toLocaleString() }} adults have a confirmed serving shift on the schedule. {{ servingNotPct }}% do not.</p>
         </div>
 
         <!-- Groups (live: real membership; attendance drift resumes in fall) -->
         <div>
           <div class="mb-1 flex items-baseline justify-between">
             <span class="text-sm font-medium text-ink">In a group</span>
-            <span class="text-[11px] text-ink-muted">Groups, pulled {{ bh.groups.asOf }}</span>
+            <span v-if="pcFresh" class="rounded bg-success/12 px-1.5 py-0.5 text-[10px] font-semibold text-success">live</span>
+            <span v-else class="text-[11px] text-ink-muted">Groups, pulled Sep 11</span>
           </div>
           <div class="text-lg font-bold tabular-nums text-ink">{{ bh.groups.count.toLocaleString() }}</div>
           <p class="mt-0.5 text-[11px] text-ink-muted">people in an active group, {{ bh.groups.memberships.toLocaleString() }} memberships across {{ bh.groups.groupCount }} groups. Attendance trend below, drift on Care and Drift.</p>
@@ -579,7 +598,7 @@ const youthOpts = barDefaults({ legend: false })
           <span class="eyebrow">Age profile</span>
           <span v-if="lens.scope !== 'all'" class="rounded bg-surface-elevated px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-disabled">church-wide</span>
         </div>
-        <span class="text-[11px] text-ink-muted">core adults · Planning Center, pulled Jul 12</span>
+        <span class="text-[11px] text-ink-muted">core adults · Planning Center<template v-if="!pcFresh">, pulled Jul 12</template></span>
       </div>
       <p class="text-[11px] text-ink-muted">Of the roughly half of your core adults with a birthdate on file.</p>
 
@@ -608,7 +627,11 @@ const youthOpts = barDefaults({ legend: false })
   <section class="card">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="eyebrow">Growth Groups</span>
-      <span class="text-[11px] text-ink-muted">Planning Center Groups, pulled {{ gs.asOf }}</span>
+      <span v-if="pcFresh" class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+        Live from Planning Center Groups
+      </span>
+      <span v-else class="text-[11px] text-ink-muted">Planning Center Groups, pulled Sep 11</span>
     </div>
     <div class="mt-3 grid grid-cols-3 gap-4">
       <div>
@@ -640,7 +663,7 @@ const youthOpts = barDefaults({ legend: false })
       </li>
     </ul>
     <p class="mt-2 text-[11px] leading-relaxed text-ink-muted">
-      Rosters run about twice actual attendance. Averages are attended per logged meeting from Aug 1 to {{ gs.asOf }}; Youth groups have logged one meeting so far this fall. A person in two groups counts once in the headline and once per group in the rows.
+      Rosters run about twice actual attendance, so the membership count and the attendance average answer different questions. Averages are attended per logged meeting over the last six weeks, and a group needs at least two logged meetings before one is shown. A person in two groups counts once in the headline and once per group in the rows.
     </p>
 
     <div class="mt-5">

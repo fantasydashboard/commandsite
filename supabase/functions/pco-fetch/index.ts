@@ -9,7 +9,7 @@ import { fetchKidsCheckinsChunk } from '../_shared/pco-fetch/fetchKidsChunk.ts'
 import { fetchHouseholdsChunk } from '../_shared/pco-fetch/fetchHouseholdsChunk.ts'
 import { fetchGuestCardsChunk } from '../_shared/pco-fetch/fetchGuestCardsChunk.ts'
 import { fetchPeopleChunk } from '../_shared/pco-fetch/fetchPeopleChunk.ts'
-import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates, computeRoster, computeServeCandidates } from '../_shared/pco-fetch/computeFromCache.ts'
+import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates, computeRoster, computeServeCandidates, computeInsights } from '../_shared/pco-fetch/computeFromCache.ts'
 import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
@@ -28,7 +28,7 @@ const svc = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 // readiness is a snapshot, not history. It also depends on the schedule
 // resource's staged assignments for burnout-aware suggestions, so it is listed
 // after it in the sync order below.
-type Resource = 'schedule' | 'groups' | 'kids' | 'guests' | 'people' | 'roster' | 'households'
+type Resource = 'schedule' | 'groups' | 'kids' | 'guests' | 'people' | 'roster' | 'households' | 'insights'
 type Mode = 'backfill' | 'incremental'
 // deno-lint-ignore no-explicit-any
 type Db = any
@@ -109,6 +109,30 @@ async function syncResource(
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
         last_synced_date: row.last_synced_date,
+        updated_at: now, error: null,
+      }, { onConflict: 'client_id,resource' })
+      if (error) throw new Error(`write sync state: ${error.message}`)
+    } else if (resource === 'insights') {
+      // Stages nothing and fetches almost nothing: three workflows, then it
+      // reads what the other resources have already staged. So it waits for
+      // them rather than computing a page out of half-filled tables.
+      const { data: deps } = await db.from('pco_sync_state')
+        .select('resource, backfill_complete').eq('client_id', clientId)
+        .in('resource', ['groups', 'guests', 'people'])
+      const ready = ['groups', 'guests', 'people'].every(
+        (r) => (deps ?? []).find((d: any) => d.resource === r)?.backfill_complete)
+      if (!ready) {
+        const { error } = await db.from('pco_sync_state').upsert({
+          client_id: clientId, resource, phase: 'backfill', backfill_complete: false,
+          cursor: {}, updated_at: now, error: null,
+        }, { onConflict: 'client_id,resource' })
+        if (error) throw new Error(`write sync state: ${error.message}`)
+        return 'waiting'
+      }
+      await computeInsights(db, clientId, tenant, cfg)
+      const { error } = await db.from('pco_sync_state').upsert({
+        client_id: clientId, resource, cursor: {}, backfill_complete: true,
+        phase: 'incremental', last_synced_date: row.last_synced_date,
         updated_at: now, error: null,
       }, { onConflict: 'client_id,resource' })
       if (error) throw new Error(`write sync state: ${error.message}`)
@@ -263,6 +287,12 @@ async function syncResource(
       .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
     if (error) throw new Error(`write sync state: ${error.message}`)
+  } else if (resource === 'insights') {
+    await computeInsights(db, clientId, tenant, cfg)
+    const { error } = await db.from('pco_sync_state')
+      .update({ updated_at: now, error: null })
+      .eq('client_id', clientId).eq('resource', resource)
+    if (error) throw new Error(`write sync state: ${error.message}`)
   } else if (resource === 'roster') {
     // Every night: the next Sunday moves, so this is the resource that most
     // needs to run incrementally. Same work as backfill, since there is no
@@ -305,7 +335,7 @@ async function syncChurchResource(
   }
 }
 
-const ALL_RESOURCES: Resource[] = ['households', 'schedule', 'roster', 'groups', 'kids', 'guests', 'people']
+const ALL_RESOURCES: Resource[] = ['households', 'schedule', 'roster', 'groups', 'kids', 'guests', 'people', 'insights']
 
 /**
  * `only` narrows a manual refresh to the resources a page actually shows.

@@ -35,7 +35,10 @@ export async function fetchGroupsChunk(
     for (const t of types) {
       const gs = (await pcoAll(tenant, `/groups/v2/group_types/${t.id}/groups?per_page=100`))
         .filter((g: any) => !g.attributes?.archived_at)
-      for (const g of gs) groups.push({ id: g.id, name: g.attributes?.name ?? 'Group' })
+      // The type travels with the group. Insights breaks Growth Groups down by
+       // Planning Center's own types, which the members table could not
+       // reconstruct from the group name alone.
+      for (const g of gs) groups.push({ id: g.id, name: g.attributes?.name ?? 'Group', type: t.attributes?.name ?? '' })
     }
     gIndex = 0
   }
@@ -63,7 +66,13 @@ export async function fetchGroupsChunk(
     const memRowsRaw: any[] = []
     for (const page of memberPages) for (const m of (page.data ?? [])) {
       const pid = m.relationships?.person?.data?.id
-      if (pid) memRowsRaw.push({ client_id: clientId, group_id: g.id, group_name: g.name, person_id: pid, name: nm[pid] || 'Member' })
+      if (pid) memRowsRaw.push({
+        client_id: clientId, group_id: g.id, group_name: g.name, person_id: pid, name: nm[pid] || 'Member',
+        group_type: g.type ?? '',
+        // 'leader' or 'member'. The group-leader count came from a People list
+        // last refreshed in Aug 2024 because this was not stored.
+        role: m.attributes?.role ?? '',
+      })
     }
     // Fill attendance names from membership where known.
     for (const r of attRows) r.name = nm[r.person_id] || 'Member'

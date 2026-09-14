@@ -7,6 +7,8 @@ import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE, type GuestA
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
 import { buildRoster, aliasPlans, type ServingRow } from '../pco-transforms/roster.ts'
 import { buildServeCandidates, WINDOW_DAYS as SERVE_WINDOW_DAYS } from '../pco-transforms/serveCandidates.ts'
+import { buildInsights } from '../pco-transforms/insights.ts'
+import { pcoAll, pcoGet } from '../pco-paginate.ts'
 import { fetchRosterPlans } from './fetchRosterPlans.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
@@ -248,6 +250,104 @@ async function guestActivity(db: Db, clientId: string, personIds: string[], sinc
     }
   } catch (e) { console.error(`guestActivity kids: ${e instanceof Error ? e.message : String(e)}`) }
   return out
+}
+
+/**
+ * The Insights page.
+ *
+ * Six panels carried a hand-pulled date because the church asked where every
+ * number comes from and for half this page the honest answer was "a script I
+ * ran when I remembered". Everything they need was already synced except three
+ * fields (0115) and three workflows nobody else reads.
+ *
+ * Only those three workflows are fetched live, which is a handful of requests.
+ * Membership, groups, attendance, cards and people all come from staging.
+ *
+ * The weekend attendance, salvations, online and youth panels are deliberately
+ * NOT here: they come from the church's own weekly sheet and no amount of
+ * Planning Center access produces them.
+ */
+export async function computeInsights(db: Db, clientId: string, tenant: string, cfg: PcoConfig) {
+  const ins = (cfg as { insights?: { metPastorMatch?: string; newMemberClassId?: string; baptismClassId?: string } }).insights ?? {}
+  const guests = cfg.guests!
+
+  // Workflow card totals are exact whatever the card retention window reaches,
+  // so all-time figures never depend on how far back we happen to store cards.
+  const totalOf = async (id: string): Promise<number> => {
+    try {
+      const j = await pcoGet(tenant, `/people/v2/workflows/${id}`)
+      return Number(j?.data?.attributes?.total_cards_count ?? 0)
+    } catch (e) {
+      console.error(`computeInsights workflow ${id}: ${e instanceof Error ? e.message : String(e)}`)
+      return 0
+    }
+  }
+  const [engTotal, braTotal, newMemberClass, baptismClass] = await Promise.all([
+    totalOf(guests.englishWorkflowId),
+    totalOf(guests.brazilianWorkflowId),
+    ins.newMemberClassId ? totalOf(ins.newMemberClassId) : Promise.resolve(0),
+    ins.baptismClassId ? totalOf(ins.baptismClassId) : Promise.resolve(0),
+  ])
+
+  // Matched by NAME, not id: Focal Point dates the workflow title ("Meet the
+  // Pastor 7/21/26"), so a new one appears each time they run the event and a
+  // hardcoded id would silently stop counting.
+  const metPastorPersonIds: string[] = []
+  try {
+    const re = new RegExp(ins.metPastorMatch ?? 'meet the pastor', 'i')
+    const all = await pcoAll(tenant, '/people/v2/workflows?per_page=100')
+    for (const w of all as any[]) {
+      if (!re.test(w.attributes?.name ?? '')) continue
+      const cards = await pcoAll(tenant, `/people/v2/workflows/${w.id}/cards?per_page=100`)
+      for (const c of cards as any[]) {
+        const pid = c.relationships?.person?.data?.id
+        if (pid) metPastorPersonIds.push(pid)
+      }
+    }
+  } catch (e) {
+    console.error(`computeInsights met-the-pastor: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  const cards = await readAll(
+    (from, to) => db.from('pco_workflow_cards')
+      .select('workflow_id,campus,person_id,created_date,completed_date').eq('client_id', clientId)
+      .order('card_id').range(from, to),
+    'cards (insights)')
+  const groupMembers = await readAll(
+    (from, to) => db.from('pco_group_members')
+      .select('person_id,group_id,group_name,group_type,role').eq('client_id', clientId)
+      .order('group_id').order('person_id').range(from, to),
+    'group members (insights)')
+  const attendance = await readAll(
+    (from, to) => db.from('pco_group_attendance')
+      .select('group_id,event_id,event_date,person_id').eq('client_id', clientId)
+      .order('group_id').order('event_id').order('person_id').range(from, to),
+    'attendance (insights)')
+  const assignments = await readAll(
+    (from, to) => db.from('pco_serving_assignments')
+      .select('person_id,date,status').eq('client_id', clientId)
+      .order('person_id').order('date').order('team').range(from, to),
+    'assignments (insights)')
+  const people = await readAll(
+    (from, to) => db.from('pco_people')
+      .select('person_id,membership,birthdate').eq('client_id', clientId)
+      .order('person_id').range(from, to),
+    'people (insights)')
+
+  await writeOk(db, clientId, 'insights', buildInsights({
+    cards: cards as any,
+    startingPointWorkflows: [
+      { id: guests.englishWorkflowId, campus: 'english', totalCards: engTotal },
+      { id: guests.brazilianWorkflowId, campus: 'brazilian', totalCards: braTotal },
+    ],
+    metPastorPersonIds,
+    pathwayTotals: { newMemberClass, baptismClass },
+    groupMembers: groupMembers as any,
+    attendance: attendance as any,
+    assignments: assignments as any,
+    people: people as any,
+    today: today(),
+  }))
 }
 
 export async function computeDuplicates(db: Db, clientId: string, cfg: PcoConfig) {

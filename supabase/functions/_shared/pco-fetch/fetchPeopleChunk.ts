@@ -30,6 +30,9 @@ export async function fetchPeopleChunk(
         client_id: clientId, person_id: p.id,
         first: a.first_name ?? '', last: a.last_name ?? '', name: (a.name ?? '').trim(),
         emails, phones, membership: a.membership ?? 'none', created: (a.created_at ?? '').slice(0, 10) || null,
+        // Age Profile bands the committed core by age. Roughly half the church
+        // has one on file, which the panel states rather than hides.
+        birthdate: (a.birthdate ?? '').slice(0, 10) || null,
       }
     })
     if (rows.length) {

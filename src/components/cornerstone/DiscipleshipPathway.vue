@@ -5,19 +5,28 @@
  * Point through membership, baptism, and into a Growth Group. Real counts
  * pulled from Planning Center Workflows + Lists (aggregate, no PII).
  */
-import { pathwayStages, pathwayContext } from '@/lib/clients/focal-point/pathway'
+import { computed } from 'vue'
+import { pathwayStages as bakedStages, pathwayContext as bakedContext } from '@/lib/clients/focal-point/pathway'
+import { insightsData } from '@/lib/clients/church/careDataLoader'
 import { useCongregationLens } from '@/stores/congregationLens'
 
 const lens = useCongregationLens()
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const asOf = (() => { const [, m, d] = pathwayContext.asOf.split('-').map(Number); return `${MON[m - 1]} ${d}` })()
-const top = pathwayStages[0].count
-const maxCount = Math.max(...pathwayStages.map((s) => s.count))
+// Live from the nightly sync when present, the last hand-built pull otherwise.
+const live = computed(() => insightsData())
+const pathwayStages = computed(() => live.value?.pathway?.stages ?? bakedStages)
+const pathwayContext = computed(() => live.value?.pathway?.context ?? bakedContext)
+const asOf = computed(() => {
+  const [, mo, d] = (live.value?.asOf ?? bakedContext.asOf).split('-').map(Number)
+  return `${MON[mo - 1]} ${d}`
+})
+const top = computed(() => pathwayStages.value[0]?.count ?? 0)
+const maxCount = computed(() => Math.max(...pathwayStages.value.map((s: { count: number }) => s.count), 1))
 function pctOfTop(n: number): number {
-  return Math.round((n / top) * 100)
+  return top.value ? Math.round((n / top.value) * 100) : 0
 }
 function barWidth(n: number): number {
-  return Math.max(8, Math.round((n / maxCount) * 100))
+  return Math.max(8, Math.round((n / maxCount.value) * 100))
 }
 </script>
 
@@ -28,7 +37,11 @@ function barWidth(n: number): number {
         <span class="eyebrow">Discipleship Pathway</span>
         <span v-if="lens.scope !== 'all'" class="rounded bg-surface-elevated px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-disabled">church-wide</span>
       </div>
-      <span class="text-[11px] text-ink-muted">Planning Center, pulled {{ asOf }}</span>
+      <span v-if="live" class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+        Live from Planning Center
+      </span>
+      <span v-else class="text-[11px] text-ink-muted">Planning Center, pulled {{ asOf }}</span>
     </div>
     <h3 class="mt-1 text-base font-semibold text-ink">Where people are on the journey</h3>
     <p class="mt-1 text-sm text-ink-muted">
@@ -69,6 +82,6 @@ function barWidth(n: number): number {
       </div>
     </div>
 
-    <p class="mt-3 text-[11px] leading-relaxed text-ink-muted">{{ pathwayStages[3].note }}</p>
+    <p v-if="pathwayStages[3]?.note" class="mt-3 text-[11px] leading-relaxed text-ink-muted">{{ pathwayStages[3].note }}</p>
   </section>
 </template>
