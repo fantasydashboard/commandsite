@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grace: where every number comes from</title>
+<style>
+  @page { size: letter; margin: 18mm 16mm 16mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  h1 { font-size: 21pt; line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 6px; font-weight: 600; }
+  h2 {
+    font-size: 14pt; font-weight: 600; letter-spacing: -0.01em;
+    margin: 26px 0 4px; padding-top: 10px; border-top: 2px solid #1e40af;
+    break-after: avoid;
+  }
+  h3 { font-size: 11pt; font-weight: 600; margin: 16px 0 3px; break-after: avoid; }
+  p { margin: 0 0 9px; max-width: 46em; }
+  .eyebrow {
+    font-size: 7.5pt; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.18em; color: #1e40af; display: block; margin-bottom: 5px;
+  }
+  .lede { color: #475569; max-width: 42em; }
+  .meta { color: #64748b; font-size: 9pt; margin-top: 10px; }
+  header { margin-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 14px; font-size: 9.5pt; break-inside: avoid; }
+  th {
+    text-align: left; font-weight: 600; font-size: 7.5pt; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #64748b; border-bottom: 1px solid #cbd5e1;
+    padding: 0 10px 4px 0; vertical-align: bottom;
+  }
+  td { padding: 7px 10px 7px 0; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  td:first-child, th:first-child { width: 27%; }
+  .src { color: #475569; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 8.8pt; background: #f1f5f9; padding: 1px 4px; border-radius: 3px;
+  }
+  .note {
+    background: #f4f7fb; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 11px 14px; margin: 12px 0; break-inside: avoid;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note .eyebrow { color: #d97706; }
+  .flag { color: #d97706; font-weight: 600; }
+  ul { margin: 0 0 10px; padding-left: 19px; max-width: 44em; }
+  li { margin-bottom: 5px; }
+  .pill {
+    display: inline-block; font-size: 7.5pt; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; padding: 2px 7px; border-radius: 999px; vertical-align: 1px;
+  }
+  .live { background: rgba(14,165,160,0.13); color: #0f766e; }
+  .snap { background: rgba(217,119,6,0.14); color: #b45309; }
+  .manual { background: rgba(100,116,139,0.14); color: #475569; }
+  .page-break { break-before: page; }
+  footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">Focal Point Church &middot; CommandSite</span>
+  <h1>Grace: where every number comes from</h1>
+  <p class="lede">A page by page map of what Grace reads out of Planning Center, the rule she applies to it, and how current it is. Written so you can check any number on the dashboard against the same record in Planning Center.</p>
+  <p class="meta">Prepared for Christina Spoon and Andrew Daniel &middot; September 14, 2026 &middot; Josh Daniel, CommandSite</p>
+</header>
+
+<h2>How the connection works</h2>
+
+<p>Grace reads Planning Center through your church's own authorized connection. She never writes to Planning Center. Nothing on the dashboard moves a card, advances a step, or changes a record. Every action stays in your team's hands.</p>
+
+<p>Between 4:00 and 5:00 each morning, Grace pulls seven sets of records and copies them into our database, one job per set, ten minutes apart. Then she runs the rules described below over that copy and stores the result for each page.</p>
+
+<p><strong>Refresh this page</strong> does the same thing on demand, for only what is in front of you. On Front Desk that is the Starting Point cards; on Care &amp; Drift it is whichever tab is open. It is deliberately not a whole-church refresh, because nobody needs all seven at once and asking for them together is slower and less reliable. Settings has a <strong>Refresh everything</strong> button for the rare case you want the lot.</p>
+
+<table>
+  <thead><tr><th>What she pulls</th><th>From Planning Center</th></tr></thead>
+  <tbody>
+    <tr><td>Households</td><td class="src">People &rsaquo; Households, with their members. Used to group children with their parents.</td></tr>
+    <tr><td>Serving schedule</td><td class="src">Services &rsaquo; every service type &rsaquo; plans &rsaquo; team members, with each person's confirmed, unconfirmed, or declined status. Past 7 months plus everything upcoming.</td></tr>
+    <tr><td>Sunday roster</td><td class="src">Services &rsaquo; Sunday Service &rsaquo; the last 8 plans and the next 4, with team members and the positions still needed on each.</td></tr>
+    <tr><td>Growth Groups</td><td class="src">Groups &rsaquo; group types matching "growth group" &rsaquo; each group's meetings, attendance, and membership.</td></tr>
+    <tr><td>Kids check-ins</td><td class="src">Check-Ins &rsaquo; events matching "kids" &rsaquo; individual check-ins.</td></tr>
+    <tr><td>Starting Point cards</td><td class="src">People &rsaquo; Workflows. Two of them: Starting Point Weekend Service (ID 113763) and Starting Point Brazilian Service (ID 599785), including each card's person and current step.</td></tr>
+    <tr><td>People roster</td><td class="src">People &rsaquo; active people with email and phone. Used for duplicate detection and to reach someone when you approve a message.</td></tr>
+  </tbody>
+</table>
+
+<p>Three labels appear throughout this document:</p>
+<ul>
+  <li><span class="pill live">Live</span> updates itself every night from Planning Center.</li>
+  <li><span class="pill snap">Snapshot</span> is real Planning Center data from a pull on a stated date, but it does not refresh on its own yet.</li>
+  <li><span class="pill manual">Your sheet</span> comes from the weekly summary sheet or the Metrics workbook, not from Planning Center.</li>
+</ul>
+
+<h2>Front Desk &amp; Guests</h2>
+<p class="lede">Answers: who visited, where are they in Starting Point, and who needs something from us this week.</p>
+
+<h3>The board and the counts <span class="pill live">Live</span></h3>
+<p>Everything on this page comes from your two Starting Point workflows. A guest's column is their current step on the card, read straight from Planning Center:</p>
+<table>
+  <thead><tr><th>Column</th><th>What puts a person there</th></tr></thead>
+  <tbody>
+    <tr><td>Signed in</td><td class="src">A card exists with no step yet. They filled in the form Sunday and have not been moved.</td></tr>
+    <tr><td>Welcome call</td><td class="src">The card's current step name contains "phone call".</td></tr>
+    <tr><td>Week 2</td><td class="src">The card's current step is Week 2. Gabby moves everyone here on Tuesday morning, so this means "waiting to come back", not "came back".</td></tr>
+    <tr><td>Week 3</td><td class="src">The card's current step is Week 3, so they came back once.</td></tr>
+    <tr><td>Finished</td><td class="src">The card is marked completed in Planning Center.</td></tr>
+  </tbody>
+</table>
+<p>The board itself shows guests whose first visit was in the last 90 days. Older cards are still counted in the two lists underneath it.</p>
+
+<h3>Already active, clear the card <span class="pill live">Live</span></h3>
+<p>Your 9 people, found the same way you found them. For every open card, Grace checks three records that Planning Center does keep: a child from that person's household checked in at Kids, a Growth Group membership, or a confirmed serving shift. If any of those happened on or after their first visit, or within the last eight weeks, the card moves to this list with the reason written out. She currently finds 13.</p>
+
+<h3>Waiting on a decision <span class="pill live">Live</span></h3>
+<p>Open cards past six weeks with none of the above. The six week line comes from your own history: of the 87 people who have completed Starting Point since January 2025, 70% finished within four weeks, 85% within six, and none after six months.</p>
+
+<h3>Come-back notes <span class="pill live">Live</span></h3>
+<p>Drafted on the Thursday after a first visit, for people nobody has marked returned and nobody has seen active. One per card, and nothing sends until someone on your team approves it. After three weeks with no return, Grace stops and hands the name to a person.</p>
+
+<h3>Guest pulse, month by month <span class="pill live">Live</span></h3>
+<p>Two separate counts: cards created in a month, and cards completed in a month. They are drawn apart on purpose and never divided into each other, because someone who completed Starting Point in August almost certainly first visited months earlier.</p>
+
+<div class="note">
+  <span class="eyebrow">The one gap on this page</span>
+  <p>Planning Center has no record of an adult returning to a service. Only Kids and Young Adults check in. So Grace cannot see a second visit, and a card only moves when your team moves it. Everything above works around that rather than pretending otherwise.</p>
+</div>
+
+<h2>Care &amp; Drift</h2>
+<p class="lede">Answers: who was here regularly and has quietly stopped.</p>
+
+<h3>Families drifting <span class="pill live">Live</span></h3>
+<p><strong>Source:</strong> Kids check-ins, grouped by Planning Center household.</p>
+<p><strong>Rule:</strong> the family must be established first, meaning 8 or more Sundays checked in within a 10 month window. Then they are flagged once they have missed 3 or more Sundays in a row. Families still in their first weeks are held back rather than flagged, so a new family is never chased for missing a week.</p>
+<p>Grouping by household is what stops "The Farmer family" and "The Farmer jr family" reading as two different families.</p>
+
+<h3>Stopped serving <span class="pill live">Live</span></h3>
+<p><strong>Source:</strong> the Services schedule, not check-ins. People serve without checking in and whole teams skip the kiosk, so a missing check-in never means someone stopped.</p>
+<p><strong>Rule:</strong> a regular volunteer is someone with 4 or more confirmed dates. They are flagged when their last confirmed date is 6 or more weeks ago <em>and</em> they have nothing upcoming on the schedule. Staff are excluded by name. If every team a person served on has gone quiet, they are excluded too, because that is a retired team rather than a drifting person.</p>
+
+<h3>Group drift <span class="pill live">Live</span></h3>
+<p><strong>Source:</strong> Growth Groups attendance.</p>
+<p><strong>Rule:</strong> the group needs at least 4 meetings on record and the person at least 5 attendances. They are flagged when they have missed the group's last 3 meetings and at least 3 weeks have passed. Anyone who attended one of the last three meetings is never flagged, so someone who walks back in comes off the list on their own.</p>
+<p>The season starts September 1, 2025 and runs to today.</p>
+<div class="note">
+  <span class="eyebrow">Known problem, being fixed this week</span>
+  <p>That season now spans two program years. It covers fall 2025, spring 2026, the summer break, and the fall that started six weeks ago. Because groups re-form each year, someone who attended faithfully through May and is not in this year's rotation currently reads as drifting.</p>
+  <p>I checked this against your live group data rather than guessing. Of the people on the list today, about a third were last seen in August or later and are genuinely drifting now. The rest were last seen in the previous program year. Splitting those two groups is the fix, the same way Front Desk separates this week's guests from people waiting on a decision. Until it ships, treat the older end of that list as last year's roster rather than this week's work.</p>
+</div>
+
+<h2 class="page-break">Serving</h2>
+<p class="lede">Answers: what is short this Sunday, who can fill it, and who is carrying too much.</p>
+
+<h3>Needs you this Sunday, and the four week grid <span class="pill live">Live</span></h3>
+<p><strong>Source:</strong> the Sunday Service plans in Services. Grace reads the last 8 plans to learn which teams normally run, then the next 4 to see what is short.</p>
+<p>For each team on each plan she reads two things: who is scheduled, split into confirmed, unconfirmed and declined; and the positions still listed as needed. "Short" means Planning Center still shows positions needed. "Not scheduled" means the team runs most Sundays but is absent from that plan entirely, which is the case a needed positions view alone can never catch. A Sunday nobody has built yet shows as a dash rather than a wall of red.</p>
+<p>Vocals and Band are folded into Worship, since you merged those teams and Planning Center keeps the history under the old names.</p>
+
+<h3>Who to ask <span class="pill live">Live</span></h3>
+<p><strong>Source:</strong> Growth Group membership plus Kids check-ins, for people who serve on nothing.</p>
+<p><strong>Rule:</strong> ranked by the two signals that predict a yes. Tier 1, shown by name, is people in a Growth Group <em>and</em> dropping kids off. Tier 2 is group membership only and Tier 3 is kids drop-off only; both are reported as counts because there is no attendance measure behind them. Anyone already at high serving load is filtered out, so a name suggested here is never a name the burnout list is protecting.</p>
+<p>You can remove anyone from this list yourself, and it stays removed for your whole team.</p>
+<p>The link from a child's check-in back to a parent is Planning Center's own <em>checked in by</em> field, which is a real adult person record. Staff are excluded using the staff list in your settings.</p>
+
+<h3>How the load is spread, and Burnout Watch <span class="pill live">Live</span></h3>
+<p><strong>Source:</strong> confirmed serving assignments over a 6 month season.</p>
+<p><strong>Rule:</strong> a person is flagged at 3 or more shifts a month, or on 2 or more teams at any frequency. The headline count uses only the 3 or more a month group, because "serving too often" is not true of someone on two teams once a month. High risk means 4 or more shifts a month or three or more teams.</p>
+<p>When you pick English or Brazilian, each person's load is recalculated from only that congregation's shifts. Someone serving the 6pm service seven times and an English service twice is a real concern for one ministry and a light load for the other.</p>
+
+<div class="note">
+  <span class="eyebrow">Why one person can show two numbers</span>
+  <p>The fill suggestions use a 90 day window, because "who has room this Sunday" is a recent question. Burnout Watch uses the 6 month season, because risk builds up over time. So the same person can read 10x a month in one place and 9x in another. Both are correct; each now names its own window.</p>
+</div>
+
+<h2>Insights</h2>
+<p class="lede">Answers: are we growing, and where do people fall off.</p>
+<p>This page is the one mixed page. Some panels are Planning Center, some come from your weekly summary sheet and Metrics workbook, which I export by hand. Every panel now says which it is and the date it stops.</p>
+
+<table>
+  <thead><tr><th>Panel</th><th>Source and rule</th></tr></thead>
+  <tbody>
+    <tr><td>Getting Connected <span class="pill snap">Sep 11</span></td><td class="src">Everyone with a Starting Point card in the last 12 months, followed forward into completed cards, Meet the Pastor cards, Growth Group membership, and the serving schedule. 476 people in the current cohort.</td></tr>
+    <tr><td>Discipleship Pathway <span class="pill snap">Sep 11</span></td><td class="src">Workflow card totals: Starting Point, New Member Class, Baptism Class. "In a Growth Group" is everyone in an active group today, from Groups, which is a different population from Starting Point entrants, so it is not shown as a percentage of them.</td></tr>
+    <tr><td>First-time visitors <span class="pill snap">Sep 11</span></td><td class="src">Starting Point cards by the date they were created, split by workflow.</td></tr>
+    <tr><td>Growth Groups <span class="pill snap">Sep 11</span></td><td class="src">Active groups, their membership counts, and attended-per-meeting averages from August 1 onward. Rows follow Planning Center's own group types.</td></tr>
+    <tr><td>Body Health, Age Profile <span class="pill snap">Jul 12</span></td><td class="src">People marked Member or Regular Attender, which is 1,385 adults, not the 12,000 accumulated records. Ages cover the roughly half of them with a birthdate on file.</td></tr>
+    <tr><td>This weekend, attendance chart, service sizes, annual growth <span class="pill manual">Your sheet</span></td><td class="src">The weekly summary sheet. Currently through July 5.</td></tr>
+    <tr><td>Salvations <span class="pill manual">Your sheet</span></td><td class="src">The Metrics workbook, Raised Hands row. Currently through week 18.</td></tr>
+    <tr><td>Online reach, Youth <span class="pill manual">Your sheet</span></td><td class="src">The weekly summary sheet. Through May 31 and June 7.</td></tr>
+  </tbody>
+</table>
+
+<p class="flag">This is why your August 30 headcounts did not match. The sheet-fed half of this page stops in early July. Access to the headcounts page you linked would close it for good.</p>
+
+<h2>Today</h2>
+<p><span class="pill manual">Hand-written</span> The leadership letter on the Today page is the one piece of the dashboard that is not reading live data. It is a written summary from a July pull, which is why it still says Friend Day is coming. It is being rewritten to read the same payloads as every other page. Everything in the staff view below it, the counts and the queue, is live.</p>
+
+<h2>The congregation switch</h2>
+<p>The English, Brazilian and All control at the top of every page scopes the whole dashboard, not one panel. People lists, serving load, groups and guests all follow it.</p>
+<p>A person's congregation is worked out from what they do: which teams they serve on, and which groups they belong to. Where we have no record either way, the person appears under All and is reported as unplaced rather than quietly hidden. On Insights, the panels that cannot be split (multi-year growth, salvations, age, online, youth, and the roll counts) are labelled church-wide.</p>
+
+<h2>Known gaps, stated plainly</h2>
+<ul>
+  <li><strong>Adult attendance is not in Planning Center.</strong> Only Kids and Young Adults check in, so no page can see an adult return. This is the single biggest limit on the guest pages.</li>
+  <li><strong>Half of Insights waits on your sheet.</strong> Until Grace can read the headcounts page, those panels stay at July.</li>
+  <li><strong>The Today letter is not live yet.</strong> Being fixed.</li>
+  <li><strong>Group drift spans two program years.</strong> Described above. Being fixed this week.</li>
+  <li><strong>Two smaller pieces still update by hand:</strong> the English and Brazilian lookup behind the congregation switch, and the recent-activity panel inside a person's detail drawer. Neither changes what is counted, but both go stale for people who joined recently.</li>
+  <li><strong>Giving is not connected.</strong> The panel is there and empty. It would show participation only, never dollar figures, and only if you want it.</li>
+  <li><strong>Sundays counted for a guest are kids drop-offs.</strong> Someone who attends without children will undercount.</li>
+</ul>
+
+<footer>
+  If a number looks wrong, the fastest way to tell me is the number you expected and the page you saw it on. Every figure in this document can be traced back to a specific Planning Center record, and if it cannot be, that is worth knowing too.
+</footer>
+
+</body>
+</html>

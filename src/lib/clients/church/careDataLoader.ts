@@ -206,6 +206,21 @@ export async function refreshCareData(slug: string): Promise<void> {
  * new, 'timeout' when the sync is still going after the window, which is a real
  * outcome for a first backfill and not a failure. The caller says which.
  */
+/** supabase-js buries the function's own message inside the error context. A
+ *  403 from pco-fetch carries "You do not have permission to refresh this
+ *  church.", which is the sentence the user needs; without this they get
+ *  "Edge Function returned a non-2xx status code". */
+function refreshErrorText(err: unknown): string {
+  const e = err as { context?: { body?: unknown }; message?: string }
+  const body = e?.context?.body
+  if (typeof body === 'string') {
+    try { const j = JSON.parse(body); if (j?.error) return String(j.error) } catch { /* not json */ }
+  } else if (body && typeof body === 'object' && 'error' in (body as Record<string, unknown>)) {
+    return String((body as Record<string, unknown>).error)
+  }
+  return e?.message || 'Refresh failed'
+}
+
 export async function refreshAndWait(
   slug: string,
   /** `resources` narrows the sync to what the calling page shows (pco-fetch
@@ -223,9 +238,26 @@ export async function refreshAndWait(
     Object.entries(store.meta).some(([k, m]) => (m?.computedAt ?? null) !== (before[k] ?? null))
 
 
-  void supabase.functions.invoke('pco-fetch', {
-    body: opts.resources?.length ? { tenant: slug, resources: opts.resources } : { tenant: slug },
-  }).catch(() => {})
+  // AWAITED, not fired and forgotten. This used to be `void ... .catch(() => {})`,
+  // which swallowed every failure including the 403 a permission-scoped staffer
+  // gets. The button then polled for 90 seconds, saw nothing move, and said
+  // "Still syncing. Press again in a minute." A permission denial wearing the
+  // costume of slowness is the worst version of this: you press it forever.
+  //
+  // Scoped calls are short enough to await (one or two resources). The result
+  // is raced against the poll loop below so a slow-but-working sync still
+  // reports what landed rather than hanging on the request.
+  const invoked = supabase.functions
+    .invoke('pco-fetch', {
+      body: opts.resources?.length ? { tenant: slug, resources: opts.resources } : { tenant: slug },
+    })
+    .then((r) => {
+      // supabase-js resolves with { error } rather than throwing.
+      if (r.error) throw new Error(refreshErrorText(r.error))
+      return r
+    })
+  // Surfaces as a rejection on the returned promise; never an unhandled one.
+  invoked.catch(() => {})
 
   const changed = () =>
     Object.entries(store.meta)
@@ -234,7 +266,12 @@ export async function refreshAndWait(
 
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, pollMs))
+    // Reject early on a real failure (permission, bad tenant) instead of
+    // waiting out the full timeout to report "still syncing".
+    await Promise.race([
+      new Promise((r) => setTimeout(r, pollMs)),
+      invoked.then(() => undefined),
+    ])
     await loadCareData(slug)
     // Report WHICH resources moved. Saying "Updated just now" the moment any
     // one of them did put a green tick above a panel still reading 9h old,

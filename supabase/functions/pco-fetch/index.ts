@@ -9,7 +9,7 @@ import { fetchKidsCheckinsChunk } from '../_shared/pco-fetch/fetchKidsChunk.ts'
 import { fetchHouseholdsChunk } from '../_shared/pco-fetch/fetchHouseholdsChunk.ts'
 import { fetchGuestCardsChunk } from '../_shared/pco-fetch/fetchGuestCardsChunk.ts'
 import { fetchPeopleChunk } from '../_shared/pco-fetch/fetchPeopleChunk.ts'
-import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates, computeRoster } from '../_shared/pco-fetch/computeFromCache.ts'
+import { computeServingBurnout, computeGroups, computeDrift, computeGuestPipeline, computeDuplicates, computeRoster, computeServeCandidates } from '../_shared/pco-fetch/computeFromCache.ts'
 import type { PcoConfig } from '../_shared/pco-transforms/types.ts'
 
 const CORS = {
@@ -101,7 +101,10 @@ async function syncResource(
       if (error) throw new Error(`write sync state: ${error.message}`)
     } else if (resource === 'kids') {
       const r = await fetchKidsCheckinsChunk(db, clientId, tenant, cfg.drift!, (row.cursor ?? {}) as any, isOver)
-      if (r.done) await computeDrift(db, clientId, cfg)
+      // Who-to-ask rides on kids because the drop-off signal is the half that
+      // moves weekly; groups and the schedule change far more slowly and each
+      // has its own nightly job.
+      if (r.done) { await computeDrift(db, clientId, cfg); await computeServeCandidates(db, clientId, cfg) }
       const { error } = await db.from('pco_sync_state').upsert({
         client_id: clientId, resource, cursor: r.cursor, backfill_complete: r.done,
         phase: r.done ? 'incremental' : 'backfill',
@@ -244,6 +247,7 @@ async function syncResource(
     const isOver = makeDeadline(cfg.fetch?.timeBudgetSeconds ?? DEFAULT_TIME_BUDGET_SECONDS)
     await fetchKidsCheckinsChunk(db, clientId, tenant, cfg.drift!, {} as any, isOver, cutoff)
     await computeDrift(db, clientId, cfg)
+    await computeServeCandidates(db, clientId, cfg)
     const { error } = await db.from('pco_sync_state')
       .update({ updated_at: now, error: null })
       .eq('client_id', clientId).eq('resource', resource)
@@ -390,6 +394,15 @@ Deno.serve(async (req: Request) => {
   // or a valid cron secret. Each church is wrapped so one church's failure
   // cannot abort the batch (every later church still runs).
   if (!isServiceRole && !isCron) return json({ error: 'Full sync requires the service role or a valid cron secret' }, 403)
+  // The nightly cron fires one job per resource rather than one job that walks
+  // all seven. Seven resources at a 90s budget each is ~565s of requested work
+  // inside one invocation that the platform kills long before that, so the tail
+  // of the list simply did not run: households starved the loop, then roster
+  // read six hours stale, then guests never recomputed. One job per resource
+  // means one clock per resource and nothing can starve anything else.
+  const cronOnly = Array.isArray(body.resources)
+    ? (body.resources.filter((r) => (ALL_RESOURCES as string[]).includes(r)) as Resource[])
+    : undefined
   const { data: conns, error: connsErr } = await db.from('pco_connections').select('tenant_key')
   if (connsErr) return json({ error: `connections lookup failed: ${connsErr.message}` }, 500)
   const all: Record<string, unknown> = {}
@@ -397,7 +410,7 @@ Deno.serve(async (req: Request) => {
     try {
       const { data: client } = await db.from('clients').select('id, pco_config').eq('slug', c.tenant_key).maybeSingle()
       if (!client) { all[c.tenant_key] = { error: 'no matching client row' }; continue }
-      all[c.tenant_key] = await syncChurch(db, client.id, c.tenant_key, (client.pco_config ?? {}) as PcoConfig, mode)
+      all[c.tenant_key] = await syncChurch(db, client.id, c.tenant_key, (client.pco_config ?? {}) as PcoConfig, mode, cronOnly)
     } catch (e) {
       all[c.tenant_key] = { error: e instanceof Error ? e.message : String(e) }
     }

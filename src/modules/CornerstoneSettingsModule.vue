@@ -108,7 +108,10 @@ const intsByCategory = computed(() => {
         <span class="eyebrow">Live data sync</span>
         <p class="text-xs text-ink-muted mt-0.5">Pull the latest from Planning Center on demand instead of waiting for the scheduled sync.</p>
       </div>
-      <RefreshNowButton :slug="client.slug" />
+      <!-- The only unscoped refresh left. Every page button asks for the one
+           or two resources that page shows; this is the deliberate "pull
+           everything" and is slow by nature. -->
+      <RefreshNowButton :slug="client.slug" label="Refresh everything" />
     </div>
 
     <!-- KPI strip -->

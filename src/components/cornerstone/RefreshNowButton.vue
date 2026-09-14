@@ -19,7 +19,10 @@ import { ref, onBeforeUnmount } from 'vue'
 import { refreshAndWait } from '@/lib/clients/church/careDataLoader'
 
 // `resources` narrows the sync to what this page shows; see refreshAndWait.
-const props = defineProps<{ slug: string; resources?: string[] }>()
+// Unscoped (Settings only) it walks every resource and is slow by design.
+const props = withDefaults(defineProps<{ slug: string; resources?: string[]; label?: string }>(), {
+  label: 'Refresh this page',
+})
 
 /** Resource keys are internal; staff read page names. */
 const NAMES: Record<string, string> = {
@@ -95,7 +98,7 @@ async function run() {
       class="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-ink hover:border-brand hover:text-brand disabled:opacity-50"
       @click="run"
     >
-      {{ state === 'working' ? 'Refreshing...' : 'Refresh now' }}
+      {{ state === 'working' ? 'Refreshing...' : props.label }}
     </button>
 
     <span v-if="state === 'working'" class="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">

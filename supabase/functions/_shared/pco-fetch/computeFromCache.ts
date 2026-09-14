@@ -6,6 +6,7 @@ import { checkinsToFamilies, computeFamilyDrift } from '../pco-transforms/family
 import { buildGuestPipeline, DEFAULT_ACTIVE_DAYS, DEFAULT_SIGNATURE, type GuestActivity } from '../pco-transforms/guestPipeline.ts'
 import { buildDuplicates, type ServingFlag } from '../pco-transforms/duplicates.ts'
 import { buildRoster, aliasPlans, type ServingRow } from '../pco-transforms/roster.ts'
+import { buildServeCandidates, WINDOW_DAYS as SERVE_WINDOW_DAYS } from '../pco-transforms/serveCandidates.ts'
 import { fetchRosterPlans } from './fetchRosterPlans.ts'
 import type { PcoConfig } from '../pco-transforms/types.ts'
 
@@ -112,6 +113,48 @@ export async function computeDrift(db: Db, clientId: string, cfg: PcoConfig) {
   })
   const families = checkinsToFamilies(withHousehold)
   await writeOk(db, clientId, 'drift', computeFamilyDrift(families, cfg.drift!, today()))
+}
+
+/**
+ * "Who to ask to serve". The last payload on the dashboard that arrived by
+ * hand: two local scripts, run when I remembered, uploaded. It was stamped
+ * Aug 27, it went stale silently, and because the local script never applied
+ * the church's staff list it was putting staff in front of the church as
+ * people to ask.
+ *
+ * Everything it needs is already staged. The one thing that was missing is the
+ * ADULT on a kids check-in (`checked_in_by`, migration 0113), because the
+ * check-in itself records only the child.
+ */
+export async function computeServeCandidates(db: Db, clientId: string, cfg: PcoConfig) {
+  const since = new Date(Date.now() - SERVE_WINDOW_DAYS * 864e5).toISOString().slice(0, 10)
+  const kids = await readAll(
+    (from, to) => db.from('pco_kids_checkins')
+      .select('person_id,checkin_date,checked_in_by').eq('client_id', clientId)
+      .gte('checkin_date', since).order('person_id').order('checkin_date').range(from, to),
+    'kids checkins (serve candidates)')
+  const groupMembers = await readAll(
+    (from, to) => db.from('pco_group_members')
+      .select('person_id,name,group_name').eq('client_id', clientId)
+      .order('group_id').order('person_id').range(from, to),
+    'group members (serve candidates)')
+  // Not date-filtered: the transform needs upcoming assignments too, which is
+  // how someone already booked for next Sunday stays off the list.
+  const assignments = await readAll(
+    (from, to) => db.from('pco_serving_assignments')
+      .select('person_id,date,status').eq('client_id', clientId)
+      .gte('date', since).order('person_id').order('date').order('team').range(from, to),
+    'assignments (serve candidates)')
+  const people = await readAll(
+    (from, to) => db.from('pco_people')
+      .select('person_id,name').eq('client_id', clientId).order('person_id').range(from, to),
+    'people (serve candidates)')
+  await writeOk(db, clientId, 'serveCandidates', buildServeCandidates({
+    kids: kids as any, groupMembers: groupMembers as any, assignments: assignments as any,
+    people: people as any,
+    staffNames: Array.isArray(cfg.staffNames) ? cfg.staffNames : [],
+    today: today(),
+  }))
 }
 
 export async function computeGuestPipeline(db: Db, clientId: string, cfg: PcoConfig) {

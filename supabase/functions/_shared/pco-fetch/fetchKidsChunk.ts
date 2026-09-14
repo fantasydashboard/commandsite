@@ -23,7 +23,11 @@ export async function fetchKidsCheckinsChunk(
     if (isOver()) return { cursor: { events, eIndex }, done: false }
     const eventId = events[eIndex]
     // pages preserve `included` (person records carry the names); stop at cutoff.
-    const pages = await pcoUntilPages(tenant, `/check-ins/v2/events/${eventId}/check_ins?include=person&per_page=100&order=-created_at`,
+    // checked_in_by is the ADULT who dropped the child off, a real person
+    // record. It is the only link from a child's check-in back to a parent, and
+    // it is what lets "Who to ask" compute from these tables instead of running
+    // as a hand-executed script.
+    const pages = await pcoUntilPages(tenant, `/check-ins/v2/events/${eventId}/check_ins?include=person,checked_in_by&per_page=100&order=-created_at`,
       (c: any) => (c.attributes?.created_at ?? '').slice(0, 10) < cutoff)
     const rows: any[] = []
     for (const page of pages) {
@@ -37,7 +41,13 @@ export async function fetchKidsCheckinsChunk(
         const p = persons[pid] ?? {}
         const last = (p.last_name ?? '').trim()
         if (!pid || !last) continue
-        rows.push({ client_id: clientId, person_id: pid, first: (p.first_name ?? '').trim(), last, checkin_date: date, kind: c.attributes?.kind ?? '' })
+        rows.push({
+          client_id: clientId, person_id: pid, first: (p.first_name ?? '').trim(), last,
+          checkin_date: date, kind: c.attributes?.kind ?? '',
+          // Null for self check-in and kiosk rows, which is correct: those are
+          // not a drop-off signal.
+          checked_in_by: c.relationships?.checked_in_by?.data?.id ?? null,
+        })
       }
     }
     // Dedupe by PK (client_id,person_id,checkin_date) before upsert.

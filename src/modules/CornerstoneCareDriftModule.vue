@@ -93,6 +93,16 @@ const groupsCount = computed(
   ).length,
 )
 const careTab = ref<'families' | 'serving' | 'groups'>('families')
+// Refresh what the open tab shows, not the whole church. Families read kids
+// check-ins grouped by household, stopped-serving reads the serving schedule,
+// group drift reads groups. Asking for all four in one press is exactly the
+// call that ran out of wall clock and reported "still syncing" forever.
+const CARE_TAB_RESOURCES: Record<'families' | 'serving' | 'groups', string[]> = {
+  families: ['households', 'kids'],
+  serving: ['schedule'],
+  groups: ['groups'],
+}
+const careTabResources = computed(() => CARE_TAB_RESOURCES[careTab.value])
 const careTabs = computed(() => [
   { key: 'families' as const, label: 'Families drifting', count: familiesCount.value },
   { key: 'serving' as const, label: 'Stopped serving', count: servingCount.value },
@@ -296,7 +306,7 @@ const careRecommendations: GraceRecommendation[] = [
       <div class="card flex flex-wrap gap-1 !p-1.5">
         <div class="w-full flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
           <span class="text-[11px] text-ink-muted">Full directories, the complete list behind each track. All three follow the lens: families and groups by the service they attend, serving by the teams they serve. Everyone who has come back drops off.</span>
-          <RefreshNowButton v-if="isLiveChurch" :slug="props.client.slug" />
+          <RefreshNowButton v-if="isLiveChurch" :slug="props.client.slug" :resources="careTabResources" />
         </div>
         <button
           v-for="t in careTabs"

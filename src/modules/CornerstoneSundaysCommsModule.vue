@@ -276,7 +276,10 @@ const sundaysRecommendations: GraceRecommendation[] = [
         <!-- The badge said "Updated 5h ago" with nothing to press. Refresh
              lived only on Care & Drift, so the fix for stale Serving data was
              to navigate to another page and refresh from there. -->
-        <RefreshNowButton v-if="isLiveChurch" :slug="client.slug" />
+        <!-- What THIS page shows: the load and burnout lists come from the
+             serving schedule, the board and the four-week grid from the roster.
+             roster reads schedule's staged rows, so schedule goes first. -->
+        <RefreshNowButton v-if="isLiveChurch" :slug="client.slug" :resources="['schedule', 'roster']" />
       </template>
     </RolesOnPage>
 
