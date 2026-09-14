@@ -68,13 +68,21 @@ const AGE_BANDS: [string, number, number][] = [
   ['45-54', 45, 54], ['55-64', 55, 64], ['65+', 65, 200],
 ]
 
-/** Planning Center's own type names are not what a pastor calls them. */
-function groupTypeLabel(type: string): string {
+/**
+ * Planning Center's own type names are not what a pastor calls them.
+ *
+ * `soleRow` matters for the window between adding the group_type column and
+ * the groups job next running: every row has an unknown type, they all collapse
+ * into one bucket, and calling that bucket "Other groups" tells the church its
+ * entire group ministry is miscellaneous. It is all of them, so say so.
+ */
+function groupTypeLabel(type: string, soleRow: boolean): string {
   if (/yth|youth/i.test(type)) return 'Youth groups'
   if (/zoom/i.test(type)) return 'Zoom groups'
   if (/prayer/i.test(type)) return 'Prayer groups'
   if (/in person/i.test(type)) return 'Growth groups, in person'
-  return type || 'Other groups'
+  if (type) return type
+  return soleRow ? 'All groups' : 'Other groups'
 }
 
 export function buildInsights(input: {
@@ -124,6 +132,7 @@ export function buildInsights(input: {
     if (!events) { events = new Map<string, number>(); attendedByTypeEvent.set(type, events) }
     events.set(a.event_id, (events.get(a.event_id) ?? 0) + 1)
   }
+  const soleType = groupIdsByType.size === 1
   const byType: GroupTypeRow[] = [...groupIdsByType.entries()]
     .map(([type, ids]) => {
       const events = attendedByTypeEvent.get(type)
@@ -131,7 +140,7 @@ export function buildInsights(input: {
       const avgAtt = events && events.size >= 2
         ? Math.round([...events.values()].reduce((n, v) => n + v, 0) / events.size)
         : null
-      return { type, label: groupTypeLabel(type), groups: ids.size, members: membersByType.get(type) ?? 0, avgAtt }
+      return { type, label: groupTypeLabel(type, soleType), groups: ids.size, members: membersByType.get(type) ?? 0, avgAtt }
     })
     .sort((a, b) => b.members - a.members)
 

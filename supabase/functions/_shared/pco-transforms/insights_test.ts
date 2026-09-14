@@ -192,3 +192,23 @@ Deno.test('a child in the core is left out of the adult age sample', () => {
   })
   assertEquals(p.ageProfile.sample, 1)
 })
+
+// The window between adding the group_type column and the groups job next
+// running: every row has an unknown type and they all collapse into one bucket.
+// Calling that "Other groups" tells the church its whole group ministry is
+// miscellaneous.
+Deno.test('one bucket of untyped groups reads as All groups, not Other', () => {
+  const p = buildInsights({
+    ...base,
+    groupMembers: [mem({ person_id: 'a', group_id: 'g1', group_type: null }), mem({ person_id: 'b', group_id: 'g2', group_type: null })],
+  })
+  assertEquals(p.groupSnapshot.byType.length, 1)
+  assertEquals(p.groupSnapshot.byType[0].label, 'All groups')
+})
+Deno.test('untyped groups alongside typed ones are Other groups', () => {
+  const p = buildInsights({
+    ...base,
+    groupMembers: [mem({ person_id: 'a', group_id: 'g1', group_type: 'YTH Growth Groups' }), mem({ person_id: 'b', group_id: 'g2', group_type: null })],
+  })
+  assertEquals(p.groupSnapshot.byType.find((t) => t.type === '')!.label, 'Other groups')
+})
