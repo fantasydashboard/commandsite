@@ -59,6 +59,14 @@ export async function fetchGroupsChunk(
   // ACTUAL meetings, so returners drop off by themselves, and the week count is
   // finally weeks ago. Regularity still comes from the long tail of the window,
   // which is what makes two weeks of fall data enough to act on.
+  // EVERY invocation, not only on a rebuild. Tying it to the rebuild was
+  // circular: a rebuild happens only when the cursor is empty, the cursor
+  // empties only when a pass completes, and a pass over ~58 groups does not
+  // complete inside the time budget. So it resumed forever and the prune never
+  // ran once. It is four requests and two deletes, against the ~640 this
+  // function already makes, and it is idempotent.
+  await pruneDeletedGroups(db, clientId, tenant)
+
   const start = Date.parse(cfg.seasonStart)
   const end = cfg.seasonEnd ? Date.parse(cfg.seasonEnd) : Date.now()
 
@@ -82,9 +90,6 @@ export async function fetchGroupsChunk(
       for (const g of gs) groups.push({ id: g.id, name: g.attributes?.name ?? 'Group', type: t.attributes?.name ?? '' })
     }
     gIndex = 0
-    // A fresh pass is the one moment we are about to re-walk everything, so it
-    // is where removing groups that no longer exist belongs.
-    await pruneDeletedGroups(db, clientId, tenant)
   }
 
   while (gIndex < groups.length) {
