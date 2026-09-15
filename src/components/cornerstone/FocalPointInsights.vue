@@ -283,6 +283,36 @@ const servingNotPct = computed(() => 100 - bh.value.serving.pct)
 const servingOneIn = computed(() => Math.round(100 / Math.max(1, bh.value.serving.pct)))
 const age = computed(() => live.value?.ageProfile ?? fp.ageProfile)
 const maxAge = computed(() => Math.max(...age.value.bands.map((b: { pct: number }) => b.pct), 1))
+/**
+ * Grace's read on the age profile, computed.
+ *
+ * It used to be typed in: "a strong 35 to 54 church ... the thin band is 18 to
+ * 24 at under 4%". True of the July pull. The moment this panel went live the
+ * 18-24 band read 11.6% and the sentence beneath the chart contradicted the
+ * chart. Same class of bug as the weekend read claiming "6% ahead" beside a
+ * tile computing -2.2%, which is why every read on this page now derives.
+ */
+type Band = { band: string; pct: number }
+const ageRead = computed(() => {
+  const bands = [...age.value.bands] as Band[]
+  if (!bands.length) return null
+  // The two adjacent bands that carry the most people: the church's centre.
+  let bestAt = 0, bestSum = -1
+  for (let i = 0; i < bands.length - 1; i++) {
+    const sum = bands[i].pct + bands[i + 1].pct
+    if (sum > bestSum) { bestSum = sum; bestAt = i }
+  }
+  const core = `${bands[bestAt].band.split('-')[0]} to ${bands[bestAt + 1].band.replace('+', '').split('-').pop()}`
+  const thinnest = bands.reduce((a, b) => (b.pct < a.pct ? b : a))
+  return {
+    core,
+    corePct: Math.round(bestSum),
+    // "half your core" is only honest near 50.
+    coreWord: bestSum >= 45 && bestSum <= 55 ? 'about half your core' : `${Math.round(bestSum)}% of your core`,
+    thinBand: thinnest.band,
+    thinPct: thinnest.pct,
+  }
+})
 
 // Four-year growth (real, from their Metrics workbooks).
 const years = fp.yearlyAttendance
@@ -617,7 +647,9 @@ const youthOpts = barDefaults({ legend: false })
       <div class="mt-4 rounded-lg border border-divider bg-surface-elevated/40 px-4 py-3">
         <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">Grace's read</span>
         <p class="mt-1 text-[13px] leading-relaxed text-ink">
-          You are a strong 35 to 54 church, that is half your core. The thin band is 18 to 24 at under 4%. If reaching young adults is a goal this year, this is the gap to watch and the number to move.
+          <template v-if="ageRead">
+            You are a strong {{ ageRead.core }} church, {{ ageRead.coreWord }}. The thinnest band is {{ ageRead.thinBand }} at {{ ageRead.thinPct }}%. If that is a group you want to reach this year, it is the gap to watch and the number to move.
+          </template>
         </p>
       </div>
     </section>
