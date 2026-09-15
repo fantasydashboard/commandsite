@@ -212,3 +212,20 @@ Deno.test('untyped groups alongside typed ones are Other groups', () => {
   })
   assertEquals(p.groupSnapshot.byType.find((t) => t.type === '')!.label, 'Other groups')
 })
+
+// A membership row written before group_type was stored carries an empty type.
+// Bucketing per row put that group in two buckets at once: live this read
+// 38 + 44 + 3 = 85 buckets over 58 real groups.
+Deno.test('a group whose rows disagree on type lands in exactly one bucket', () => {
+  const p = buildInsights({
+    ...base,
+    groupMembers: [
+      mem({ person_id: 'a', group_id: 'g1', group_type: 'In Person - Growth Groups' }),
+      mem({ person_id: 'stale', group_id: 'g1', group_type: '' }),
+      mem({ person_id: 'b', group_id: 'g2', group_type: 'In Person - Growth Groups' }),
+    ],
+  })
+  assertEquals(p.groupSnapshot.byType.length, 1)
+  assertEquals(p.groupSnapshot.byType[0].groups, 2)
+  assertEquals(p.groupSnapshot.groups, 2)
+})

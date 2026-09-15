@@ -89,6 +89,18 @@ export async function fetchGroupsChunk(
     const dedupedMem = [...new Map(memRowsRaw.map((r: any) => [`${r.group_id}|${r.person_id}`, r])).values()]
     if (dedupedAtt.length) { const { error } = await db.from('pco_group_attendance').upsert(dedupedAtt, { onConflict: 'client_id,group_id,event_id,person_id' }); if (error) throw new Error(`att upsert: ${error.message}`) }
     if (dedupedMem.length) { const { error } = await db.from('pco_group_members').upsert(dedupedMem, { onConflict: 'client_id,group_id,person_id' }); if (error) throw new Error(`mem upsert: ${error.message}`) }
+    // Remove anyone who has LEFT this group. Upsert alone only ever adds and
+    // updates, so a member who left kept their row forever: staging drifted to
+    // 1,010 people in a group against 925 actually in one, and Insights
+    // reported the inflated figure as live. Attendance is deliberately NOT
+    // pruned this way, because a meeting someone attended stays true after
+    // they leave.
+    {
+      const keep = dedupedMem.map((r: any) => `"${r.person_id}"`).join(',')
+      const q = db.from('pco_group_members').delete().eq('client_id', clientId).eq('group_id', g.id)
+      const { error } = keep ? await q.not('person_id', 'in', `(${keep})`) : await q
+      if (error) throw new Error(`mem prune: ${error.message}`)
+    }
     gIndex++
   }
   return { cursor: { groups, gIndex }, done: true }

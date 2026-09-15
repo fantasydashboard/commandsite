@@ -107,15 +107,26 @@ export function buildInsights(input: {
   // ── who is in a group, who leads one ──────────────────────────────────────
   const inGroup = new Set<string>()
   const leaders = new Set<string>()
+  // A group has ONE type. Resolve it across all of that group's rows before
+  // bucketing anything, preferring a non-empty value.
+  //
+  // Bucketing per row instead put a group in two buckets whenever its rows
+  // disagreed, which happens whenever a membership row predates the type being
+  // stored. Live: 38 + 44 + 3 = 85 buckets over 58 real groups.
   const groupsById = new Map<string, string>()          // group_id -> type
+  for (const m of groupMembers) {
+    if (!m.group_id) continue
+    const type = m.group_type ?? ''
+    const known = groupsById.get(m.group_id)
+    if (known === undefined || (!known && type)) groupsById.set(m.group_id, type)
+  }
   const groupIdsByType = new Map<string, Set<string>>()
   const membersByType = new Map<string, number>()
   for (const m of groupMembers) {
     if (!m.person_id) continue
     inGroup.add(m.person_id)
     if ((m.role ?? '').toLowerCase() === 'leader') leaders.add(m.person_id)
-    const type = m.group_type ?? ''
-    groupsById.set(m.group_id, type)
+    const type = groupsById.get(m.group_id) ?? ''
     let ids = groupIdsByType.get(type)
     if (!ids) { ids = new Set<string>(); groupIdsByType.set(type, ids) }
     ids.add(m.group_id)
