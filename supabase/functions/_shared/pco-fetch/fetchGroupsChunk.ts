@@ -6,6 +6,40 @@ import type { GroupsCursor } from './cursor.ts'
 type Db = any
 interface GroupDriftCfg { seasonStart: string; seasonEnd?: string; groupTypeMatch: string; eventsPerGroup?: number }
 
+/**
+ * Drop staged rows for groups Planning Center no longer has.
+ *
+ * Runs at the START of a fresh pass, not the end. It was at the end and never
+ * fired: ~58 groups at a dozen requests each does not fit the time budget, the
+ * pass resumes instead of completing, and the tail is unreachable. Staging held
+ * 85 group ids against 58 real ones and the page reported 85 active groups.
+ *
+ * The id list comes from every group type, not just the ones this sync fetches
+ * details for, so groups the type filter skips (prayer, and anything else a
+ * church runs) are recognised as real and left alone. Deciding which types
+ * COUNT is a product question; knowing which ids EXIST is not.
+ */
+async function pruneDeletedGroups(db: Db, clientId: string, tenant: string): Promise<void> {
+  try {
+    const liveIds = new Set<string>()
+    for (const t of await pcoAll(tenant, '/groups/v2/group_types?per_page=100')) {
+      for (const g of await pcoAll(tenant, `/groups/v2/group_types/${(t as any).id}/groups?per_page=100`)) {
+        liveIds.add((g as any).id)
+      }
+    }
+    if (!liveIds.size) return
+    const keep = [...liveIds].map((id) => `"${id}"`).join(',')
+    for (const table of ['pco_group_members', 'pco_group_attendance']) {
+      const { error } = await db.from(table).delete()
+        .eq('client_id', clientId).not('group_id', 'in', `(${keep})`)
+      if (error) throw new Error(`${table} phantom prune: ${error.message}`)
+    }
+  } catch (e) {
+    // Leaving stale rows is the status quo, so this must not sink a good pass.
+    console.error(`groups phantom prune: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
 export async function fetchGroupsChunk(
   db: Db, clientId: string, tenant: string, cfg: GroupDriftCfg, cursor: GroupsCursor, isOver: () => boolean,
 ): Promise<{ cursor: GroupsCursor; done: boolean }> {
@@ -48,6 +82,9 @@ export async function fetchGroupsChunk(
       for (const g of gs) groups.push({ id: g.id, name: g.attributes?.name ?? 'Group', type: t.attributes?.name ?? '' })
     }
     gIndex = 0
+    // A fresh pass is the one moment we are about to re-walk everything, so it
+    // is where removing groups that no longer exist belongs.
+    await pruneDeletedGroups(db, clientId, tenant)
   }
 
   while (gIndex < groups.length) {
@@ -102,39 +139,6 @@ export async function fetchGroupsChunk(
       if (error) throw new Error(`mem prune: ${error.message}`)
     }
     gIndex++
-  }
-
-  // Groups that no longer exist in Planning Center at all.
-  //
-  // The per-group prune above can only reach a group it fetches, so a group
-  // that was DELETED is never visited and its membership rows sit in staging
-  // forever. Live this was 3 phantom groups: Planning Center returned 58 and
-  // the page reported 61, with the people who were only in those three
-  // inflating "people in a group" from 925 to 1,010.
-  //
-  // The id list comes from every group type, not just the ones this sync
-  // fetches details for, so groups the type filter skips (prayer, and anything
-  // else a church runs) are recognised as real and left alone. Deciding which
-  // types COUNT is a product question; knowing which ids EXIST is not.
-  try {
-    const liveIds = new Set<string>()
-    for (const t of await pcoAll(tenant, '/groups/v2/group_types?per_page=100')) {
-      for (const g of await pcoAll(tenant, `/groups/v2/group_types/${(t as any).id}/groups?per_page=100`)) {
-        liveIds.add((g as any).id)
-      }
-    }
-    if (liveIds.size) {
-      const keep = [...liveIds].map((id) => `"${id}"`).join(',')
-      for (const table of ['pco_group_members', 'pco_group_attendance']) {
-        const { error } = await db.from(table).delete()
-          .eq('client_id', clientId).not('group_id', 'in', `(${keep})`)
-        if (error) throw new Error(`${table} phantom prune: ${error.message}`)
-      }
-    }
-  } catch (e) {
-    // A failure here leaves stale rows, which is the status quo, so it must not
-    // sink an otherwise good pass.
-    console.error(`groups phantom prune: ${e instanceof Error ? e.message : String(e)}`)
   }
 
   return { cursor: { groups, gIndex }, done: true }
