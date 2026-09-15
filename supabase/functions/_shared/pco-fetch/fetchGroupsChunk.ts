@@ -103,5 +103,39 @@ export async function fetchGroupsChunk(
     }
     gIndex++
   }
+
+  // Groups that no longer exist in Planning Center at all.
+  //
+  // The per-group prune above can only reach a group it fetches, so a group
+  // that was DELETED is never visited and its membership rows sit in staging
+  // forever. Live this was 3 phantom groups: Planning Center returned 58 and
+  // the page reported 61, with the people who were only in those three
+  // inflating "people in a group" from 925 to 1,010.
+  //
+  // The id list comes from every group type, not just the ones this sync
+  // fetches details for, so groups the type filter skips (prayer, and anything
+  // else a church runs) are recognised as real and left alone. Deciding which
+  // types COUNT is a product question; knowing which ids EXIST is not.
+  try {
+    const liveIds = new Set<string>()
+    for (const t of await pcoAll(tenant, '/groups/v2/group_types?per_page=100')) {
+      for (const g of await pcoAll(tenant, `/groups/v2/group_types/${(t as any).id}/groups?per_page=100`)) {
+        liveIds.add((g as any).id)
+      }
+    }
+    if (liveIds.size) {
+      const keep = [...liveIds].map((id) => `"${id}"`).join(',')
+      for (const table of ['pco_group_members', 'pco_group_attendance']) {
+        const { error } = await db.from(table).delete()
+          .eq('client_id', clientId).not('group_id', 'in', `(${keep})`)
+        if (error) throw new Error(`${table} phantom prune: ${error.message}`)
+      }
+    }
+  } catch (e) {
+    // A failure here leaves stale rows, which is the status quo, so it must not
+    // sink an otherwise good pass.
+    console.error(`groups phantom prune: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
   return { cursor: { groups, gIndex }, done: true }
 }
